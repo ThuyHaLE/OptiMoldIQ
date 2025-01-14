@@ -31,7 +31,7 @@
 ### Inventory Agent
 - Role: Monitor raw materials and finished product inventory.
 - Responsibilities: Track stock levels in real time, forecast material needs, and trigger reordering or stock alerts. Ensure that the production line has the necessary materials available.
-- 
+
 ### Energy Efficiency Agent (Optional)
 - Role: Monitor and optimize energy usage in the molding process.
 - Responsibilities: Track energy consumption across machines and production lines. Suggest changes in processes or settings to reduce energy consumption while maintaining product quality.
