@@ -1,67 +1,53 @@
-```
-OptiMoldIQ/
-├── data/
-│   ├── DATABASE/ (admin mode)
-│   │   ├── MACHINE_INFO.xlsx       # Machine information
-│   │   ├── MOLD_INFO.xlsx          # Mold information based on each plastic part/item
-│   │   ├── PLASTIC_INFO.xlsx       # Plastic information based on each plastic part/item
-│   │   └── PRO_STATUS.xlsx         # Total production report. This file will be updated daily
-│   │
-│   ├── UPDATED_DATA/
-│   │   ├── PO_list.xlsx        #Production orders
-│   │   │
-│   │   ├── MAIN_DATA/
-│   │   │   ├── main_data_YYYYMMDD.xlsx    # Daily created main data from daily_data + PRO_STATUS
-│   │   │   └── main_data_template.xlsx     # Template for new main data files
-│   │   │
-│   │   └── DAILY_DATA/
-│   │       ├── daily_production_YYYYMMDD.xlsx  # Daily updated production data
-│   │       └── daily_production_template.xlsx    # Template for daily updates
-│   │
-│   └── processed/                  # Folder for processed data files if needed
-│       └── merged_data.csv         # Example file: after merging or processing
-│
-├── backup/
-│   ├── PO_list_200904.xlsx
-│   ├── pro_status_backup_2024-10-30.xlsx     # Backup with timestamp for PRO_STATUS
-│   ├── pro_status_backup_2024-10-29.xlsx     # Previous version of PRO_STATUS
-│   ├── daily_data_2024-10-30.csv              # Daily data backup
-│   └── daily_data_2024-10-29.csv              # Previous versions of daily data
-│
-├── archive/
-│   └── 2024/
-│       ├── daily_data_2024-09-01.csv # Archived daily production data
-│       └── daily_data_2024-09-02.csv
-│
-│
-├── src/
-│   ├── __init__.py                 # Makes src a Python package
-│   ├── main.py                     # Main script to run the project
-│   ├── data_loader.py              # Module for loading data from Excel or DB
-│   ├── data_processing.py          # Module for processing/merging data
-│   ├── production_planning.py      # Logic for creating production plans
-│   ├── scheduling.py               # Scheduling algorithms and prioritization
-│   ├── plastic_usage.py            # Plastic usage calculations and forecasting
-│   └── utils.py                    # Helper functions (e.g., for calculations)
-│
-├── output/
-│   ├── planning/
-│   │   ├── production_plan/            # Folder for storing generated production plans
-│   │   │   └── production_plan.csv     # Production plan for each machine
-│   │   ├── mold_plan/                  # Folder for mold plan outputs
-│   │   │   └── mold_plan.csv           # Mold plan for each machine
-│   │   ├── plastic_plan/               # Folder for plastic plan outputs
-│   │   │   └── plastic_plan.csv        # Plastic plan for each machine/day
-│   └── daily reports/
-│           └── dashboard
-│
-├── logs/
-│   └── project.log                 # Log file for tracking script outputs and issues
-│
-└── tests/
-    ├── __init__.py
-    ├── test_data_loader.py         # Tests for data loading functions
-    ├── test_production_planning.py # Tests for production planning logic
-    ├── test_scheduling.py          # Tests for scheduling algorithms
-    └── test_plastic_usage.py       # Tests for plastic usage calculations
-```
+## Business Problem Statement
+
+### 1. Current Challenges
+#### a. Production Monitoring Inefficiencies
+- Difficulty in tracking real-time production status across multiple machines.
+- Lack of insight into the relationship between cycle time and NG rate (non-good products).
+- Inefficient handling of production records leading to manual errors.
+#### b. Machine Management
+- Suboptimal machine utilization and scheduling.
+- Insufficient tracking of maintenance schedules, leading to downtime or lower efficiency.
+#### c. Material Management
+- Challenges in managing plastic resin, color masterbatch, and additive inventory.
+- Inefficient storage leading to delays in production due to misplaced or insufficient materials.
+#### d. Mold Maintenance
+- High NG rates due to worn-out molds.
+- Lack of real-time tracking for mold shot counts and maintenance thresholds.
+#### e. Data Integration and Scalability
+- Static data from Excel files lacks real-time updates.
+- Inability to integrate data from IoT sensors and other dynamic sources seamlessly.
+#### f. Planning and Scheduling
+- Difficulty in aligning production plans with resource availability.
+- Suboptimal scheduling leads to delays and underperformance.
+
+### 2. Business Goals
+#### a. Real-Time Monitoring and Alerts
+- Provide real-time updates and notifications for production status.
+- Predict NG risks and optimize cycle time dynamically.
+#### b. Efficient Resource Management
+- Optimize machine usage and mold scheduling.
+- Streamline material storage and handling within the defined area.
+#### c. Improved Maintenance Tracking
+- Automate mold and machine maintenance schedules.
+- Reduce NG rates and prevent unexpected breakdowns.
+#### d. Enhanced Planning and Decision-Making
+- Develop smart scheduling agents for effective production planning.
+- Provide insights into yield optimization and energy efficiency.
+#### e. Data Centralization and Access
+- Consolidate static, dynamic, and main databases for seamless data access.
+- Enable shared database functionality for agents to communicate effectively.
+
+### 3. Expected Outcomes
+- Increased Yield: Optimize cycle times to maximize production while minimizing NG products.
+- Cost Efficiency: Reduce waste and downtime with better maintenance and material management.
+- Improved Scalability: Prepare the system to handle increased data and integrate reinforcement learning for continuous improvement.
+- Enhanced Decision Support: Provide actionable insights via dashboards, reports, and alerts.
+- Real-Time Adaptability: Adapt to changes in production demands or unexpected events with minimal delay.
+
+### 4. How OptiMoldIQ Solves These Problems
+OptiMoldIQ addresses these challenges through its modular architecture: <Br>
+- Agents handle specific functional areas like production monitoring, NG analysis, and inventory optimization.
+- Shared Database facilitates real-time data sharing among agents.
+- Integration with IoT sensors and manual logs ensures up-to-date data collection.
+- Scalable Design accommodates future enhancements, including reinforcement learning and energy efficiency.
