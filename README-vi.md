@@ -45,7 +45,7 @@
 - Cải thiện khả năng mở rộng: Chuẩn bị hệ thống để xử lý dữ liệu tăng lên và tích hợp học tăng cường để cải tiến liên tục.
 - Hỗ trợ quyết định nâng cao: Cung cấp thông tin chi tiết hữu ích thông qua bảng thông tin, báo cáo và cảnh báo.
 - Khả năng thích ứng theo thời gian thực: Thích ứng với những thay đổi trong nhu cầu sản xuất hoặc các sự kiện bất ngờ với độ trễ tối thiểu.
-- 
+  
 ### 4. Cách OptiMoldIQ giải quyết những vấn đề này
 OptiMoldIQ giải quyết những thách thức này thông qua kiến trúc mô-đun của nó:
 - Các đại lý xử lý các lĩnh vực chức năng cụ thể như giám sát sản xuất, phân tích NG và tối ưu hóa hàng tồn kho.
