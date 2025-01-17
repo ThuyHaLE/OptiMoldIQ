@@ -1,3 +1,4 @@
+[English](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/README.md) | Tiếng Việt
 ## Tuyên bố vấn đề kinh doanh
 
 ### 1. Thách thức hiện tại
