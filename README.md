@@ -1,55 +1,31 @@
 English | [Tiếng Việt](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/README-vi.md)
 
-## Business Problem Statement
+# Business Problem for OptiMoldIQ System
+---
 
-### 1. Current Challenges
-#### a. Production Monitoring Inefficiencies
-- Difficulty in tracking real-time production status across multiple machines.
-- Lack of insight into the relationship between cycle time and NG rate (non-good products).
-- Inefficient handling of production records leading to manual errors.
-#### b. Machine Management
-- Suboptimal machine utilization and scheduling.
-- Insufficient tracking of maintenance schedules, leading to downtime or lower efficiency.
-#### c. Material Management
-- Challenges in managing plastic resin, color masterbatch, and additive inventory.
-- Inefficient storage leading to delays in production due to misplaced or insufficient materials.
-#### d. Mold Maintenance
-- High NG rates due to worn-out molds.
-- Lack of real-time tracking for mold shot counts and maintenance thresholds.
-#### e. Data Integration and Scalability
-- Static data from Excel files lacks real-time updates.
-- Inability to integrate data from IoT sensors and other dynamic sources seamlessly.
-#### f. Planning and Scheduling
-- Difficulty in aligning production plans with resource availability.
-- Suboptimal scheduling leads to delays and underperformance.
+## Background:
+In plastic molding production, achieving optimal efficiency while maintaining high product quality is a challenging task. The process involves multiple interconnected factors such as mold utilization, machine maintenance, resin inventory, production scheduling, and yield optimization. Poor management or lack of integration between these components can result in:
 
-### 2. Business Goals
-#### a. Real-Time Monitoring and Alerts
-- Provide real-time updates and notifications for production status.
-- Predict NG risks and optimize cycle time dynamically.
-#### b. Efficient Resource Management
-- Optimize machine usage and mold scheduling.
-- Streamline material storage and handling within the defined area.
-#### c. Improved Maintenance Tracking
-- Automate mold and machine maintenance schedules.
-- Reduce NG rates and prevent unexpected breakdowns.
-#### d. Enhanced Planning and Decision-Making
-- Develop smart scheduling agents for effective production planning.
-- Provide insights into yield optimization and energy efficiency.
-#### e. Data Centralization and Access
-- Consolidate static, dynamic, and main databases for seamless data access.
-- Enable shared database functionality for agents to communicate effectively.
+- Increased production downtime.
+- Excessive material waste or stock shortages.
+- Unbalanced machine and mold utilization, leading to higher maintenance costs.
+- Inconsistent product quality or unacceptable non-good (NG) rates.
+- Reduced overall production yield and efficiency.
 
-### 3. Expected Outcomes
-- Increased Yield: Optimize cycle times to maximize production while minimizing NG products.
-- Cost Efficiency: Reduce waste and downtime with better maintenance and material management.
-- Improved Scalability: Prepare the system to handle increased data and integrate reinforcement learning for continuous improvement.
-- Enhanced Decision Support: Provide actionable insights via dashboards, reports, and alerts.
-- Real-Time Adaptability: Adapt to changes in production demands or unexpected events with minimal delay.
+## Problem Statement:
+Currently, production monitoring, resource tracking, and scheduling processes are largely manual, siloed, or dependent on static systems that lack real-time insights. This leads to inefficiencies, including:
 
-### 4. How OptiMoldIQ Solves These Problems
-OptiMoldIQ addresses these challenges through its modular architecture:
-- Agents handle specific functional areas like production monitoring, NG analysis, and inventory optimization.
-- Shared Database facilitates real-time data sharing among agents.
-- Integration with IoT sensors and manual logs ensures up-to-date data collection.
-- Scalable Design accommodates future enhancements, including reinforcement learning and energy efficiency.
+- Ineffective Production Scheduling: Without considering real-time machine, mold, and resin availability, schedules are prone to delays and require frequent manual adjustments.
+- Material and Resource Waste: Resin quantities are often miscalculated, leading to overstocking or shortages. Maintenance schedules for molds and machines are reactive rather than predictive.
+- Yield and Quality Challenges: Lack of actionable insights into quality control and yield optimization results in inconsistent product quality and suboptimal cycle times.
+- Inefficient Decision-Making: Key production data is scattered across various sources, making it difficult for managers to make data-driven decisions.
+
+## Key Goals:
+
+- Integrated Planning and Monitoring: Develop a unified system that automates production scheduling, tracking of resin, mold, and machine usage, and optimizes resource utilization.
+- Quality and Yield Insights: Provide actionable insights for improving product quality and optimizing production yield by balancing cycle times and NG rates.
+- Proactive Maintenance and Restocking: Implement predictive maintenance and resin restocking schedules to prevent unplanned downtime and material shortages.
+- Visualization and Decision Support: Build a centralized dashboard to visualize daily production, resource utilization, and long-term performance trends for better decision-making.
+
+## Solution Overview:
+The OptiMoldIQ System leverages a multi-agent architecture to address these challenges. Each agent performs specific tasks, including production status monitoring, initial and final scheduling, resource tracking, maintenance scheduling, and quality control. These agents work together seamlessly using shared databases to optimize efficiency, reduce waste, and ensure continuous production.
