@@ -46,7 +46,7 @@
 - Real-Time Adaptability: Adapt to changes in production demands or unexpected events with minimal delay.
 
 ### 4. How OptiMoldIQ Solves These Problems
-OptiMoldIQ addresses these challenges through its modular architecture: <Br>
+OptiMoldIQ addresses these challenges through its modular architecture:
 - Agents handle specific functional areas like production monitoring, NG analysis, and inventory optimization.
 - Shared Database facilitates real-time data sharing among agents.
 - Integration with IoT sensors and manual logs ensures up-to-date data collection.
