@@ -1,31 +1,80 @@
 English | [Tiếng Việt](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/README-vi.md)
 
-# Business Problem for OptiMoldIQ System
+# OptiMoldIQ: Intelligent Plastic Molding Planner
+
+OptiMoldIQ is a smart production system designed to streamline and optimize the plastic molding process. It integrates multi-agent architecture to automate production scheduling, track resources, and provide actionable insights to improve efficiency and quality.
+
+---
+## Current Phase
+OptiMoldIQ is in the **system design phase**, focusing on defining database structures, agent workflows, and system architecture.
+
 ---
 
-## Background:
-In plastic molding production, achieving optimal efficiency while maintaining high product quality is a challenging task. The process involves multiple interconnected factors such as mold utilization, machine maintenance, resin inventory, production scheduling, and yield optimization. Poor management or lack of integration between these components can result in:
+## Business Problem
+### Background
+In plastic molding production, achieving optimal efficiency while maintaining high product quality is challenging due to the complexity of interconnected factors like:
+- Mold utilization and machine maintenance.
+- Resin inventory management.
+- Production scheduling and yield optimization.
 
+### Challenges
+Poor management or lack of integration between components can lead to:
 - Increased production downtime.
-- Excessive material waste or stock shortages.
-- Unbalanced machine and mold utilization, leading to higher maintenance costs.
-- Inconsistent product quality or unacceptable non-good (NG) rates.
-- Reduced overall production yield and efficiency.
+- Material waste or stock shortages.
+- Unbalanced machine and mold utilization.
+- Inconsistent product quality or high NG (non-good) rates.
+- Reduced production yield and efficiency.
 
-## Problem Statement:
-Currently, production monitoring, resource tracking, and scheduling processes are largely manual, siloed, or dependent on static systems that lack real-time insights. This leads to inefficiencies, including:
+### Problem Statement
+Current systems are:
+- Manual or static, lacking real-time insights.
+- Prone to inefficiencies in scheduling, resource tracking, and quality management.
 
-- ***Ineffective Production Scheduling***: <Br>Without considering real-time machine, mold, and resin availability, schedules are prone to delays and require frequent manual adjustments.
-- ***Material and Resource Waste***: <Br>Resin quantities are often miscalculated, leading to overstocking or shortages. Maintenance schedules for molds and machines are reactive rather than predictive.
-- ***Yield and Quality Challenges***: <Br>Lack of actionable insights into quality control and yield optimization results in inconsistent product quality and suboptimal cycle times.
-- ***Inefficient Decision-Making***: <Br>Key production data is scattered across various sources, making it difficult for managers to make data-driven decisions.
+## Key Goals
+- **Integrated Planning and Monitoring**: Automate production scheduling and resource tracking.
+- **Quality and Yield Insights**: Optimize cycle times while maintaining quality.
+- **Proactive Maintenance and Restocking**: Prevent downtime and material shortages.
+- **Visualization and Decision Support**: Build a centralized dashboard for actionable insights.
 
-## Key Goals:
+## Planned Solution
+The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges:
+- **AutoStatus Agent**: Tracks real-time production progress.
+- **InitialSched Agent**: Generates the initial production schedule.
+- **FinalSched Agent**: Refines production schedules using tracking reports.
+- **Resin Tracking Agent**: Monitors resin stock and consumption.
+- **Mold Tracking Agent**: Tracks mold usage, maintenance, and NG rates.
+- **Machine Tracking Agent**: Manages machine availability and lead times.
+- **MaintenanceScheduler Agent**: Predictive scheduling to reduce downtime.
+- **DashBoardBuilderAgent**: Creates an interactive dashboard for data visualization.
 
-- ***Integrated Planning and Monitoring***: <Br>Develop a unified system that automates production scheduling, tracking of resin, mold, and machine usage, and optimizes resource utilization.
-- ***Quality and Yield Insights***: <Br>Provide actionable insights for improving product quality and optimizing production yield by balancing cycle times and NG rates.
-- ***Proactive Maintenance and Restocking***: <Br>Implement predictive maintenance and resin restocking schedules to prevent unplanned downtime and material shortages.
-- ***Visualization and Decision Support***: <Br>Build a centralized dashboard to visualize daily production, resource utilization, and long-term performance trends for better decision-making.
+## Current Status
+- The business problem and solution design document is completed.
+- Static database defined for molds, machines, and resins.
+- Agent workflows outlined (e.g., AutoStatus Agent, InitialSched Agent).
 
-## Solution Overview:
-The OptiMoldIQ System leverages a multi-agent architecture to address these challenges. Each agent performs specific tasks, including production status monitoring, initial and final scheduling, resource tracking, maintenance scheduling, and quality control. These agents work together seamlessly using shared databases to optimize efficiency, reduce waste, and ensure continuous production.
+### Next Steps
+- Develop and test agent prototypes.
+- Integrate reinforcement learning for yield optimization.
+- Design and implement shared databases.
+
+## Roadmap
+- **Phase 1**: Define static and dynamic databases.
+- **Phase 2**: Develop core agents and integrate static systems.
+- **Phase 3**: Add reinforcement learning for optimization.
+- **Phase 4**: Build and test the dashboard for visualization.
+
+## Contributing
+Contributions are welcome! To contribute:
+- Fork the repository.
+- Create a branch for your feature.
+- Submit a pull request for review.
+
+## License
+This project is licensed under the MIT License. See [LICENSE](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/LICENSE) for details.
+
+## Contact
+For questions or collaboration, reach out via:
+- [Email](mailto:thuyha.le0590@gmail.com)
+- [GitHub](https://github.com/ThuyHaLE)
+
+*This README will be updated regularly as the OptiMoldIQ system evolves through development.*
