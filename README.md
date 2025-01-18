@@ -42,9 +42,11 @@ The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges
 - **InitialSched Agent**: Generates the initial production schedule.
 - **FinalSched Agent**: Refines production schedules using tracking reports.
 - **Resin Tracking Agent**: Monitors resin stock and consumption.
-- **Mold Tracking Agent**: Tracks mold usage, maintenance, and NG rates.
+- **Mold Tracking Agent**: Tracks mold usage, maintenance.
 - **Machine Tracking Agent**: Manages machine availability and lead times.
 - **MaintenanceScheduler Agent**: Predictive scheduling to reduce downtime.
+- **Quality Control Agent**: Tracks yield and NG rates.
+- **YieldOptimization Agent**: Tracks the relationship between cycle time, yield, and NG rates to optimize yield.
 - **DashBoardBuilderAgent**: Creates an interactive dashboard for data visualization.
 
 ## Current Status
