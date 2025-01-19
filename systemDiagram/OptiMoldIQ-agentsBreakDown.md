@@ -6,7 +6,7 @@
 
 - Input:
 
-	- PO_liít
+	- PO_list
 	- productRecord
 
 - Process:
