@@ -57,7 +57,7 @@ Incorporates multi-agent feedback and balances workloads dynamically.
 #### Healing System Actions: 
 Auto-adjust plans when critical data changes (e.g., sudden stock depletion or machine failure).
 
-### 4. Resin Tracking Agent
+### 4. ResinTracking Agent
 #### Role: 
 Monitors resin stock and usage trends.
 #### Input: 
@@ -75,7 +75,7 @@ Predictive analytics for resin restocking based on historical trends and upcomin
 #### Healing System Actions: 
 Highlight and adjust for mismatched resin data.
 
-### 5. Mold Tracking Agent
+### 5. MoldTracking Agent
 #### Role: 
 Tracks mold usage and maintenance.
 #### Input: 
@@ -93,7 +93,7 @@ Maintenance scheduling triggers can scale with reinforcement learning for better
 #### Healing System Actions: 
 Log and alert for molds exceeding shot thresholds or incorrect usage.
 
-### 6. Machine Tracking Agent
+### 6. MachineTracking Agent
 #### Role: 
 Tracks machine availability and performance.
 #### Input: 
@@ -111,7 +111,7 @@ Integrate machine learning to predict machine failures.
 #### Healing System Actions: 
 Auto-update schedules if machine downtime exceeds thresholds.
 
-### 7. Resin Coordinate Agent
+### 7. ResinCoordinate Agent
 #### Role:
 Optimizes resin usage and manages runner recycling.
 #### Input:
@@ -149,7 +149,7 @@ Aligns with production needs to minimize downtime.
 #### Healing System Actions: 
 Proactively reschedule based on real-time agent feedback.
 
-### 9. Quality Control Agent
+### 9. QualityControl Agent
 #### Role: 
 Monitors production quality.
 #### Input: 
@@ -184,7 +184,7 @@ Yield Optimization Report for long-term insights
 Revert to default settings if optimizations lead to excessive NG rates
 
 
-### 11. DashBoardBuilderAgent
+### 11. DashBoardBuilder Agent
 #### Role: 
 Visualizes system data for decision-making.
 #### Input: 
