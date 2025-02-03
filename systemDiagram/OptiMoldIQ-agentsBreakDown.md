@@ -2,7 +2,7 @@
 
 ### 1. AutoStatus Agent
 #### Role: 
-Monitors and updates production status by summarizing PO and product records
+Tracks and updates real-time production status.
 #### Input: 
 - PO_list
 - productRecord
@@ -13,10 +13,14 @@ Monitors and updates production status by summarizing PO and product records
 #### Output:
 - Generate productionStatus
 - Log invalidations for review
+#### Key Scalable Features: 
+Logs inconsistencies for validation and future auditing, critical for building trust in the data pipeline.
+#### Healing System Actions: 
+Recheck invalid entries and auto-correct based on predefined rules.
 
 ### 2. InitialSched Agent
 #### Role: 
-Drafts the initial production plan based on productionStatus
+Drafts the initial production plan.
 #### Input:
 productionStatus (report) from AutoStatus Agent
 #### Process:
@@ -28,10 +32,14 @@ productionStatus (report) from AutoStatus Agent
 #### Output:
 - Draft Production Plan
 - Logs highlighting flagged issues
+#### Key Scalable Features: 
+Flags resource shortages and issues for cross-agent review.
+#### Healing System Actions: 
+Retry plan generation if errors occur in flagged data.
 
 ### 3. FinalSched Agent
 #### Role: 
-Optimizes and finalizes the production schedule using integrated data from tracking agents
+Refines and optimizes the production plan.
 #### Input:
 - Draft plan (report) from InitialSched Agent
 - Reports from Resin Tracking Agent, Mold Tracking Agent, and Machine Tracking Agent
@@ -44,10 +52,14 @@ Optimize the draft plan by addressing flagged issues and integrating tracking re
 - Consolidate small-quantity POs to minimize machine downtime
 #### Output:
 Optimized Production Plan
+#### Key Scalable Features: 
+Incorporates multi-agent feedback and balances workloads dynamically.
+#### Healing System Actions: 
+Auto-adjust plans when critical data changes (e.g., sudden stock depletion or machine failure).
 
 ### 4. Resin Tracking Agent
 #### Role: 
-Monitors resin stock levels and identifies restocking needs
+Monitors resin stock and usage trends.
 #### Input: 
 - PO_list
 - productRecord
@@ -58,10 +70,14 @@ Monitors resin stock levels and identifies restocking needs
 - Generate a report highlighting stock risks and restocking needs
 #### Output:
 Resin Stock Report with flagged risks
+#### Key Scalable Features: 
+Predictive analytics for resin restocking based on historical trends and upcoming demands.
+#### Healing System Actions: 
+Highlight and adjust for mismatched resin data.
 
 ### 5. Mold Tracking Agent
 #### Role: 
-Tracks mold usage and maintenance requirements
+Tracks mold usage and maintenance.
 #### Input: 
 - PO_list
 - productRecord
@@ -72,10 +88,14 @@ Tracks mold usage and maintenance requirements
 - Highlight molds used incorrectly or beyond capacity
 #### Output:
 Mold Usage Report with flagged risks
+#### Key Scalable Features: 
+Maintenance scheduling triggers can scale with reinforcement learning for better predictions.
+#### Healing System Actions: 
+Log and alert for molds exceeding shot thresholds or incorrect usage.
 
 ### 6. Machine Tracking Agent
 #### Role: 
-Tracks machine availability and maintenance schedules
+Tracks machine availability and performance.
 #### Input: 
 - PO_list
 - productRecord
@@ -86,22 +106,36 @@ Tracks machine availability and maintenance schedules
 - Highlight machine-related risks or inefficiencies
 #### Output:
 Machine Usage Report with flagged risks.
+#### Key Scalable Features: 
+Integrate machine learning to predict machine failures.
+#### Healing System Actions: 
+Auto-update schedules if machine downtime exceeds thresholds.
 
-### 7. ResinRestock Agent
-#### Role: 
-Monitors and evaluates production quality metrics
+### 7. Resin Coordinate Agent
+#### Role:
+Optimizes resin usage and manages runner recycling.
 #### Input:
 - Optimized Production Plan from FinalSched Agent
 - Resin Stock Report from Resin Tracking Agent
+- Historical Runner Data
+- Granulator/Shredder Processing Rate
 #### Process:
-- Create a resin restocking schedule based on production demand and stock levels
-- Prioritize restocking actions to prevent production delays
+- Forecast resin usage, accounting for new and recycled resin
+- Automate runner recycling with granulators/shredders
+- Predict optimal resin reuse ratios using historical data
+- Integrate runner reuse data with Yield Optimization Agent
 #### Output:
-Resin Restocking Schedule.
+Resin Usage and Recycling Report
+#### Key Scalable Features:
+- Automated runner recycling workflow
+- Predictive reuse models for resin optimization
+- Integration with Yield Optimization for production efficiency
+#### Healing System Actions:
+- Adjust resin forecasts based on recycling efficiency and yield optimization data
 
 ### 8. MaintenanceScheduler Agent
 #### Role: 
-Machine and mold maintenance plan based on Optimized Production Plan
+Schedules mold and machine maintenance.
 #### Input:
 - Optimized Production Plan from FinalSched Agent
 - Mold and Machine Usage Reports from tracking agents
@@ -110,10 +144,14 @@ Machine and mold maintenance plan based on Optimized Production Plan
 - Ensure maintenance aligns with production needs to minimize downtime
 #### Output:
 Maintenance Schedule
+#### Key Scalable Features: 
+Aligns with production needs to minimize downtime.
+#### Healing System Actions: 
+Proactively reschedule based on real-time agent feedback.
 
 ### 9. Quality Control Agent
 #### Role: 
-Monitors and evaluates production quality metrics.
+Monitors production quality.
 #### Input: 
 - productRecord
 - historical quality data
@@ -122,10 +160,14 @@ Monitors and evaluates production quality metrics.
 - Highlight potential causes (e.g., specific molds or machines)
 #### Output:
 Quality Control Report for long-term insights
+#### Key Scalable Features: 
+Root cause analysis and tracking for recurring issues.
+#### Healing System Actions: 
+Auto-flag issues for immediate resolution.
 
 ### 10. YieldOptimization Agent
 #### Role: 
-Analyzes yield and suggests optimizations for better efficiency
+Optimizes yield and resin allocation.
 #### Input:
 - productRecord
 - historical yield data.
@@ -135,10 +177,14 @@ Analyzes yield and suggests optimizations for better efficiency
 - Suggest optimized cycle times for better efficiency
 #### Output:
 Yield Optimization Report for long-term insights
+#### Key Scalable Features: 
+Analysis of cycle times for efficiency trade-offs and NG minimization.
+#### Healing System Actions: 
+Revert to default settings if optimizations lead to excessive NG rates.
 
 ### 11. DashBoardBuilderAgent
 #### Role: 
-Visualizes and provides insights from various reports for daily operations and long-term decision-making
+Visualizes system data for decision-making.
 #### Input: 
 Reports from all agents
 #### Process:
@@ -148,3 +194,28 @@ Reports from all agents
 - Optionally visualize logs/flags for quick issue identification
 #### Output:
 Comprehensive dashboards for daily operations, plans, and long-term insights
+#### Key Scalable Features: 
+Expand dashboard capabilities with AI-driven insights and prediction models.
+#### Healing System Actions: 
+Highlight inconsistencies or missing data in reports for quick resolution.
+
+#### Note:
+1. Shared Database Implementation:
+- Consider a hybrid approach (SQL + NoSQL) where structured data (production status, schedules) remains in SQL, while flexible, high-volume data (logs, agent reports) uses NoSQL for better performance.
+
+2. Agent Communication & Coordination:
+- Define an event-driven mechanism where agents trigger actions based on specific conditions (e.g., machine failure prompts rescheduling).
+- Use a message queue system (e.g., RabbitMQ, Kafka) for efficient agent interaction in real-time.
+
+3. Healing System Enhancements:
+- Implement automated rollback mechanisms in case of faulty optimizations (e.g., if YieldOptimization Agent suggests a cycle time that increases NG rates).
+- Introduce periodic agent health checks to detect slow performance or missing updates.
+
+4. Reinforcement Learning (RL) Roadmap:
+- Phase 1: Collect historical feedback data for supervised learning.
+- Phase 2: Integrate RL into YieldOptimization Agent to refine cycle times dynamically.
+- Phase 3: Expand RL to FinalSched Agent for optimizing production sequences.
+
+5. Performance & Scalability:
+- Introduce parallel processing for critical agents (e.g., FinalSched Agent, MaintenanceScheduler Agent).
+- Optimize database queries for agents requiring frequent updates (e.g., AutoStatus Agent).
