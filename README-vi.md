@@ -46,7 +46,7 @@ Hệ thống OptiMoldIQ sử dụng kiến trúc đa đại lý để giải quy
 - **Machine Tracking Agent**: Quản lý tình trạng máy móc và thời gian dẫn.
 - **MaintenanceScheduler Agent**: Lên lịch bảo trì dự báo để giảm thời gian dừng sản xuất.
 - **Quality Control Agent**: Theo dõi sản lượng và tỷ lệ NG
-- **YieldOptimization Agent**: Theo dõi mối quan hệ giữa chu kỳ sản xuất, sản lượng và tỷ lệ NG để tối ưu sản lượng.
+- **YieldOptimization Agent**: Theo dõi mối quan hệ giữa chu kỳ sản xuất, sản lượng và tỷ lệ NG để tối ưu sản lượng. Tìm ra mẫu hình trong nhu cầu sử dụng nhựa để đề xuất tối ưu hoá lượng nhựa cần sử dụng.
 - **DashBoardBuilderAgent**: Tạo ra bảng điều khiển tương tác với người dùng để biểu diễn dữ liệu.
 
 ## Tình Trạng Hiện Tại

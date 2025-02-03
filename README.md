@@ -46,7 +46,7 @@ The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges
 - **Machine Tracking Agent**: Manages machine availability and lead times.
 - **MaintenanceScheduler Agent**: Predictive scheduling to reduce downtime.
 - **Quality Control Agent**: Tracks yield and NG rates.
-- **YieldOptimization Agent**: Tracks the relationship between cycle time, yield, and NG rates to optimize yield.
+- **YieldOptimization Agent**: Tracks the relationship between cycle time, yield, and NG rates to optimize yield. Besides, evalues resin usage patterns to suggest optimized required resin quantity.
 - **DashBoardBuilderAgent**: Creates an interactive dashboard for data visualization.
 
 ## Current Status
