@@ -1,99 +1,112 @@
-# Detailed Task List for OptiMoldIQ Master Development Plan
+# **OptiMoldIQ Development Plan**
 
-## **Foundational Stage (Rule-Based System)**
+## **Phase 1: System Design & Basic Development (Agent-based System)**
+**Objective:** Build core agents, connect with the static database (Excel), generate initial production plans, and develop related agents (Resin, Mold, Machine, etc.).  
+**Estimated Duration:** 6-8 weeks (including testing and adjustments)  
 
-### **Database Setup**
+### **Tasks:**
+1. **System Design & Agent Requirement Definition (1-2 weeks)**
+   - Define detailed specifications for each agent.
+   - Design workflows and communication between agents.
+   - Ensure scalability in the system design.
 
-- [ ] **Task:** Set up the Static Database (Machine, Resin, Mold, etc.)
-  - **Type:** Implementation
-  - **Lead Time:** 1 week
-  - **Details:** Create tables for all static resources that are essential for the production process. These should include machine details, resin types, mold configurations, and other static parameters that don't change frequently. Ensure that access control is set to read-only for agents.
+2. **Develop Core Agents (2-3 weeks)**
+   - Develop:
+     - **AutoStatus Agent**
+     - **InitialSched Agent**
+     - **FinalSched Agent**
+     - **ResinRestock Agent**
+     - **MaintenanceScheduler Agent**
+     - **DashBoardBuilderAgent**
+   - Test interactions between agents using data from the static database (Excel).
 
-- [ ] **Task:** Set up the Dynamic Database (Production Records, PO list, etc.)
-  - **Type:** Implementation
-  - **Lead Time:** 2 weeks
-  - **Details:** Set up a dynamic database to handle frequently updated production data. This includes records such as daily production logs, resin consumption, and real-time machine performance. This database should be updated in real time and should allow production staff to update it, while agents can only access it in read-only mode.
+3. **Build Data Update Processes (1-2 weeks)**
+   - Configure the system to work with current Excel data.
+   - Ensure agents can accurately retrieve and output data.
 
-- [ ] **Task:** Set up Main Data Database (Aggregated Results and Planning Data)
-  - **Type:** Implementation
-  - **Lead Time:** 1 week
-  - **Details:** Set up a main data structure that stores processed and aggregated data such as scheduling results, production summaries, and agent feedback. This database will be used for higher-level decision-making and will not be modified directly by agents.
-
-- [ ] **Task:** Set up Shared Database (Central Hub for Agent Data Exchange)
-  - **Type:** Implementation
-  - **Lead Time:** 2 weeks
-  - **Details:** Set up a shared database that stores data from all agents. This includes outputs such as reports, performance data, and feedback loops between agents. Ensure the database is structured for fast data exchange and supports cross-agent communication.
-
-- [ ] **Task:** Set up Historical Database (Past Production Data, PO list, Resin Usage, etc.)
-  - **Type:** Implementation
-  - **Lead Time:** 2 weeks
-  - **Details:** Set up a historical database that stores long-term production data, resin usage patterns, maintenance schedules, and other key metrics. This data will be used for trend analysis, yield optimization, and reinforcement learning algorithms. 
-
----
-
-### **DashboardBuilderAgent (Data Visualization)**
-
-- [ ] **Task:** Design the Dashboard Builder Agent (Data Visualization)
-  - **Type:** Design
-  - **Lead Time:** 2 weeks
-  - **Details:** Design the user interface and data visualization layouts. Decide what metrics and KPIs will be displayed (e.g., cycle time, NG rate, yield, resin usage patterns). Determine which types of visualizations (e.g., bar charts, line graphs, pie charts) will best represent the data for users.
+4. **Testing & Optimization of the Basic System (1 week)**
+   - Validate system performance and adjust agents accordingly.
+   - Ensure smooth operation from data input, processing, to output.
 
 ---
 
-### **Historical Report for Resin Optimization and Yield Analysis**
+## **Phase 2: Reinforcement Learning (RL) Integration**
+**Objective:** Integrate Reinforcement Learning using historical data and user feedback to optimize the system and production decisions.  
+**Estimated Duration:** 4-6 weeks  
 
-- [ ] **Task:** Generate historical reports on the relationship between cycle time, NG rate, and yield
-  - **Type:** Design/Implementation
-  - **Lead Time:** 4 weeks
-  - **Details:** Collect historical data from the production records. Analyze the relationships between cycle time, NG rate, and yield, identifying any patterns or correlations. Design the report format and integrate it into the DashboardBuilderAgent for visualization.
+### **Tasks:**
+1. **Historical Data Analysis & Preparation (1-2 weeks)**
+   - Assess data quality (even if past performance was suboptimal, data is still useful for learning).
+   - Preprocess and prepare data for RL training.
 
-- [ ] **Task:** Analyze and visualize resin usage patterns to optimize resin quantity
-  - **Type:** Design/Implementation
-  - **Lead Time:** 4 weeks
-  - **Details:** Analyze historical resin usage data, focusing on how usage varies across different production conditions (e.g., small batches, re-molding, continuous production). Create visualizations that display resin usage trends and help determine how to optimize resin allocation based on production needs.
+2. **Reinforcement Learning Integration (2-3 weeks)**
+   - Develop RL models to optimize decisions for:
+     - Machine usage
+     - Mold scheduling
+     - Resin management
+     - Maintenance planning
+   - Integrate RL models into agents for learning from historical data and user feedback.
 
----
-
-## **Upgrade Stage (RL & Cloud-Based System)**
-
-### **1. Historical Data Integration for RL**
-
-- [ ] **Task:** Incorporate historical data for reinforcement learning
-  - **Type:** Knowledge/Implementation
-  - **Lead Time:** 3 weeks
-  - **Details:** Gather and clean historical data (production records, resin usage, maintenance schedules). Prepare this data for use in reinforcement learning algorithms. This may involve feature engineering to represent the data in a way that an RL agent can learn from.
+3. **Evaluate RL Effectiveness (1 week)**
+   - Compare RL-based results with the initial rule-based system.
+   - Adjust models to improve prediction accuracy.
 
 ---
 
-### **2. Cloud Database Setup**
+## **Phase 3: System Stability & Self-Healing (Healing System)**
+**Objective:** Ensure the system can recover automatically from failures or errors.  
+**Estimated Duration:** 3-4 weeks  
 
-- [ ] **Task:** Migrate the shared database to the cloud
-  - **Type:** Implementation
-  - **Lead Time:** 3 weeks
-  - **Details:** Migrate the Excel-based shared database to a cloud-based platform (e.g., Google Cloud, AWS, Azure). This will allow for better scalability and accessibility for all agents in the system. Ensure the cloud database is optimized for handling large datasets and real-time updates.
+### **Tasks:**
+1. **Design & Develop the Healing System (2 weeks)**
+   - Implement self-healing mechanisms for agents and the system.
+   - Develop monitoring tools to track system status and automatically adjust resources when issues arise.
+
+2. **Testing & Deployment of the Healing System (1-2 weeks)**
+   - Ensure the system can recover automatically from failures.
+   - Test system stability under real failure scenarios.
+
+---
+
+## **Phase 4: Security, Monitoring, and Scalability Optimization**
+**Objective:** Enhance security, monitor system performance, and prepare for future scalability.  
+**Estimated Duration:** 4-6 weeks  
+
+### **Tasks:**
+1. **Security & Monitoring (2-3 weeks)**
+   - Implement security measures for data systems, including access control and encryption.
+   - Set up monitoring tools (**Prometheus, Grafana**) to track system performance and status.
+
+2. **Alerting & Logging Setup (1 week)**
+   - Configure an alert system to notify administrators of failures or unusual changes.
+
+3. **Performance Optimization (1-2 weeks)**
+   - Improve system performance through **caching and load balancing**.
 
 ---
 
-## **Grouped Summary with Lead Times**
+## **Phase 5: Expansion with Microservices (System Upgrade)**
+**Objective:** Prepare for microservices expansion when needed as the system grows in complexity.  
+**Estimated Duration:** 3-4 weeks (planned for the future)  
 
-### **1. System Design & Architecture**
-- **Design the system architecture and agent workflows.** _(Lead Time: 2 days)_
+### **Tasks:**
+1. **Convert Agents into Microservices (2 weeks)**
+   - Separate agents into independent microservices.
+   - Configure an **API Gateway** to manage communication between microservices.
 
-### **2. Report Format & Database Design**
-- **Define report formats for agents and design the shared database schema.** _(Lead Time: 3 weeks)_
-
-### **3. Database Setup (Excel)**
-- **Set up Excel sheets for reports.** _(Lead Time: 2 weeks)_
-- **Implement VBA scripts for Excel-based reports.** _(Lead Time: 3 weeks)_
-
-### **4. Agent Development (Rule-Based Logic)**
-- **Develop basic agents and integrate reports into the shared database.** _(Lead Time: 8 weeks)_
-
-### **5. DashboardBuilderAgent (Data Visualization)**
-- **Design and implement the dashboard for visualizing reports.** _(Lead Time: 9 weeks)_
-- **Generate historical reports on cycle time, NG rate, yield, and resin usage patterns.** _(Lead Time: 8 weeks)_
-
-### **6. Historical Data & Cloud Setup (Upgrade Stage)**
-- **Incorporate historical data for RL and migrate the database to the cloud.** _(Lead Time: 6 weeks)_
+2. **Database & Data Adapter Layer Preparation (1-2 weeks)**
+   - Design and implement a **Data Adapter Layer** to transition from Excel to a scalable database (SQL or NoSQL).
+   - Update services to support the new database infrastructure.
 
 ---
+
+## **Estimated Total Duration**
+| Phase | Duration |
+|-------|----------|
+| **Phase 1** | 6-8 weeks |
+| **Phase 2** | 4-6 weeks |
+| **Phase 3** | 3-4 weeks |
+| **Phase 4** | 4-6 weeks |
+| **Phase 5 (Upgrade)** | 3-4 weeks (future plan) |
+
+**Total estimated duration: 19-28 weeks (~4-7 months)**  
