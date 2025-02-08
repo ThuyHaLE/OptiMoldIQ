@@ -1,4 +1,4 @@
-## Workflows for All Agents in the OptiMoldIQ System
+m## Workflows for All Agents in the OptiMoldIQ System
 
 ### 1. AutoStatus Agent
 #### Role: 
@@ -172,21 +172,35 @@ Aligns with production needs to minimize downtime.
 #### Healing System Actions: 
 Proactively reschedule based on real-time agent feedback.
 
-### 9. QualityControl Agent
-#### Role: 
-Monitors production quality.
-#### Input: 
-- productRecord
-- historical quality data
-#### Process:
-- Track NG rates and identify trends or recurring quality issues
-- Highlight potential causes (e.g., specific molds or machines)
-#### Output:
-Quality Control Report for long-term insights
-#### Key Scalable Features: 
-Root cause analysis and tracking for recurring issues.
-#### Healing System Actions: 
-Auto-flag issues for immediate resolution.
+### 9. QualityControl Agent  
+
+**Role:**  
+Monitors production quality by tracking yield deviations, mold changes, and color changes.  
+
+**Input:**  
+- productRecord  
+- historical quality data  
+- moldInfo (static database)  
+
+**Process:**  
+- Calculate **expected yield** based on mold cycle time and cavity.  
+- Identify **yield deviations** and **estimate setup time** if mold/color changes occur.  
+- Track **NG rates** and flag issues exceeding thresholds.  
+
+**Output:**  
+- **Quality Control Report** with:  
+  - Expected vs. actual yield  
+  - Mold/color change tracking  
+  - Estimated setup time  
+  - NG rate warnings  
+
+**Key Scalable Features:**  
+- Adaptive **yield and NG analysis** with adjustable thresholds.  
+- Setup time estimation based on **actual production data**.  
+
+**Healing System Actions:**  
+- Auto-flag mold/color changes affecting production.  
+- Adjust thresholds for **yield deviation** and **NG rate warnings** dynamically.  
 
 ### 10. YieldOptimization Agent
 #### Role:
