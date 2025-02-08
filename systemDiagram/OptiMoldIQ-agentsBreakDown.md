@@ -58,22 +58,35 @@ Incorporates multi-agent feedback and balances workloads dynamically.
 Auto-adjust plans when critical data changes (e.g., sudden stock depletion or machine failure).
 
 ### 4. ResinTracking Agent
-#### Role: 
-Monitors resin stock and usage trends.
-#### Input: 
-- PO_list
-- productRecord
-- historical resin usage data
-#### Process:
-- Track resin stock levels and consumption trends
-- Identify risks (e.g., low stock) based on active and upcoming POs
-- Generate a report highlighting stock risks and restocking needs
-#### Output:
-Resin Stock Report with flagged risks
-#### Key Scalable Features: 
-Predictive analytics for resin restocking based on historical trends and upcoming demands.
-#### Healing System Actions: 
-Highlight and adjust for mismatched resin data.
+
+#### **Role:**  
+Tracks **resin stock levels** and usage trends to flag shortages, prevent overstocking, and support resin provision for production.  
+
+#### **Input:**  
+- **PO_list** – Tracks active and completed POs.  
+- **productRecord** – Logs actual resin usage.  
+- **historicalResinUsage** – Monitors past consumption trends.  
+- **resinReceivingRecord** – Updates received resin stock.  
+
+#### **Process:**  
+- **Update resin stock** by tracking received and consumed quantities.  
+- **Identify risks** (e.g., low stock) based on **2-3 days of active PO needs**.  
+- **Validate resin provision** for completed POs and flag mismatches.  
+- **Highlight shortages/excess** by comparing **default vs. actual usage**.  
+
+#### **Output:**  
+- **Resin Stock Report** – Tracks stock levels and consumption.  
+- **Resin Shortage Alert Report** – Flags upcoming resin risks.  
+- **Resin PO Tracking Report** – Monitors provision and excess resin return.  
+
+#### **Key Scalable Features:**  
+- **Predictive analytics** for resin restocking based on usage patterns.  
+- **Optimized resin allocation** by integrating with production planning.  
+
+#### **Healing System Actions:**  
+- Highlight and adjust for **mismatched resin data** in POs.  
+- Raise **import flags** for completed POs without recorded resin provision.  
+
 
 ### 5. MoldTracking Agent
 **Role:**  
