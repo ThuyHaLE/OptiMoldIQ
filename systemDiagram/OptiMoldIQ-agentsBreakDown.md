@@ -76,40 +76,50 @@ Predictive analytics for resin restocking based on historical trends and upcomin
 Highlight and adjust for mismatched resin data.
 
 ### 5. MoldTracking Agent
-#### Role: 
-Tracks mold usage and maintenance.
-#### Input: 
-- PO_list
-- productRecord
-- historical mold maintenance data
-#### Process:
-- Track mold usage, including accumulated shots and maintenance history
-- Identify molds nearing maintenance thresholds
-- Highlight molds used incorrectly or beyond capacity
-#### Output:
-Mold Usage Report with flagged risks
-#### Key Scalable Features: 
-Maintenance scheduling triggers can scale with reinforcement learning for better predictions.
-#### Healing System Actions: 
-Log and alert for molds exceeding shot thresholds or incorrect usage.
+**Role:**  
+Tracks mold usage and maintenance.  
+
+**Input:**  
+- `PO_list`  
+- `productRecord`  
+- `historical mold maintenance data`  
+
+**Process:**  
+- Monitor mold usage, accumulated shots, and maintenance history.  
+- Identify molds nearing maintenance thresholds or used beyond capacity.  
+
+**Output:**  
+- **Mold Usage Report** with flagged risks.  
+
+**Key Scalable Features:**  
+- Reinforcement learning for smarter maintenance scheduling.  
+
+**Healing System Actions:**  
+- Alert for molds exceeding shot limits or incorrect usage.  
 
 ### 6. MachineTracking Agent
-#### Role: 
-Tracks machine availability and performance.
-#### Input: 
-- PO_list
-- productRecord
-- historical machine operation data
-#### Process:
-- Track machine operating hours and maintenance schedules
-- Identify machines requiring maintenance or showing performance issues
-- Highlight machine-related risks or inefficiencies
-#### Output:
-Machine Usage Report with flagged risks.
-#### Key Scalable Features: 
-Integrate machine learning to predict machine failures.
-#### Healing System Actions: 
-Auto-update schedules if machine downtime exceeds thresholds.
+**Role:**  
+Tracks machine production continuity, mold changes, and first usage records.  
+
+**Input:**  
+- `PO_list`  
+- `productRecord`  
+- `historical machine operation data`  
+
+**Process:**  
+- Monitor machine production per shift, flag idle periods, and yield = 0 cases.  
+- Track mold changes per shift.  
+- Generate a **Mold-Machine Pair Matrix** (first usage records).  
+
+**Output:**  
+- **Machine Production Report** with flagged downtime and mold changes.  
+- **Mold-Machine Pair Matrix** for planning.  
+
+**Key Scalable Features:**  
+- Machine learning for downtime prediction.  
+
+**Healing System Actions:**  
+- Auto-adjust schedules if machine downtime exceeds thresholds.  
 
 ### 7. ResinCoordinate Agent
 #### Role:
