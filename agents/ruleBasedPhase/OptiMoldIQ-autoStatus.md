@@ -1,4 +1,4 @@
-# AutoStatus Agent  
+"# AutoStatus Agent  
 
 ## **Role**  
 - Tracks and updates real-time **production status**.  
@@ -78,10 +78,3 @@ This report logs **data inconsistencies**, including incorrect mold usage and mi
 - **Validates mold usage** by cross-checking `moldInfo.xlsx`.  
 - **Logs inconsistencies** and applies **healing actions** (auto-correct minor errors).  
 - **Provides reports** for monitoring and review.  
-
----
-
-## **Future Enhancements**  
-- **Threshold-based alerts** for NG rates or mold inconsistencies (optional).  
-- **Integration with other agents** for **machine downtime tracking** and **resin management**.  
-- **Automated notifications** for flagged issues.  
