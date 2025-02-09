@@ -1,22 +1,28 @@
 ## Workflows for All Agents in the OptiMoldIQ System
 
-### 1. AutoStatus Agent
-#### Role:
-Tracks and updates real-time production status.
-#### Input:
-- PO_list
-- productRecord
-#### Process:
-- Summarize productRecord by PO and working day.
-- Cross-check mold usage with moldInfo.
-- Log invalidations (e.g., incorrect mold usage, data inconsistencies).
-#### Output:
-- productionStatus report
-- Logs for review
-#### Key Features:
-- Data validation for consistency.
-#### Healing Actions:
-- Recheck and auto-correct invalid entries.
+# 1. AutoStatus Agent  
+
+## **Role**  
+Tracks and updates real-time **production status**.  
+
+## **Input**  
+- **PO_list** (Purchase order data)  
+- **productRecord** (Production execution data)  
+
+## **Process**  
+1. Summarize `productRecord` by **PO and working day**.  
+2. Cross-check **mold usage** with `moldInfo`.  
+3. Log invalidations (e.g., incorrect mold usage, data inconsistencies).  
+
+## **Output**  
+- **ProductionStatus Report** (Real-time production tracking).  
+- **Invalidation Logs** (Error records for review).  
+
+## **Key Features**  
+- **Data validation** for consistency.  
+
+## **Healing Actions**  
+- **Recheck and auto-correct** invalid entries.  
 
 ---
 
