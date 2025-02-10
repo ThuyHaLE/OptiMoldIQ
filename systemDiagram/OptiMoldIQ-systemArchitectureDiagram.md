@@ -14,14 +14,15 @@
 |  - AutoStatus Agent                                           |
 |  - InitialSched Agent                                         |
 |  - FinalSched Agent                                           |
-|  - Resin Tracking Agent                                       |
-|  - Mold Tracking Agent                                        |
-|  - Machine Tracking Agent                                     |
-|  - ResinRestock Agent                                         |
+|  - ResinTracking Agent                                       |
+|  - MoldTracking Agent                                        |
+|  - MachineTracking Agent                                     |
+|  - ResinCoordinate Agent                                     |
 |  - MaintenanceScheduler Agent                                 |
-|  - Quality Control Agent                                      |
+|  - QualityControl Agent                                      |
 |  - YieldOptimization Agent                                    |
 |  - DashBoardBuilderAgent                                      |
+|  - ChangeTracking Agent.                                        |
 |  (Agents communicate via API or Shared Database)              |
 +---------------------------------------------------------------+
                      ↓                 ↑
@@ -43,6 +44,8 @@
 |     - Quality Control Reports                                 |
 |     - Yield Optimization Reports                              |
 |     - Maintenance Schedules                                   |
+|     - Change Log Report (Modification history)                |
+|     - Unauthorized Modification Log (Invalid change records)     |
 |     - Logs and Flags)                                         |
 +---------------------------------------------------------------+
                      ↓                 ↑
