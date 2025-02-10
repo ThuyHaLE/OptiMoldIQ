@@ -3,6 +3,27 @@ This document outlines the permissions required for each agent in the **OptiMold
 
 ---
 
+## 🔑 Permission Levels
+- **🔵 Read** → Can view data only.  
+- **🟢 Write** → Can modify existing records.  
+- **🟠 Update** → Can change specific fields.  
+- **🔴 Delete** → Can remove records.  
+
+---
+
+## 🎯 **Agent Permissions Table**
+| Agent Name                 | Read | Write | Update | Delete | Notes |
+|----------------------------|------|-------|--------|--------|-------|
+| **AutoStatus Agent**       | ✅   | ✅    | ✅     | ❌     | Updates production status reports. |
+| **InitialSched Agent**     | ✅   | ✅    | ✅     | ❌     | Reads production orders and schedules initial plans. |
+| **FinalSched Agent**       | ✅   | ✅    | ✅     | ❌     | Refines schedules based on resource tracking agents. |
+| **ResinTracking Agent**    | ✅   | ✅    | ✅     | ❌     | Tracks resin consumption and stock. |
+| **MoldTracking Agent**     | ✅   | ✅    | ✅     | ❌     | Tracks mold usage and maintenance needs. |
+| **MachineTracking Agent**  | ✅   | ✅    | ✅     | ❌     | Monitors machine conditions and availability. |
+| **DashBoardBuilder Agent** | ✅   | ❌    | ❌     | ❌     | Read-only access for data visualization. |
+
+---
+
 ## **1. AutoStatus Agent**
 Responsible for generating production status reports based on real-time updates.
 
