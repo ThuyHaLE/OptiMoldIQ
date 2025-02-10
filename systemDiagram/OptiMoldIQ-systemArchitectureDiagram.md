@@ -22,7 +22,7 @@
 |  - QualityControl Agent                                      |
 |  - YieldOptimization Agent                                    |
 |  - DashBoardBuilderAgent                                      |
-|  - ChangeTracking Agent.                                        |
+|  - ChangeTracking Agent.                                      |
 |  (Agents communicate via API or Shared Database)              |
 +---------------------------------------------------------------+
                      ↓                 ↑
