@@ -121,3 +121,14 @@ Optimizes cycle time while minimizing NG risks.
 | **Read**     | `productionStatus`, `productRecords`, `qualityControlReport` |
 | **Write**    | `optimizedCycleTimePlan` |
 | **No Access** | `userAccounts`, `auditLogs` |
+
+---
+
+## **12. ChangeTracking Agent**
+Tracks and logs modifications to production records, ensuring changes are approved before updating the main database.
+
+| Permission Type | Access Scope |
+|---------------|--------------------------------------------------|
+| **Read**     | `productionStatus`, `permissionControl`, `staticDatabase` |
+| **Write**    | `changeLogReport`, `unauthorizedModificationLog` |
+| **No Access** | `userAccounts`, `auditLogs` |
