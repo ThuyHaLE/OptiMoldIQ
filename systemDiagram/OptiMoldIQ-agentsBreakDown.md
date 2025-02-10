@@ -206,6 +206,36 @@ Visualizes system data for decision-making.
 
 ---
 
+### 12. ChangeTracking Agent  
+
+#### Role  
+Tracks and logs **modifications** to production records, ensuring changes are **approved** before updating the main database.  
+
+#### Input  
+- **productionStatus** (Real-time production records)  
+- **permissionControl** (User permissions)  
+- **Static Database** (Reference for validation)  
+
+#### Process  
+1. **Monitor** changes after each working shift.  
+2. **Validate** modifications based on permission levels and reference data.  
+3. **Apply healing actions** (auto-correct minor errors, flag major issues).  
+4. **Request admin approval** for flagged changes before updating records. 
+
+#### Output  
+- **Change Log Report** (Modification history).  
+- **Unauthorized Modification Log** (Invalid change records).  
+
+#### Key Features  
+- **Modification approval system** to prevent unauthorized changes.  
+- **Real-time tracking of changes** after each working shift.  
+
+#### Healing Actions  
+- **Auto-correct minor issues** (e.g., format errors).  
+- **Flag and suggest corrections** for invalid entries (e.g., incorrect machine numbers).  
+
+---
+
 ## Additional Considerations:
 1. **Shared Database Implementation**  
    - Hybrid SQL-NoSQL approach for structured and flexible data handling.  
