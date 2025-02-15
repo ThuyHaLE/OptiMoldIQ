@@ -236,6 +236,48 @@ Tracks and logs **modifications** to production records, ensuring changes are **
 
 ---
 
+### 13. Analytics Agent  
+#### **Role:**  
+Evaluates production data to identify key performance indicators (KPIs) and potential inefficiencies.  
+
+#### **Input:**  
+- **Production Data:** productRecord, moldInfo, resinUsage, NG rate, machineStatus.  
+- **Operational Data:** Shift schedules, downtime records, maintenance logs.  
+
+#### **Process:**  
+1. **Yield Performance:** Actual vs. expected production rates.  
+2. **Resin Consumption:** Compare with standard usage.  
+3. **Machine Utilization:** Runtime vs. downtime percentages.  
+4. **Cycle Time Variations:** Identify inconsistencies.  
+5. **NG Rate Trends:** Compare across different molds, machines, and resins.  
+6. **Production Interruptions:** Downtime causes and frequency.  
+
+#### **Output:**  
+- **Analytics Report:** Quantitative assessment of key performance metrics.  
+- **Visualization Dashboard:** Charts and tables summarizing efficiency and performance.  
+- **KPI Breakdown:**  
+  - Yield efficiency (%)  
+  - Resin consumption per unit  
+  - Machine utilization rate (%)  
+  - Average cycle time (s)  
+  - NG rate (%)  
+  - Downtime per shift (min)  
+
+#### **Key Features:**  
+- Works with both historical and real-time data.  
+- Provides statistical insights without recommending specific actions.  
+- Allows further analysis by other agents (e.g., YieldOptimization, MaintenanceScheduler).  
+
+#### **Healing Actions:**  
+🔄 **Self-Diagnosis & Recovery:**  
+- **Data Integrity Check:** Verifies missing, duplicate, or inconsistent data before processing.  
+- **Auto-Recalibration:** Adjusts baseline expectations if new patterns emerge in data.  
+- **Fallback Mode:** If real-time data is unavailable, switches to historical trend analysis.  
+- **Alert System:** Notifies system admins if data anomalies exceed predefined thresholds.  
+- **Redundant Processing:** Runs cross-validation with past reports to ensure consistency.  
+
+---
+
 ## Additional Considerations:
 1. **Shared Database Implementation**  
    - Hybrid SQL-NoSQL approach for structured and flexible data handling.  
