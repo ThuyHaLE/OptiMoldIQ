@@ -238,43 +238,69 @@ Tracks and logs **modifications** to production records, ensuring changes are **
 
 ### 13. Analytics Agent  
 #### **Role:**  
-Evaluates production data to identify key performance indicators (KPIs) and potential inefficiencies.  
+Evaluates production data and PO data to identify key performance indicators (KPIs), potential inefficiencies, and capacity planning insights.
+
+---
 
 #### **Input:**  
-- **Production Data:** productRecord, moldInfo, resinUsage, NG rate, machineStatus.  
-- **Operational Data:** Shift schedules, downtime records, maintenance logs.  
+- **productionStatus** (Real-time production records)  
+- **poList** (Historical POs records)  
+  
+---
 
 #### **Process:**  
-1. **Yield Performance:** Actual vs. expected production rates.  
-2. **Resin Consumption:** Compare with standard usage.  
-3. **Machine Utilization:** Runtime vs. downtime percentages.  
-4. **Cycle Time Variations:** Identify inconsistencies.  
-5. **NG Rate Trends:** Compare across different molds, machines, and resins.  
-6. **Production Interruptions:** Downtime causes and frequency.  
+##### 1. Overall Equipment Effectiveness (OEE):  
+- **Availability:** Based on machine runtime and planned production time.  
+- **Performance:** Actual vs. theoretical max output (using cycle time & shot counts).  
+- **Quality:** Good items vs. total items produced.
+
+##### 2. Production Capacity & PO Fulfillment
+- **PO Completion Rate:** Compare actual output with PO requirements.  
+- **Overcapacity Alerts:** Identify products exceeding machine or mold limits.  
+- **Capacity Gap Analysis:** Recommend capacity increases (e.g., new molds).
+
+##### 3. NG (Defect) Analysis:  
+- Track NG rate by mold, machine, and resin.  
+- Identify common defect types and their distribution.  
+- Highlight underperforming molds/machines.
+
+##### 4. Breakdown Time & Downtime Analysis:  
+- Calculate downtime due to mold changes, machine shifts, and color changes.  
+- Correlate downtime with production loss.
+
+##### 5. Shift & Machine Performance Trends:  
+- Compare performance and NG rates across shifts and machines.  
+- Identify shifts or machines with recurrent issues.
+
+##### 6. KPI Breakdown:  
+- **Yield Efficiency (%):** Good Quantity / Total Quantity  
+- **Resin Consumption per Unit**  
+- **Machine Utilization Rate (%)**  
+- **Cycle Time Deviation**  
+- **NG Rate (%)**  
+- **Downtime per Shift (min)**  
+- **PO Fulfillment Rate (%)**
+
+---
 
 #### **Output:**  
-- **Analytics Report:** Quantitative assessment of key performance metrics.  
-- **Visualization Dashboard:** Charts and tables summarizing efficiency and performance.  
-- **KPI Breakdown:**  
-  - Yield efficiency (%)  
-  - Resin consumption per unit  
-  - Machine utilization rate (%)  
-  - Average cycle time (s)  
-  - NG rate (%)  
-  - Downtime per shift (min)  
+- **Analytics Report:** Detailed KPI metrics and insights.  
+- **Visualization Dashboard:** Real-time charts/tables for trend analysis.  
+- **Capacity Planning Alerts:** Recommendations for production scaling or adjustments.
+
+---
 
 #### **Key Features:**  
-- Works with both historical and real-time data.  
-- Provides statistical insights without recommending specific actions.  
-- Allows further analysis by other agents (e.g., YieldOptimization, MaintenanceScheduler).  
+- Handles both historical and real-time data.  
+- Dynamic PO tracking and capacity gap detection.  
+- Supports decision-making for mold/machine investments and efficiency improvements.
 
 #### **Healing Actions:**  
-🔄 **Self-Diagnosis & Recovery:**  
-- **Data Integrity Check:** Verifies missing, duplicate, or inconsistent data before processing.  
-- **Auto-Recalibration:** Adjusts baseline expectations if new patterns emerge in data.  
-- **Fallback Mode:** If real-time data is unavailable, switches to historical trend analysis.  
-- **Alert System:** Notifies system admins if data anomalies exceed predefined thresholds.  
-- **Redundant Processing:** Runs cross-validation with past reports to ensure consistency.  
+- **Data Integrity Check:** Detect missing, duplicate, or inconsistent data.  
+- **Auto-Recalibration:** Adjusts KPIs if operational patterns shift.  
+- **Fallback Mode:** Utilizes historical trends if real-time data is unavailable.  
+- **Alert System:** Notifies when anomalies breach thresholds.  
+- **Redundant Processing:** Cross-validates current data with historical reports.
 
 ---
 
