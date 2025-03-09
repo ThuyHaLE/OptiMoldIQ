@@ -46,21 +46,37 @@ Drafts the initial production plan.
 ---
 
 ### 3. FinalSched Agent
+
 #### Role:
-Optimizes the production plan.
+The **FinalSched Agent** is responsible for **optimizing the production schedule**, ensuring a balance between **efficiency, continuity, and resilience**.  
 #### Input:
-- Draft plan from InitialSched Agent
-- Reports from tracking agents
+- **Draft Plan from InitialSched Agent** (Initial rule-based schedule).  
+- **Reports from Tracking Agents:**  
+   - **Resin Tracking Agent** → Monitors resin stock levels.  
+   - **Mold Tracking Agent** → Tracks mold status and maintenance schedules.  
+   - **Machine Tracking Agent** → Tracks machine status and capacity.  
+- **Production History** (for Offline Learning).  
 #### Process:
-- Address flagged issues and optimize workload.
-- Balance resin stock and machine capacity.
-- Prioritize mold/machine continuity.
+##### **Buffer Layer (Adjustment Mechanism):**  
+- **Plan A:** Adjusts Initial Schedule based on **rule-based logic** (ensures stability).  
+- **Plan B:** Incorporates **Offline Learning output** for deeper optimization.  
+- **If Offline Learning produces incorrect outputs,** the system can **disable Plan B and fallback to Plan A,** ensuring Beta remains functional.  
+##### **Production Schedule Optimization:**  
+- **Load balancing** across machines.  
+- **Resin stock optimization** to avoid shortages or excess inventory.  
+- **Prioritizing mold and machine continuity** to reduce setup time.  
+- **Addressing flagged issues** from tracking agents.  
 #### Output:
-- Optimized Production Plan
+**Optimized Production Plan** (Refined and validated schedule).  
 #### Key Features:
-- Multi-agent collaboration for better scheduling.
+- **Multi-agent collaboration** for improved scheduling.  
+- **Automated plan adjustments** when issues arise.  
+- **Built-in buffer mechanism** to ensure system stability.  
 #### Healing Actions:
-- Auto-adjust plans for stock/machine failures.
+- **Auto-adjust plans** when disruptions occur (machine failures, resin shortages, mold issues).  
+- **Recalculate schedules** if tracking agents detect bottlenecks.  
+- **Fallback to Plan A** if Offline Learning encounters errors.  
+**FinalSched Agent ensures the system remains optimal, stable, and adaptable to real-world conditions!**  
 
 ---
 
