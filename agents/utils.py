@@ -3,13 +3,23 @@ import shutil
 from datetime import datetime
 import pandas as pd
 from loguru import logger
+from pyxlsb import open_workbook
 
 def save_output_with_versioning(
     data: dict[str, pd.DataFrame],
     output_dir: str | Path,
     filename_prefix: str = "output",
     file_format: str = 'xlsx',
-):
+):  
+    if not isinstance(data, dict):
+        logger.error("❌ Expected data to be a dict[str, pd.DataFrame] but got: {}", type(data))
+        raise TypeError(f"Expected data to be a dict[str, pd.DataFrame] but got: {type(data)}")
+
+    for k, v in data.items():
+        if not isinstance(k, str) or not isinstance(v, pd.DataFrame):
+            logger.error("❌ Invalid dict contents: key type {}, value type {}", type(k), type(v))
+            raise TypeError(f"Expected dict keys to be str and values to be pd.DataFrame, but got key: {type(k)}, value: {type(v)}")
+
     output_dir = Path(output_dir)
     log_path = output_dir / "change_log.txt"
     timestamp_now = datetime.now()
@@ -55,6 +65,10 @@ def save_output_with_versioning(
         logger.error("Failed to update change log {}: {}", log_path, e)
         raise TypeError(f"Failed to update change log {log_path}: {e}")
 
+def get_sheets_xlsb(path):
+    with open_workbook(path) as wb:
+        return wb.sheets
+                
 def load_latest_file_from_folder(
     folder_path: str | Path,
     sheet_name=None,  # None or str or list[str]
@@ -78,6 +92,24 @@ def load_latest_file_from_folder(
         if suffix == '.csv':
             df = pd.read_csv(latest_file)
             return {"csv": df}
+        
+        elif suffix == '.xlsb':
+                        
+            sheets_in_file = get_sheets_xlsb(latest_file)
+
+            if sheet_name is None:
+                sheets_to_load = sheets_in_file
+            elif isinstance(sheet_name, str):
+                sheets_to_load = [sheet_name]
+            else:
+                sheets_to_load = sheet_name
+
+            valid_sheets = [sheet for sheet in sheets_to_load if sheet in sheets_in_file] or sheets_in_file
+
+            data = {sheet: pd.read_excel(latest_file, sheet_name=sheet, engine='pyxlsb') for sheet in valid_sheets}
+
+            return data
+
         else:
             xls = pd.ExcelFile(latest_file)
             sheets_in_file = xls.sheet_names

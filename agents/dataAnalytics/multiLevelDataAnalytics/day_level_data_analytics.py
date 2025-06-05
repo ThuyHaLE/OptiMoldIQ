@@ -15,7 +15,7 @@ class DayLevelDataAnalytics:
     def __init__(self, 
                  data_source: str, 
                  selected_date: str,
-                 default_dir="shared_db"):
+                 default_dir="agents/shared_db"):
         
         self.data = load_latest_file_from_folder(data_source)
         self.moldInfo_df = self.data.get('moldInfo')
