@@ -16,7 +16,7 @@ class DataLoaderAgent:
                  sheet_name=None,
                  default_dir: str = "agents/shared_db"
                  ):
-        self.moldInfo_df = pd.read_excel("moldInfo.xlsx")
+        self.moldInfo_df = pd.read_excel("database/staticDatabase/moldInfo.xlsx")
         self.productRecords_df = self._check_ext_and_load_data(productRecords_path, sheet_name)
 
         self.default_dir = Path(default_dir)
