@@ -2,8 +2,8 @@ import pandas as pd
 from loguru import logger
 from agents.dashboardBuilder.visualize_data.decorators import validate_init_dataframes
 from agents.utils import save_output_with_versioning
-from datetime import datetime, timedelta
 from pathlib import Path
+from datetime import datetime, timedelta
 
 @validate_init_dataframes({
     "productRecords_df": [
@@ -19,6 +19,8 @@ class DataLoaderAgent:
                  ):
         self.moldInfo_df = pd.read_excel("database/staticDatabase/moldInfo.xlsx")
         self.productRecords_df = self._check_ext_and_load_data(productRecords_path, sheet_name)
+        #Deal with datetime format if extension is .xlsb
+        self.productRecords_df['recordDate'] = self.productRecords_df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30))
 
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DataLoaderAgent"
@@ -44,13 +46,9 @@ class DataLoaderAgent:
                         "Read file '{}', sheet '{}' in {}",
                         file_path, sheet_name, pd.ExcelFile(file_path).sheet_names
                     )
-                    df = pd.read_excel(file_path, sheet_name=sheet_name)
-                    df['recordDate'] = df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30)) #Deal with datetime format if extension is .xlsb
-                    return df
+                    return pd.read_excel(file_path, sheet_name=sheet_name)
                 else:
                     logger.info("Read file '{}'", file_path)
-                    df = pd.read_excel(file_path, sheet_name=sheet_name)
-                    df['recordDate'] = df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30))
                     return pd.read_excel(file_path)
         else:
             logger.error("❌ Unsupported file extension: {}. Allowed: {}", file_extension, allowed_extensions)
