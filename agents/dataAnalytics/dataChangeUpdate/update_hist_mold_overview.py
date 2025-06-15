@@ -29,6 +29,18 @@ class UpdateHistMoldOverview():
         if self.productRecords_df is None:
             self.logger.error("❌ Sheet 'productRecords' not found.")
             raise ValueError("Sheet 'productRecords' not found.")
+        
+        # Extract moldInfo DataFrame
+        self.moldInfo_df = self.data.get('moldInfo')
+        if self.moldInfo_df is None:
+            self.logger.error("❌ Sheet 'moldInfo' not found.")
+            raise ValueError("Sheet 'moldInfo' not found.")
+
+        # Extract machineInfo DataFrame
+        self.machineInfo_df = self.data.get('machineInfo')
+        if self.machineInfo_df is None:
+            self.logger.error("❌ Sheet 'machineInfo' not found.")
+            raise ValueError("Sheet 'machineInfo' not found.")
 
         # Setup output directory and file prefix
         self.default_dir = Path(default_dir)
@@ -45,12 +57,10 @@ class UpdateHistMoldOverview():
         self.process_all()
 
     def _process_data(self, **kwargs):
-        mold_info_df = pd.read_excel('database/staticDatabase/moldInfo.xlsx')
-        machine_info_df = pd.read_excel('database/staticDatabase/machineInfo.xlsx')
         mold_machine_df = pd.merge(pd.merge(self.productRecords_df[['recordDate', 'machineCode', 'moldNo']],
-                                          mold_info_df[['moldNo', 'machineTonnage',	'acquisitionDate']],
+                                          self.moldInfo_df[['moldNo', 'machineTonnage',	'acquisitionDate']],
                                           on='moldNo'),
-                                          machine_info_df[['machineCode', 'machineName']].drop_duplicates().reset_index(drop=True),
+                                          self.machineInfo_df[['machineCode', 'machineName']].drop_duplicates().reset_index(drop=True),
                                           on= 'machineCode'
                                           )
         mold_machine_df.columns = ['recordDate',	'machineCode',	'moldNo',

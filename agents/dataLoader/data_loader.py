@@ -13,14 +13,18 @@ from datetime import datetime, timedelta
     "moldInfo_df": ['moldNo', 'moldCavityStandard', 'moldSettingCycle']
 })
 class DataLoaderAgent:
-    def __init__(self, productRecords_path: str,
+    def __init__(self, 
+                 productRecords_path: str,
+                 purchaseOrders_path: str,
                  sheet_name=None,
                  default_dir: str = "agents/shared_db"
                  ):
         self.moldInfo_df = pd.read_excel("database/staticDatabase/moldInfo.xlsx")
+        self.machineInfo_df = pd.read_excel('database/staticDatabase/machineInfo.xlsx')
         self.productRecords_df = self._check_ext_and_load_data(productRecords_path, sheet_name)
         #Deal with datetime format if extension is .xlsb
         self.productRecords_df['recordDate'] = self.productRecords_df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30))
+        self.purchaseOrders_df = self._check_ext_and_load_data(purchaseOrders_path, sheet_name)
 
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DataLoaderAgent"
@@ -29,8 +33,11 @@ class DataLoaderAgent:
         self.filename_prefix = "productRecords"
 
         save_output_with_versioning({"productRecords": self.productRecords_df,
-                                     "moldInfo": self.moldInfo_df}, self.output_dir,
-                                    self.filename_prefix, file_format='xlsx')
+                                     "purchaseOrders": self.purchaseOrders_df,
+                                     "moldInfo": self.moldInfo_df,
+                                     "machineInfo": self.machineInfo_df}, 
+                                     self.output_dir,
+                                     self.filename_prefix, file_format='xlsx')
 
     def _check_ext_and_load_data(self, file_path,
                                  sheet_name=None,
