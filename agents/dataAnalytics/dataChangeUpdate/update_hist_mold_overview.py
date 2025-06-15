@@ -26,7 +26,6 @@ class UpdateHistMoldOverview():
 
         # Extract productRecords DataFrame
         self.productRecords_df = self.data.get('productRecords')
-        self.productRecords_df['recordDate'] = self.productRecords_df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30))
         if self.productRecords_df is None:
             self.logger.error("❌ Sheet 'productRecords' not found.")
             raise ValueError("Sheet 'productRecords' not found.")

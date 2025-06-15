@@ -1,7 +1,7 @@
 from agents.dashboardBuilder.visualize_data.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
 from agents.utils import load_latest_file_from_folder
-from datetime import datetime, timedelta
+from datetime import datetime
 from loguru import logger
 import pandas as pd
 from pathlib import Path
@@ -128,9 +128,6 @@ class UpdateHistMachineLayout():
 
     @staticmethod
     def _record_hist_layout_changes(df):
-
-        #Deal with datetime format if extension is .xlsb
-        df['recordDate'] = df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30))
 
         # Convert dates and extract machineName from machineCode
         df['machineName'] = df['machineCode'].str.extract(r'([A-Z]+[0-9]*)')

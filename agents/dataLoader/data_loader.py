@@ -2,6 +2,7 @@ import pandas as pd
 from loguru import logger
 from agents.dashboardBuilder.visualize_data.decorators import validate_init_dataframes
 from agents.utils import save_output_with_versioning
+from datetime import datetime, timedelta
 from pathlib import Path
 
 @validate_init_dataframes({
@@ -43,9 +44,13 @@ class DataLoaderAgent:
                         "Read file '{}', sheet '{}' in {}",
                         file_path, sheet_name, pd.ExcelFile(file_path).sheet_names
                     )
-                    return pd.read_excel(file_path, sheet_name=sheet_name)
+                    df = pd.read_excel(file_path, sheet_name=sheet_name)
+                    df['recordDate'] = df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30)) #Deal with datetime format if extension is .xlsb
+                    return df
                 else:
                     logger.info("Read file '{}'", file_path)
+                    df = pd.read_excel(file_path, sheet_name=sheet_name)
+                    df['recordDate'] = df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30))
                     return pd.read_excel(file_path)
         else:
             logger.error("❌ Unsupported file extension: {}. Allowed: {}", file_extension, allowed_extensions)
