@@ -31,7 +31,7 @@ class DayLevelDataAnalytics:
         self.moldInfo_df = self.data['moldInfo']
         self.productRecords_df = self.data['productRecords']
 
-        self.selected_date = selected_date
+        self.selected_date = pd.to_datetime(selected_date) #make sure it is datetime type
         self.filename_prefix= "workingshift_level_analysis"
 
         self.default_dir = Path(default_dir)
