@@ -1,7 +1,7 @@
 ## 3. Dataset
 
 ### 3.1. Data Source and Collection
-This research utilizes a comprehensive dataset from a plastic injection molding production facility. The dataset encompasses the production workflow, from order receipt to production planning and execution. Data was collected from the facility's enterprise resource planning (ERP) system and production management database over a 27-month period, resulting in a dataset with over 61,185 production records and 6,234 orders. This dataset captures the complexities and challenges of plastic part manufacturing operations and supports the development of intelligent production planning systems.
+This research utilizes a comprehensive dataset from a plastic injection molding production facility. The dataset encompasses the production workflow, from order receipt to production planning and execution. Data was collected from the facility's enterprise resource planning (ERP) system and production management database over a 27-month period (1/11/2018 - 30/1/2021), resulting in a dataset with over 61,185 production records and 6,234 orders. This dataset captures the complexities and challenges of plastic part manufacturing operations and supports the development of intelligent production planning systems.
 
 ### 3.2. Dataset Structure
 The dataset is structured around six primary entities that represent the core components of the injection molding production process:
@@ -13,7 +13,7 @@ The dataset is structured around six primary entities that represent the core co
   Comprises 251 distinct molds with detailed specifications such as mold code, mold name, mold status, number of cavities, and setting cycle time. Molds are the critical tooling used to shape plastic parts.
 
 - **Machines**  
-  Includes 49 injection molding machines (expanding from 9 to 49 machines over the years) with attributes such as machine code, machine name, manufacturer, machine tonnage, and operational parameters. Each machine has specific capabilities that determine which molds can be used with it.
+  Includes 49 injection molding machines with attributes such as machine code, machine name, manufacturer, machine tonnage, and operational parameters. The machine fleet expanded from an initial 9 machines to 49 machines during the data collection period, reflecting the company's significant growth and production capacity expansion. This scaling of equipment corresponds directly with the company's overall business expansion and increased manufacturing capabilities. Each machine has specific capabilities that determine which molds can be used with it.
 
 - **Materials**  
   Records 445 different materials, including:
