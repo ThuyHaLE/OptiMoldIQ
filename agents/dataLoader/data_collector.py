@@ -93,14 +93,6 @@ class DataCollector:
             logger.info("No source files found matching pattern {}*{}", name_start, file_extension)
             return
 
-        # Check if we need to update by comparing file modification times
-        metadata_file = Path(summary_file_path).with_suffix('.metadata')
-        need_update = DataCollector._check_need_update(folder_path, files_sorted, metadata_file)
-        
-        if not need_update and not existing_df.empty:
-            logger.info("No updates needed for {}", summary_file_path)
-            return
-
         # Collect and merge data
         merged_dfs = []
         for f in files_sorted:
@@ -148,7 +140,6 @@ class DataCollector:
         if not existing_df.empty:
             if DataCollector._dataframes_equal_fast(merged_df, existing_df):
                 logger.info("No changes detected in data. Skipping write.")
-                DataCollector._update_metadata(folder_path, files_sorted, metadata_file)
                 return
 
         # Save as parquet with minimal processing
@@ -171,9 +162,6 @@ class DataCollector:
             # Move to final location
             shutil.move(temp_path, summary_file_path)
             
-            # Update metadata
-            DataCollector._update_metadata(folder_path, files_sorted, metadata_file)
-            
             logger.info("✅ New parquet file saved: {} ({} rows, {:.2f}MB)", 
                        summary_file_path, len(merged_df), 
                        os.path.getsize(summary_file_path) / 1024 / 1024)
@@ -183,36 +171,6 @@ class DataCollector:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
             raise
-
-    @staticmethod
-    def _check_need_update(folder_path, files, metadata_file):
-        """Check if source files have been modified since last update"""
-        if not os.path.exists(metadata_file):
-            return True
-            
-        try:
-            with open(metadata_file, 'r') as f:
-                last_update_info = eval(f.read())
-        except:
-            return True
-            
-        current_info = {}
-        for f in files:
-            file_path = os.path.join(folder_path, f)
-            current_info[f] = os.path.getmtime(file_path)
-            
-        return current_info != last_update_info
-
-    @staticmethod
-    def _update_metadata(folder_path, files, metadata_file):
-        """Update metadata file with current file modification times"""
-        current_info = {}
-        for f in files:
-            file_path = os.path.join(folder_path, f)
-            current_info[f] = os.path.getmtime(file_path)
-            
-        with open(metadata_file, 'w') as f:
-            f.write(repr(current_info))
 
     @staticmethod
     def _dataframes_equal_fast(df1, df2):
