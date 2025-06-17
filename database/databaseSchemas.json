@@ -38,24 +38,24 @@
             }
         },
         "purchaseOrders": {
-            "path": "agents/shared_db/dynamicDatabase/purchaseOrders.parquet"
-        },
-        "dtypes": {
-            "poReceivedDate": "datetime64[ns]",
-            "poNo": "string",
-            "poETA": "datetime64[ns]",
-            "itemCode": "string",
-            "itemName": "string",
-            "itemQuantity": "int64",
-            "plasticResinCode": "string",
-            "plasticResin": "string",
-            "plasticResinQuantity": "Float64",
-            "colorMasterbatchCode": "string",
-            "colorMasterbatch": "string",
-            "colorMasterbatchQuantity": "Float64",
-            "additiveMasterbatchCode": "string",
-            "additiveMasterbatch": "string",
-            "additiveMasterbatchQuantity": "Float64"
+            "path": "agents/shared_db/dynamicDatabase/purchaseOrders.parquet",
+            "dtypes": {
+                "poReceivedDate": "datetime64[ns]",
+                "poNo": "string",
+                "poETA": "datetime64[ns]",
+                "itemCode": "string",
+                "itemName": "string",
+                "itemQuantity": "Int64",
+                "plasticResinCode": "string",
+                "plasticResin": "string",
+                "plasticResinQuantity": "Float64",
+                "colorMasterbatchCode": "string",
+                "colorMasterbatch": "string",
+                "colorMasterbatchQuantity": "Float64",
+                "additiveMasterbatchCode": "string",
+                "additiveMasterbatch": "string",
+                "additiveMasterbatchQuantity": "Float64"
+            }
         }
     },
     "statisticDB": {
@@ -66,13 +66,13 @@
                 "itemName": "string",
                 "plasticResinCode": "string",
                 "plasticResin": "string",
-                "plasticResinQuantity": "float64",
+                "plasticResinQuantity": "Float64",
                 "colorMasterbatchCode": "string",
                 "colorMasterbatch": "string",
-                "colorMasterbatchQuantity": "float64",
+                "colorMasterbatchQuantity": "Float64",
                 "additiveMasterbatchCode": "string",
                 "additiveMasterbatch": "string",
-                "additiveMasterbatchQuantity": "float64"
+                "additiveMasterbatchQuantity": "Float64"
             }
         },
         "itemInfo": {
@@ -89,8 +89,8 @@
                 "machineCode": "string",
                 "machineName": "string",
                 "manufacturerName": "string",
-                "machineTonnage": "int64",
-                "changedTime": "int64",
+                "machineTonnage": "Int64",
+                "changedTime": "Int64",
                 "layoutStartDate": "datetime64[ns]",
                 "layoutEndDate": "datetime64[ns]",
                 "previousMachineCode": "string"
@@ -101,12 +101,12 @@
             "dtypes": {
                 "moldNo": "string",
                 "moldName": "string",
-                "moldCavityStandard": "int64",
-                "moldSettingCycle": "int64",
+                "moldCavityStandard": "Int64",
+                "moldSettingCycle": "Int64",
                 "machineTonnage": "string",
                 "acquisitionDate": "datetime64[ns]",
-                "itemsWeight": "float64",
-                "runnerWeight": "float64"
+                "itemsWeight": "Float64",
+                "runnerWeight": "Float64"
             }
         },
         "moldSpecificationSummary": {
@@ -115,7 +115,7 @@
                 "itemCode": "string",
                 "itemName": "string",
                 "itemType": "string",
-                "moldNum": "int64",
+                "moldNum": "Int64",
                 "moldList": "string"
             }
         },
