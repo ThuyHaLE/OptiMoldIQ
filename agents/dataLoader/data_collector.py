@@ -242,7 +242,7 @@ class DataCollector:
 
       for c in spec_cases:
         try:
-          df[c] = pd.to_numeric(df[c], errors='coerce').astype("Int64")
+          df[c] = pd.to_numeric(df[c], errors='coerce').astype("Int64").astype("string")
         except:
           if c in df.columns:
             df[c] =  df[c].astype("string")

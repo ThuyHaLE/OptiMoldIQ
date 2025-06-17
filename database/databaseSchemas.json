@@ -1,0 +1,132 @@
+{
+    "dynamicDB": {
+        "productRecords": {
+            "path": "agents/shared_db/dynamicDatabase/productRecords.parquet",
+            "dtypes": {
+                "recordDate": "datetime64[ns]",
+                "workingShift": "string",
+                "machineNo": "string",
+                "machineCode": "string",
+                "itemCode": "string",
+                "itemName": "string",
+                "colorChanged": "string",
+                "moldChanged": "string",
+                "machineChanged": "string",
+                "poNote": "string",
+                "moldNo": "string",
+                "moldShot": "Int64",
+                "moldCavity": "Int64",
+                "itemTotalQuantity": "Int64",
+                "itemGoodQuantity": "Int64",
+                "itemBlackSpot": "Int64",
+                "itemOilDeposit": "Int64",
+                "itemScratch": "Int64",
+                "itemCrack": "Int64",
+                "itemSinkMark": "Int64",
+                "itemShort": "Int64",
+                "itemBurst": "Int64",
+                "itemBend": "Int64",
+                "itemStain": "Int64",
+                "otherNG": "Int64",
+                "plasticResin": "string",
+                "plasticResinCode": "string",
+                "plasticResinLot": "string",
+                "colorMasterbatch": "string",
+                "colorMasterbatchCode": "string",
+                "additiveMasterbatch": "string",
+                "additiveMasterbatchCode": "string"
+            }
+        },
+        "purchaseOrders": {
+            "path": "agents/shared_db/dynamicDatabase/purchaseOrders.parquet"
+        },
+        "dtypes": {
+            "poReceivedDate": "datetime64[ns]",
+            "poNo": "string",
+            "poETA": "datetime64[ns]",
+            "itemCode": "string",
+            "itemName": "string",
+            "itemQuantity": "int64",
+            "plasticResinCode": "string",
+            "plasticResin": "string",
+            "plasticResinQuantity": "Float64",
+            "colorMasterbatchCode": "string",
+            "colorMasterbatch": "string",
+            "colorMasterbatchQuantity": "Float64",
+            "additiveMasterbatchCode": "string",
+            "additiveMasterbatch": "string",
+            "additiveMasterbatchQuantity": "Float64"
+        }
+    },
+    "statisticDB": {
+        "itemCompositionSummary": {
+            "path": "database/staticDatabase/itemCompositionSummary.xlsx",
+            "dtypes": {
+                "itemCode": "string",
+                "itemName": "string",
+                "plasticResinCode": "string",
+                "plasticResin": "string",
+                "plasticResinQuantity": "float64",
+                "colorMasterbatchCode": "string",
+                "colorMasterbatch": "string",
+                "colorMasterbatchQuantity": "float64",
+                "additiveMasterbatchCode": "string",
+                "additiveMasterbatch": "string",
+                "additiveMasterbatchQuantity": "float64"
+            }
+        },
+        "itemInfo": {
+            "path": "database/staticDatabase/itemInfo.xlsx",
+            "dtypes": {
+                "itemCode": "string",
+                "itemName": "string"
+            }
+        },
+        "machineInfo": {
+            "path": "database/staticDatabase/machineInfo.xlsx",
+            "dtypes": {
+                "machineNo": "string",
+                "machineCode": "string",
+                "machineName": "string",
+                "manufacturerName": "string",
+                "machineTonnage": "int64",
+                "changedTime": "int64",
+                "layoutStartDate": "datetime64[ns]",
+                "layoutEndDate": "datetime64[ns]",
+                "previousMachineCode": "string"
+            }
+        },
+        "moldInfo": {
+            "path": "database/staticDatabase/moldInfo.xlsx",
+            "dtypes": {
+                "moldNo": "string",
+                "moldName": "string",
+                "moldCavityStandard": "int64",
+                "moldSettingCycle": "int64",
+                "machineTonnage": "string",
+                "acquisitionDate": "datetime64[ns]",
+                "itemsWeight": "float64",
+                "runnerWeight": "float64"
+            }
+        },
+        "moldSpecificationSummary": {
+            "path": "database/staticDatabase/moldSpecificationSummary.xlsx",
+            "dtypes": {
+                "itemCode": "string",
+                "itemName": "string",
+                "itemType": "string",
+                "moldNum": "int64",
+                "moldList": "string"
+            }
+        },
+        "resineInfo": {
+            "path": "database/staticDatabase/resineInfo.xlsx",
+            "dtypes": {
+                "resinCode": "string",
+                "resinName": "string",
+                "resinType": "string",
+                "colorType": "string"
+            }
+        }
+    }
+}
