@@ -117,7 +117,7 @@ class DataLoaderAgent:
                     logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
                 except Exception as e:
                     logger.error("Failed to move file {}: {}", f.name, e)
-                    raise TypeError(f"Failed to move file {f.name}: {e}")
+                    raise OSError(f"Failed to move file {f.name}: {e}")
 
         try:
             for db_name, df in data.items():
@@ -133,7 +133,7 @@ class DataLoaderAgent:
                 logger.info("Saved new file: newest/{}", new_filename)
         except Exception as e:
             logger.error("Failed to save file {}: {}", new_filename, e)
-            raise TypeError(f"Failed to save file {new_filename}: {e}")
+            raise OSError(f"Failed to save file {new_filename}: {e}")
 
         try:
             with open(log_path, "a", encoding="utf-8") as log_file:
@@ -141,15 +141,15 @@ class DataLoaderAgent:
             logger.info("Updated change log {}", log_path)
         except Exception as e:
             logger.error("Failed to update change log {}: {}", log_path, e)
-            raise TypeError(f"Failed to update change log {log_path}: {e}")
+            raise OSError(f"Failed to update change log {log_path}: {e}")
 
         try:
             with open(annotations_path, "w", encoding="utf-8") as f:
                 json.dump(path_annotation, f, ensure_ascii=False, indent=4)
             logger.info("Updated path annotations {} with {}", annotations_path, path_annotation)
         except Exception as e:
-            logger.error("Failed to update change log {}: {}", annotations_path, e)
-            raise TypeError(f"Failed to update change log {annotations_path}: {e}")
+            logger.error("Failed to update path annotations {}: {}", annotations_path, e)
+            raise OSError(f"Failed to update annotation file {annotations_path}: {e}")
 
     @staticmethod
     def _process_data(db_name, db_type, databaseSchemas_data):
@@ -170,7 +170,7 @@ class DataLoaderAgent:
           df = pd.read_excel(db_path)
       except Exception as e:
           logger.error("❌ Failed to read Excel at {}: {}", db_path, e)
-          raise TypeError(f"❌ Failed to read Excel at {db_path}: {e}")
+          raise OSError(f"❌ Failed to read Excel at {db_path}: {e}")
 
       for c in spec_cases:
               try:

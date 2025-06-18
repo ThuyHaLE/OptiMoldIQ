@@ -3,7 +3,9 @@ import shutil
 from datetime import datetime
 import pandas as pd
 from loguru import logger
-from pyxlsb import open_workbook
+import os
+import json 
+
 
 def save_output_with_versioning(
     data: dict[str, pd.DataFrame],
@@ -41,7 +43,7 @@ def save_output_with_versioning(
                 logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
             except Exception as e:
                 logger.error("Failed to move file {}: {}", f.name, e)
-                raise TypeError(f"Failed to move file {f.name}: {e}")
+                raise OSError(f"Failed to move file {f.name}: {e}")
 
     timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
     new_filename = f"{timestamp_file}_{filename_prefix}.{file_format}"
@@ -55,7 +57,7 @@ def save_output_with_versioning(
         logger.info("Saved new file: newest/{}", new_filename)
     except Exception as e:
         logger.error("Failed to save file {}: {}", new_filename, e)
-        raise TypeError(f"Failed to save file {new_filename}: {e}")
+        raise OSError(f"Failed to save file {new_filename}: {e}")
 
     try:
         with open(log_path, "a", encoding="utf-8") as log_file:
@@ -63,75 +65,18 @@ def save_output_with_versioning(
         logger.info("Updated change log {}", log_path)
     except Exception as e:
         logger.error("Failed to update change log {}: {}", log_path, e)
-        raise TypeError(f"Failed to update change log {log_path}: {e}")
+        raise OSError(f"Failed to update change log {log_path}: {e}")
 
-def get_sheets_xlsb(path):
-    with open_workbook(path) as wb:
-        return wb.sheets
-                
-def load_latest_file_from_folder(
-    folder_path: str | Path,
-    sheet_name=None,  # None or str or list[str]
-    allowed_extensions=['.xlsx', '.xls', '.xlsb', '.csv']
-) -> dict[str, pd.DataFrame] | None:
-    
-    folder_path = Path(folder_path)
-    if not folder_path.is_dir():
-        raise NotADirectoryError(f"{folder_path} is not a valid directory")
+def load_annotation_path(source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+                         annotation_name: str = "path_annotations.json"):
+  annotation_path = Path(source_path) / annotation_name
 
-    valid_files = [f for f in folder_path.iterdir() if f.is_file() and f.suffix.lower() in allowed_extensions]
-    if not valid_files:
-        logger.warning(f"No valid files found in {folder_path}")
-        return None
-
-    latest_file = max(valid_files, key=lambda f: f.stat().st_mtime)
-    logger.info("Loading latest file: {}", latest_file.name)
-
-    try:
-        suffix = latest_file.suffix.lower()
-        if suffix == '.csv':
-            df = pd.read_csv(latest_file)
-            return {"csv": df}
-        
-        elif suffix == '.xlsb':
-                        
-            sheets_in_file = get_sheets_xlsb(latest_file)
-
-            if sheet_name is None:
-                sheets_to_load = sheets_in_file
-            elif isinstance(sheet_name, str):
-                sheets_to_load = [sheet_name]
-            else:
-                sheets_to_load = sheet_name
-
-            valid_sheets = [sheet for sheet in sheets_to_load if sheet in sheets_in_file] or sheets_in_file
-
-            data = {sheet: pd.read_excel(latest_file, sheet_name=sheet, engine='pyxlsb') for sheet in valid_sheets}
-
-            return data
-
-        else:
-            xls = pd.ExcelFile(latest_file)
-            sheets_in_file = xls.sheet_names
-
-            if sheet_name is None:
-                # Load all sheets
-                data = {sheet: xls.parse(sheet) for sheet in sheets_in_file}
-            else:
-                # Convert sheet name(s) into list
-                if isinstance(sheet_name, str):
-                    sheet_name = [sheet_name]
-
-                # Valid sheets
-                valid_sheets = [sheet for sheet in sheet_name if sheet in sheets_in_file]
-
-                if not valid_sheets:
-                    logger.warning("No requested sheets found in file. Loading all sheets instead.")
-                    data = {sheet: xls.parse(sheet) for sheet in sheets_in_file}
-                else:
-                    data = {sheet: xls.parse(sheet) for sheet in valid_sheets}
-
-            return data
-    except Exception as e:
-        logger.error("Failed to load {}: {}", latest_file.name, e)
-        raise TypeError(f"Failed to load {latest_file.name}: {e}")
+  #Load existing path annotations
+  if os.path.exists(annotation_path):
+      with open(annotation_path, "r", encoding="utf-8") as f:
+        path_annotation = json.load(f)
+      logger.debug("Loaded existing annotation file: {}", path_annotation)
+      return path_annotation
+  else:
+      logger.error("No existing annotation - please call dataLoader first...")
+      raise FileNotFoundError(f"No existing annotation - please call dataLoader first: {annotation_path}")

@@ -3,7 +3,7 @@ from agents.dashboardBuilder.visualize_data.shift_level_yield_analysis import cr
 from agents.dashboardBuilder.visualize_data.adapted_shift_level_yield_analysis import create_adapted_shift_level_yield_chart
 from agents.dashboardBuilder.visualize_data.machine_level_mold_analysis import create_machine_level_mold_analysis_chart
 from agents.dashboardBuilder.visualize_data.shift_level_mold_efficiency_analysis import create_shift_level_mold_efficiency_chart
-from agents.utils import load_latest_file_from_folder
+from agents.dataAnalytics.multiLevelDataAnalytics.day_level_data_analytics import DayLevelDataAnalytics
 from loguru import logger
 from pathlib import Path
 from datetime import datetime
@@ -11,53 +11,28 @@ import shutil
 import os
 
 class DayLevelDataPlotter:
-    def __init__(
-        self, 
-        data_source: str, 
-        selected_date: str,
-        default_dir: str = "agents/shared_db"
-    ):
+    def __init__(self, 
+                 selected_date: str,
+                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+                 annotation_name: str = "path_annotations.json",
+                 databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 default_dir: str = "agents/shared_db"):
 
         self.logger = logger.bind(class_="DayLevelDataPlotter")
 
-        self.data = load_latest_file_from_folder(data_source)
+        self.selected_date = selected_date
+        
+        self.day_level_data_analytics = DayLevelDataAnalytics(self.selected_date,
+                                                              source_path, 
+                                                              annotation_name,
+                                                              databaseSchemas_path,
+                                                              default_dir)
 
-        self.filtered = self.data.get('selectedDateFilter')
-        if self.filtered is None:
-            self.logger.error("❌ Sheet seletedDateFilter 'filtered' not found.")
-            raise ValueError("Sheet seletedDateFilter 'filtered' not found.")
-
-        self.summary = self.data.get('yieldByMachine')
-        if self.summary is None:
-            self.logger.error("❌ Sheet yieldByMachine 'summary' not found.")
-            raise ValueError("Sheet yieldByMachine 'summary' not found.")
-
-        self.shift_summary = self.data.get('yieldByShift')
-        if self.shift_summary is None:
-            self.logger.error("❌ Sheet yieldByShift 'shift_summary' not found.")
-            raise ValueError("Sheet yieldByShift 'shift_summary' not found.")
-
-        self.merged_count = self.data.get('usedMoldTrack')
-        if self.merged_count is None:
-            self.logger.error("❌ Sheet usedMoldTrack 'merged_count' not found.")
-            raise ValueError("Sheet usedMoldTrack 'merged_count' not found.")
-
-        self.mold_shots = self.data.get('moldShotPerShift')
-        if self.mold_shots is None:
-            self.logger.error("❌ Sheet moldShotPerShift 'mold_shots' not found.")
-            raise ValueError("Sheet moldShotPerShift 'mold_shots' not found.")
-
-        self.single_mold_df = self.data.get('singleMoldEfficiency')
-        if self.single_mold_df is None:
-            self.logger.error("❌ Sheet singleMoldEfficiency 'single_mold_df' not found.")
-            raise ValueError("Sheet singleMoldEfficiency 'single_mold_df' not found.")
+        (self.filtered, self.summary, self.shift_summary, 
+         self.merged_count, self.mold_shots, self.single_mold_df) = self.day_level_data_analytics.prepare_data()
 
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DayLevelDataPlotter"
-
-        self.selected_date = selected_date
-
-        self.plot_all()
 
     def plot_all(self, **kwargs):
 
@@ -90,7 +65,7 @@ class DayLevelDataPlotter:
                     logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
                 except Exception as e:
                     logger.error("Failed to move file {}: {}", f.name, e)
-                    raise TypeError(f"Failed to move file {f.name}: {e}")
+                    raise OSError(f"Failed to move file {f.name}: {e}")
     
         timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
         for data, name, func in plots_args:
@@ -104,11 +79,11 @@ class DayLevelDataPlotter:
               logger.info("✅ Created plot: {}", path)
           except Exception as e:
               logger.error("❌ Failed to create plot '{}'. Error: {}", name, str(e))
-              raise TypeError(f"Failed to create plot '{name}': {str(e)}")
+              raise OSError(f"Failed to create plot '{name}': {str(e)}")
         try:
             with open(log_path, "a", encoding="utf-8") as log_file:
                 log_file.writelines(log_entries)
             logger.info("Updated change log {}", log_path)
         except Exception as e:
             logger.error("Failed to update change log {}: {}", log_path, e)
-            raise TypeError(f"Failed to update change log {log_path}: {e}")
+            raise OSError(f"Failed to update change log {log_path}: {e}")

@@ -1,63 +1,52 @@
-from agents.utils import load_latest_file_from_folder, save_output_with_versioning
-from agents.dashboardBuilder.visualize_data.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes
 from pathlib import Path
 from loguru import logger
+from agents.utils import load_annotation_path, save_output_with_versioning
 import pandas as pd
+import os
 
-@validate_init_dataframes({
-    "productRecords_df": [
-            'machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity',
-            'recordDate', 'workingShift', 'moldNo', 'moldShot'
-        ],
-    "moldInfo_df": ['moldNo', 'moldCavityStandard', 'moldSettingCycle']
+@validate_init_dataframes(lambda self: {
+    "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
+    "moldInfo_df": list(self.databaseSchemas_data['statisticDB']['moldInfo']['dtypes'].keys()),
 })
+
 class DayLevelDataAnalytics:
     def __init__(self, 
-                 data_source: str, 
                  selected_date: str,
-                 default_dir="agents/shared_db"):
+                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+                 annotation_name: str = "path_annotations.json",
+                 databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 default_dir: str = "agents/shared_db"):
         
-        self.data = load_latest_file_from_folder(data_source)
-        self.moldInfo_df = self.data.get('moldInfo')
-        if self.moldInfo_df is None:
-            self.logger.error("❌ Sheet 'moldInfo' not found.")
-            raise ValueError("Sheet 'moldInfo' not found.")
+        self.logger = logger.bind(class_="DayLevelDataAnalytics")
 
-        self.productRecords_df = self.data.get('productRecords')
-        if self.productRecords_df is None:
-            self.logger.error("❌ Sheet 'productRecords' not found.")
-            raise ValueError("Sheet 'productRecords' not found.")
+        # Load database schema and database paths annotation
+        self.databaseSchemas_data = load_annotation_path(Path(databaseSchemas_path).parent, 
+                                                         Path(databaseSchemas_path).name)
+        self.path_annotation = load_annotation_path(source_path, 
+                                                    annotation_name)
 
-        self.moldInfo_df = self.data['moldInfo']
-        self.productRecords_df = self.data['productRecords']
+        # Extract productRecords DataFrame
+        productRecords_path = self.path_annotation.get('productRecords')
+        if not productRecords_path or not os.path.exists(productRecords_path):
+            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
+            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
+        self.productRecords_df = pd.read_parquet(productRecords_path)
+        logger.debug("productRecords: {} - {}", self.productRecords_df.shape, self.productRecords_df.columns)
+
+        
+        # Extract moldInfo DataFrame
+        moldInfo_path = self.path_annotation.get('moldInfo')
+        if not moldInfo_path or not os.path.exists(moldInfo_path):
+            self.logger.error("❌ Path to 'moldInfo' not found or does not exist.")
+            raise FileNotFoundError("Path to 'moldInfo' not found or does not exist.")
+        self.moldInfo_df = pd.read_parquet(moldInfo_path)
 
         self.selected_date = selected_date
         self.filename_prefix= "workingshift_level_analysis"
 
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DayLevelDataAnalytics"
-
-        self.logger = logger.bind(class_="DayLevelDataAnalytics")
-
-        (
-        self.filtered,
-        self.summary,
-        self.shift_summary,
-        self.merged_count,
-        self.mold_shots,
-        self.single_mold_df
-        ) = self.prepare_data()
-
-        self.data = {
-                    "selectedDateFilter": self.filtered,
-                    "yieldByMachine": self.summary, 
-                    "yieldByShift": self.shift_summary,
-                    "usedMoldTrack": self.merged_count,
-                    "moldShotPerShift": self.mold_shots,
-                    "singleMoldEfficiency": self.single_mold_df
-                    }
-
-        self.dayworkingshift_level_analysis()
 
     def prepare_data(self, **kwargs):
         df = self.productRecords_df.copy()
@@ -128,7 +117,25 @@ class DayLevelDataAnalytics:
             single_mold_df
         )
 
-    def dayworkingshift_level_analysis(self, **kwargs) -> None:
+    def report_dayworkingshift_level(self, **kwargs) -> None:
+        (
+        self.filtered,
+        self.summary,
+        self.shift_summary,
+        self.merged_count,
+        self.mold_shots,
+        self.single_mold_df
+        ) = self.prepare_data()
+
+        self.data = {
+                    "selectedDateFilter": self.filtered,
+                    "yieldByMachine": self.summary, 
+                    "yieldByShift": self.shift_summary,
+                    "usedMoldTrack": self.merged_count,
+                    "moldShotPerShift": self.mold_shots,
+                    "singleMoldEfficiency": self.single_mold_df
+                    }
+        
         logger.info("Start excel file exporting...")
         save_output_with_versioning(
             self.data,

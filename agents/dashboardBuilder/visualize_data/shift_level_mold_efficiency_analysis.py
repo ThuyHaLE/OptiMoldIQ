@@ -1,4 +1,4 @@
-from agents.dashboardBuilder.visualize_data.decorators import validate_dataframe, validate_input
+from agents.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
 import pandas as pd
 import numpy as np
@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from typing import Tuple
 
-@validate_input({"df": ['workingShift', 'machineNo', 'itemName', 'itemTotalQuantity',
+@validate_init_dataframes({"df": ['workingShift', 'machineNo', 'itemName', 'itemTotalQuantity',
                         'itemGoodQuantity', 'moldNo', 'moldShot', 'moldCavity',
                         'moldCavityStandard', 'moldSettingCycle', 'moldCount', 'moldCycle',
                         'moldCavityUtilizationRate', 'moldCavityGap', 'moldCycleEfficiency',

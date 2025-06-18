@@ -1,6 +1,6 @@
-from agents.dashboardBuilder.visualize_data.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
-from agents.utils import load_latest_file_from_folder
+from agents.utils import load_annotation_path
 from datetime import datetime
 from loguru import logger
 import pandas as pd
@@ -10,37 +10,44 @@ import shutil
 import math
 import os
 
-# Decorator to validate the required columns in input DataFrame
-@validate_init_dataframes({"productRecords_df": [
-    'machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity',
-    'recordDate', 'workingShift', 'moldNo', 'moldShot'
-]})
+@validate_init_dataframes(lambda self: {
+    "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
+})
+
 class UpdateHistMachineLayout():
-    def __init__(self, data_source: str,
-                 default_dir="agents/shared_db"):
+    def __init__(self, 
+                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+                 annotation_name: str = "path_annotations.json",
+                 databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 default_dir: str ="agents/shared_db"):
 
         self.logger = logger.bind(class_="UpdateHistMachineLayout")
 
-        # Load the most recent Excel file from the folder
-        self.data = load_latest_file_from_folder(data_source)
+        # Load database schema and database paths annotation
+        self.databaseSchemas_data = load_annotation_path(Path(databaseSchemas_path).parent, 
+                                                         Path(databaseSchemas_path).name)
+        self.path_annotation = load_annotation_path(source_path, 
+                                                    annotation_name)
 
         # Extract productRecords DataFrame
-        self.productRecords_df = self.data.get('productRecords')
-        if self.productRecords_df is None:
-            self.logger.error("❌ Sheet 'productRecords' not found.")
-            raise ValueError("Sheet 'productRecords' not found.")
+        productRecords_path = self.path_annotation.get('productRecords')
+        if not productRecords_path or not os.path.exists(productRecords_path):
+            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
+            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
+        self.productRecords_df = pd.read_parquet(productRecords_path)
 
         # Setup output directory and file prefix
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "UpdateHistMachineLayout"
         self.filename_prefix = "update_hist_machine_layout_record"
 
-        # Detect layout changes over time
-        self.layout_changes = self._record_hist_layout_changes(self.productRecords_df)
-        logger.debug("Layout changes updated: {}", self.layout_changes)
-        # Start update process
-        self.hist_machine_layout_record = self.update_layout_changes()
-        self.plot_all()
+    def update_and_plot(self, **kwargs):
+          # Detect layout changes over time
+          self.layout_changes = self._record_hist_layout_changes(self.productRecords_df)
+          logger.debug("Layout changes updated: {}", self.layout_changes)
+          # Start update process
+          self.hist_machine_layout_record = self.update_layout_changes()
+          self.plot_all()
 
     def update_layout_changes(self, **kwargs):
         hist_machine_layout_record = pd.DataFrame()
@@ -116,7 +123,8 @@ class UpdateHistMachineLayout():
                 merged[new_col] = None
 
             # Prefer new data over old
-            merged[date] = merged[new_col].combine_first(merged[old_col])
+            #merged[date] = merged[new_col].combine_first(merged[old_col])
+            merged[date] = merged[new_col].fillna(merged[old_col])
 
         # Update machineName (prefer new name)
         merged['machineName'] = merged['machineName_new'].combine_first(merged['machineName_old'])
@@ -224,7 +232,7 @@ class UpdateHistMachineLayout():
                   logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
               except Exception as e:
                   logger.error("Failed to move file {}: {}", f.name, e)
-                  raise TypeError(f"Failed to move file {f.name}: {e}")
+                  raise OSError(f"Failed to move file {f.name}: {e}")
   
       timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
       for data, name, func in plots_args:
@@ -242,14 +250,14 @@ class UpdateHistMachineLayout():
               logger.info("✅ Created plot: {}", path)
           except Exception as e:
               logger.error("❌ Failed to create file '{}'. Error: {}", name, str(e))
-              raise TypeError(f"Failed to create file '{name}': {str(e)}")
+              raise RuntimeError(f"Failed to create file '{name}': {str(e)}")
       try:
           with open(log_path, "a", encoding="utf-8") as log_file:
               log_file.writelines(log_entries)
           logger.info("Updated change log {}", log_path)
       except Exception as e:
           logger.error("Failed to update change log {}: {}", log_path, e)
-          raise TypeError(f"Failed to update change log {log_path}: {e}")
+          raise OSError(f"Failed to update change log {log_path}: {e}")
 
     @staticmethod
     def _plot_machine_timeline(df_melted,

@@ -5,7 +5,6 @@ from loguru import logger
 import tempfile
 import shutil
 import hashlib
-import pandas as pd
 from datetime import datetime, timedelta
 
 
@@ -115,8 +114,8 @@ class DataCollector:
                 merged_dfs.append(df_filtered)
                 
             except Exception as e:
-                logger.error("❌ Error reading {}: {}", f, e)
-                raise TypeError(f"Error reading {f}: {e}")
+                logger.error("❌ Failed to read file {}: {}", f, e)
+                raise OSError(f"Failed to read file {f}: {e}")
 
         if not merged_dfs:
             logger.info("No data to merge.")
@@ -231,7 +230,6 @@ class DataCollector:
                             'plasticResineLot': 'plasticResinLot'
                         }, inplace=True)
         df['recordDate'] = df['recordDate'].apply(lambda x: timedelta(days=x) + datetime(1899,12,30))
-        df['workingShift'] = df['workingShift'].str.upper()
       if db_name == "purchaseOrders":
         df[['poReceivedDate', 'poETA']] = df[['poReceivedDate', 
                                               'poETA']].apply(lambda col: pd.to_datetime(col, errors='coerce'))
@@ -240,6 +238,7 @@ class DataCollector:
       df[schema_data[db_name]['numeric_columns']] = df[schema_data[db_name]['numeric_columns']].apply(lambda col: pd.to_numeric(col, errors='coerce'))
       df = df.astype(schema_data[db_name]['dtypes'])
 
+      #Handle with specical cases
       for c in spec_cases:
         try:
           df[c] = pd.to_numeric(df[c], errors='coerce').astype("Int64").astype("string")
@@ -247,6 +246,10 @@ class DataCollector:
           if c in df.columns:
             df[c] =  df[c].astype("string")
 
+      if db_name == "productRecords": #working shifts with 1, 2, 3 and HC or hc
+          df['workingShift'] = df['workingShift'].str.upper()
+    
+      # fill null with same format pd.NA
       df.replace(check_null_str(df), pd.NA, inplace=True)
       df.fillna(pd.NA, inplace=True)
 

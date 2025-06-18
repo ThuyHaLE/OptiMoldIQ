@@ -1,11 +1,11 @@
-from agents.dashboardBuilder.visualize_data.decorators import validate_dataframe, validate_input
+from agents.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
 import pandas as pd
 from loguru import logger
 import matplotlib.pyplot as plt
 
 
-@validate_input({"df": ['machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity']})
+@validate_init_dataframes({"df": ['machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity']})
 def create_machine_level_yield_efficiency_chart(df: pd.DataFrame,
                                               file_path: str,
                                               sns_style: str = 'seaborn-v0_8',

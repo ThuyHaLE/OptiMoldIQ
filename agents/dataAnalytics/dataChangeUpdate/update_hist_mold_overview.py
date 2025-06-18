@@ -1,6 +1,6 @@
-from agents.dashboardBuilder.visualize_data.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
-from agents.utils import load_latest_file_from_folder
+from agents.utils import load_annotation_path
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,53 +10,56 @@ from datetime import datetime
 import shutil
 import os
 
-# Decorator to validate the required columns in input DataFrame
-@validate_init_dataframes({"productRecords_df": [
-    'machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity',
-    'recordDate', 'workingShift', 'moldNo', 'moldShot'
-]})
+@validate_init_dataframes(lambda self: {
+    "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
+    "moldInfo_df": list(self.databaseSchemas_data['statisticDB']['moldInfo']['dtypes'].keys()),
+    "machineInfo_df": list(self.databaseSchemas_data['statisticDB']['machineInfo']['dtypes'].keys()),
+})
+
 class UpdateHistMoldOverview():
-    def __init__(self, data_source: str,
-                 default_dir="agents/shared_db"):
+    def __init__(self, 
+                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+                 annotation_name: str = "path_annotations.json",
+                 databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 default_dir: str = "agents/shared_db"):
 
         self.logger = logger.bind(class_="UpdateHistMoldOverview")
 
-        # Load the most recent Excel file from the folder
-        self.data = load_latest_file_from_folder(data_source)
+        # Load database schema and database paths annotation
+        self.databaseSchemas_data = load_annotation_path(Path(databaseSchemas_path).parent, 
+                                                         Path(databaseSchemas_path).name)
+        self.path_annotation = load_annotation_path(source_path, 
+                                                    annotation_name)
 
         # Extract productRecords DataFrame
-        self.productRecords_df = self.data.get('productRecords')
-        if self.productRecords_df is None:
-            self.logger.error("❌ Sheet 'productRecords' not found.")
-            raise ValueError("Sheet 'productRecords' not found.")
+        productRecords_path = self.path_annotation.get('productRecords')
+        if not productRecords_path or not os.path.exists(productRecords_path):
+            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
+            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
+        self.productRecords_df = pd.read_parquet(productRecords_path)
+
         
         # Extract moldInfo DataFrame
-        self.moldInfo_df = self.data.get('moldInfo')
-        if self.moldInfo_df is None:
-            self.logger.error("❌ Sheet 'moldInfo' not found.")
-            raise ValueError("Sheet 'moldInfo' not found.")
+        moldInfo_path = self.path_annotation.get('moldInfo')
+        if not moldInfo_path or not os.path.exists(moldInfo_path):
+            self.logger.error("❌ Path to 'moldInfo' not found or does not exist.")
+            raise FileNotFoundError("Path to 'moldInfo' not found or does not exist.")
+        self.moldInfo_df = pd.read_parquet(moldInfo_path)
+
 
         # Extract machineInfo DataFrame
-        self.machineInfo_df = self.data.get('machineInfo')
-        if self.machineInfo_df is None:
-            self.logger.error("❌ Sheet 'machineInfo' not found.")
-            raise ValueError("Sheet 'machineInfo' not found.")
+        machineInfo_path = self.path_annotation.get('machineInfo')
+        if not machineInfo_path or not os.path.exists(machineInfo_path):
+            self.logger.error("❌ Path to 'machineInfo' not found or does not exist.")
+            raise FileNotFoundError("Path to 'machineInfo' not found or does not exist.")
+        self.machineInfo_df = pd.read_parquet(machineInfo_path)
 
         # Setup output directory and file prefix
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "UpdateHistMoldOverview"
         self.filename_prefix = "update_hist_mold_overview"
 
-        #Process data
-        (self.mold_machine_df, 
-         self.first_use_mold_df, self.paired_mold_machine_df, 
-         self. used_mold_machine_df, 
-         self.pivot_machine_mold, self.pivot_mold_machine) = self._process_data()
-
-        # Start update process
-        self.process_all()
-
-    def _process_data(self, **kwargs):
+    def process_data(self, **kwargs):
         mold_machine_df = pd.merge(pd.merge(self.productRecords_df[['recordDate', 'machineCode', 'moldNo']],
                                           self.moldInfo_df[['moldNo', 'machineTonnage',	'acquisitionDate']],
                                           on='moldNo'),
@@ -144,8 +147,16 @@ class UpdateHistMoldOverview():
             
         return mold_machine_df, first_use_mold_df, paired_mold_machine_df, used_mold_machine_df, pivot_machine_mold, pivot_mold_machine
 
-    def process_all(self, **kwargs):
+    def update_and_plot(self, **kwargs):
 
+        #Process data
+        logger.info("Data processing...")
+        (self.mold_machine_df, 
+         self.first_use_mold_df, self.paired_mold_machine_df, 
+         self. used_mold_machine_df, 
+         self.pivot_machine_mold, self.pivot_mold_machine) = self.process_data()
+        
+        #Plot data
         logger.info("Start charting...")
         plots_args = [
             (self.mold_machine_df[self.mold_machine_df['tonnageMatched'] == False], "Tonage_machine_mold_not_matched.xlsx", "Excel"),
@@ -184,7 +195,7 @@ class UpdateHistMoldOverview():
                     logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
                 except Exception as e:
                     logger.error("Failed to move file {}: {}", f.name, e)
-                    raise TypeError(f"Failed to move file {f.name}: {e}")
+                    raise OSError(f"Failed to move file {f.name}: {e}")
 
         timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
         for data, name, func in plots_args:
@@ -202,14 +213,14 @@ class UpdateHistMoldOverview():
                 logger.info("✅ Created plot: {}", path)
             except Exception as e:
                 logger.error("❌ Failed to create file '{}'. Error: {}", name, str(e))
-                raise TypeError(f"Failed to create file '{name}': {str(e)}")
+                raise OSError(f"Failed to create file '{name}': {str(e)}")
         try:
             with open(log_path, "a", encoding="utf-8") as log_file:
                 log_file.writelines(log_entries)
             logger.info("Updated change log {}", log_path)
         except Exception as e:
             logger.error("Failed to update change log {}: {}", log_path, e)
-            raise TypeError(f"Failed to update change log {log_path}: {e}")
+            raise OSError(f"Failed to update change log {log_path}: {e}")
 
     #Plot the top N molds with the most machine tonnage types.
     @staticmethod

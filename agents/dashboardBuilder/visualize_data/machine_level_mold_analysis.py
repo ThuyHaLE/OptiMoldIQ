@@ -1,4 +1,4 @@
-from agents.dashboardBuilder.visualize_data.decorators import validate_dataframe, validate_input
+from agents.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
 import pandas as pd
 import numpy as np
@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 from typing import Dict, Tuple, List
 
-@validate_input({
+@validate_init_dataframes({
     "moldInfo_moldCount_merged_productRecords_df": ['workingShift', 'machineNo', 'itemName', 'itemTotalQuantity',
                                                     'itemGoodQuantity', 'moldNo', 'moldShot', 'moldCavity',
                                                     'moldCavityStandard', 'moldSettingCycle', 'moldCount'],
