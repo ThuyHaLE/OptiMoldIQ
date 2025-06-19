@@ -9,29 +9,61 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v3
-
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
-
-      - name: 🧹 Cleanup shared_db
-        run: rm -rf tests/shared_db
-
-      - name: ⚙️ Step 1 - Set up shared_db
-        working-directory: ${{ github.workspace }}
-        run: pytest tests/set_up_shared_db/setup_shared_db.py
-
-      - name: 🧪 Step 2 - Run remaining tests
-        working-directory: ${{ github.workspace }}
-        run: pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+        
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: 🔍 Debug - Check current directory and fix path
+      run: |
+        echo "Initial working directory: $(pwd)"
+        ls -la
+        echo "Contents:"
+        find . -type f -name "*.py" | head -5
+        echo "Looking for agents folder..."
+        find . -name "agents" -type d
+        echo "Looking for tests folder..."
+        find . -name "tests" -type d
+        
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+        
+    - name: 🧹 Cleanup shared_db
+      run: rm -rf tests/shared_db
+      
+    - name: 🌍 Set PYTHONPATH correctly
+      run: |
+        # Find the correct directory containing agents and tests
+        if [ -d "agents" ] && [ -d "tests" ]; then
+          export CORRECT_PATH=$(pwd)
+        elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/tests" ]; then
+          export CORRECT_PATH=$(pwd)/OptiMoldIQ
+          cd OptiMoldIQ
+        else
+          echo "Error: Cannot find agents and tests directories"
+          exit 1
+        fi
+        
+        echo "PYTHONPATH=$CORRECT_PATH" >> $GITHUB_ENV
+        echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
+        echo "Set PYTHONPATH to: $CORRECT_PATH"
+        echo "Current directory: $(pwd)"
+        ls -la
+      
+    - name: ⚙️ Step 1 - Set up shared_db
+      run: |
+        echo "Current working directory: $(pwd)"
+        echo "Python path: $PYTHONPATH"
+        python -c "import sys; print('Python sys.path:', sys.path)"
+        pytest tests/set_up_shared_db/setup_shared_db.py -v
+        
+    - name: 🧪 Step 2 - Run remaining tests  
+      run: pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py -v
