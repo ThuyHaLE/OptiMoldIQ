@@ -1,5 +1,5 @@
-from agents.dataCollector import DataCollector
-from agents.dataLoader import DataLoaderAgent
+from agents.dataLoader.data_collector import DataCollector
+from agents.dataLoader.data_loader import DataLoaderAgent
 
 def test_data_collector_run():
     DataCollector(
