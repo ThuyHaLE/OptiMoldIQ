@@ -29,7 +29,7 @@ jobs:
         run: rm -rf tests/shared_db
 
       - name: ⚙️ Step 1 - Set up shared_db
-        run: pytest tests/setup_shared_db/setup_shared_db.py
+        run: pytest tests/set_up_shared_db/setup_shared_db.py
 
       - name: 🧪 Step 2 - Run remaining tests
-        run: pytest tests/ --ignore=tests/setup_shared_db/setup_shared_db.py
+        run: pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py
