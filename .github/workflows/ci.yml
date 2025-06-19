@@ -28,8 +28,11 @@ jobs:
       - name: 🧹 Cleanup shared_db
         run: rm -rf tests/shared_db
 
+      - name: 🌍 Set PYTHONPATH
+        run: echo "PYTHONPATH=." >> $GITHUB_ENV
+
       - name: ⚙️ Step 1 - Set up shared_db
-        run: PYTHONPATH=. pytest tests/set_up_shared_db/setup_shared_db.py
+        run: pytest tests/set_up_shared_db/setup_shared_db.py
 
       - name: 🧪 Step 2 - Run remaining tests
-        run: PYTHONPATH=. pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py
+        run: pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py
