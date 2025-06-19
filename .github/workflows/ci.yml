@@ -19,12 +19,12 @@ jobs:
       with:
         python-version: '3.11'
         
-    - name: 🔍 Debug - Check current directory and fix path
+    - name: 🔍 Debug - Check current directory and structure
       run: |
         echo "Initial working directory: $(pwd)"
         ls -la
         echo "Contents:"
-        find . -type f -name "*.py" | head -5
+        find . -type f -name "*.py" | head -10
         echo "Looking for agents folder..."
         find . -name "agents" -type d
         echo "Looking for tests folder..."
@@ -36,40 +36,50 @@ jobs:
         pip install -r requirements.txt
         pip install pytest
         
-    - name: 🧹 Cleanup shared_db
-      run: |
-        cd $WORKING_DIR
-        rm -rf tests/shared_db
-      
-    - name: 🌍 Set PYTHONPATH correctly
+    - name: 🌍 Set working directory and PYTHONPATH
       run: |
         # Find the correct directory containing agents and tests
         if [ -d "agents" ] && [ -d "tests" ]; then
-          export CORRECT_PATH=$(pwd)
+          CORRECT_PATH=$(pwd)
+          echo "Found agents and tests in root directory"
         elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/tests" ]; then
-          export CORRECT_PATH=$(pwd)/OptiMoldIQ
-          cd OptiMoldIQ
+          CORRECT_PATH=$(pwd)/OptiMoldIQ
+          echo "Found agents and tests in OptiMoldIQ subdirectory"
         else
           echo "Error: Cannot find agents and tests directories"
+          find . -name "agents" -o -name "tests" -type d
           exit 1
         fi
         
         echo "PYTHONPATH=$CORRECT_PATH" >> $GITHUB_ENV
         echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
         echo "Set PYTHONPATH to: $CORRECT_PATH"
-        echo "Current directory: $(pwd)"
+        
+    - name: 🧹 Cleanup shared_db
+      run: |
+        cd $WORKING_DIR
+        rm -rf tests/shared_db
+        echo "Cleaned up shared_db directory"
+      
+    - name: 🔧 Verify Python setup and imports
+      run: |
+        cd $WORKING_DIR
+        echo "Current working directory: $(pwd)"
+        echo "PYTHONPATH: $PYTHONPATH"
+        echo "Directory contents:"
         ls -la
+        echo "Python sys.path:"
+        python -c "import sys; print('\n'.join(sys.path))"
+        echo "Testing import with explicit path:"
+        PYTHONPATH=$WORKING_DIR python -c "import sys; sys.path.insert(0, '$WORKING_DIR'); import agents.dataCollector; print('✅ agents.dataCollector imported successfully')"
       
     - name: ⚙️ Step 1 - Set up shared_db
       run: |
         cd $WORKING_DIR
         echo "Working from directory: $(pwd)"
-        echo "Python path: $PYTHONPATH"
-        echo "Checking if agents module is accessible:"
-        python -c "import agents.dataCollector; print('✅ agents.dataCollector imported successfully')"
-        pytest tests/set_up_shared_db/setup_shared_db.py -v
+        PYTHONPATH=$WORKING_DIR python -m pytest tests/set_up_shared_db/setup_shared_db.py -v
         
     - name: 🧪 Step 2 - Run remaining tests  
       run: |
         cd $WORKING_DIR
-        pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py -v
+        PYTHONPATH=$WORKING_DIR python -m pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py -v
