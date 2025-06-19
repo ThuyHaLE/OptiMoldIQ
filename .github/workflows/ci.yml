@@ -9,30 +9,43 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v3
-
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
-
-      - name: 🧹 Cleanup shared_db
-        run: rm -rf tests/shared_db
-
-      - name: 🌍 Set PYTHONPATH
-        run: echo "PYTHONPATH=." >> $GITHUB_ENV
-
-      - name: ⚙️ Step 1 - Set up shared_db
-        run: pytest tests/set_up_shared_db/setup_shared_db.py
-
-      - name: 🧪 Step 2 - Run remaining tests
-        run: pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        path: '.'  # Checkout directly to current directory
+        
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: 🔍 Debug - Check current directory
+      run: |
+        pwd
+        ls -la
+        echo "Contents of current directory:"
+        find . -type f -name "*.py" | head -10
+        
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+        
+    - name: 🧹 Cleanup shared_db
+      run: rm -rf tests/shared_db
+      
+    - name: 🌍 Set PYTHONPATH
+      run: echo "PYTHONPATH=." >> $GITHUB_ENV
+      
+    - name: ⚙️ Step 1 - Set up shared_db
+      run: |
+        echo "Current working directory: $(pwd)"
+        echo "Python path: $PYTHONPATH"
+        python -c "import sys; print('Python sys.path:', sys.path)"
+        pytest tests/set_up_shared_db/setup_shared_db.py -v
+        
+    - name: 🧪 Step 2 - Run remaining tests  
+      run: pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py -v
