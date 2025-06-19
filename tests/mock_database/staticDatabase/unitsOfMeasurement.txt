@@ -1,0 +1,12 @@
+moldCavityStandard, pcs/mold
+moldCavityActual, pcs/mold
+moldCycle, second/mold
+machineTonnage, ton/mold
+plasticResinQuantity, KG/10000PCS
+colorMasterbatchQuantity, KG/10000PCS
+additiveMasterbatchQuantity, KG/10000PCS
+producingLeadtime, days
+pendingLeadtime, days
+proPlasticResinQuantity, KG/day
+proColorMasterbatchQuantity, KG/day
+proAdditiveMasterbatchQuantity, KG/day
