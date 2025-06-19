@@ -33,8 +33,17 @@ jobs:
     - name: 📦 Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest
+        # Install common data science packages that are likely needed
+        pip install pandas numpy scipy matplotlib seaborn scikit-learn
+        pip install pytest pytest-cov
+        # Install from requirements.txt if it exists and has content
+        if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+          echo "Installing from requirements.txt:"
+          cat requirements.txt
+          pip install -r requirements.txt
+        else
+          echo "requirements.txt is empty or doesn't exist"
+        fi
         
     - name: 🧹 Cleanup shared_db
       run: |
@@ -65,6 +74,7 @@ jobs:
         cd $WORKING_DIR
         echo "Working from directory: $(pwd)"
         echo "Python path: $PYTHONPATH"
+        export PYTHONPATH=$WORKING_DIR:$PYTHONPATH
         pytest tests/set_up_shared_db/setup_shared_db.py -v
         
     - name: 🧪 Step 2 - Run remaining tests  
@@ -72,4 +82,5 @@ jobs:
         cd $WORKING_DIR
         echo "Working from directory: $(pwd)"
         echo "Python path: $PYTHONPATH"
+        export PYTHONPATH=$WORKING_DIR:$PYTHONPATH
         pytest tests/ --ignore=tests/set_up_shared_db/setup_shared_db.py -v
