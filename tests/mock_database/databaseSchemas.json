@@ -1,7 +1,7 @@
 {
     "dynamicDB": {
         "productRecords": {
-            "path": "agents/shared_db/dynamicDatabase/productRecords.parquet",
+            "path": "tests/shared_db/dynamicDatabase/productRecords.parquet",
             "dtypes": {
                 "recordDate": "datetime64[ns]",
                 "workingShift": "string",
@@ -38,7 +38,7 @@
             }
         },
         "purchaseOrders": {
-            "path": "agents/shared_db/dynamicDatabase/purchaseOrders.parquet",
+            "path": "tests/shared_db/dynamicDatabase/purchaseOrders.parquet",
             "dtypes": {
                 "poReceivedDate": "datetime64[ns]",
                 "poNo": "string",
@@ -60,7 +60,7 @@
     },
     "statisticDB": {
         "itemCompositionSummary": {
-            "path": "database/staticDatabase/itemCompositionSummary.xlsx",
+            "path": "tests/mock_database/staticDatabase/itemCompositionSummary.xlsx",
             "dtypes": {
                 "itemCode": "string",
                 "itemName": "string",
@@ -76,14 +76,14 @@
             }
         },
         "itemInfo": {
-            "path": "database/staticDatabase/itemInfo.xlsx",
+            "path": "tests/mock_database/staticDatabase/itemInfo.xlsx",
             "dtypes": {
                 "itemCode": "string",
                 "itemName": "string"
             }
         },
         "machineInfo": {
-            "path": "database/staticDatabase/machineInfo.xlsx",
+            "path": "tests/mock_database/staticDatabase/machineInfo.xlsx",
             "dtypes": {
                 "machineNo": "string",
                 "machineCode": "string",
@@ -97,7 +97,7 @@
             }
         },
         "moldInfo": {
-            "path": "database/staticDatabase/moldInfo.xlsx",
+            "path": "tests/mock_database/staticDatabase/moldInfo.xlsx",
             "dtypes": {
                 "moldNo": "string",
                 "moldName": "string",
@@ -110,7 +110,7 @@
             }
         },
         "moldSpecificationSummary": {
-            "path": "database/staticDatabase/moldSpecificationSummary.xlsx",
+            "path": "tests/mock_database/staticDatabase/moldSpecificationSummary.xlsx",
             "dtypes": {
                 "itemCode": "string",
                 "itemName": "string",
@@ -120,7 +120,7 @@
             }
         },
         "resineInfo": {
-            "path": "database/staticDatabase/resineInfo.xlsx",
+            "path": "tests/mock_database/staticDatabase/resineInfo.xlsx",
             "dtypes": {
                 "resinCode": "string",
                 "resinName": "string",
