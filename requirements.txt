@@ -1,2 +1,20 @@
+# Excel & Parquet dependencies
+openpyxl
 pyxlsb
+pyarrow
+fastparquet
+
+# Common data packages
+pandas
+numpy
+scipy
+matplotlib
+seaborn
+scikit-learn
+
+# Testing
+pytest
+pytest-cov
+
+# Logging
 loguru

@@ -33,9 +33,6 @@ jobs:
     - name: 📦 Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # Install common data science packages that are likely needed
-        pip install pandas numpy scipy matplotlib seaborn scikit-learn
-        pip install pytest pytest-cov
         # Install from requirements.txt if it exists and has content
         if [ -f requirements.txt ] && [ -s requirements.txt ]; then
           echo "Installing from requirements.txt:"
