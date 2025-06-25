@@ -425,7 +425,7 @@ class AutoStatusAgent:
               series = pro_status_df[col]
               nas = series.isna().sum()
               nulls = series.isnull().sum()
-              # Sử dụng .apply để tránh lỗi do (pd.NA == pd.NA) trả về pd.NA
+              # Use .apply to deal with (pd.NA == pd.NA) return pd.NA
               pdna = series.apply(lambda x: x is pd.NA).sum()
               logger.debug(f"{col}: isna = {nas}, isnull = {nulls}, pd.NA (by identity) = {pdna}")
 
