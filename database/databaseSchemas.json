@@ -119,7 +119,7 @@
                 "moldList": "string"
             }
         },
-        "resineInfo": {
+        "resinInfo": {
             "path": "database/staticDatabase/resineInfo.xlsx",
             "dtypes": {
                 "resinCode": "string",

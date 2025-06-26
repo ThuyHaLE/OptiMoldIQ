@@ -119,7 +119,7 @@
                 "moldList": "string"
             }
         },
-        "resineInfo": {
+        "resinInfo": {
             "path": "tests/mock_database/staticDatabase/resineInfo.xlsx",
             "dtypes": {
                 "resinCode": "string",
