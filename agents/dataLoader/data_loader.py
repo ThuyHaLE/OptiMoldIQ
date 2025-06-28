@@ -161,9 +161,15 @@ class DataLoaderAgent:
                     if str(uniq).lower() in suspect_values:
                       nan_values.append(uniq)
               return list(set(nan_values))
+      
+      def safe_convert(x):
+        if pd.isna(x):
+            return x
+        if isinstance(x, (int, float)) and not pd.isna(x):
+            return str(int(x))
+        return str(x)
 
-      spec_cases = ['plasticResin', 'plasticResinCode', 'plasticResinLot', 'colorMasterbatch', 
-                    'colorMasterbatchCode', 'additiveMasterbatch', 'additiveMasterbatchCode']
+      spec_cases = ['plasticResinCode', 'colorMasterbatchCode', 'additiveMasterbatchCode']
 
       db_path = databaseSchemas_data[db_type][db_name]['path']
       try:
@@ -172,12 +178,13 @@ class DataLoaderAgent:
           logger.error("❌ Failed to read Excel at {}: {}", db_path, e)
           raise OSError(f"❌ Failed to read Excel at {db_path}: {e}")
 
+      #Handle with specical cases
       for c in spec_cases:
-              try:
-                df[c] = pd.to_numeric(df[c], errors='coerce').astype("Int64").astype("string")
-              except:
-                if c in df.columns:
-                  df[c] =  df[c].astype("string")
+        try:
+          df[c] = df[c].map(safe_convert)
+        except:
+          pass
+
       df = df.astype(databaseSchemas_data[db_type][db_name]['dtypes'])
       df.replace(check_null_str(df), pd.NA, inplace=True)
       df.fillna(pd.NA, inplace=True)

@@ -3,7 +3,6 @@ from pathlib import Path
 from loguru import logger
 from agents.utils import load_annotation_path, save_output_with_versioning
 import pandas as pd
-import numpy as np
 from typing import List
 import os
 
@@ -25,6 +24,7 @@ class StaticCrossDataChecker:
         
         self.logger = logger.bind(class_="StaticCrossDataChecker")
 
+        # Validate checking_df_name
         allowed_names = ["productRecords", "purchaseOrders"]
         invalid_names = [name for name in checking_df_name if name not in allowed_names]
         if invalid_names:
@@ -38,111 +38,88 @@ class StaticCrossDataChecker:
                                                          Path(databaseSchemas_path).name)
         self.path_annotation = load_annotation_path(source_path, 
                                                     annotation_name)
-        
-        # Extract itemInfo DataFrame
-        itemInfo_path = self.path_annotation.get('itemInfo')
-        if not itemInfo_path or not os.path.exists(itemInfo_path):
-            self.logger.error("❌ Path to 'itemInfo' not found or does not exist.")
-            raise FileNotFoundError("Path to 'itemInfo' not found or does not exist.")
-        self.itemInfo_df = pd.read_parquet(itemInfo_path)
-        self.logger.debug("itemInfo: {} - {}", self.itemInfo_df.shape, self.itemInfo_df.columns)
 
-        # Extract resinInfo DataFrame
-        resinInfo_path = self.path_annotation.get('resinInfo')
-        if not resinInfo_path or not os.path.exists(resinInfo_path):
-            self.logger.error("❌ Path to 'resinInfo' not found or does not exist.")
-            raise FileNotFoundError("Path to 'resinInfo' not found or does not exist.")
-        self.resinInfo_df = pd.read_parquet(resinInfo_path)
-        self.logger.debug("resinInfo: {} - {}", self.resinInfo_df.shape, self.resinInfo_df.columns)
-
-        # Extract itemCompositionSummary DataFrame
-        itemCompositionSummary_path = self.path_annotation.get('itemCompositionSummary')
-        if not itemCompositionSummary_path or not os.path.exists(itemCompositionSummary_path):
-            self.logger.error("❌ Path to 'itemCompositionSummary' not found or does not exist.")
-            raise FileNotFoundError("Path to 'itemCompositionSummary' not found or does not exist.")
-        self.itemCompositionSummary_df = pd.read_parquet(itemCompositionSummary_path)
-        self.logger.debug("itemCompositionSummary: {} - {}", self.itemCompositionSummary_df.shape, self.itemCompositionSummary_df.columns)
-
-        # Extract productRecords DataFrame
-        productRecords_path = self.path_annotation.get('productRecords')
-        if not productRecords_path or not os.path.exists(productRecords_path):
-            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
-            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
-        self.productRecords_df = pd.read_parquet(productRecords_path)
-        self.logger.debug("productRecords: {} - {}", self.productRecords_df.shape, self.productRecords_df.columns)
-
-        # Extract purchaseOrders DataFrame
-        purchaseOrders_path = self.path_annotation.get('purchaseOrders')
-        if not purchaseOrders_path or not os.path.exists(purchaseOrders_path):
-            self.logger.error("❌ Path to 'purchaseOrders' not found or does not exist.")
-            raise FileNotFoundError("Path to 'purchaseOrders' not found or does not exist.")
-        self.purchaseOrders_df = pd.read_parquet(purchaseOrders_path)
-        self.logger.debug("purchaseOrders: {} - {}", self.purchaseOrders_df.shape, self.purchaseOrders_df.columns)
-        
-        # Initialize ignored_pos set
-        self.ignored_pos = set()
+        # Load all required DataFrames
+        self._load_dataframes()
         
         self.filename_prefix = "static_cross_checker"
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "StaticCrossDataChecker"
 
-    def load_checking_data(self, checking_df_name):
+    def _load_dataframes(self):
+        """Load all required DataFrames with consistent error handling"""
+        dataframes_to_load = [
+            ('itemInfo', 'itemInfo_df'),
+            ('resinInfo', 'resinInfo_df'), 
+            ('itemCompositionSummary', 'itemCompositionSummary_df'),
+            ('productRecords', 'productRecords_df'),
+            ('purchaseOrders', 'purchaseOrders_df')
+        ]
+        
+        for path_key, attr_name in dataframes_to_load:
+            path = self.path_annotation.get(path_key)
+            if not path or not os.path.exists(path):
+                self.logger.error("❌ Path to '{}' not found or does not exist.", path_key)
+                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist.")
+            
+            df = pd.read_parquet(path)
+            setattr(self, attr_name, df)
+            self.logger.debug("{}: {} - {}", path_key, df.shape, df.columns)
+
+    def _process_checking_data(self, checking_df_name):
+        """Process checking data with consistent logic"""
         if checking_df_name == "productRecords":
             checking_df = self.productRecords_df.copy()
-            checking_df = checking_df[checking_df['poNote'].notna()]
+            # Remove null poNote and rename to poNo
+            checking_df = checking_df[checking_df['poNote'].notna()].copy()
             checking_df = checking_df.rename(columns={"poNote": "poNo"})
+            self.logger.info('Processed productRecords: removed null poNote, {} rows remaining', len(checking_df))
         elif checking_df_name == "purchaseOrders":
             checking_df = self.purchaseOrders_df.copy()
+            self.logger.info('Processed purchaseOrders: {} rows', len(checking_df))
         else:
             raise ValueError(f"Unknown checking_df_name: {checking_df_name}")
         return checking_df
-    
-    def run_static_validations(self, **kwargs):
-        """Run all validation checks with optimized flow"""
 
-        self.logger.info("Running optimized validation checks...")
-
+    def run_validations(self, **kwargs):
+        """Run all validation checks following PORequiredCriticalValidator pattern"""
+        self.logger.info("Starting static cross data validation...")
+        
         final_results = {}
 
         for df_name in self.checking_df_name:
-          checking_df = self.load_checking_data(df_name)
-          
-          # Check 1: Item Info validation
-          item_warnings = self.check_item_info_matches(checking_df)
-          self.logger.info("Found {} item info mismatches", len(item_warnings))
-          
-          # Check 2: Resin Info validation (ignore POs with item issues)
-          resin_warnings = self.check_resin_info_matches(checking_df)
-          self.logger.info("Found {} resin info mismatches", len(resin_warnings))
-          
-          # Check 3: Item Composition validation (ignore POs with item or resin issues)
-          composition_warnings = self.check_composition_matches(checking_df)
-          self.logger.info("Found {} composition mismatches", len(composition_warnings))
-          
-          # Calculate total ignored POs
-          ignored_pos_all = self.ignored_pos
-          
-          # Summary
-          results = {
-              'item_info_warnings': item_warnings,
-              'resin_info_warnings': resin_warnings,
-              'composition_warnings': composition_warnings
-          }
-          
-          self.logger.info("DONE: \n{}", results)
-          self.logger.info("\nSummary: \nItem Info mismatches: {} \nResin Info mismatches: {} \nComposition mismatches: {} \nTotal ignored POs: {}",
-                      len(item_warnings), len(resin_warnings), len(composition_warnings), len(ignored_pos_all))
-          
-          final_results[df_name] = results
+            self.logger.info("Processing validations for: {}", df_name)
+            checking_df = self._process_checking_data(df_name)
+            
+            # Run all validation checks
+            item_warnings = self._check_item_info_matches(df_name, checking_df)
+            resin_warnings = self._check_resin_info_matches(df_name, checking_df)
+            composition_warnings = self._check_composition_matches(df_name, checking_df)
+            
+            # Combine all warnings following PORequiredCriticalValidator pattern
+            all_warnings = item_warnings + resin_warnings + composition_warnings
+            
+            # Calculate summary statistics
+            total_warnings = len(all_warnings)
+            
+            self.logger.info("Summary for {}: Total warnings: {} (Item: {}, Resin: {}, Composition: {})",
+                            df_name, total_warnings, len(item_warnings), 
+                            len(resin_warnings), len(composition_warnings))
+            
+            # Store results as DataFrame (similar to PORequiredCriticalValidator)
+            final_results[df_name] = pd.DataFrame(all_warnings) if all_warnings else pd.DataFrame(
+                columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
 
         return final_results
 
-    def run_static_validations_and_save_results(self, **kwargs):
+    def run_validations_and_save_results(self, **kwargs):
+        """Run validations and save results following PORequiredCriticalValidator pattern"""
         self.data = {}
-        final_results = self.run_static_validations()
-
-        for df_name, results in final_results.items():
-            self.data[f"{df_name}"] = StaticCrossDataChecker._convert_dict_to_df(results)
+        final_results = self.run_validations()
+        
+        # Prepare data for saving (matching PORequiredCriticalValidator format)
+        for df_name, results_df in final_results.items():
+            self.data[f"{df_name}"] = results_df
         
         self.logger.info("Start excel file exporting...")
         save_output_with_versioning(
@@ -151,256 +128,238 @@ class StaticCrossDataChecker:
             self.filename_prefix,
         )
 
-    def check_item_info_matches(self, checking_df, **kwargs):
-        """Optimized check for itemCode + itemName matches in itemInfo"""
-        self.logger.info("Checking item info matches...")
+    def _check_item_info_matches(self, df_name, checking_df):
+        """Check for itemCode + itemName matches in itemInfo"""
+        self.logger.debug("Checking item info matches for {}", df_name)
         
-        (item_codes_set, item_names_set, 
-         item_pairs_set, item_pair_unique) = StaticCrossDataChecker._create_lookup_sets(
-            self.itemInfo_df, 'itemCode', 'itemName')
+        # Extract required fields
+        if df_name == "productRecords":
+          subset_fields = ['poNo', 'recordDate', 'workingShift', 'machineNo', 'itemCode', 'itemName']
+        elif df_name == "purchaseOrders":
+          subset_fields = ['poNo', 'itemCode', 'itemName']
+        else:
+          logger.error("Unknown df_name: {}", df_name)
+          raise ValueError(f"Unknown df_name: {df_name}")
 
-        po_subset = checking_df[['poNo', 'itemCode', 'itemName']].copy()
+        po_subset = checking_df[subset_fields].dropna(subset=['itemCode', 'itemName']).copy()
         
-        # Single merge operation with indicator
-        merged = po_subset.merge(
-            item_pair_unique,
-            on=['itemCode', 'itemName'],
-            how='left',
-            indicator=True
-        )
+        if po_subset.empty:
+            return []
         
-        # Filter mismatches
+        # Create reference lookup
+        item_pairs = self.itemInfo_df[['itemCode', 'itemName']].drop_duplicates()
+        
+        # Find mismatches using merge
+        merged = po_subset.merge(item_pairs, on=['itemCode', 'itemName'], how='left', indicator=True)
         mismatches = merged[merged['_merge'] == 'left_only'].drop('_merge', axis=1)
         
         if mismatches.empty:
             return []
         
-        # Vectorized mismatch type determination
-        code_exists = mismatches['itemCode'].isin(item_codes_set)
-        name_exists = mismatches['itemName'].isin(item_names_set)
-        
-        # Determine mismatch types
-        conditions = [
-            ~code_exists & ~name_exists,
-            code_exists | name_exists
-        ]
-        choices = ['new_item_to_add', 'code_name_mismatch']
-        actions = [f'update_itemInfo_or_double_check_{self.checking_df_name}', f'double_check_{self.checking_df_name}']
-        
-        mismatches['mismatchType'] = np.select(conditions, choices, default='')
-        mismatches['requiredAction'] = np.select(conditions, actions, default='')
-        
-        # Create messages - Fixed string concatenation
-        mismatches['message'] = (
-            "(" + mismatches['poNo'].astype(str) + ", " + 
-            mismatches['itemCode'].astype(str) + ", " + 
-            mismatches['itemName'].astype(str) + ") mismatch: " + 
-            mismatches['mismatchType'].astype(str) + " - required action: " + 
-            mismatches['requiredAction'].astype(str)
-        )
+        # Process warnings using static method
+        return self._process_item_warnings(mismatches, df_name)
 
-        item_warnings = mismatches.to_dict('records')
-
-        # Update ignored POs
-        self.ignored_pos.update(warning["poNo"] for warning in item_warnings)
+    def _check_resin_info_matches(self, df_name, checking_df):
+        """Check for resinCode + resinName matches in resinInfo"""
+        self.logger.debug("Checking resin info matches for {}", df_name)
         
-        return item_warnings
-
-    def check_resin_info_matches(self, checking_df, **kwargs):
-        """Optimized check for resin code + resin name matches"""
-        self.logger.info("Checking resin info matches...")
-
-        (resin_codes_set, resin_names_set, 
-         resin_pairs_set, resin_pair_unique) = StaticCrossDataChecker._create_lookup_sets(
-            self.resinInfo_df, 'resinCode', 'resinName')
-        
-        # Filter out ignored POs
-        filtered_po = checking_df[~checking_df['poNo'].isin(self.ignored_pos)].copy()
-        
-        if filtered_po.empty:
-            return []
-        
-        all_mismatches = []
-        
-        # Define resin types with their columns
         resin_configs = [
             ('plasticResinCode', 'plasticResin'),
             ('colorMasterbatchCode', 'colorMasterbatch'),
             ('additiveMasterbatchCode', 'additiveMasterbatch')
         ]
         
-        for code_col, name_col in resin_configs:
-            # Skip if columns don't exist
-            if code_col not in filtered_po.columns or name_col not in filtered_po.columns:
+        all_resin_warnings = []
+        
+        for code_field, name_field in resin_configs:
+            if code_field not in checking_df.columns or name_field not in checking_df.columns:
                 continue
-            
-            # Only check rows with both code and name (non-empty)
-            mask = (
-                (filtered_po[code_col] != '') & 
-                (filtered_po[name_col] != '') &
-                filtered_po[code_col].notna() & 
-                filtered_po[name_col].notna()
-            )
-            po_subset = filtered_po[mask][['poNo', code_col, name_col]].copy()
-            
-            if po_subset.empty:
-                continue
-            
-            # Check matches using vectorized operations
-            po_subset['code_exists'] = po_subset[code_col].isin(resin_codes_set)
-            po_subset['name_exists'] = po_subset[name_col].isin(resin_names_set)
-            
-            # More efficient pair checking using apply
-            po_subset['pair_exists'] = po_subset.apply(
-                lambda row: (row[code_col], row[name_col]) in resin_pairs_set, 
-                axis=1
-            )
-            
-            # Filter mismatches
-            mismatches = po_subset[~po_subset['pair_exists']].copy()
-            
-            if mismatches.empty:
-                continue
-            
-            # Determine mismatch types
-            conditions = [
-                ~mismatches['code_exists'] & ~mismatches['name_exists'],
-                mismatches['code_exists'] | mismatches['name_exists']
-            ]
-            choices = ['new_resin_to_add', 'code_name_mismatch']
-            actions = [f'update_resinInfo_or_double_check_{self.checking_df_name}', f'double_check_{self.checking_df_name}'] 
-            
-            mismatches['mismatchType'] = np.select(conditions, choices, default='')
-            mismatches['requiredAction'] = np.select(conditions, actions, default='')
-            
-            # Create messages - Fixed string concatenation
-            mismatches['message'] = (
-                "(" + mismatches['poNo'].astype(str) + ", " + 
-                mismatches[code_col].astype(str) + ", " + 
-                mismatches[name_col].astype(str) + ") mismatch: " + 
-                mismatches['mismatchType'].astype(str) + " - required action: " + 
-                mismatches['requiredAction'].astype(str)
-            )
-            
-            # Standardize column names for output
-            result_data = mismatches.rename(columns={
-                code_col: 'resinCode',
-                name_col: 'resinName'
-            })[['poNo', 'resinCode', 'resinName', 'mismatchType', 'requiredAction', 'message']]
-            
-            all_mismatches.extend(result_data.to_dict('records'))
+                
+            # Extract required fields
+            if df_name == "productRecords":
+              subset_fields = ['poNo', 'recordDate', 'workingShift', 'machineNo']
+            elif df_name == "purchaseOrders":
+              subset_fields = ['poNo']
+            else:
+              logger.error("Unknown df_name: {}", df_name)
+              raise ValueError(f"Unknown df_name: {df_name}")
 
-        # Update ignored POs based on resin warnings
-        if all_mismatches:
-            ignored_pos_resin = {warning["poNo"] for warning in all_mismatches}
-            self.ignored_pos.update(ignored_pos_resin)
+            # Extract and clean data
+            resin_subset = checking_df[subset_fields + [code_field, name_field]].copy()
+            resin_subset = resin_subset.dropna(subset=[code_field, name_field], how='all')
+            resin_subset = resin_subset.rename(columns={code_field: 'resinCode', name_field: 'resinName'})
+            
+            if resin_subset.empty:
+                continue
+            
+            # Create reference lookup
+            resin_pairs = self.resinInfo_df[['resinCode', 'resinName']].drop_duplicates()
+            
+            # Find mismatches
+            merged = resin_subset.merge(resin_pairs, on=['resinCode', 'resinName'], how='left', indicator=True)
+            mismatches = merged[merged['_merge'] == 'left_only'].drop('_merge', axis=1)
+            
+            if not mismatches.empty:
+                # Add plastic type context
+                mismatches['plasticType'] = name_field
+                warnings = self._process_resin_warnings(mismatches, df_name)
+                all_resin_warnings.extend(warnings)
         
-        return all_mismatches
+        return all_resin_warnings
 
-    def check_composition_matches(self, checking_df, **kwargs):
-        """Optimized check for item composition matches"""
-        self.logger.info("Checking composition matches...")
+    def _check_composition_matches(self, df_name, checking_df):
+        """Check for item composition matches"""
+        self.logger.debug("Checking composition matches for {}", df_name)
         
-        # Filter out ignored POs
-        filtered_po = checking_df[~checking_df['poNo'].isin(self.ignored_pos)].copy()
-        
-        if filtered_po.empty:
-            return []
-        
-        # Define columns to check for composition
         composition_cols = [
             'itemCode', 'itemName', 'plasticResinCode', 'plasticResin',
             'colorMasterbatchCode', 'colorMasterbatch', 
             'additiveMasterbatchCode', 'additiveMasterbatch'
         ]
+
+        # Extract required fields
+        if df_name == "productRecords":
+          subset_fields = ['poNo', 'recordDate', 'workingShift', 'machineNo']
+        elif df_name == "purchaseOrders":
+          subset_fields = ['poNo']
+        else:
+          logger.error("Unknown df_name: {}", df_name)
+          raise ValueError(f"Unknown df_name: {df_name}")
+          
+        # Extract composition data
+        po_subset = checking_df[subset_fields + composition_cols].dropna(subset=composition_cols, how='all').copy()
         
-        # Filter columns that exist in both dataframes
-        available_cols = [
-            col for col in composition_cols 
-            if col in filtered_po.columns and col in self.itemCompositionSummary_df.columns
-        ]
-        
-        if not available_cols:
+        if po_subset.empty:
             return []
         
-        # Use merge for efficient matching
-        merged = filtered_po[['poNo'] + available_cols].merge(
-            self.itemCompositionSummary_df[available_cols].drop_duplicates(),
-            on=available_cols,
-            how='left',
-            indicator=True
-        )
+        # Create reference lookup
+        composition_pairs = self.itemCompositionSummary_df[composition_cols].drop_duplicates()
         
-        # Filter mismatches
-        mismatches = merged[merged['_merge'] == 'left_only'].copy()
+        # Find mismatches
+        merged = po_subset.merge(composition_pairs, on=composition_cols, how='left', indicator=True)
+        mismatches = merged[merged['_merge'] == 'left_only'].drop('_merge', axis=1)
         
         if mismatches.empty:
             return []
         
-        # Check for partial matches to determine mismatch type
-        has_any_match = pd.Series([False] * len(mismatches))
-        
-        for col in available_cols:
-            comp_values = set(self.itemCompositionSummary_df[col].unique())
-            has_any_match |= mismatches[col].isin(comp_values)
-        
-        # Determine mismatch types
-        conditions = [
-            ~has_any_match,
-            has_any_match
-        ]
-        choices = ['new_item_composition_to_add', 'code_name_mismatch']
-        actions = [f'update_itemCompositionSummary_or_double_check_{self.checking_df_name}', f'double_check_{self.checking_df_name}'] 
-        
-        mismatches['mismatchType'] = np.select(conditions, choices, default='')
-        mismatches['requiredAction'] = np.select(conditions, actions, default='')
-        
-        # Create messages - Fixed string concatenation
-        mismatches['message'] = (
-            "(" + mismatches['poNo'].astype(str) + ", " + 
-            mismatches['itemCode'].astype(str) + ", " + 
-            mismatches['itemName'].astype(str) + ") mismatch: " + 
-            mismatches['mismatchType'].astype(str) + " - required action: " + 
-            mismatches['requiredAction'].astype(str)
-        )
-        
-        return mismatches[['poNo', 'itemCode', 'itemName', 'mismatchType', 'requiredAction', 'message']].to_dict('records')
+        return self._process_composition_warnings(mismatches, df_name, composition_cols)
 
     @staticmethod
-    def _create_lookup_sets(df, field_name_1, field_name_2):
-        """Create lookup sets for O(1) validation"""
-        # Validate data
-        for field_name in [field_name_1, field_name_2]:
-            if field_name not in df.columns:
-                logger.error("Field '{}' does not exist in DataFrame.", field_name)
-                raise KeyError(f"Field '{field_name}' does not exist in DataFrame.")
-                
-        # Create lookup sets
-        field_name_1_set = set(df[field_name_1].dropna())
-        field_name_2_set = set(df[field_name_2].dropna())
-        pairs_set = set(zip(df[field_name_1], df[field_name_2]))
+    def _process_item_warnings(mismatches_df, df_name):
+        """Process item info warnings following PORequiredCriticalValidator pattern"""
+        results = []
         
-        # Pre-deduplicated dataframes for merging
-        pair_unique = df[[field_name_1, field_name_2]].drop_duplicates()
-
-        return field_name_1_set, field_name_2_set, pairs_set, pair_unique
+        for _, row in mismatches_df.iterrows():
+            if df_name == "productRecords":
+              poNo = row['poNo']
+              recordDate = row['recordDate']
+              workingShift = row['workingShift']
+              machineNo = row['machineNo']
+              itemCode = row['itemCode']
+              itemName = row['itemName']
+              context_info = f"{poNo}, {recordDate}, {workingShift}, {machineNo}, {itemCode}, {itemName}"
+            elif df_name == "purchaseOrders":
+              poNo = row['poNo']
+              itemCode = row['itemCode']
+              itemName = row['itemName']
+              context_info = f"{poNo}, {itemCode}, {itemName}"
+            else:
+              logger.error("Unknown df_name: {}", df_name)
+              raise ValueError(f"Unknown df_name: {df_name}")
+            
+            # Determine mismatch type (simplified logic)
+            mismatch_type = 'item_code_and_name_not_matched'
+            required_action = f'update_itemInfo_or_double_check_{df_name}'
+            
+            message = f"({context_info}) mismatch: {mismatch_type} - required action: {required_action}"
+            
+            entry = {
+                'poNo': poNo,
+                'warningType': 'item_info_warnings',
+                'mismatchType': mismatch_type,
+                'requiredAction': required_action,
+                'message': message
+            }
+            
+            results.append(entry)
+        
+        return results
 
     @staticmethod
-    def _convert_dict_to_df(warning_dict):
-        """Convert warning dictionary to DataFrame"""
-        rows = []
-        for warning_type, warnings in warning_dict.items():
-            for entry in warnings:
-                rows.append({
-                    'poNo': entry.get('poNo', ''),
-                    'warningType': warning_type,
-                    'mismatchType': entry.get('mismatchType', ''),
-                    'requiredAction': entry.get('requiredAction', ''),
-                    'message': entry.get('message', '')
-                })
-        warnings_df = pd.DataFrame(rows)
+    def _process_resin_warnings(mismatches_df, df_name):
+        """Process resin info warnings following PORequiredCriticalValidator pattern"""
+        results = []
+        
+        for _, row in mismatches_df.iterrows():
+            if df_name == "productRecords":
+              poNo = row['poNo']
+              recordDate = row['recordDate']
+              workingShift = row['workingShift']
+              machineNo = row['machineNo']
+              resinCode = row['resinCode']
+              resinName = row['resinName']
+              context_info = f"{poNo}, {recordDate}, {workingShift}, {machineNo}, {resinCode}, {resinName}"
+            elif df_name == "purchaseOrders":
+              poNo = row['poNo']
+              resinCode = row['resinCode']
+              resinName = row['resinName']
+              context_info = f"{poNo}, {resinCode}, {resinName}"
+            else:
+              logger.error("Unknown df_name: {}", df_name)
+              raise ValueError(f"Unknown df_name: {df_name}")
+              
+            mismatch_type = 'resin_code_and_name_not_matched'
+            required_action = f'update_resinInfo_or_double_check_{df_name}'
+            
+            message = f"({context_info}) mismatch: {mismatch_type} - required action: {required_action}"
+            
+            entry = {
+                'poNo': poNo,
+                'warningType': 'resin_info_warnings',
+                'mismatchType': mismatch_type,
+                'requiredAction': required_action,
+                'message': message
+            }
+            
+            results.append(entry)
+        
+        return results
 
-        if not rows:
-            return pd.DataFrame(columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
-
-        return warnings_df
+    @staticmethod
+    def _process_composition_warnings(mismatches_df, df_name, composition_fields):
+        """Process composition warnings following PORequiredCriticalValidator pattern"""
+        results = []
+        for _, row in mismatches_df.iterrows():
+            if df_name == "productRecords":
+              poNo = row['poNo']
+              recordDate = row['recordDate']
+              workingShift = row['workingShift']
+              machineNo = row['machineNo']
+              context_info = f"{poNo}, {recordDate}, {workingShift}, {machineNo}"
+              detail_info = ", ".join([row[field] if pd.notna(row[field]) else '' for field in composition_fields])
+              
+            elif df_name == "purchaseOrders":
+              poNo = row['poNo']
+              context_info = f"{poNo}"
+              detail_info = ", ".join([row[field] if pd.notna(row[field]) else '' for field in composition_fields])
+              
+            else:
+              logger.error("Unknown df_name: {}", df_name)
+              raise ValueError(f"Unknown df_name: {df_name}")
+            
+            mismatch_type = 'item_composition_not_match'
+            required_action = f'update_itemCompositionSummary_or_double_check_{df_name}'
+            
+            message = f"({context_info} --> {detail_info}) mismatch: {mismatch_type} - required action: {required_action}"
+            
+            entry = {
+                'poNo': poNo,
+                'warningType': 'composition_warnings',
+                'mismatchType': mismatch_type,
+                'requiredAction': required_action,
+                'message': message
+            }
+            
+            results.append(entry)
+        
+        return results

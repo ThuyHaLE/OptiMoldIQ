@@ -198,8 +198,14 @@ class DataCollector:
                 nan_values.append(uniq)
         return list(set(nan_values))
 
-      spec_cases = ['plasticResin', 'plasticResinCode', 'plasticResinLot', 'colorMasterbatch', 
-                    'colorMasterbatchCode', 'additiveMasterbatch', 'additiveMasterbatchCode']
+      def safe_convert(x):
+        if pd.isna(x):
+            return x
+        if isinstance(x, (int, float)) and not pd.isna(x):
+            return str(int(x))
+        return str(x)
+
+      spec_cases = ['plasticResinCode', 'colorMasterbatchCode', 'additiveMasterbatchCode']
 
       schema_data = {
           'productRecords': {
@@ -209,17 +215,20 @@ class DataCollector:
                         'colorChanged': "string", 'moldChanged': "string", 'machineChanged': "string", 
                         'poNote': "string", 'moldNo': "string", 'moldShot': "Int64", 'moldCavity': "Int64", 
                         'itemTotalQuantity': "Int64", 'itemGoodQuantity': "Int64", 
+                        'plasticResinCode': 'string', 'colorMasterbatchCode': 'string', 'additiveMasterbatchCode': 'string',
+                        'plasticResin': 'string', 'colorMasterbatch': 'string', "additiveMasterbatch": 'string', 'plasticResinLot': 'string',
                         'itemBlackSpot': "Int64", 'itemOilDeposit': "Int64", 'itemScratch': "Int64", 'itemCrack': "Int64", 'itemSinkMark': "Int64", 
-                        'itemShort': "Int64", 'itemBurst': "Int64", 'itemBend': "Int64", 'itemStain': "Int64", 'otherNG': "Int64"},
-              'numeric_columns': ['moldShot', 'moldCavity', 'itemTotalQuantity', 'itemGoodQuantity', 
-                        'itemBlackSpot', 'itemOilDeposit', 'itemScratch', 'itemCrack', 'itemSinkMark', 
-                        'itemShort', 'itemBurst', 'itemBend', 'itemStain', 'otherNG']},
+                        'itemShort': "Int64", 'itemBurst': "Int64", 'itemBend': "Int64", 'itemStain': "Int64", 'otherNG': "Int64",
+                         }
+              },
           'purchaseOrders': {
               'dtypes': {'poNo': "string", 'itemCode': "string", 'itemName': "string", 
-                        'plasticResinQuantity': "Float64", 
-                        'colorMasterbatchQuantity': "Float64", 
-                        'additiveMasterbatchQuantity': "Float64"},
-              'numeric_columns': ['itemQuantity', 'plasticResinQuantity', 'colorMasterbatchQuantity', 'additiveMasterbatchQuantity']}
+                         'plasticResin': 'string', 'colorMasterbatch': 'string', "additiveMasterbatch": 'string',
+                         'plasticResinCode': 'string', 'colorMasterbatchCode': 'string', 'additiveMasterbatchCode': 'string',
+                         'plasticResinQuantity': "Float64", 
+                         'colorMasterbatchQuantity': "Float64", 
+                         'additiveMasterbatchQuantity': "Float64"},
+              }
       }
 
       db_name = Path(summary_file_path).name.replace('.parquet', '')
@@ -234,18 +243,11 @@ class DataCollector:
         df[['poReceivedDate', 'poETA']] = df[['poReceivedDate', 
                                               'poETA']].apply(lambda col: pd.to_datetime(col, errors='coerce'))
 
-
-      df[schema_data[db_name]['numeric_columns']] = df[schema_data[db_name]['numeric_columns']].apply(lambda col: pd.to_numeric(col, errors='coerce'))
-      df = df.astype(schema_data[db_name]['dtypes'])
-
       #Handle with specical cases
       for c in spec_cases:
-        try:
-          df[c] = pd.to_numeric(df[c], errors='coerce').astype("Int64").astype("string")
-        except:
-          if c in df.columns:
-            df[c] =  df[c].astype("string")
+        df[c] = df[c].map(safe_convert)
 
+      df = df.astype(schema_data[db_name]['dtypes'])
       if db_name == "productRecords": #working shifts with 1, 2, 3 and HC or hc
           df['workingShift'] = df['workingShift'].str.upper()
     
