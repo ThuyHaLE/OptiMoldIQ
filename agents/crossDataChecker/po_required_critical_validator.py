@@ -112,8 +112,7 @@ class PORequiredCriticalValidator:
         # Process invalid PO warnings if any exist
         invalid_po_warnings = []
         if invalid_poNo_list:
-            invalid_po_warnings = PORequiredCriticalValidator._process_invalid_po_warnings(invalid_productRecords, 
-                                                                                           invalid_poNo_list)
+            invalid_po_warnings = PORequiredCriticalValidator._process_invalid_po_warnings(invalid_productRecords)
 
         # Combine only invalid warnings
         all_invalid_warnings = invalid_field_warnings + invalid_po_warnings
@@ -187,7 +186,7 @@ class PORequiredCriticalValidator:
         return results
 
     @staticmethod
-    def _process_invalid_po_warnings(invalid_productRecords, invalid_poNo_list):
+    def _process_invalid_po_warnings(invalid_productRecords):
         invalid_results = []
         
         for _, row in invalid_productRecords.iterrows():
