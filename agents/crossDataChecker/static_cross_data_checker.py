@@ -252,7 +252,7 @@ class StaticCrossDataChecker:
         for _, row in mismatches_df.iterrows():
             if df_name == "productRecords":
               poNo = row['poNo']
-              recordDate = row['recordDate']
+              recordDate = row['recordDate'].strftime('%Y-%m-%d')
               workingShift = row['workingShift']
               machineNo = row['machineNo']
               itemCode = row['itemCode']
@@ -293,7 +293,7 @@ class StaticCrossDataChecker:
         for _, row in mismatches_df.iterrows():
             if df_name == "productRecords":
               poNo = row['poNo']
-              recordDate = row['recordDate']
+              recordDate = row['recordDate'].strftime('%Y-%m-%d')
               workingShift = row['workingShift']
               machineNo = row['machineNo']
               resinCode = row['resinCode']
@@ -332,7 +332,7 @@ class StaticCrossDataChecker:
         for _, row in mismatches_df.iterrows():
             if df_name == "productRecords":
               poNo = row['poNo']
-              recordDate = row['recordDate']
+              recordDate = row['recordDate'].strftime('%Y-%m-%d')
               workingShift = row['workingShift']
               machineNo = row['machineNo']
               context_info = f"{poNo}, {recordDate}, {workingShift}, {machineNo}"
@@ -347,7 +347,7 @@ class StaticCrossDataChecker:
               logger.error("Unknown df_name: {}", df_name)
               raise ValueError(f"Unknown df_name: {df_name}")
             
-            mismatch_type = 'item_composition_not_match'
+            mismatch_type = 'item_composition_not_matched'
             required_action = f'update_itemCompositionSummary_or_double_check_{df_name}'
             
             message = f"({context_info} --> {detail_info}) mismatch: {mismatch_type} - required action: {required_action}"

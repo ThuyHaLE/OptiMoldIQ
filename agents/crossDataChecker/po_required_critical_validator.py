@@ -149,7 +149,7 @@ class PORequiredCriticalValidator:
         
         for _, row in merged_df.iterrows():
             poNo = row['poNo']
-            recordDate = row['recordDate']
+            recordDate = row['recordDate'].strftime('%Y-%m-%d')
             workingShift = row['workingShift']
             machineNo = row['machineNo']
             
@@ -191,7 +191,7 @@ class PORequiredCriticalValidator:
         
         for _, row in invalid_productRecords.iterrows():
             poNo = row['poNo']
-            recordDate = row['recordDate']
+            recordDate = row['recordDate'].strftime('%Y-%m-%d')
             workingShift = row['workingShift']
             machineNo = row['machineNo']
 
