@@ -372,7 +372,7 @@ class StaticCrossDataChecker:
         # Validate data
         for field_name in [field_name_1, field_name_2]:
             if field_name not in df.columns:
-                self.logger.error("Field '{}' does not exist in DataFrame.", field_name)
+                logger.error("Field '{}' does not exist in DataFrame.", field_name)
                 raise KeyError(f"Field '{field_name}' does not exist in DataFrame.")
                 
         # Create lookup sets
