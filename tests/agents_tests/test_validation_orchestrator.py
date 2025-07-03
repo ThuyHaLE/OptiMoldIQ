@@ -1,4 +1,4 @@
-from agents.crossDataChecker.dynamic_cross_data_validator import ValidationOrchestrator
+from agents.crossDataChecker.validation_orchestrator import ValidationOrchestrator
 
 def test_validation_orchestrator():
     validation_orchestrator = ValidationOrchestrator(source_path = 'tests/shared_db/DataLoaderAgent/newest',
