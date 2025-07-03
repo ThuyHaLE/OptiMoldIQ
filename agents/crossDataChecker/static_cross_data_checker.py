@@ -268,15 +268,15 @@ class StaticCrossDataChecker:
               raise ValueError(f"Unknown df_name: {df_name}")
             
             # Determine mismatch type (simplified logic)
-            mismatch_type = 'item_code_and_name_not_matched'
+            mismatch_type = f'{itemCode}_and_{itemName}_not_matched'
             required_action = f'update_itemInfo_or_double_check_{df_name}'
             
-            message = f"({context_info}) mismatch: {mismatch_type} - required action: {required_action}"
+            message = f"({context_info}) - Mismatch: {mismatch_type}. Please {required_action}"
             
             entry = {
                 'poNo': poNo,
                 'warningType': 'item_info_warnings',
-                'mismatchType': mismatch_type,
+                'mismatchType': 'item_code_and_name_not_matched',
                 'requiredAction': required_action,
                 'message': message
             }
@@ -308,15 +308,15 @@ class StaticCrossDataChecker:
               logger.error("Unknown df_name: {}", df_name)
               raise ValueError(f"Unknown df_name: {df_name}")
               
-            mismatch_type = 'resin_code_and_name_not_matched'
+            mismatch_type = f'{resinCode}_and_{resinName}_not_matched'
             required_action = f'update_resinInfo_or_double_check_{df_name}'
             
-            message = f"({context_info}) mismatch: {mismatch_type} - required action: {required_action}"
+            message = f"({context_info}) - Mismatch: {mismatch_type}. Please {required_action}"
             
             entry = {
                 'poNo': poNo,
                 'warningType': 'resin_info_warnings',
-                'mismatchType': mismatch_type,
+                'mismatchType': 'resin_code_and_name_not_matched',
                 'requiredAction': required_action,
                 'message': message
             }
@@ -347,15 +347,15 @@ class StaticCrossDataChecker:
               logger.error("Unknown df_name: {}", df_name)
               raise ValueError(f"Unknown df_name: {df_name}")
             
-            mismatch_type = 'item_composition_not_matched'
+            mismatch_type = f'{detail_info}_not_matched'
             required_action = f'update_itemCompositionSummary_or_double_check_{df_name}'
             
-            message = f"({context_info} --> {detail_info}) mismatch: {mismatch_type} - required action: {required_action}"
+            message = f"({context_info}) - Mismatch: {mismatch_type} - Please: {required_action}"
             
             entry = {
                 'poNo': poNo,
                 'warningType': 'composition_warnings',
-                'mismatchType': mismatch_type,
+                'mismatchType': 'item_composition_not_matched',
                 'requiredAction': required_action,
                 'message': message
             }

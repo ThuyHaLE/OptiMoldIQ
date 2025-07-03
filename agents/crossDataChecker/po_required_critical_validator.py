@@ -160,9 +160,6 @@ class PORequiredCriticalValidator:
                     if not row[f'{col}_match']:
                         mismatched_cols.append(col)
                 
-                mismatch_type = ', '.join(mismatched_cols)
-                required_action = f"please check the poNo, there is not matching in {mismatch_type}"
-                
                 # Create message with mismatch details
                 mismatch_details = []
                 for col in mismatched_cols:
@@ -170,12 +167,15 @@ class PORequiredCriticalValidator:
                     po_val = row[f'{col}_purchaseOrders']
                     mismatch_details.append(f"{col}: {pr_val} vs {po_val}")
                 
+                mismatch_type = f"PO was produced incorrectly with purchaseOrders. Details: {('_'.join(mismatched_cols)) + '_not_matched'}"
+                required_action = 'stop progressing or double check productRecords'
+
                 context_info = f"{poNo}, {recordDate}, {workingShift}, {machineNo}"
-                message = f"({context_info}, {', '.join(mismatch_details)}) mismatch: {mismatch_type} - required action: {required_action}"
+                message = f"({context_info}) - Mismatch: {', '.join(mismatch_details)}. Please {required_action}"
                 
                 entry = {
                     'poNo': poNo,
-                    'warningType': 'invalid',
+                    'warningType': 'product_info_not_matched',
                     'mismatchType': mismatch_type,
                     'requiredAction': required_action,
                     'message': message
@@ -195,16 +195,16 @@ class PORequiredCriticalValidator:
             workingShift = row['workingShift']
             machineNo = row['machineNo']
 
-            mismatch_type = 'This order does not exist.'
-            required_action = 'Stop progressing or double check poNo'
+            mismatch_type = f'{poNo} does not exist in purchaseOrders.'
+            required_action = 'stop progressing or double check productRecords'
 
             context_info = f"{poNo}, {recordDate}, {workingShift}, {machineNo}"
-            message = f"({context_info}, This order does not exist.) mismatch: {mismatch_type} - required action: {required_action}"
+            message = f"({context_info}) - Mismatch: {mismatch_type} . Please {required_action}"
             
             entry = {
                 'poNo': poNo,
-                'warningType': 'invalid',
-                'mismatchType': mismatch_type,
+                'warningType': 'PO_invalid',
+                'mismatchType': 'PO does not exist in purchaseOrders.',
                 'requiredAction': required_action,
                 'message': message
             }
