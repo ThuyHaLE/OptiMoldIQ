@@ -456,15 +456,15 @@ class DynamicCrossDataValidator:
             item_name = row.get('itemName', 'N/A')
             context_info = f"{po_no}, {record_date}, {working_shift}, {machine_no}, {item_code}, {item_name}"
 
-            mismatch_type = f'{item_code}_and_{item_name}_not_matched'
+            mismatch_type = f'({item_code}, {item_name})_not_matched'
             required_action = 'update_itemInfo_or_double_check_productRecords'
 
             message = f"({context_info}) - Mismatch: {mismatch_type}. Please {required_action}"
 
             entry = {
                 'poNo': po_no,
-                'warningType': 'item_info_warnings',
-                'mismatchType': 'item_code_and_name_not_matched',
+                'warningType': 'item_warnings',
+                'mismatchType': 'item_info_not_matched',
                 'requiredAction': required_action,
                 'message': message
             }
