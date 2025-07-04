@@ -5,7 +5,9 @@ from agents.utils import load_annotation_path, save_output_with_versioning
 import pandas as pd
 from pandas.api.types import is_object_dtype
 from datetime import datetime, timedelta
+from typing import Optional
 import os
+import re
 
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
@@ -18,6 +20,8 @@ class AutoStatusAgent:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 folder_path: str = 'agents/shared_db/ValidationOrchestrator', 
+                 target_name: str = "change_log.txt",
                  default_dir: str = "agents/shared_db"):
         
         self.logger = logger.bind(class_="AutoStatusAgent")
@@ -73,6 +77,9 @@ class AutoStatusAgent:
         self.moldSpecificationSummary_df = pd.read_parquet(moldSpecificationSummary_path)
         logger.debug("moldSpecificationSummary: {} - {}", self.moldSpecificationSummary_df.shape, self.moldSpecificationSummary_df.columns)
 
+        self.folder_path = folder_path
+        self.target_name = target_name
+
         self.filename_prefix= "auto_status"
 
         self.default_dir = Path(default_dir)
@@ -93,11 +100,15 @@ class AutoStatusAgent:
                                               producing_po_list, 
                                               self.pro_status_dtypes)
         
+        warning_merge_dict, total_warnings = AutoStatusAgent._get_change(self.folder_path, self.target_name)
+        updated_pro_status_df = AutoStatusAgent._add_warning_notes_column(pro_status_df, warning_merge_dict)
 
         self.data = {
-                    "productionStatus": pro_status_df,
+                    "productionStatus": updated_pro_status_df,
                     "notWorkingStatus": notWorking_productRecords_df, 
                     }
+        if total_warnings:
+            self.data.update(total_warnings)
         
         logger.info("Start excel file exporting...")
         save_output_with_versioning(
@@ -433,3 +444,150 @@ class AutoStatusAgent:
         f"Missing expected fields in final dataframe: {set(pro_status_fields) - set(pro_status_df.columns)}"
 
       return pro_status_df[pro_status_fields]
+
+    def _data_collecting(excel_file):
+      result = {}
+      xls = pd.ExcelFile(excel_file)
+
+      for f_name in xls.sheet_names:
+        df = pd.read_excel(excel_file, sheet_name=f_name)
+        result[f_name] = df
+
+      return result
+    
+    @staticmethod
+    def _aggregate_po_mismatches(df):
+
+        grouped = df.groupby(['poNo', 'mismatchType']).size().reset_index(name='count')
+        
+        result = {}
+        for _, row in grouped.iterrows():
+            po_no = row['poNo']
+            mismatch_type = row['mismatchType']
+            count = row['count']
+            
+            if po_no not in result:
+                result[po_no] = {}
+            result[po_no][mismatch_type] = count
+        
+        for po_no, mismatches in result.items():
+            total_issues = sum(mismatches.values())
+            for mismatch_type, count in mismatches.items():
+                logger.info("{} - Mismatch: {} - Ratio: {}/{}", po_no, mismatch_type, count, total_issues)
+                
+        return result
+
+    @staticmethod
+    def _extract_latest_saved_file(log_text: str) -> Optional[str]:
+
+        if not log_text.strip():
+            return None
+        
+        # Pattern to match timestamp and content blocks
+        pattern = r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\](.*?)(?=\n\[|$)'
+        matches = re.findall(pattern, log_text, flags=re.DOTALL)
+
+        if not matches:
+            return None
+
+        log_blocks = {}
+        for ts_str, content in matches:
+            log_blocks[ts_str] = content.strip()
+
+        # Find the latest timestamp
+        latest_ts_str = max(log_blocks, key=lambda ts: datetime.strptime(ts, '%Y-%m-%d %H:%M:%S'))
+        latest_block = log_blocks[latest_ts_str]
+
+        # Look for saved file pattern
+        saved_file_match = re.search(r'⤷ Saved new file: (.+)', latest_block)
+        if saved_file_match:
+            return saved_file_match.group(1).strip()
+        
+        return None
+
+    @staticmethod
+    def _read_change_log(folder_path, target_name):
+
+        # Check if folder exists
+        if not os.path.isdir(folder_path):
+            logger.warning("Directory does not exist: {}", folder_path)
+            return None
+        
+        file_path = os.path.join(folder_path, target_name)
+        
+        # Check if file exists
+        if not os.path.isfile(file_path):
+            logger.warning("Could not find '{}' in folder {}", target_name, folder_path)
+            return None
+        
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                log_text = f.read()
+                newest_file_name = AutoStatusAgent._extract_latest_saved_file(log_text)
+                
+                if newest_file_name:
+                    return os.path.join(folder_path, newest_file_name)
+                else:
+                    logger.warning("No file information found saved in '{}'", target_name)
+                    return None
+                    
+        except Exception as e:
+            logger.error("Error reading file '{}': {}", target_name, str(e))
+            raise
+
+    @staticmethod
+    def _get_change(folder_path, target_name):
+
+        try:
+            excel_file = AutoStatusAgent._read_change_log(folder_path, target_name)
+            
+            if excel_file is None:
+                logger.info("No change log file found, returning empty warnings")
+                return {}, {}
+            
+            total_warnings = AutoStatusAgent._data_collecting(excel_file)
+            
+            if not total_warnings:
+                logger.info("No warnings found in change log")
+                return {}, {}
+            
+            if 'po_mismatch_warnings' in total_warnings:
+                po_mismatch_df = total_warnings['po_mismatch_warnings']
+                
+                # Validate the DataFrame before processing
+                if po_mismatch_df.empty:
+                    logger.warning("po_mismatch_warnings DataFrame is empty")
+                    return {}, total_warnings
+                
+                # Check required columns exist
+                required_columns = ['poNo', 'mismatchType']
+                missing_cols = set(required_columns) - set(po_mismatch_df.columns)
+                if missing_cols:
+                    logger.error("Missing required columns in po_mismatch_warnings: {}", missing_cols)
+                    return {}, total_warnings
+                
+                warning_merge_dict = AutoStatusAgent._aggregate_po_mismatches(po_mismatch_df)
+                return warning_merge_dict, total_warnings
+            else:
+                logger.info("No po_mismatch_warnings found in change log")
+                return {}, total_warnings
+                
+        except Exception as e:
+            logger.error("Error processing change log: {}", str(e))
+            return {}, {}
+
+    @staticmethod
+    def _add_warning_notes_column(df, warning_dict):
+
+        df = df.copy()
+
+        if warning_dict:
+            def get_warning_notes(po):
+                if po in warning_dict:
+                    return "; ".join(warning_dict[po].keys())
+                else:
+                    return ""
+
+            df["warningNotes"] = df["poNo"].apply(get_warning_notes)
+
+        return df

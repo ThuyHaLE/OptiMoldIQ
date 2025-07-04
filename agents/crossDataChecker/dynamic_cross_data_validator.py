@@ -17,19 +17,19 @@ from typing import Dict, Tuple, Any, List
 class DynamicCrossDataValidator:
     """
     A validator class for cross-referencing production records with standard reference data.
-    
+
     This class validates that production records (items, molds, machines, compositions)
     match against standard reference data and generates detailed warnings for mismatches.
     """
-    
-    def __init__(self, 
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+
+    def __init__(self,
+                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
                  default_dir: str = "agents/shared_db"):
         """
         Initialize the validator with data paths and load required dataframes.
-        
+
         Args:
             source_path: Path to the data source directory
             annotation_name: Name of the path annotations file
@@ -40,14 +40,14 @@ class DynamicCrossDataValidator:
 
         # Load database schema and database paths annotation
         self.databaseSchemas_data = load_annotation_path(
-            Path(databaseSchemas_path).parent, 
+            Path(databaseSchemas_path).parent,
             Path(databaseSchemas_path).name
         )
         self.path_annotation = load_annotation_path(source_path, annotation_name)
 
         # Load all required DataFrames
         self._load_dataframes()
-        
+
         self.filename_prefix = "dynamic_cross_validator"
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DynamicCrossDataValidator"
@@ -56,18 +56,18 @@ class DynamicCrossDataValidator:
         """Load all required DataFrames with consistent error handling"""
         dataframes_to_load = [
             ('productRecords', 'productRecords_df'),
-            ('machineInfo', 'machineInfo_df'), 
+            ('machineInfo', 'machineInfo_df'),
             ('moldSpecificationSummary', 'moldSpecificationSummary_df'),
             ('moldInfo', 'moldInfo_df'),
             ('itemCompositionSummary', 'itemCompositionSummary_df')
         ]
-        
+
         for path_key, attr_name in dataframes_to_load:
             path = self.path_annotation.get(path_key)
             if not path or not os.path.exists(path):
                 self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
                 raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
-            
+
             try:
                 df = pd.read_parquet(path)
                 setattr(self, attr_name, df)
@@ -79,24 +79,24 @@ class DynamicCrossDataValidator:
     def run_validations(self, **kwargs) -> Dict[str, Any]:
         """
         Run all validation checks and return comprehensive results.
-        
+
         Returns:
             Dict containing validation results, warnings, and statistics
         """
         self.logger.info("Starting dynamic cross data validation...")
-        
+
         try:
             # Prepare data
             self.logger.info("Preparing production data...")
             production_df = self._prepare_production_data(
-                self.productRecords_df, 
+                self.productRecords_df,
                 self.machineInfo_df
             )
 
             self.logger.info("Preparing standard reference data...")
             standard_df, total_invalids = self._prepare_standard_data(
-                self.moldSpecificationSummary_df, 
-                self.moldInfo_df, 
+                self.moldSpecificationSummary_df,
+                self.moldInfo_df,
                 self.itemCompositionSummary_df
             )
 
@@ -113,38 +113,43 @@ class DynamicCrossDataValidator:
             results['mismatch_warnings'] = mismatch_warnings
             results['invalid_warnings'] = invalid_warnings
 
-            return results
-            
+            return DynamicCrossDataValidator._convert_results(results)
+
         except Exception as e:
             self.logger.error("❌ Validation failed: {}", str(e))
             raise
 
+    @staticmethod
+    def _convert_results(results):
+      final_results = {}
+      # Handle invalid warnings với proper column structure
+      if results['invalid_warnings']['invalid_item']:
+          final_results['invalid_warnings'] = pd.DataFrame(results['invalid_warnings']['invalid_item'])
+      else:
+          final_results['invalid_warnings'] = DynamicCrossDataValidator._create_empty_warning_dataframe('invalid')
+
+      # Handle mismatch warnings với proper column structure
+      all_mismatch_warnings = []
+      for warning_type, warnings in results['mismatch_warnings'].items():
+          all_mismatch_warnings.extend(warnings)
+
+      if all_mismatch_warnings:
+          final_results['mismatch_warnings'] = pd.DataFrame(all_mismatch_warnings)
+      else:
+          final_results['mismatch_warnings'] = DynamicCrossDataValidator._create_empty_warning_dataframe('mismatch')
+
+      return final_results
+
     def run_validations_and_save_results(self, **kwargs) -> None:
-        """Run validations and save results to Excel files"""
+        """Run validations and save results to Excel files - Improved version"""
         try:
-            final_results = self.run_validations(**kwargs)
-            
-            # Prepare data for export
-            self.data = {}
-            
-            # Handle invalid warnings
-            if final_results['invalid_warnings']['invalid_item']:
-                self.data['invalid_warnings'] = pd.DataFrame(
-                    final_results['invalid_warnings']['invalid_item']
-                )
-            else:
-                self.data['invalid_warnings'] = pd.DataFrame()
-            
-            # Handle mismatch warnings
-            all_mismatch_warnings = []
-            for warning_type, warnings in final_results['mismatch_warnings'].items():
-                all_mismatch_warnings.extend(warnings)
-            
-            if all_mismatch_warnings:
-                self.data['mismatch_warnings'] = pd.DataFrame(all_mismatch_warnings)
-            else:
-                self.data['mismatch_warnings'] = pd.DataFrame()
-            
+            self.data = self.run_validations(**kwargs)
+
+            # Log summary thông tin
+            self.logger.info("Validation Summary:")
+            self.logger.info("- Invalid warnings: {} items", len(self.data['invalid_warnings']))
+            self.logger.info("- Mismatch warnings: {} items", len(self.data['mismatch_warnings']))
+
             self.logger.info("Exporting results to Excel...")
             save_output_with_versioning(
                 self.data,
@@ -152,7 +157,7 @@ class DynamicCrossDataValidator:
                 self.filename_prefix,
             )
             self.logger.info("Results exported successfully!")
-            
+
         except Exception as e:
             self.logger.error("Failed to save results: {}", str(e))
             raise
@@ -161,16 +166,16 @@ class DynamicCrossDataValidator:
     def _check_invalid(df: pd.DataFrame) -> Dict[str, List[str]]:
         """
         Check for invalid (null) values in critical columns.
-        
+
         Args:
             df: DataFrame to check
-            
+
         Returns:
             Dictionary with lists of invalid item codes and names
         """
         invalid_rows = df[df.isnull().any(axis=1)].copy()
         invalid_details = {'itemCode': [], 'itemName': []}
-        
+
         for r in invalid_rows.index:
             for c in df.columns:
                 if pd.isnull(df.at[r, c]):
@@ -178,7 +183,7 @@ class DynamicCrossDataValidator:
 
                     item_code = df.at[r, 'itemCode']
                     item_name = df.at[r, 'itemName']
-                    
+
                     if item_code not in invalid_details['itemCode']:
                         invalid_details['itemCode'].append(item_code)
                     if item_name not in invalid_details['itemName']:
@@ -190,10 +195,10 @@ class DynamicCrossDataValidator:
     def _build_component_string(row: pd.Series) -> str:
         """
         Build component string from plastic resin, color masterbatch, and additive masterbatch.
-        
+
         Args:
             row: DataFrame row containing component information
-            
+
         Returns:
             Formatted component string or pd.NA if required fields are missing
         """
@@ -215,22 +220,22 @@ class DynamicCrossDataValidator:
 
         return " | ".join(parts)
 
-    def _prepare_production_data(self, productRecords_df: pd.DataFrame, 
+    def _prepare_production_data(self, productRecords_df: pd.DataFrame,
                                machineInfo_df: pd.DataFrame) -> pd.DataFrame:
         """
         Prepare production data for matching by merging product records with machine info.
-        
+
         Args:
             productRecords_df: Product records DataFrame
             machineInfo_df: Machine information DataFrame
-            
+
         Returns:
             Prepared production DataFrame
         """
         # Load and filter product records
         product_df = productRecords_df.copy()
         product_df = product_df[product_df['poNote'].notna()].reset_index(drop=True)
-        
+
         self.logger.debug("Filtered product records: {:,} rows", len(product_df))
 
         # Build item composition
@@ -256,7 +261,7 @@ class DynamicCrossDataValidator:
 
         # Convert machineTonnage to string for consistent matching
         result_df['machineTonnage'] = result_df['machineTonnage'].astype(str)
-        
+
         self.logger.debug("Production data prepared: {:,} rows", len(result_df))
         return result_df
 
@@ -264,32 +269,33 @@ class DynamicCrossDataValidator:
     def _process_invalid_item_warnings(invalid_details: Dict[str, Dict[str, List[str]]]) -> Dict[str, List[Dict[str, Any]]]:
         """
         Process invalid item warnings from null value checks.
-        
+
         Args:
             invalid_details: Dictionary containing invalid item details by database
-            
+
         Returns:
             Dictionary with processed invalid item warnings
         """
+        # Initialize với empty list thay vì để trống
         invalid_results = {"invalid_item": []}
 
         for df_name, invalid_data in invalid_details.items():
             if not invalid_data['itemCode'] and not invalid_data['itemName']:
                 continue
-                
+
             # Create combinations of invalid codes and names
             invalid_items = set()
             for code in invalid_data['itemCode']:
                 for name in invalid_data['itemName']:
                     invalid_items.add((code, name))
-            
+
             for item_code, item_name in invalid_items:
                 context_info = [item_code, item_name]
                 mismatch_type = f"{'_and_'.join(context_info)}_does_not_exist_in_{df_name}"
                 required_action = f"update_{df_name}_or_double_check_related_databases"
 
                 message = f"({', '.join(context_info)}) - Mismatch: {mismatch_type}. Please {required_action}"
-                
+
                 entry = {
                     'itemInfo': ', '.join(context_info),
                     'warningType': f'item_invalid_in_{df_name}',
@@ -297,27 +303,27 @@ class DynamicCrossDataValidator:
                     'requiredAction': required_action,
                     'message': message
                 }
-                    
+
                 invalid_results["invalid_item"].append(entry)
 
         return invalid_results
 
-    def _prepare_standard_data(self, moldSpecificationSummary_df: pd.DataFrame, 
-                             moldInfo_df: pd.DataFrame, 
+    def _prepare_standard_data(self, moldSpecificationSummary_df: pd.DataFrame,
+                             moldInfo_df: pd.DataFrame,
                              itemCompositionSummary_df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Dict[str, List[str]]]]:
         """
         Prepare standard reference data by processing and merging mold specs, mold info, and item compositions.
-        
+
         Args:
             moldSpecificationSummary_df: Mold specification summary DataFrame
-            moldInfo_df: Mold information DataFrame  
+            moldInfo_df: Mold information DataFrame
             itemCompositionSummary_df: Item composition summary DataFrame
-            
+
         Returns:
             Tuple of (standard_df, total_invalids)
         """
         total_invalids = {}
-        
+
         # Process mold specifications
         mold_spec_df = moldSpecificationSummary_df.copy()
         mold_spec_df = mold_spec_df.rename(columns={"moldList": "moldNo"})
@@ -332,12 +338,12 @@ class DynamicCrossDataValidator:
             on='moldNo',
             how='left'
         )
-        
+
         # Check for invalid combinations
         invalids = self._check_invalid(mold_machine_df)
         if invalids['itemCode'] or invalids['itemName']:
             self.logger.warning(
-                'Invalid items found in mold specifications: codes={}, names={}', 
+                'Invalid items found in mold specifications: codes={}, names={}',
                 invalids['itemCode'], invalids['itemName']
             )
         total_invalids['moldSpecificationSummary_and_moldInfo'] = invalids
@@ -368,19 +374,19 @@ class DynamicCrossDataValidator:
             on=['itemCode', 'itemName'],
             how='left'
         )
-        
+
         # Check for invalid combinations in final merge
         second_invalids = self._check_invalid(standard_df)
         if second_invalids['itemCode'] or second_invalids['itemName']:
             self.logger.warning(
-                'Invalid items found in item compositions: codes={}, names={}', 
+                'Invalid items found in item compositions: codes={}, names={}',
                 second_invalids['itemCode'], second_invalids['itemName']
             )
         total_invalids['itemCompositionSummary'] = second_invalids
 
         standard_df = standard_df.dropna()
         standard_df = standard_df.explode('item_composition')
-        
+
         self.logger.debug("Standard data prepared: {:,} rows", len(standard_df))
         return standard_df[['itemCode', 'itemName', 'moldNo', 'machineTonnage', 'item_composition']], total_invalids
 
@@ -388,11 +394,11 @@ class DynamicCrossDataValidator:
     def _analyze_mismatches(production_df: pd.DataFrame, standard_df: pd.DataFrame) -> Dict[str, Any]:
         """
         Analyze mismatches between production and standard data at multiple levels.
-        
+
         Args:
             production_df: Production data DataFrame
             standard_df: Standard reference data DataFrame
-            
+
         Returns:
             Dictionary containing mismatch analysis results
         """
@@ -422,7 +428,7 @@ class DynamicCrossDataValidator:
 
             not_matched = mismatches[mismatches['_merge'] == 'left_only'][cols]
             results[f'not_matched_{level}'] = not_matched
-            
+
             logger.debug(f"Level {level}: {len(not_matched)} mismatches found")
 
         # Find detailed records that don't match
@@ -495,8 +501,8 @@ class DynamicCrossDataValidator:
 
             entry = {
                 'poNo': po_no,
-                'warningType': 'mold_warnings',
-                'mismatchType': 'mold_and_item_not_matched',
+                'warningType': 'item_mold_warnings',
+                'mismatchType': 'item_and_mold_not_matched',
                 'requiredAction': required_action,
                 'message': message
             }
@@ -528,7 +534,7 @@ class DynamicCrossDataValidator:
 
             entry = {
                 'poNo': po_no,
-                'warningType': 'machine_warnings',
+                'warningType': 'mold_machine_tonnage_warnings',
                 'mismatchType': 'mold_and_machine_tonnage_not_matched',
                 'requiredAction': required_action,
                 'message': message
@@ -560,7 +566,7 @@ class DynamicCrossDataValidator:
 
             entry = {
                 'poNo': po_no,
-                'warningType': 'composition_warnings',
+                'warningType': 'item_composition_warnings',
                 'mismatchType': 'item_and_item_composition_not_matched',
                 'requiredAction': required_action,
                 'message': message
@@ -574,13 +580,14 @@ class DynamicCrossDataValidator:
     def _generate_warnings(results: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
         """
         Generate warnings for all mismatch types.
-        
+
         Args:
             results: Dictionary containing mismatch analysis results
-            
+
         Returns:
             Dictionary with categorized warnings
         """
+        # Initialize với empty lists thay vì để trống
         warnings = {
             'item_warnings': [],
             'mold_warnings': [],
@@ -592,14 +599,14 @@ class DynamicCrossDataValidator:
 
         if len(not_matched_records) == 0:
             logger.info("No mismatches found - all records validated successfully!")
-            return warnings
-        
+            return warnings  # Trả về dict với empty lists, không phải dict rỗng
+
         # Generate warnings for each category
         warning_configs = [
             ('item_warnings', 'not_matched_items', DynamicCrossDataValidator._process_item_warnings),
-            ('mold_warnings', 'not_matched_molds', DynamicCrossDataValidator._process_mold_warnings),
-            ('machine_warnings', 'not_matched_machines', DynamicCrossDataValidator._process_machine_warnings),
-            ('composition_warnings', 'not_matched_compositions', DynamicCrossDataValidator._process_composition_warnings)
+            ('item_mold_warnings', 'not_matched_molds', DynamicCrossDataValidator._process_mold_warnings),
+            ('mold_machine_tonnage_warnings', 'not_matched_machines', DynamicCrossDataValidator._process_machine_warnings),
+            ('item_composition_warnings', 'not_matched_compositions', DynamicCrossDataValidator._process_composition_warnings)
         ]
 
         total_warnings = 0
@@ -620,3 +627,24 @@ class DynamicCrossDataValidator:
 
         logger.info(f"Total warnings generated: {total_warnings}")
         return warnings
+
+
+    @staticmethod
+    def _create_empty_warning_dataframe(warning_type: str) -> pd.DataFrame:
+        """
+        Create empty DataFrame with proper column structure for warnings.
+
+        Args:
+            warning_type: Type of warning ('invalid' or 'mismatch')
+
+        Returns:
+            Empty DataFrame with appropriate columns
+        """
+        if warning_type == 'invalid':
+            columns = ['itemInfo', 'warningType', 'mismatchType', 'requiredAction', 'message']
+        elif warning_type == 'mismatch':
+            columns = ['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message']
+        else:
+            raise ValueError(f"Unknown warning type: {warning_type}")
+
+        return pd.DataFrame(columns=columns)

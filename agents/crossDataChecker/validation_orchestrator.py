@@ -23,14 +23,14 @@ from agents.crossDataChecker.po_required_critical_validator import PORequiredCri
 })
 
 class ValidationOrchestrator:
-    def __init__(self, 
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+    def __init__(self,
+                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
                  default_dir: str = "agents/shared_db"):
         """
         Initialize the validator with data paths and load required dataframes.
-        
+
         Args:
             source_path: Path to the data source directory
             annotation_name: Name of the path annotations file
@@ -46,14 +46,14 @@ class ValidationOrchestrator:
 
         # Load database schema and database paths annotation
         self.databaseSchemas_data = load_annotation_path(
-            Path(databaseSchemas_path).parent, 
+            Path(databaseSchemas_path).parent,
             Path(databaseSchemas_path).name
         )
         self.path_annotation = load_annotation_path(self.source_path, self.annotation_name)
 
         # Load all required DataFrames
         self._load_dataframes()
-        
+
         self.filename_prefix = "validation_orchestrator"
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "ValidationOrchestrator"
@@ -65,18 +65,18 @@ class ValidationOrchestrator:
             ('purchaseOrders', 'purchaseOrders_df'),
             ('itemInfo', 'itemInfo_df'),
             ('resinInfo', 'resinInfo_df'),
-            ('machineInfo', 'machineInfo_df'), 
+            ('machineInfo', 'machineInfo_df'),
             ('moldSpecificationSummary', 'moldSpecificationSummary_df'),
-            ('moldInfo', 'moldInfo_df'), 
+            ('moldInfo', 'moldInfo_df'),
             ('itemCompositionSummary', 'itemCompositionSummary_df')
         ]
-        
+
         for path_key, attr_name in dataframes_to_load:
             path = self.path_annotation.get(path_key)
             if not path or not os.path.exists(path):
                 self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
                 raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
-            
+
             try:
                 df = pd.read_parquet(path)
                 setattr(self, attr_name, df)
@@ -107,38 +107,33 @@ class ValidationOrchestrator:
                                                                  self.databaseSchemas_path,
                                                                  self.default_dir).run_validations()
 
-      dynamic_invalid_warnings = pd.DataFrame(DynamicCrossDataValidator_data['invalid_warnings']['invalid_item'])
+      dynamic_invalid_warnings = DynamicCrossDataValidator_data['invalid_warnings']
+      dynamic_mismatch_warnings = DynamicCrossDataValidator_data['mismatch_warnings']
 
-      all_mismatch_warnings = []
-      for warning_type, warnings in DynamicCrossDataValidator_data['mismatch_warnings'].items():
-        all_mismatch_warnings.extend(warnings)
-      dynamic_mismatch_warnings = pd.DataFrame(all_mismatch_warnings)
-      
-      final_df = pd.concat([dynamic_mismatch_warnings, 
-                            static_mismatch_warnings_purchase, 
-                            static_mismatch_warnings_product, 
+      final_df = pd.concat([dynamic_mismatch_warnings,
+                            static_mismatch_warnings_purchase,
+                            static_mismatch_warnings_product,
                             po_required_mismatch_warnings], ignore_index=True)
-      
-      return {'static': {
+
+      return {'static_mismatch': {
                   'purchaseOrders': static_mismatch_warnings_purchase,
                   'productRecords': static_mismatch_warnings_product
               },
-              'po_required': po_required_mismatch_warnings,
-              'dynamic': {
+              'po_required_mismatch': po_required_mismatch_warnings,
+              'dynamic_mismatch': {
                   'invalid_items': dynamic_invalid_warnings,
-                  'mismatches': dynamic_mismatch_warnings
+                  'info_mismatches': dynamic_mismatch_warnings
               },
               'combined_all': {
                   'item_invalid_warnings': dynamic_invalid_warnings,
                   'po_mismatch_warnings': final_df}
           }
-      
-    
+
     def run_validations_and_save_results(self, **kwargs) -> None:
         """Run validations and save results to Excel files"""
         try:
             final_results = self.run_validations(**kwargs)
-            
+
             self.logger.info("Exporting results to Excel...")
             save_output_with_versioning(
                 final_results['combined_all'],
@@ -146,7 +141,7 @@ class ValidationOrchestrator:
                 self.filename_prefix,
             )
             self.logger.info("Results exported successfully!")
-            
+
         except Exception as e:
             self.logger.error("Failed to save results: {}", str(e))
             raise
