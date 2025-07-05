@@ -1,4 +1,4 @@
-from agents.dataPipelineOrchestrator.data_pipeline_orchestrator.py import DataPipelineOrchestrator
+from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import DataPipelineOrchestrator
 
 def test_data_pipeline_orchestrator():
     data_pipeline_orchestrator = DataPipelineOrchestrator(dynamic_db_source_dir="tests/mock_database/dynamicDatabase",
