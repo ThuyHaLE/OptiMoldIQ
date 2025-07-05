@@ -1,4 +1,4 @@
-from agents.dataAnalytics.multiLevelDataAnalytics.day_level_data_analytics import DayLevelDataAnalytics
+from agents.analyticsOrchestrator.multiLevelDataAnalytics.day_level_data_analytics import DayLevelDataAnalytics
 
 def test_day_level_data_analytics():
     analytics = DayLevelDataAnalytics(selected_date = "2018-11-01",

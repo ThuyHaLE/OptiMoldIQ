@@ -6,9 +6,9 @@ import os
 import pandas as pd
 from typing import Dict, Any
 
-from agents.crossDataChecker.dynamic_cross_data_validator import DynamicCrossDataValidator
-from agents.crossDataChecker.static_cross_data_checker import StaticCrossDataChecker
-from agents.crossDataChecker.po_required_critical_validator import PORequiredCriticalValidator
+from agents.validationOrchestrator.dynamic_cross_data_validator import DynamicCrossDataValidator
+from agents.validationOrchestrator.static_cross_data_checker import StaticCrossDataChecker
+from agents.validationOrchestrator.po_required_critical_validator import PORequiredCriticalValidator
 
 
 @validate_init_dataframes(lambda self: {

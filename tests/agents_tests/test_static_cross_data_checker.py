@@ -1,4 +1,4 @@
-from agents.crossDataChecker.static_cross_data_checker import StaticCrossDataChecker
+from agents.validationOrchestrator.static_cross_data_checker import StaticCrossDataChecker
 
 def test_static_cross_data_checker():
     static_cross_data_checker = StaticCrossDataChecker(checking_df_name = ['productRecords', 'purchaseOrders'],

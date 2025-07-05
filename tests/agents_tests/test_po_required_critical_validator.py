@@ -1,4 +1,4 @@
-from agents.crossDataChecker.po_required_critical_validator import PORequiredCriticalValidator
+from agents.validationOrchestrator.po_required_critical_validator import PORequiredCriticalValidator
 
 def test_po_required_critical_validator():
     required_critical_validator = PORequiredCriticalValidator(source_path = 'tests/shared_db/DataLoaderAgent/newest',

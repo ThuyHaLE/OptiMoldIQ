@@ -1,4 +1,4 @@
-from agents.dataAnalytics.dataChangeUpdate.update_hist_machine_layout import UpdateHistMachineLayout
+from agents.analyticsOrchestrator.dataChangeAnalyzer.update_hist_machine_layout import UpdateHistMachineLayout
 
 def test_update_hist_mold_overview():
     updator = UpdateHistMachineLayout(source_path = 'tests/shared_db/DataLoaderAgent/newest',

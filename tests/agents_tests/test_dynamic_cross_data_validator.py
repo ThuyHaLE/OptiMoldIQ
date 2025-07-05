@@ -1,4 +1,4 @@
-from agents.crossDataChecker.dynamic_cross_data_validator import DynamicCrossDataValidator
+from agents.validationOrchestrator.dynamic_cross_data_validator import DynamicCrossDataValidator
 
 def test_dynamic_cross_data_validator():
     dynamic_cross_data_validator = DynamicCrossDataValidator(source_path = 'tests/shared_db/DataLoaderAgent/newest',

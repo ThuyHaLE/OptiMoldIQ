@@ -15,7 +15,7 @@ import re
     "moldSpecificationSummary_df": list(self.databaseSchemas_data['statisticDB']['moldSpecificationSummary']['dtypes'].keys()),
 })
 
-class AutoStatusAgent:
+class OrderProgressTracker:
     def __init__(self, 
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
                  annotation_name: str = "path_annotations.json",
@@ -24,7 +24,7 @@ class AutoStatusAgent:
                  target_name: str = "change_log.txt",
                  default_dir: str = "agents/shared_db"):
         
-        self.logger = logger.bind(class_="AutoStatusAgent")
+        self.logger = logger.bind(class_="OrderProgressTracker")
 
         self.shift_start_map = {"1": "06:00",
                                 "2": "14:00",
@@ -83,7 +83,7 @@ class AutoStatusAgent:
         self.filename_prefix= "auto_status"
 
         self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "AutoStatusAgent"
+        self.output_dir = self.default_dir / "OrderProgressTracker"
 
 
     def pro_status(self, **kwargs) -> None:
@@ -91,17 +91,17 @@ class AutoStatusAgent:
                                  self.moldSpecificationSummary_df[['itemCode', 'itemType', 'moldList']], 
                                  on='itemCode', how='left')
         
-        agg_df, producing_po_list, notWorking_productRecords_df = AutoStatusAgent._extract_product_records(self.productRecords_df, self.shift_start_map)
+        agg_df, producing_po_list, notWorking_productRecords_df = OrderProgressTracker._extract_product_records(self.productRecords_df, self.shift_start_map)
 
-        pro_status_df = AutoStatusAgent._pro_status_processing(pd.merge(ordersInfo_df,
+        pro_status_df = OrderProgressTracker._pro_status_processing(pd.merge(ordersInfo_df,
                                                       agg_df, 
                                                       on='poNo', how='left'),
                                               self.pro_status_fields, 
                                               producing_po_list, 
                                               self.pro_status_dtypes)
         
-        warning_merge_dict, total_warnings = AutoStatusAgent._get_change(self.folder_path, self.target_name)
-        updated_pro_status_df = AutoStatusAgent._add_warning_notes_column(pro_status_df, warning_merge_dict)
+        warning_merge_dict, total_warnings = OrderProgressTracker._get_change(self.folder_path, self.target_name)
+        updated_pro_status_df = OrderProgressTracker._add_warning_notes_column(pro_status_df, warning_merge_dict)
 
         self.data = {
                     "productionStatus": updated_pro_status_df,
@@ -287,7 +287,7 @@ class AutoStatusAgent:
       # Determine the latest production time based on working shift start times
       time_to_shift = {datetime.strptime(v, "%H:%M").time(): k for k, v in shift_start_map.items()}
 
-      shift_starts = haveWorking_productRecords_df.apply(lambda row: AutoStatusAgent._get_shift_start(row, shift_start_map), axis=1)
+      shift_starts = haveWorking_productRecords_df.apply(lambda row: OrderProgressTracker._get_shift_start(row, shift_start_map), axis=1)
       latest_shift_start = shift_starts.max()
 
       if pd.isna(latest_shift_start):
@@ -310,7 +310,7 @@ class AutoStatusAgent:
         logger.debug(f"Producing PO list: {producing_po_list}")
 
       # Extract material codes
-      resin_code_map = AutoStatusAgent._extract_material_codes(haveWorking_productRecords_df)
+      resin_code_map = OrderProgressTracker._extract_material_codes(haveWorking_productRecords_df)
 
       # Aggregate multiple production metrics by poNote
       agg_df = haveWorking_productRecords_df.groupby('poNote').agg(
@@ -331,7 +331,7 @@ class AutoStatusAgent:
       ).reset_index()
 
       # Create aggregation maps
-      maps = AutoStatusAgent._create_aggregation_maps(haveWorking_productRecords_df)
+      maps = OrderProgressTracker._create_aggregation_maps(haveWorking_productRecords_df)
 
       # Add mapping columns
       agg_df['moldShotMap'] = agg_df['poNote'].map(maps['mold_map'])
@@ -523,7 +523,7 @@ class AutoStatusAgent:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 log_text = f.read()
-                newest_file_name = AutoStatusAgent._extract_latest_saved_file(log_text)
+                newest_file_name = OrderProgressTracker._extract_latest_saved_file(log_text)
                 
                 if newest_file_name:
                     return os.path.join(folder_path, newest_file_name)
@@ -539,13 +539,13 @@ class AutoStatusAgent:
     def _get_change(folder_path, target_name):
 
         try:
-            excel_file = AutoStatusAgent._read_change_log(folder_path, target_name)
+            excel_file = OrderProgressTracker._read_change_log(folder_path, target_name)
             
             if excel_file is None:
                 logger.info("No change log file found, returning empty warnings")
                 return {}, {}
             
-            total_warnings = AutoStatusAgent._data_collecting(excel_file)
+            total_warnings = OrderProgressTracker._data_collecting(excel_file)
             
             if not total_warnings:
                 logger.info("No warnings found in change log")
@@ -566,7 +566,7 @@ class AutoStatusAgent:
                     logger.error("Missing required columns in po_mismatch_warnings: {}", missing_cols)
                     return {}, total_warnings
                 
-                warning_merge_dict = AutoStatusAgent._aggregate_po_mismatches(po_mismatch_df)
+                warning_merge_dict = OrderProgressTracker._aggregate_po_mismatches(po_mismatch_df)
                 return warning_merge_dict, total_warnings
             else:
                 logger.info("No po_mismatch_warnings found in change log")
