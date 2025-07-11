@@ -8,10 +8,10 @@ from typing import Dict, Tuple, Any, List
 
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
-    "machineInfo_df": list(self.databaseSchemas_data['statisticDB']['machineInfo']['dtypes'].keys()),
-    "moldSpecificationSummary_df": list(self.databaseSchemas_data['statisticDB']['moldSpecificationSummary']['dtypes'].keys()),
-    "moldInfo_df": list(self.databaseSchemas_data['statisticDB']['moldInfo']['dtypes'].keys()),
-    "itemCompositionSummary_df": list(self.databaseSchemas_data['statisticDB']['itemCompositionSummary']['dtypes'].keys()),
+    "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
+    "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
+    "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
+    "itemCompositionSummary_df": list(self.databaseSchemas_data['staticDB']['itemCompositionSummary']['dtypes'].keys()),
 })
 
 class DynamicCrossDataValidator:

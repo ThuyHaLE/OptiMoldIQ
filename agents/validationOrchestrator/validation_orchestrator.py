@@ -14,12 +14,12 @@ from agents.validationOrchestrator.po_required_critical_validator import PORequi
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
     "purchaseOrders_df": list(self.databaseSchemas_data['dynamicDB']['purchaseOrders']['dtypes'].keys()),
-    "itemInfo_df": list(self.databaseSchemas_data['statisticDB']['itemInfo']['dtypes'].keys()),
-    "resinInfo_df": list(self.databaseSchemas_data['statisticDB']['resinInfo']['dtypes'].keys()),
-    "itemCompositionSummary_df": list(self.databaseSchemas_data['statisticDB']['itemCompositionSummary']['dtypes'].keys()),
-    "machineInfo_df": list(self.databaseSchemas_data['statisticDB']['machineInfo']['dtypes'].keys()),
-    "moldSpecificationSummary_df": list(self.databaseSchemas_data['statisticDB']['moldSpecificationSummary']['dtypes'].keys()),
-    "moldInfo_df": list(self.databaseSchemas_data['statisticDB']['moldInfo']['dtypes'].keys()),
+    "itemInfo_df": list(self.databaseSchemas_data['staticDB']['itemInfo']['dtypes'].keys()),
+    "resinInfo_df": list(self.databaseSchemas_data['staticDB']['resinInfo']['dtypes'].keys()),
+    "itemCompositionSummary_df": list(self.databaseSchemas_data['staticDB']['itemCompositionSummary']['dtypes'].keys()),
+    "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
+    "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
+    "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
 })
 
 class ValidationOrchestrator:
