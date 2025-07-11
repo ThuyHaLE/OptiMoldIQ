@@ -58,7 +58,7 @@
             }
         }
     },
-    "statisticDB": {
+    "staticDB": {
         "itemCompositionSummary": {
             "path": "tests/mock_database/staticDatabase/itemCompositionSummary.xlsx",
             "dtypes": {

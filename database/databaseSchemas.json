@@ -58,7 +58,7 @@
             }
         }
     },
-    "statisticDB": {
+    "staticDB": {
         "itemCompositionSummary": {
             "path": "database/staticDatabase/itemCompositionSummary.xlsx",
             "dtypes": {
