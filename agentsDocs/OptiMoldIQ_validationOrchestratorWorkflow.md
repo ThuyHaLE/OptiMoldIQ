@@ -273,15 +273,7 @@ Load 5 required datasets:
 - Validate composition: resin, masterbatch, additive
 - ⚠️ Warn on composition mismatches
 
-3. **Machine Info Validation**
-
-- Verify all `machineCode` entries exist in `machineInfo_df`
-- Check `machineTonnage` and `machineType` alignment
-- ⚠️ Warnings:
-  - Unknown machineCode
-  - Tonnage/type mismatch
-
-4. **Mold Info Validation**
+3. **Mold Info Validation**
 
 - Check `(moldCode, moldType)` against `moldInfo_df`
 - Optionally validate `cavity` count
@@ -289,7 +281,7 @@ Load 5 required datasets:
   - Unknown moldCode
   - Mismatched moldType
 
-5. **Mold Specification Cross-check**
+4. **Mold Specification Cross-check**
 
 - Match `(itemCode, moldCode)` against `moldSpecificationSummary_df`
 - Validate:
