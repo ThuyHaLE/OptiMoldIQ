@@ -231,64 +231,63 @@ to Excel with version control                                     Save to Excel 
 
 ##### Initialization
 
-- ✅ Accepts checking target: either `productRecords` or `purchaseOrders`  
-- 📂 Load:
-  - `databaseSchemas.json`
-  - `path_annotations.json`
-- 📊 Load required datasets:
-  - `productRecords` / `purchaseOrders`
-  - `machineInfo`
-  - `moldInfo`
-  - `moldSpecificationSummary`
+- Load `databaseSchemas.json` → Validate expected columns  
+- Load `path_annotations.json` → Locate `.parquet` paths  
+- Ensure required data is available and accessible
+
+---
+
+Load 5 required datasets:
+- `productRecords_df` *(dynamic)*
+- `machineInfo_df`
+- `moldSpecificationSummary_df`
+- `moldInfo_df`
+- `itemCompositionSummary_df`
 
 ---
 
 ##### Preprocessing
 
-- Rename `poNote` → `poNo` (only for `productRecords`)
-- Drop rows with:
-  - Missing PO (`poNo`)
-  - Missing `machineCode`, `moldCode`, or `moldType` if required
+🔸 Production Data:
+
+- Remove entries with missing `poNote`.
+- Generate `item_composition` from `plastic`, `color`, `additive` info.
+- Merge with `machineInfo_df` to include `machineTonnage`.
+
+🔸 Standard Reference Data:
+
+- Explode multiple `moldNo` per item.
+- Merge `moldSpecificationSummary_df` + `moldInfo_df` → build standard mold-machine map.
+- Join with `itemCompositionSummary_df` to build valid item compositions.
 
 ---
 ##### Validation
+1. **Item Info Validation**
 
-1. **Machine Info Validation**
-
-- Check that all `machineCode` in records exist in `machineInfo`
-- Validate associated `machineType` or `tonnage` if present
-- ⚠️ Warn on:
-  - Unknown `machineCode`
-  - Inconsistent machine type or tonnage
-
----
-
-2. **Mold Info Validation**
-
-- Confirm each `(moldCode, moldType)` exists in `moldInfo`
-- Optional: Validate `cavity` count if available
-- ⚠️ Warn on:
-  - Invalid or unknown `moldCode`
-  - Mismatched `moldType`
-
----
-
-3. **Mold Specification Cross-check**
-
-- Match `(itemCode, moldCode)` against `moldSpecificationSummary`
-- Validate compatibility of:
-  - Item with mold
-  - Mold’s tonnage range with assigned machine
+- Match `(itemCode, itemName)` against `itemInfo`
 - ⚠️ Warn on mismatches
 
----
+2. **Item Specification Cross-check**
 
-##### Output
+- Match `(itemCode, itemName)` against `itemSpecificationSummary`
+- Validate composition: resin, masterbatch, additive
+- ⚠️ Warn on composition mismatches
 
-- 📝 Warnings formatted consistently as:  
-  `poNo`, `warningType`, `mismatchType`, `requiredAction`, `message`
-- 📤 Export results:
-  - Version-controlled Excel file per dataset
+3. **Mold Info Validation**
+
+- Check `(moldCode, moldType)` against `moldInfo_df`
+- Optionally validate `cavity` count
+- ⚠️ Warn on:
+  - Unknown moldCode
+  - Mismatched moldType
+
+4. **Mold Specification Cross-check**
+
+- Match `(itemCode, moldCode)` against `moldSpecificationSummary_df`
+- Validate:
+  - Item–mold compatibility
+  - Mold tonnage vs assigned machine
+- ⚠️ Warn on mismatches
 
 ---
 
