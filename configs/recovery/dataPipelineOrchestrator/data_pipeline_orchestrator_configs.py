@@ -9,12 +9,13 @@ It includes:
 Note: Actual execution logic (e.g. retries, notifications) is handled by the runtime agent orchestrator.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 
 class ProcessingStatus(Enum):
+    PENDING = 'pending'
     SUCCESS = "success"
     WARNING = "warning"
     ERROR = "error"
@@ -26,7 +27,7 @@ class ErrorType(Enum):
     MISSING_FIELDS = "missing_fields"
     DATA_PROCESSING_ERROR = "data_processing_error"
     PARQUET_SAVE_ERROR = "parquet_save_error"
-    SCHEMA_VALIDATION_ERROR = "schema_validation_error"
+    UNSUPPORTED_DATA_TYPE = "unsupported_data_type"
     HASH_COMPARISON_ERROR = "hash_comparison_error"
     DATA_CORRUPTION = "data_corruption"
     SCHEMA_MISMATCH = "schema_mismatch"
@@ -42,6 +43,10 @@ class AgentType(Enum):
     DATA_LOADER = "DataLoader"
     ADMIN_NOTIFICATION_AGENT = 'AdminNotificationAgent'
     DATA_VALIDATOR = 'ValidationOrchestrator'
+
+class ProcessingScale(Enum):
+    LOCAL = "local"
+    GLOBAL = "global"
 
 class Priority(Enum):
     LOW = 1
@@ -191,12 +196,12 @@ ERROR_CATALOG = {
         escalation_threshold=3
     ),
 
-    ErrorType.SCHEMA_VALIDATION_ERROR: ErrorInfo(
-        error_type=ErrorType.SCHEMA_VALIDATION_ERROR,
+    ErrorType.UNSUPPORTED_DATA_TYPE: ErrorInfo(
+        error_type=ErrorType.UNSUPPORTED_DATA_TYPE,
         severity=Priority.MEDIUM,
-        description="Data does not conform to the expected schema",
-        common_causes=["Data type mismatch", "Unexpected nulls in non-nullable fields", "Missing required columns"],
-        prevention_tips=["Define and enforce schema expectations", "Validate data types early", "Log schema mismatches for debugging"],
+        description="The provided data type identifier is not supported",
+        common_causes=["Unexpected or new data type", "Incorrect naming convention"],
+        prevention_tips=["Ensure the file name or data source uses a valid prefix", "Update the required fields list if needed"],
         escalation_threshold=3
     ),
 
@@ -255,21 +260,62 @@ ERROR_CATALOG = {
 # Agent recovery strategy mapping (information only)
 AGENT_ERROR_RECOVERY_MAPPING = {
     AgentType.DATA_COLLECTOR: {
-        ErrorType.FILE_NOT_FOUND: [RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.MISSING_FIELDS: [RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.FILE_READ_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.SCHEMA_VALIDATION_ERROR: [RecoveryAction.VALIDATE_SCHEMA, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.PARQUET_SAVE_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.DATA_PROCESSING_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.FILE_NOT_FOUND: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.MISSING_FIELDS: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.FILE_READ_ERROR: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+
+        ErrorType.UNSUPPORTED_DATA_TYPE: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.PARQUET_SAVE_ERROR: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.DATA_PROCESSING_ERROR: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
     },
 
     AgentType.DATA_LOADER: {
-        ErrorType.FILE_NOT_FOUND: [RecoveryAction.ROLLBACK_TO_BACKUP, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.DATA_CORRUPTION: [RecoveryAction.ROLLBACK_TO_BACKUP, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.PARQUET_SAVE_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.HASH_COMPARISON_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.SCHEMA_MISMATCH: [RecoveryAction.VALIDATE_SCHEMA, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.FILE_READ_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.ROLLBACK_TO_BACKUP, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.HASH_COMPARISON_ERROR: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.FILE_NOT_FOUND: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.DATA_CORRUPTION: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.LOCAL, RecoveryAction.RETRY_PROCESSING, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.PARQUET_SAVE_ERROR: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.FILE_READ_ERROR: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.LOCAL, RecoveryAction.RETRY_PROCESSING, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
+        ErrorType.SCHEMA_MISMATCH: [
+            (Priority.CRITICAL, ProcessingScale.LOCAL, RecoveryAction.ROLLBACK_TO_BACKUP, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.LOCAL, RecoveryAction.RETRY_PROCESSING, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.LOCAL, RecoveryAction.VALIDATE_SCHEMA, ProcessingStatus.PENDING),
+            (Priority.HIGH, ProcessingScale.GLOBAL, RecoveryAction.TRIGGER_MANUAL_REVIEW, ProcessingStatus.PENDING)
+            ],
     },
 
     AgentType.ADMIN_NOTIFICATION_AGENT: {
@@ -277,9 +323,7 @@ AGENT_ERROR_RECOVERY_MAPPING = {
     },
 
     AgentType.DATA_VALIDATOR: {
-        ErrorType.SCHEMA_VALIDATION_ERROR: [RecoveryAction.VALIDATE_SCHEMA, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.SCHEMA_MISMATCH: [RecoveryAction.VALIDATE_SCHEMA, RecoveryAction.TRIGGER_MANUAL_REVIEW],
-        ErrorType.DATA_CORRUPTION: [RecoveryAction.ROLLBACK_TO_BACKUP, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        # Notification agent typically doesn't have recovery actions, just logs
     },
 }
 
@@ -324,7 +368,7 @@ AGENT_CONFIGS = {
         error_tolerance={
             ErrorType.FILE_READ_ERROR: 2,
             ErrorType.MISSING_FIELDS: 1,
-            ErrorType.SCHEMA_VALIDATION_ERROR: 2,
+            ErrorType.UNSUPPORTED_DATA_TYPE: 2,
         },
         recovery_actions=AGENT_ERROR_RECOVERY_MAPPING[AgentType.DATA_COLLECTOR],
         wait_for_dependencies=False,
@@ -362,7 +406,6 @@ AGENT_CONFIGS = {
         dependencies=[AgentType.DATA_LOADER],
         trigger_on_status=AGENT_TRIGGER_MAPPING[AgentType.DATA_VALIDATOR],
         error_tolerance={
-            ErrorType.SCHEMA_VALIDATION_ERROR: 1,
             ErrorType.SCHEMA_MISMATCH: 1,
             ErrorType.DATA_CORRUPTION: 0,
         },
@@ -395,9 +438,18 @@ def get_agent_config(agent_type: AgentType) -> Optional[AgentConfig]:
     """Get configuration for specific agent type"""
     return AGENT_CONFIGS.get(agent_type)
 
-def get_recovery_actions_for_agent_error(agent_type: AgentType, error_type: ErrorType) -> List[RecoveryAction]:
-    """Get recovery actions for specific agent and error type"""
-    return AGENT_ERROR_RECOVERY_MAPPING.get(agent_type, {}).get(error_type, [])
+def get_recovery_actions_for_agent_error(agent_type: AgentType, error_type: ErrorType, 
+                                         context: Optional[Dict] = None ) -> List[Tuple[Priority, ProcessingScale, RecoveryAction]]:
+    """Get recovery actions with context consideration"""
+    base_actions = AGENT_ERROR_RECOVERY_MAPPING.get(agent_type, {}).get(error_type, [])
+    
+    if context:
+        # Skip retry if retry_count exceeded
+        if context.get('retry_count', 0) >= context.get('max_retries', 3):
+            return [action for action in base_actions 
+                   if action[2] != RecoveryAction.RETRY_PROCESSING]
+    
+    return base_actions
 
 def get_triggered_agents(agent_type: AgentType, status: ProcessingStatus) -> List[AgentType]:
     """Get list of agents that should be triggered based on agent status"""
