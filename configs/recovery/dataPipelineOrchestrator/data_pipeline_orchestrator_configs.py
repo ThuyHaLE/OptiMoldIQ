@@ -9,7 +9,7 @@ It includes:
 Note: Actual execution logic (e.g. retries, notifications) is handled by the runtime agent orchestrator.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
@@ -54,11 +54,11 @@ class Priority(Enum):
 class AgentExecutionInfo:
     agent_id: str
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
-    status: str = ProcessingStatus.SUCCESS.value
+    status: ProcessingStatus = ProcessingStatus.SUCCESS
     summary: Dict[str, Any] = field(default_factory=dict)
     details: List[Dict[str, Any]] = field(default_factory=list)
-    healing_actions: List[str] = field(default_factory=list)
-    trigger_agents: List[str] = field(default_factory=list)
+    healing_actions: List[RecoveryAction] = field(default_factory=list)
+    trigger_agents: List[AgentType] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
@@ -72,7 +72,6 @@ class RecoveryActionInfo:
     success_criteria: List[str]
     rollback_possible: bool = True
 
-
 @dataclass
 class ErrorInfo:
     """Information about an error type - not the handling logic"""
@@ -83,7 +82,6 @@ class ErrorInfo:
     prevention_tips: List[str]
     escalation_threshold: int = 3
 
-
 @dataclass
 class AgentConfig:
     """Configuration information for agents - not execution logic"""
@@ -92,11 +90,10 @@ class AgentConfig:
     timeout_seconds: int
     memory_limit_mb: int
     dependencies: List[AgentType]
-    trigger_list: List[AgentType]
+    trigger_on_status: Dict[ProcessingStatus, List[AgentType]]
     error_tolerance: Dict[ErrorType, int]
-    healing_mechanism: Dict[AgentType, int]
+    recovery_actions: Dict[ErrorType, List[RecoveryAction]]
     wait_for_dependencies: bool = True
-    trigger_on_status: List[ProcessingStatus] = field(default_factory=list)
 
     # Additional metadata
     description: str = ""
@@ -138,12 +135,12 @@ RECOVERY_ACTION_CATALOG = {
 
     RecoveryAction.VALIDATE_SCHEMA: RecoveryActionInfo(
         action=RecoveryAction.VALIDATE_SCHEMA,
-        description="Restore from last known good backup",
-        priority=Priority.HIGH,
-        estimated_time_seconds=300,
-        prerequisites=["Backup available", "Corruption detected"],
-        success_criteria=["System restored to working state"],
-        rollback_possible=False
+        description="Validate data against expected schema and attempt correction",
+        priority=Priority.MEDIUM,
+        estimated_time_seconds=60,
+        prerequisites=["Schema definition available", "Data accessible"],
+        success_criteria=["Data conforms to schema", "Validation passes"],
+        rollback_possible=True
     ),
 }
 
@@ -203,7 +200,7 @@ ERROR_CATALOG = {
         escalation_threshold=3
     ),
 
-        ErrorType.HASH_COMPARISON_ERROR: ErrorInfo(
+    ErrorType.HASH_COMPARISON_ERROR: ErrorInfo(
         error_type=ErrorType.HASH_COMPARISON_ERROR,
         severity=Priority.CRITICAL,
         description="Failed to compare dataframes (hash type)",
@@ -222,8 +219,8 @@ ERROR_CATALOG = {
 
     ErrorType.DATA_CORRUPTION: ErrorInfo(
         error_type=ErrorType.DATA_CORRUPTION,
-        severity=Priority.MEDIUM,
-        description="Failed to process single database",
+        severity=Priority.HIGH,
+        description="Data integrity compromised during processing",
         common_causes=[
             "Incomplete or corrupted file read (e.g., parquet, csv)",
             "Unexpected nulls or outliers in critical fields",
@@ -234,13 +231,13 @@ ERROR_CATALOG = {
             "Introduce input schema validation before ingestion",
             "Avoid abrupt termination during file writing"
         ],
-        escalation_threshold=3
+        escalation_threshold=2
     ),
 
     ErrorType.SCHEMA_MISMATCH: ErrorInfo(
         error_type=ErrorType.SCHEMA_MISMATCH,
         severity=Priority.MEDIUM,
-        description="Failed to process static DB",
+        description="Data schema does not match expected format",
         common_causes=[
             "Mismatch between actual columns and expected schema",
             "Changes in upstream schema not propagated to validator",
@@ -258,35 +255,60 @@ ERROR_CATALOG = {
 # Agent recovery strategy mapping (information only)
 AGENT_ERROR_RECOVERY_MAPPING = {
     AgentType.DATA_COLLECTOR: {
-        ErrorType.FILE_NOT_FOUND: [RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.MISSING_FIELDS: [RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.FILE_READ_ERROR: [RecoveryAction.RETRY_PROCESSING.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.SCHEMA_VALIDATION_ERROR: [RecoveryAction.RETRY_PROCESSING.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.PARQUET_SAVE_ERROR: [RecoveryAction.RETRY_PROCESSING.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.DATA_PROCESSING_ERROR: [RecoveryAction.RETRY_PROCESSING.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
+        ErrorType.FILE_NOT_FOUND: [RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.MISSING_FIELDS: [RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.FILE_READ_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.SCHEMA_VALIDATION_ERROR: [RecoveryAction.VALIDATE_SCHEMA, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.PARQUET_SAVE_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.DATA_PROCESSING_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
     },
 
     AgentType.DATA_LOADER: {
-        ErrorType.FILE_NOT_FOUND: [RecoveryAction.ROLLBACK_TO_BACKUP.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.DATA_CORRUPTION: [RecoveryAction.ROLLBACK_TO_BACKUP.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.PARQUET_SAVE_ERROR: [RecoveryAction.RETRY_PROCESSING.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.HASH_COMPARISON_ERROR: [RecoveryAction.RETRY_PROCESSING.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.SCHEMA_MISMATCH: [RecoveryAction.VALIDATE_SCHEMA.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],
-        ErrorType.FILE_READ_ERROR: [RecoveryAction.RETRY_PROCESSING.value, RecoveryAction.ROLLBACK_TO_BACKUP.value, RecoveryAction.TRIGGER_MANUAL_REVIEW.value],    
+        ErrorType.FILE_NOT_FOUND: [RecoveryAction.ROLLBACK_TO_BACKUP, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.DATA_CORRUPTION: [RecoveryAction.ROLLBACK_TO_BACKUP, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.PARQUET_SAVE_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.HASH_COMPARISON_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.SCHEMA_MISMATCH: [RecoveryAction.VALIDATE_SCHEMA, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.FILE_READ_ERROR: [RecoveryAction.RETRY_PROCESSING, RecoveryAction.ROLLBACK_TO_BACKUP, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+    },
+
+    AgentType.ADMIN_NOTIFICATION_AGENT: {
+        # Notification agent typically doesn't have recovery actions, just logs
+    },
+
+    AgentType.DATA_VALIDATOR: {
+        ErrorType.SCHEMA_VALIDATION_ERROR: [RecoveryAction.VALIDATE_SCHEMA, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.SCHEMA_MISMATCH: [RecoveryAction.VALIDATE_SCHEMA, RecoveryAction.TRIGGER_MANUAL_REVIEW],
+        ErrorType.DATA_CORRUPTION: [RecoveryAction.ROLLBACK_TO_BACKUP, RecoveryAction.TRIGGER_MANUAL_REVIEW],
     },
 }
 
+# Agent trigger mapping - what agents to trigger based on status
 AGENT_TRIGGER_MAPPING = {
     AgentType.DATA_COLLECTOR: {
-        ProcessingStatus.SUCCESS: [AgentType.DATA_LOADER.value],
-        ProcessingStatus.PARTIAL_SUCCESS: [AgentType.ADMIN_NOTIFICATION_AGENT.value],
-        ProcessingStatus.ERROR: [AgentType.ADMIN_NOTIFICATION_AGENT.value]
+        ProcessingStatus.SUCCESS: [AgentType.DATA_LOADER],
+        ProcessingStatus.PARTIAL_SUCCESS: [AgentType.DATA_LOADER, AgentType.ADMIN_NOTIFICATION_AGENT],
+        ProcessingStatus.ERROR: [AgentType.ADMIN_NOTIFICATION_AGENT],
+        ProcessingStatus.WARNING: [AgentType.DATA_LOADER, AgentType.ADMIN_NOTIFICATION_AGENT]
     },
 
     AgentType.DATA_LOADER: {
-        ProcessingStatus.SUCCESS: [AgentType.DATA_VALIDATOR.value],
-        ProcessingStatus.PARTIAL_SUCCESS: [AgentType.ADMIN_NOTIFICATION_AGENT.value],
-        ProcessingStatus.ERROR: [AgentType.ADMIN_NOTIFICATION_AGENT.value]
+        ProcessingStatus.SUCCESS: [AgentType.DATA_VALIDATOR],
+        ProcessingStatus.PARTIAL_SUCCESS: [AgentType.DATA_VALIDATOR, AgentType.ADMIN_NOTIFICATION_AGENT],
+        ProcessingStatus.ERROR: [AgentType.ADMIN_NOTIFICATION_AGENT],
+        ProcessingStatus.WARNING: [AgentType.DATA_VALIDATOR, AgentType.ADMIN_NOTIFICATION_AGENT]
+    },
+
+    AgentType.DATA_VALIDATOR: {
+        ProcessingStatus.SUCCESS: [],  # End of pipeline
+        ProcessingStatus.PARTIAL_SUCCESS: [AgentType.ADMIN_NOTIFICATION_AGENT],
+        ProcessingStatus.ERROR: [AgentType.ADMIN_NOTIFICATION_AGENT],
+        ProcessingStatus.WARNING: [AgentType.ADMIN_NOTIFICATION_AGENT]
+    },
+
+    AgentType.ADMIN_NOTIFICATION_AGENT: {
+        ProcessingStatus.SUCCESS: [],  # Notification sent, no further triggers
+        ProcessingStatus.ERROR: [],    # Failed to send notification, manual intervention needed
     },
 }
 
@@ -298,39 +320,109 @@ AGENT_CONFIGS = {
         timeout_seconds=300,
         memory_limit_mb=2048,
         dependencies=[],
-        trigger_list=AGENT_TRIGGER_MAPPING.get(AgentType.DATA_COLLECTOR, {}),
+        trigger_on_status=AGENT_TRIGGER_MAPPING[AgentType.DATA_COLLECTOR],
         error_tolerance={
             ErrorType.FILE_READ_ERROR: 2,
             ErrorType.MISSING_FIELDS: 1,
+            ErrorType.SCHEMA_VALIDATION_ERROR: 2,
         },
-        healing_mechanism = AGENT_ERROR_RECOVERY_MAPPING.get(AgentType.DATA_COLLECTOR, {}),
+        recovery_actions=AGENT_ERROR_RECOVERY_MAPPING[AgentType.DATA_COLLECTOR],
         wait_for_dependencies=False,
-        trigger_on_status=[ProcessingStatus.SUCCESS.value, ProcessingStatus.PARTIAL_SUCCESS.value],
         description="Collects data from various sources and prepares for processing",
         responsible_team="Data Engineering",
-        sla_seconds=300
+        sla_seconds=300,
+        health_check_interval=30
     ),
 
     AgentType.DATA_LOADER: AgentConfig(
         agent_type=AgentType.DATA_LOADER,
         max_retries=3,
-        timeout_seconds=300,
-        memory_limit_mb=2048,
+        timeout_seconds=600,
+        memory_limit_mb=4096,
         dependencies=[AgentType.DATA_COLLECTOR],
-        trigger_list=AGENT_TRIGGER_MAPPING.get(AgentType.DATA_LOADER, {}),
+        trigger_on_status=AGENT_TRIGGER_MAPPING[AgentType.DATA_LOADER],
         error_tolerance={
             ErrorType.FILE_READ_ERROR: 2,
-            ErrorType.MISSING_FIELDS: 1,
+            ErrorType.DATA_CORRUPTION: 1,
+            ErrorType.HASH_COMPARISON_ERROR: 2,
         },
-        healing_mechanism = AGENT_ERROR_RECOVERY_MAPPING.get(AgentType.DATA_LOADER, {}),
+        recovery_actions=AGENT_ERROR_RECOVERY_MAPPING[AgentType.DATA_LOADER],
         wait_for_dependencies=True,
-        trigger_on_status=[ProcessingStatus.SUCCESS.value, ProcessingStatus.PARTIAL_SUCCESS.value],
-        description="Loads data from various sources and prepares for processing",
+        description="Loads and processes data from collectors",
         responsible_team="Data Engineering",
-        sla_seconds=300
+        sla_seconds=600,
+        health_check_interval=60
+    ),
+
+    AgentType.DATA_VALIDATOR: AgentConfig(
+        agent_type=AgentType.DATA_VALIDATOR,
+        max_retries=2,
+        timeout_seconds=180,
+        memory_limit_mb=1024,
+        dependencies=[AgentType.DATA_LOADER],
+        trigger_on_status=AGENT_TRIGGER_MAPPING[AgentType.DATA_VALIDATOR],
+        error_tolerance={
+            ErrorType.SCHEMA_VALIDATION_ERROR: 1,
+            ErrorType.SCHEMA_MISMATCH: 1,
+            ErrorType.DATA_CORRUPTION: 0,
+        },
+        recovery_actions=AGENT_ERROR_RECOVERY_MAPPING[AgentType.DATA_VALIDATOR],
+        wait_for_dependencies=True,
+        description="Validates data quality and schema compliance",
+        responsible_team="Data Quality",
+        sla_seconds=180,
+        health_check_interval=30
+    ),
+
+    AgentType.ADMIN_NOTIFICATION_AGENT: AgentConfig(
+        agent_type=AgentType.ADMIN_NOTIFICATION_AGENT,
+        max_retries=3,
+        timeout_seconds=30,
+        memory_limit_mb=256,
+        dependencies=[],
+        trigger_on_status=AGENT_TRIGGER_MAPPING[AgentType.ADMIN_NOTIFICATION_AGENT],
+        error_tolerance={},
+        recovery_actions=AGENT_ERROR_RECOVERY_MAPPING[AgentType.ADMIN_NOTIFICATION_AGENT],
+        wait_for_dependencies=False,
+        description="Sends notifications to administrators about system issues",
+        responsible_team="Operations",
+        sla_seconds=30,
+        health_check_interval=60
     ),
 }
 
-def get_agent_config(agent_type: AgentType) -> AgentConfig:
+def get_agent_config(agent_type: AgentType) -> Optional[AgentConfig]:
     """Get configuration for specific agent type"""
     return AGENT_CONFIGS.get(agent_type)
+
+def get_recovery_actions_for_agent_error(agent_type: AgentType, error_type: ErrorType) -> List[RecoveryAction]:
+    """Get recovery actions for specific agent and error type"""
+    return AGENT_ERROR_RECOVERY_MAPPING.get(agent_type, {}).get(error_type, [])
+
+def get_triggered_agents(agent_type: AgentType, status: ProcessingStatus) -> List[AgentType]:
+    """Get list of agents that should be triggered based on agent status"""
+    return AGENT_TRIGGER_MAPPING.get(agent_type, {}).get(status, [])
+
+def validate_configuration() -> List[str]:
+    """Validate the configuration for consistency issues"""
+    issues = []
+
+    # Check if all agent types have configurations
+    for agent_type in AgentType:
+        if agent_type not in AGENT_CONFIGS:
+            issues.append(f"Missing configuration for {agent_type}")
+
+    # Check if all dependencies are configured
+    for agent_type, config in AGENT_CONFIGS.items():
+        for dep in config.dependencies:
+            if dep not in AGENT_CONFIGS:
+                issues.append(f"{agent_type} depends on unconfigured agent {dep}")
+
+    # Check if all referenced agents in triggers exist
+    for agent_type, triggers in AGENT_TRIGGER_MAPPING.items():
+        for status, triggered_agents in triggers.items():
+            for triggered_agent in triggered_agents:
+                if triggered_agent not in AGENT_CONFIGS:
+                    issues.append(f"{agent_type} triggers unconfigured agent {triggered_agent}")
+
+    return issues
