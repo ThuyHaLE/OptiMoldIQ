@@ -1,10 +1,29 @@
-English | [Tiếng Việt](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/README-vi.md)
+🌐 [English](README.md) | [Tiếng Việt](README-vi.md)
 
 # OptiMoldIQ: Intelligent Plastic Molding Planner
 
 OptiMoldIQ is a smart production system designed to streamline and optimize the plastic molding process. It integrates multi-agent architecture to automate production scheduling, track resources, and provide actionable insights to improve efficiency and quality.
 
 ---
+
+## Table of Contents
+- [Current Phase](#current-phase)
+- [Business Problem](#business-problem)
+- [Key Goals](#key-goals)
+- [Planned Solution](#planned-solution)
+- [Dataset Overview](#dataset-overview)
+- [Data Overview](#data-overview)
+- [Folder Structure](#folder-structure)
+- [Roadmap](#roadmap)
+- [Current Status Summary](#current-status-summary)
+- [Milestones](#milestones)
+- [Quickstart](#quickstart-coming-soon)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
+
+---
+
 ## Current Phase
 OptiMoldIQ is in the **system design phase**, focusing on defining database structures, agent workflows, and system architecture.
 
@@ -36,34 +55,164 @@ Current systems are:
 - **Proactive Maintenance and Restocking**: Prevent downtime and material shortages.
 - **Visualization and Decision Support**: Build a centralized dashboard for actionable insights.
 
+👉 [Read full context](docs/OptiMoldIQ-business-problem.md)
+
+---
+
 ## Planned Solution
 The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges:
-- **AutoStatus Agent**: Tracks real-time production progress.
-- **InitialSched Agent**: Generates the initial production schedule.
-- **FinalSched Agent**: Refines production schedules using tracking reports.
-- **Resin Tracking Agent**: Monitors resin stock and consumption.
-- **Mold Tracking Agent**: Tracks mold usage, maintenance.
-- **Machine Tracking Agent**: Manages machine availability and lead times.
-- **MaintenanceScheduler Agent**: Predictive scheduling to reduce downtime.
-- **Quality Control Agent**: Tracks yield and NG rates.
-- **YieldOptimization Agent**: Tracks the relationship between cycle time, yield, and NG rates to optimize yield. Besides, evalues resin usage patterns to suggest optimized required resin quantity.
-- **DashBoardBuilderAgent**: Creates an interactive dashboard for data visualization.
+| Agent                        | Description                                                                                                                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **DataPipelineOrchestrator** | **Collector**: Collects distributed monthly data → consolidates → **Loader**: loads into shared DB. Handles both dynamic & static data.|
+| **ValidationOrchestrator**   | Performs cross-checks: <br>1. **PORequiredCriticalValidator**: `productRecords` ↔ `purchaseOrders` <br>2. **StaticCrossDataChecker**: Both ↔ static fields <br>3. **DynamicCrossDataValidator**: Both ↔ dynamic fields |
+| **OrderProgressTracker**     | Aggregates production per machine/shift → Maps back to PO → Flags any mismatches via validation results.                   |
+| **AutoPlanner** | Generates and refines production schedules: <br>• `InitialPlanner`: Creates the first plan based on static info. <br>• `PlanRefiner`: Refines plans based on tracking and validation. |
+| **AnalyticsOrchestrator**     | Performs:<br>1. **DataChangeAnalyzer**: Tracks and updates historical changes (e.g., machine layout, mold usage)<br>2. **MultiLevelDataAnalytics**: Analyzes product-related information across multiple levels (year, month, day, shift) for deeper insights.|
+| **TaskOrchestrator**     | Performs: <br>1. **ResinCoordinator**: Monitors resin stock and consumption. <br>2. **MoldCoordinator**: Tracks mold usage, maintenance. <br>3. **MachineCoordinator**: Tracks machine usage, machine availability and lead times. <br>4. **ProductQualityCoordinator**: Tracks yield and NG rates. <br>5. **MaintenanceCoordinator**: Predictive maintenance scheduling to reduce downtime for mold and machine. <br>6. **YieldOptimizator**: Tracks the relationship between cycle time, yield, and NG rates to optimize overall production yield. It also analyzes resin usage patterns to recommend more efficient material requirements.|
+| **DashBoardBuilder** |Creates an interactive dashboard for real-time monitoring and decision support. |
 
-## Current Status
-- The business problem and solution design document is completed.
-- Static database defined for molds, machines, and resins.
-- Agent workflows outlined (e.g., AutoStatus Agent, InitialSched Agent).
+🔗 For agent architecture details, see [OptiMoldIQ-agentsBreakDown](docs/OptiMoldIQ-agentsBreakDown.md)
 
-### Next Steps
-- Develop and test agent prototypes.
-- Integrate reinforcement learning for yield optimization.
-- Design and implement shared databases.
+---
+
+## System Architecture Diagram
+
+The following diagram shows how the data flows from external sources into the system and how various agents interact in the pipeline.
+
+🔗 For full  diagram details, see [OptiMoldIQ-systemDiagram-ASCII](docs/OptiMoldIQ-systemDiagram-ASCII.md)
+
+<details> <summary> Or click to expand system architecture diagram</summary>
+
+```plaintext
+                   ┌────────────────────────────────┐
+                   │       External Inputs          │
+                   │ DynamicDB (purchaseOrders,     │
+                   │    productRecords) + StaticDB  │
+                   └────────────┬───────────────────┘
+                                │
+                                ▼                                                          ┌────────────────────────────┐ 
+                 ┌────────────────────────────┐                                            │    ValidationOrchestrator  │ 
+                 │  DataPipelineOrchestrator  │                   ┌──────────────────────► │(Check consistency between  │ 
+                 └────────────┬───────────────┘                   │                        │  Static & Dynamic Data)    │
+                              │                                   │                        └────────────┬───────────────┘ 
+        ┌────────────────────┴────────────────────┐               │         ┌───────────────────────┬───┴────────────────────┐                     
+        ▼                                         ▼               │         ▼                       ▼                        ▼
+┌────────────────────┐                 ┌─────────────────────┐    │    ┌────────────┐  ┌─────────────────────────┐ ┌────────────────────┐  
+│    DataCollector   │                 │   DataLoaderAgent   │    │    │StaticCross │  │DynamicCrossDataValidator│ │ PORequiredCritical │       
+│ (monthly dynamic DB│                 │ (load & unify static│    │    │DataChecker │  └────────────┬────────────┘ │ Validator          │
+│   .xlsx → .parquet)│                 │   data → .parquet)  │    │    └─────┬──────┘               │              └───────────┬────────┘
+└─────────┬──────────┘                 └─────────┬───────────┘    │          ▼                      ▼                          ▼
+          ▼                                      ▼                │     ┌────────────────────────────────────────────────────────┐
+    ┌──────────────────────────────────────────────────┐          │     │                    PO Mistmatch information            │
+    │           ✅ Shared Database (.parquet)         │          │     └────────────────────────────────────────────────────────┘
+    │     (static + dynamic for all other agents)      │──────────┘                                │
+    └──────────────────────────────────────────────────┘                                           │
+                          │                                                                        │
+                          ▼                                                                        ▼
+                   ┌──────────────────────────────────────────────────────────────────────────────────────┐
+                   │                                  OrderProgressTracker                                │
+                   │ (Group product records by PO, flag mismatch note from Validation agent (if any))     │
+                   └──────────────────────────────────────────┬───────────────────────────────────────────┘
+                                                              ▼
+                                                    🛠️  To Be Continued...
+```
+</details>
+
+
+
+---
+
+## Dataset Overview
+
+This project leverages a 27-month dataset collected from a plastic injection molding production facility. It consists of over **61,000 production records** and **6,200 internal orders**, reflecting the complexity of real-world manufacturing operations.
+
+### Key Entities
+- **Items** – 694 plastic products
+- **Molds** – 251 unique molds
+- **Machines** – 49 molding machines
+- **Materials** – 445 materials (resins, masterbatches, additives)
+- **Orders** – 6,234 scheduled production orders
+- **Production Records** – 61,185 logs of manufacturing outcomes
+
+🔗 For full schema and statistical details, see [OptiMoldIQ-dataset](docs/OptiMoldIQ-dataset.md)
+
+---
+
+## Data Overview
+
+OptiMoldIQ uses a shared database with both dynamic and static datasets:
+
+### Dynamic Datasets
+- `productRecords`: Real-time production log per machine and shift.
+- `purchaseOrders`: Orders to be fulfilled, with resin and material requirements.
+
+### Static Datasets
+- `itemCompositionSummary`: Material composition for each item.
+- `itemInfo`: Metadata about items.
+- `machineInfo`: Machine details and layout history.
+- `moldInfo`: Mold technical specs and lifecycle data.
+- `moldSpecificationSummary`: Mold-to-item mapping and counts.
+- `resinInfo`: Resin codes, names, and classification.
+
+🔗 See [OptiMoldIQ-dbSchema](docs/OptiMoldIQ-dbSchema.md) for full field details and formats.
+
+---
+
+## Folder Structure
+
+```bash
+.
+├── agents/                # Agent logic (AutoStatusAgent, InitialSchedAgent, etc.)
+├── database/              # Static and shared JSON schemas
+├── logs/                  # Auto-generated logs for status/errors
+├── docs/                  # Documentation (business_problem.md, agent_specifications.md, etc.)
+└── README.md              # This file
+```
+
+---
 
 ## Roadmap
-- **Phase 1**: Define static and dynamic databases.
-- **Phase 2**: Develop core agents and integrate static systems.
-- **Phase 3**: Add reinforcement learning for optimization.
-- **Phase 4**: Build and test the dashboard for visualization.
+
+| Phase | Description |
+|-------|-------------|
+| **Phase 1** | ✅ Define static & dynamic databases |
+| **Phase 2** | ✅ Build & integrate core preprocessing agents |
+| **Phase 3** | 🔄 Integrate RL-based optimization <br> • Define reward function <br> • Train on historical data |
+| **Phase 4** | 🔄 Build dashboard <br> • UI wireframes <br> • API integration |
+
+---
+
+## Current Status Summary
+
+| Component | Status |
+|-----------|--------|
+| Static Databases (mold/machine/resin) | ✅ Defined |
+| Dynamic Data Pipeline | ✅ Implemented |
+| Shared Database | ✅ First version generated |
+| Validation System | ✅ Functional |
+| Production Tracker | ✅ Mapping by PO & shift |
+| AnalyticsOrchestrator | 🔄 Upcoming |
+| DashBoardBuilder | 🔄 Upcoming |
+| AutoPlanner | 🔄 Upcoming |
+| TaskOrchestrator | 🔄 Upcoming |
+
+---
+
+## Milestones
+- ✅ **Milestone 01**: Core Data Pipeline Agents  
+  Completed July 2025 — Includes `dataPipelineOrchestrator`, `validationOrchestrator`, and `orderProgressTracker`.  
+  ➤ [View Details](docs/milestones/OptiMoldIQ-milestone_01.md)
+
+- 🔄 **Upcoming**: AnalyticsOrchestrator + DashBoardBuilder
+
+---
+
+## Quickstart (Coming Soon)
+- Set up the Python environment
+- Run initial agents on sample data
+- Visualize results via the dashboard
+
+--- 
 
 ## Contributing
 Contributions are welcome! To contribute:
@@ -71,8 +220,12 @@ Contributions are welcome! To contribute:
 - Create a branch for your feature.
 - Submit a pull request for review.
 
+---
+
 ## License
 This project is licensed under the MIT License. See [LICENSE](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/LICENSE) for details.
+
+---
 
 ## Contact
 For questions or collaboration, reach out via:
