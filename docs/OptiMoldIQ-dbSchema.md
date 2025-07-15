@@ -76,7 +76,7 @@
 
 # Dynamic Database Schema Documentation
 
-## Table: poList
+## Table: purchaseOrders
 | Field                       | Type      | Description                                          |
 |-----------------------------|-----------|------------------------------------------------------|
 | plasticResinCode            | varchar   | Code for the plastic resin ordered.                  |
@@ -133,27 +133,3 @@
 | colorMasterbatchCode    | varchar   | Code for the color masterbatch used.                   |
 | additiveMasterbatch     | varchar   | Name of the additive masterbatch used.                 |
 | additiveMasterbatchCode | varchar   | Code for the additive masterbatch used.                |
-
----***---
-
-# Main Data Schema Documentation
-
-## Table: productionStatus
-| Field              | Type       | Description                                           |
-|--------------------|------------|-------------------------------------------------------|
-| poReceivedDate     | timestamp  | Date when the purchase order was received.            |
-| poNo               | varchar    | Unique identifier for the purchase order.             |
-| poDate             | timestamp  | Date when the purchase order was created.             |
-| poETA              | timestamp  | Expected arrival date of the purchase order.          |
-| itemCode           | varchar    | Code of the item being produced.                      |
-| itemName           | varchar    | Name of the item being produced.                      |
-| itemType           | varchar    | Type/category of the item.                            |
-| moldNo             | varchar    | Unique identifier for the mold used in production.    |
-| moldList           | varchar    | List of molds associated with the item.               |
-| moldName           | varchar    | Name of the mold used in production.                  |
-| machineNo          | varchar    | Unique identifier for the machine used in production. |
-| itemQuantity       | integer    | Total quantity of items to produce.                   |
-| itemRemain         | integer    | Quantity of items remaining to produce.               |
-| startedDate        | timestamp  | Date when production started.                         |
-| actualFinishedDate | timestamp  | Date when production was completed.                   |
-| proStatus          | varchar    | Current production status (e.g., molding, molded).    |
