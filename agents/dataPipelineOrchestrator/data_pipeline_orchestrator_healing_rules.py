@@ -3,38 +3,73 @@ from typing import Dict, Optional
 from pathlib import Path
 from datetime import datetime
 
-# Import healing system constants
+# Import healing system constants for error handling and recovery
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import AgentExecutionInfo
 
 class ManualReviewNotifier:
+
+    """
+    Handles manual review notifications for data pipeline orchestrator.
+    
+    This class creates and sends notifications when manual review is required
+    for failed or problematic agent executions. It formats execution information
+    into readable notification messages and saves them to files.
+    """
+
     def __init__(self, notification_handler, dest):
+
+        """
+        Initialize the manual review notifier.
+        
+        Args:
+            notification_handler: Handler for sending notifications (email, etc.)
+            dest: Destination directory for saving notification files
+        """
+
         self.notification_handler = notification_handler
         self.dest = dest
     
     def trigger_manual_review(self, execution_info: AgentExecutionInfo, detail: Optional[Dict] = None) -> bool:
-        """Trigger manual review notification"""
+        
+        """
+        Trigger manual review notification for failed agent execution.
+        
+        This method creates a comprehensive notification message containing
+        execution details, errors, healing actions, and metadata. It saves
+        the notification to a file and sends it via the notification handler.
+        
+        Args:
+            execution_info: Structured information about agent execution
+            detail: Additional contextual information (optional)
+            
+        Returns:
+            bool: True if notification was sent successfully, False otherwise
+        """
+
         logger.info("Triggering manual review notification...")
 
         try:
-            # Create notification message
+            # Create notification message with execution details
             agent_id, message = self._create_notification_message(execution_info, detail)
             
-            # Ensure directory exists
+            # Create timestamped output file path
             timestamp_now = datetime.now()
             timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
             output_path = Path(f"{self.dest}/{timestamp_file}_{agent_id}_manual_review_notification.txt")
+
+            # Ensure output directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Save to .txt for inspection
+            # Save notification message to file for inspection
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(message)
 
-            # Send notification
+            # Send notification via handler (email, etc.)
             success = self.notification_handler.send_notification(
                 recipient="admin@company.com",
                 subject=f"Manual Review Required: {execution_info.agent_id}",
                 message=message,
-                priority="HIGH"  # Changed from Priority.HIGH to string
+                priority="HIGH"  # High priority for manual review requests
             )
 
             if success:
@@ -49,34 +84,58 @@ class ManualReviewNotifier:
             return False
 
     def _create_notification_message(self, execution_info: AgentExecutionInfo, detail: Optional[Dict] = None) -> str:
-        """Create notification message for manual review based on structured execution_info"""
         
-        # Header
+        """
+        Create comprehensive notification message from execution info.
+        
+        Builds a structured notification message containing all relevant
+        information about the failed execution including summary, errors,
+        healing actions, and metadata.
+        
+        Args:
+            execution_info: Structured execution information
+            detail: Additional contextual details (optional)
+            
+        Returns:
+            tuple: (agent_id, formatted_message)
+        """
+        
+        # Create header with basic agent information
         agent_id, message = self._create_header(execution_info)
         
-        # Summary section
+        # Add execution summary statistics
         message += self._create_summary_section(execution_info)
         
-        # Error details section
+        # Add detailed error information
         message += self._create_error_details_section(execution_info)
         
-        # Healing actions section
+        # Add healing/recovery actions taken
         message += self._create_healing_actions_section(execution_info)
         
-        # Metadata section
+        # Add system metadata (memory, disk usage, etc.)
         message += self._create_metadata_section(execution_info)
         
-        # Additional contextual info
+        # Add additional contextual information if provided
         if detail:
             message += self._create_contextual_info_section(detail)
         
-        # Footer
+        # Add footer separator
         message += "\n" + "="*80 + "\n"
         
         return agent_id, message
     
     def _create_header(self, execution_info: AgentExecutionInfo) -> str:
-        """Create header section of notification"""
+        
+        """
+        Create notification header with basic agent information.
+        
+        Args:
+            execution_info: Agent execution information
+            
+        Returns:
+            tuple: (agent_id, header_string)
+        """
+
         return execution_info.agent_id, f"""
 {"="*80}
                     MANUAL REVIEW NOTIFICATION
@@ -89,7 +148,20 @@ Timestamp    : {execution_info.timestamp}
 """
 
     def _create_summary_section(self, execution_info: AgentExecutionInfo) -> str:
-        """Create summary section"""
+        
+        """
+        Create summary section with execution statistics.
+        
+        Shows high-level statistics about the execution including
+        success/failure counts and file processing metrics.
+        
+        Args:
+            execution_info: Agent execution information
+            
+        Returns:
+            str: Formatted summary section
+        """
+
         summary = execution_info.summary
         return f"""{"-"*30} SUMMARY {"-"*30}
 Total Databases     : {summary.get('total_databases', 'N/A')}
@@ -102,7 +174,20 @@ Files Saved         : {summary.get('files_saved', 'N/A')}
 """
 
     def _create_error_details_section(self, execution_info: AgentExecutionInfo) -> str:
-        """Create error details section"""
+        
+        """
+        Create detailed error information section.
+        
+        Iterates through execution details to find and format error information
+        including error types, messages, and recovery actions attempted.
+        
+        Args:
+            execution_info: Agent execution information
+            
+        Returns:
+            str: Formatted error details section
+        """
+
         if not execution_info.details:
             return f"""{"-"*25} ERROR DETAILS {"-"*25}
 No error details available.
@@ -147,7 +232,20 @@ ERROR #{error_count}:
         return message
 
     def _create_healing_actions_section(self, execution_info: AgentExecutionInfo) -> str:
-        """Create healing actions section"""
+        
+        """
+        Create healing actions section.
+        
+        Shows all healing/recovery actions that were attempted during
+        the execution, including their priority, scale, and status.
+        
+        Args:
+            execution_info: Agent execution information
+            
+        Returns:
+            str: Formatted healing actions section
+        """
+
         if not execution_info.healing_actions:
             return f"""{"-"*22} HEALING ACTIONS {"-"*22}
 No healing actions available.
@@ -170,7 +268,20 @@ No healing actions available.
         return message
 
     def _create_metadata_section(self, execution_info: AgentExecutionInfo) -> str:
-        """Create metadata section"""
+        
+        """
+        Create metadata section with system information.
+        
+        Shows technical metadata about the execution including
+        processing duration, memory usage, disk usage, and trigger agents.
+        
+        Args:
+            execution_info: Agent execution information
+            
+        Returns:
+            str: Formatted metadata section
+        """
+
         if not execution_info.metadata:
             return f"""{"-"*26} METADATA {"-"*26}
 No metadata available.
@@ -191,7 +302,20 @@ Trigger Agents      : {', '.join(execution_info.trigger_agents) if execution_inf
 """
 
     def _create_contextual_info_section(self, detail: Dict) -> str:
-        """Create contextual info section"""
+        
+        """
+        Create contextual information section.
+        
+        Adds additional context information that was passed as detail parameter.
+        This provides extra information beyond the standard execution info.
+        
+        Args:
+            detail: Dictionary containing additional contextual information
+            
+        Returns:
+            str: Formatted contextual info section
+        """
+
         return f"""{"-"*22} CONTEXTUAL INFO {"-"*22}
 Data Type        : {detail.get('data_type', 'N/A')}
 Error Type       : {detail.get('error_type', 'N/A')}
@@ -202,7 +326,19 @@ Records Processed: {detail.get('records_processed', 'N/A')}
 """
 
     def _get_enum_name(self, enum_value) -> str:
-        """Safely get enum name"""
+        
+        """
+        Safely extract enum name from enum value.
+        
+        Handles various enum formats and provides fallback for non-enum values.
+        
+        Args:
+            enum_value: Enum value or other object
+            
+        Returns:
+            str: Enum name or string representation
+        """
+
         try:
             if hasattr(enum_value, 'name'):
                 return enum_value.name
@@ -211,7 +347,19 @@ Records Processed: {detail.get('records_processed', 'N/A')}
             return str(enum_value)
     
     def _get_enum_value(self, enum_value) -> str:
-        """Safely get enum value"""
+        
+        """
+        Safely extract enum value from enum object.
+        
+        Handles various enum formats and provides fallback for non-enum values.
+        
+        Args:
+            enum_value: Enum value or other object
+            
+        Returns:
+            str: Enum value or string representation
+        """
+
         try:
             if hasattr(enum_value, 'value'):
                 return str(enum_value.value)
@@ -220,10 +368,21 @@ Records Processed: {detail.get('records_processed', 'N/A')}
             return str(enum_value)
 
     def check_rollback_success(self, execution_info: AgentExecutionInfo) -> bool:
+
         """
-        Check if ROLLBACK_TO_BACKUP action was successful
-        Returns True if found and successful, False otherwise
+        Check if ROLLBACK_TO_BACKUP action was successful.
+        
+        Searches through healing actions and recovery actions to find
+        any successful rollback operations. This is important for
+        determining if the system was able to recover from failures.
+        
+        Args:
+            execution_info: Agent execution information
+            
+        Returns:
+            bool: True if successful rollback found, False otherwise
         """
+
         # Check in healing_actions
         if execution_info.healing_actions:
             for action_tuple in execution_info.healing_actions:
@@ -248,7 +407,20 @@ Records Processed: {detail.get('records_processed', 'N/A')}
         return False
     
     def _is_rollback_action(self, action) -> bool:
-        """Check if action is ROLLBACK_TO_BACKUP"""
+        
+        """
+        Check if action is a rollback to backup action.
+        
+        Handles different enum formats and string representations
+        to identify rollback actions.
+        
+        Args:
+            action: Action enum or string
+            
+        Returns:
+            bool: True if action is rollback, False otherwise
+        """
+
         try:
             if hasattr(action, 'value'):
                 return action.value == 'rollback_to_backup'
@@ -260,7 +432,20 @@ Records Processed: {detail.get('records_processed', 'N/A')}
             return False
     
     def _is_success_status(self, status) -> bool:
-        """Check if status is SUCCESS"""
+        
+        """
+        Check if status indicates successful execution.
+        
+        Handles different enum formats and string representations
+        to identify success status.
+        
+        Args:
+            status: Status enum or string
+            
+        Returns:
+            bool: True if status is success, False otherwise
+        """
+        
         try:
             if hasattr(status, 'value'):
                 return status.value == 'success'
