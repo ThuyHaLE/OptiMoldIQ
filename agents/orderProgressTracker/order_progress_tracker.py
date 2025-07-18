@@ -155,15 +155,21 @@ class OrderProgressTracker:
 
         # Step 3: Process production status
         pro_status_df = OrderProgressTracker._pro_status_processing(pd.merge(ordersInfo_df,
-                                                      agg_df, 
-                                                      on='poNo', how='left'),
+                                                                             agg_df, 
+                                                                             on='poNo', how='left'),
                                               self.pro_status_fields, 
                                               producing_po_list, 
                                               self.pro_status_dtypes)
         
+        # Get the latest machine information for each machine based on working shift timestamp
+        lastest_info_df = OrderProgressTracker._get_latest_machine_per_po(self.productRecords_df, 
+                                                                          self.shift_start_map, 
+                                                                          keys=['machineNo', 'moldNo'])
+        updated_lastest_info_df = pro_status_df.merge(lastest_info_df, how='left', on='poNo')
+        
         # Step 4: Get and add warning information from validationOrchestrator's output
         warning_merge_dict, total_warnings = OrderProgressTracker._get_change(self.folder_path, self.target_name)
-        updated_pro_status_df = OrderProgressTracker._add_warning_notes_column(pro_status_df, warning_merge_dict)
+        updated_pro_status_df = OrderProgressTracker._add_warning_notes_column(updated_lastest_info_df, warning_merge_dict)
 
         # Step 5: Prepare output data
         self.data = {
@@ -714,3 +720,46 @@ class OrderProgressTracker:
             df["warningNotes"] = df["poNo"].apply(get_warning_notes)
 
         return df
+    
+    @staticmethod
+    def _get_latest_machine_per_po(df, shift_start_map, keys=['machineNo', 'moldNo']):
+    
+        """
+        Get the latest machine information for each machine based on working shift timestamp.
+        Includes machines that were not working (poNote is null) in the most recent shift.
+        
+        Args:
+            df: DataFrame containing product record data
+            shift_start_map: Dictionary mapping working shift codes to start times
+            keys: List of additional columns to include in the output
+        
+        Returns:
+            DataFrame with the latest machine information per machine (poNo may be null)
+        """
+
+        df_work = df.copy()
+        
+        # Create shift timestamp (vectorized)
+        df_work['workingShift'] = df_work['workingShift'].astype(str)
+        df_work['shift_time'] = df_work['workingShift'].map(shift_start_map).fillna("00:00")
+        
+        # Combine date and time into timestamp
+        df_work['shiftStartTimestamp'] = pd.to_datetime(
+            df_work['recordDate'].astype(str) + ' ' + df_work['shift_time'],
+            format='%Y-%m-%d %H:%M',
+            errors='coerce'
+        )
+        
+        # Get the most recent record for each machine (including idle machines)
+        latest_indices = df_work.groupby('machineCode')['shiftStartTimestamp'].idxmax()
+        latest_per_machine = df_work.loc[latest_indices]
+        
+        # Select and rename columns
+        result_columns = ['poNote', 'shiftStartTimestamp'] + keys
+        result = latest_per_machine[result_columns].copy()
+        
+        # Rename columns (avoid duplicate column names)
+        new_column_names = ['poNo', 'lastestRecordTime', 'lastestMachineNo', 'lastestMoldNo']
+        result.columns = new_column_names
+        
+        return result[result['poNo'].notna()].reset_index(drop=True)
