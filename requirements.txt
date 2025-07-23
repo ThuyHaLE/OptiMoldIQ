@@ -3,6 +3,7 @@ openpyxl
 pyxlsb
 pyarrow
 fastparquet
+tabulate
 
 # Common data packages
 pandas
