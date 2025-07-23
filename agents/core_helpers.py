@@ -35,11 +35,11 @@ def calculate_mold_hour_capacity(df: pd.DataFrame,
         warnings.simplefilter("ignore")
         df['moldFullHourCapacity'] = (
             3600 / df['moldSettingCycle'] * df['moldCavityStandard']
-        ).fillna(0).astype('Int64')
+        ).fillna(0).round().astype('Int64')
         
         df['moldEstimatedHourCapacity'] = (
             df['moldFullHourCapacity'] * (efficiency - loss)
-        ).fillna(0).astype('Int64')
+        ).fillna(0).round().astype('Int64')
     
     return df
 
@@ -221,9 +221,9 @@ def get_hist_info(hist: pd.DataFrame,
             merged['moldSettingCycle'] > 0,
             (3600 / merged['moldSettingCycle']) * merged['moldCavityStandard'],
             np.nan
-        ).astype('int')
+        ).round().astype('int')
 
-        merged['moldEstimatedHourCapacity'] = (merged['moldFullHourCapacity'] * (efficiency - loss)).astype('int')
+        merged['moldEstimatedHourCapacity'] = (merged['moldFullHourCapacity'] * (efficiency - loss)).round().astype('int')
 
         # Step 5: Calculate performance metrics
         merged['shiftNGRate'] = np.where(
