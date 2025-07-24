@@ -12,7 +12,7 @@ from loguru import logger
 from agents.autoPlanner.report_text_formatter import generate_confidence_report
 from agents.decorators import validate_init_dataframes
 from agents.utils import save_text_report_with_versioning, load_annotation_path, read_change_log, log_dict_as_table
-from agents.core_helpers import check_newest_machine_layout, get_hist_info
+from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
@@ -133,10 +133,12 @@ class FeatureWeightCalculator:
                                                                                  self.efficiency, 
                                                                                  self.loss)
     
-        good_sample = get_hist_info(good_hist, self.moldInfo_df, self.efficiency, self.loss)
+        good_sample = summarize_mold_machine_history(good_hist, 
+                                                     self.moldInfo_df, self.efficiency, self.loss)
         logger.debug('Historical information for good sample: {}-{}', good_sample.shape, good_sample.columns)
 
-        bad_sample = get_hist_info(bad_hist, self.moldInfo_df, self.efficiency, self.loss)
+        bad_sample = summarize_mold_machine_history(bad_hist, 
+                                                    self.moldInfo_df, self.efficiency, self.loss)
         logger.debug('Historical information for bad sample: {}-{}', bad_sample.shape, bad_sample.columns)
 
         # Calculate confidence scores
@@ -286,17 +288,17 @@ class FeatureWeightCalculator:
         with np.errstate(divide='ignore', invalid='ignore'):
             filtered_df['moldFullTotalShots'] = np.where(
                 filtered_df['moldCavityStandard'] > 0,
-                (filtered_df['itemQuantity'] / filtered_df['moldCavityStandard']).astype('Int64'),
+                (filtered_df['itemQuantity'] / filtered_df['moldCavityStandard']).round().astype('Int64'),
                 0
             )
 
             filtered_df['moldFullTotalSeconds'] = (
                 filtered_df['moldFullTotalShots'] * filtered_df['moldSettingCycle']
-            ).astype('Int64')
+            ).round().astype('Int64')
 
             filtered_df['moldFullShiftUsed'] = (
                 filtered_df['moldFullTotalSeconds'] / (60 * 60 * 8)
-            ).astype('Int64')
+            ).round().astype('Int64')
 
             # Estimate required shifts considering efficiency and loss
             net_efficiency = efficiency - loss
