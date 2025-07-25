@@ -160,11 +160,14 @@ class OrderProgressTracker:
                                               self.pro_status_fields, 
                                               producing_po_list, 
                                               self.pro_status_dtypes)
+        pro_status_df = OrderProgressTracker._mark_paused_pending_pos(self.productRecords_df, 
+                                                                      pro_status_df, 
+                                                                      self.shift_start_map)
         
-        # Get the latest machine information for each machine based on working shift timestamp
-        lastest_info_df = OrderProgressTracker._get_latest_machine_per_po(self.productRecords_df, 
-                                                                          self.shift_start_map, 
-                                                                          keys=['machineNo', 'moldNo'])
+        # Get the latest machine information for each po on working shift timestamp
+        lastest_info_df = OrderProgressTracker._get_latest_po_info(self.productRecords_df, 
+                                                                    self.shift_start_map, 
+                                                                    keys=['machineNo', 'moldNo'])
         updated_lastest_info_df = pro_status_df.merge(lastest_info_df, how='left', on='poNo')
         
         # Step 4: Get and add warning information from validationOrchestrator's output
@@ -722,7 +725,7 @@ class OrderProgressTracker:
         return df
     
     @staticmethod
-    def _get_latest_machine_per_po(df, shift_start_map, keys=['machineNo', 'moldNo']):
+    def _get_latest_po_info(df, shift_start_map, keys=['machineNo', 'moldNo']):
     
         """
         Get the latest machine information for each machine based on working shift timestamp.
@@ -751,15 +754,56 @@ class OrderProgressTracker:
         )
         
         # Get the most recent record for each machine (including idle machines)
-        latest_indices = df_work.groupby('machineCode')['shiftStartTimestamp'].idxmax()
-        latest_per_machine = df_work.loc[latest_indices]
-        
+        latest_indices = df_work.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
+        latest_per_po = df_work.merge(latest_indices, on=['poNote', 'shiftStartTimestamp'], how='inner')
+
         # Select and rename columns
         result_columns = ['poNote', 'shiftStartTimestamp'] + keys
-        result = latest_per_machine[result_columns].copy()
-        
+        result = latest_per_po[result_columns].copy()
+
         # Rename columns (avoid duplicate column names)
         new_column_names = ['poNo', 'lastestRecordTime', 'lastestMachineNo', 'lastestMoldNo']
         result.columns = new_column_names
         
         return result[result['poNo'].notna()].reset_index(drop=True)
+    
+    @staticmethod
+    def _mark_paused_pending_pos(df, proStatus_df, shift_start_map):
+        # Filter only production records with item quantity > 0
+        df_work = df[df['itemTotalQuantity'] > 0].copy()
+
+        # Ensure workingShift is a string and map it to shift start time
+        df_work['workingShift'] = df_work['workingShift'].astype(str)
+        df_work['shift_time'] = df_work['workingShift'].map(shift_start_map).fillna("00:00")
+
+        # Create a full datetime column by combining recordDate and shift start time
+        df_work['shiftStartTimestamp'] = pd.to_datetime(
+            df_work['recordDate'].astype(str) + ' ' + df_work['shift_time'],
+            format='%Y-%m-%d %H:%M',
+            errors='coerce'
+        )
+
+        # Extract list of pending POs from proStatus_df where itemRemain > 0 and status is 'PENDING'
+        pending_list = proStatus_df[
+            (proStatus_df['itemRemain'] > 0) & 
+            (proStatus_df['proStatus'] == 'PENDING')
+        ]['poNo'].tolist()
+
+        # Filter records of those pending POs
+        df_pending = df_work[df_work['poNote'].isin(pending_list)]
+
+        # Get the most recent production timestamp for each pending PO
+        pending_latest_shift = df_pending.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
+
+        # Get the most recent production timestamp for all POs
+        total_latest_shift = df_work.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
+        latest_shift_start = total_latest_shift['shiftStartTimestamp'].max()
+
+        # Identify pending POs that have not been updated until the most recent production timestamp
+        paused_mask = pending_latest_shift['shiftStartTimestamp'] < latest_shift_start
+        paused_po_list = pending_latest_shift[paused_mask]['poNote'].tolist()
+
+        # Mark those POs as 'PAUSED' in proStatus_df
+        proStatus_df.loc[proStatus_df['poNo'].isin(paused_po_list), 'proStatus'] = 'PAUSED'
+
+        return proStatus_df
