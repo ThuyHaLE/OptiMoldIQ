@@ -205,7 +205,8 @@ OptiMoldIQ sử dụng dữ liệu chia sẻ chung, với 2 loại dataset độ
 ## Các Cột Mốc
 - ✅ **Milestone 01**: Hoàn thành Core Data Pipeline Agents
   Tháng 07/2025 — gồm `dataPipelineOrchestrator`, `validationOrchestrator`, `orderProgressTracker`.
-  ➤ [View Details](docs/milestones/OptiMoldIQ-milestone_01.md)
+  ➤ [Xem thêm](docs/milestones/OptiMoldIQ-milestone_01.md)
+  ➤ [Xem orderProgressTracker Demo](docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
 
 - 🔄 Sắp tới: AnalyticsOrchestrator + DashBoardBuilder
 
