@@ -233,7 +233,7 @@ def process_mold_info(moldSpecificationSummary_df: pd.DataFrame,
         # Mark priority molds
         return assign_priority_mold(result_df)
 
-def calculate_mold_lead_times(pending_records: pd.DataFrame, 
+def calculate_mold_lead_times(pending_records: pd.DataFrame,
                               mold_info_df: pd.DataFrame) -> pd.DataFrame:
 
     """Calculate lead times for items that can be produced."""
@@ -250,11 +250,16 @@ def calculate_mold_lead_times(pending_records: pd.DataFrame,
         'moldEstimatedHourCapacity': ('moldEstimatedHourCapacity', 'mean'),
     }
 
-    lead_time_df = pending_with_mold_info.groupby(['moldNo']).agg(**agg_dict).reset_index()
+    lead_time_df = pending_with_mold_info.groupby(['itemCode', 'moldNo']).agg(**agg_dict).reset_index()
 
     # Calculate lead time in days
     HOURS_PER_DAY = 24
-    lead_time_df['moldLeadTime'] = ((lead_time_df['totalQuantity'] / lead_time_df['moldEstimatedHourCapacity']) / HOURS_PER_DAY).round().astype('int')
+    lead_time_df['moldLeadTime'] = (
+    ((lead_time_df['totalQuantity'] / lead_time_df['moldEstimatedHourCapacity']) / HOURS_PER_DAY)
+    .round()
+    .astype('int')
+    .replace(0, 1)
+)
 
     return lead_time_df
 
