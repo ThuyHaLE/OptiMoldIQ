@@ -14,67 +14,13 @@ The **DataPipelineOrchestrator** is the main coordinator agent responsible for m
 4. **DataCollector** - Phase 1: Data collection agent
 5. **DataLoaderAgent** - Phase 2: Data processing and loading agent
 
-### Two-Phase Pipeline Workflow
+### Two-Phase Pipeline Design
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                             [ DataPipelineOrchestrator ]                                        │
-│                    Orchestrates the entire batch data processing flow                           │
-└──────────────┬──────────────────────────────────────────────────────────────────────────────────┘
-               ▼ Phase 1                                                           
-        ┌──────────────────────┐                                            ┌──────────────────────┐
-        │   DataCollector      │                                            │   DataLoaderAgent    │
-        │ (Process Dynamic DB) │────── Phase 2 ───────────────────────────⯈│ (Load All Databases) │
-        └──────────────────────┘                                            └──────────────────────┘
-               │                                                                        │
-               ▼                                                                        ▼
-    📊 Process Excel Reports                                           🔍 Check Database Changes
-    • Read .xlsb/.xlsx files                                          • Compare with schema
-    • Merge & validate data                                           • Compare with annotations  
-    • Compare hash with existing                                      • Save new versions if changed
-    • Save as .parquet if changed                                     • Update path_annotations.json
+Phase 1: Data Collection → Phase 2: Data Loading
+     ↓                           ↓
+Error Handling ←→ Rollback ←→ Notifications
 ```
-
-### Detailed Phase Breakdown
-
-#### 🔄 Phase 1: DataCollector (Dynamic Database Processing)
-
-| Step | Process | Details |
-|------|---------|---------|
-| **1** | **Read Source Files** | Process `monthlyReports_history` and `purchaseOrders_history` folders |
-| **2** | **Data Normalization** | Handle missing columns, normalize dates, shifts, resin codes |
-| **3** | **Data Cleaning** | Remove duplicates and validate data integrity |
-| **4** | **Change Detection** | Compare new data with existing `.parquet` using hash comparison |
-| **5** | **File Generation** | Save new `.parquet` files using atomic write + snappy compression |
-
-**Input Sources:**
-- `monthlyReports_history/` → `.xlsb`/`.xlsx` files
-- `purchaseOrders_history/` → `.xlsb`/`.xlsx` files
-
-**Output:**
-- `productRecords.parquet`
-- `purchaseOrders.parquet`
-
-#### 📋 Phase 2: DataLoaderAgent (All Database Loading)
-
-| Step | Process | Details |
-|------|---------|---------|
-| **1** | **Schema Loading** | Load `databaseSchemas.json` for schema definitions |
-| **2** | **Annotations Loading** | Load `path_annotations.json` for version references |
-| **3** | **Data Processing** | For each database:<br>• **Dynamic DB**: Load `.parquet` from Phase 1<br>• **Static DB**: Load `.xlsx` from configured paths |
-| **4** | **Change Detection** | Compare new vs old content using hash comparison |
-| **5** | **Version Management** | If different:<br>• Move old → `historical_db/`<br>• Save new → `newest/` with timestamp<br>• Update `path_annotations.json` |
-
-**Input Sources:**
-- Dynamic: `.parquet` files from Phase 1
-- Static: `.xlsx` files from configured paths
-- Schema: `databaseSchemas.json`
-- Annotations: `path_annotations.json`
-
-**Output:**
-- Versioned `.parquet` files in `newest/`
-- Updated `path_annotations.json`
-- Historical files in `historical_db/`
 
 ## Class Reference
 
@@ -112,6 +58,8 @@ Main entry point that executes the complete data pipeline.
 4. Handle errors and notifications
 5. Return comprehensive results
 
+- See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_dataPipelineOrchestratorWorkflow.md)
+  
 **Returns:**
 ```python
 {
@@ -129,7 +77,7 @@ Main entry point that executes the complete data pipeline.
 
 ##### `_run_data_collector() -> Any`
 
-Executes Phase 1: DataCollector to gather raw data from sources.
+Executes Phase 1: `DataCollector` to gather raw data from sources.
 
 **Process:**
 1. Initialize DataCollector with source directory
@@ -137,14 +85,18 @@ Executes Phase 1: DataCollector to gather raw data from sources.
 3. Handle collection errors
 4. Trigger notifications on failure
 
+- See details: [DataCollector](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataCollector_review.md)
+
 ##### `_run_data_loader(collector_result: Any) -> Any`
 
-Executes Phase 2: DataLoaderAgent to process and load collected data.
-
+Executes Phase 2: `DataLoaderAgent` to process and load collected data.
+  
 **Conditional Logic:**
 - Proceeds if Phase 1 was successful
 - Proceeds if Phase 1 failed but rollback was successful  
 - Skips if Phase 1 failed without successful rollback
+
+- See details: [DataLoader](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataLoader_review.md)
 
 ##### `_should_proceed_to_data_loader(collector_result: Any) -> bool`
 
@@ -163,55 +115,26 @@ else:
 
 ### Error Handling Strategy
 
-The orchestrator implements a comprehensive error handling approach with automatic recovery mechanisms:
+The orchestrator implements a multi-layered error handling approach:
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Phase 1       │    │   Phase 2       │    │   Notification  │
-│  DataCollector  │    │ DataLoaderAgent │    │    System       │
-└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
-          │                      │                      │
-          ▼                      ▼                      ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Error Detection │    │ Error Detection │    │ Manual Review   │
-│ & Recovery      │    │ & Recovery      │    │ Notification    │
-└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
-          │                      │                      │
-          ▼                      ▼                      ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ ROLLBACK_TO_    │    │ Continue/Skip   │    │ Admin Alert     │
-│ BACKUP          │    │ Based on Status │    │ + File Log      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+1. **Try-Catch Blocks**: Wrap each phase execution
+2. **Status Checking**: Evaluate phase results
+3. **Rollback Detection**: Check for successful recovery actions
+4. **Notification System**: Alert administrators of failures
 
-#### Multi-Layer Error Handling
-1. **Try-Catch Blocks**: Wrap each phase execution with exception handling
-2. **Status Validation**: Check phase results before proceeding  
-3. **Rollback Detection**: Automatic detection of successful recovery actions
-4. **Notification System**: Alert administrators for manual intervention
-5. **Pipeline Continuation Logic**: Smart decision-making for Phase 2 execution
+### Recovery Mechanisms
 
-#### Pipeline Continuation Decision Matrix
+#### Rollback Detection
+The system checks for successful `ROLLBACK_TO_BACKUP` actions in:
+- Healing actions from the execution info
+- Recovery actions within detail records
 
-| Phase 1 Status | Rollback Status | Phase 2 Action | Reasoning |
-|----------------|-----------------|-----------------|-----------|
-| ✅ **Success** | N/A | ✅ **Proceed** | Normal flow - continue to Phase 2 |
-| ❌ **Failed** | ✅ **Success** | ✅ **Proceed** | Recovery successful - safe to continue |
-| ❌ **Failed** | ❌ **Failed** | ⏹️ **Skip** | Cannot recover - stop pipeline |
-| ❌ **Failed** | ❓ **None** | ⏹️ **Skip** | No recovery attempted - stop pipeline |
-
-#### Rollback Mechanism
-The system automatically detects successful `ROLLBACK_TO_BACKUP` actions in:
-- **Healing Actions**: Primary recovery actions from execution info
-- **Recovery Actions**: Detailed recovery attempts within error records
-
-**Detection Process:**
-```python
-# Pseudo-code for rollback detection
-for action in healing_actions:
-    if action.type == "ROLLBACK_TO_BACKUP" and action.status == "SUCCESS":
-        return True  # Safe to proceed to Phase 2
-```
+#### Decision Matrix
+| Phase 1 Status | Rollback Status | Phase 2 Action |
+|---------------|----------------|----------------|
+| Success | N/A | Proceed |
+| Failed | Success | Proceed |
+| Failed | Failed/None | Skip |
 
 ## Notification System
 
@@ -287,29 +210,19 @@ Trigger Agents      : [triggering_agents]
 ```
 project_root/
 ├── database/
-│   ├── dynamicDatabase/                    # Phase 1 output (.parquet files)
-│   ├── databaseSchemas.json               # Database schema definitions
-│   ├── monthlyReports_history/            # Input: Monthly report files
-│   └── purchaseOrders_history/            # Input: Purchase order files
+│   ├── dynamicDatabase/          # Source data directory
+│   └── databaseSchemas.json      # Database schemas
 ├── agents/
 │   └── shared_db/
 │       ├── DataLoaderAgent/
-│       │   ├── newest/                    # Latest database versions
-│       │   │   └── path_annotations.json  # Version tracking
-│       │   └── historical_db/             # Previous database versions
-│       └── DataPipelineOrchestrator/      # Orchestrator output
+│       │   └── newest/
+│       │       └── path_annotations.json
+│       └── DataPipelineOrchestrator/  # Output directory
 └── configs/
     └── recovery/
         └── dataPipelineOrchestrator/
             └── data_pipeline_orchestrator_configs.py
 ```
-
-### Data Flow Overview
-
-| Agent | Input Files | Output Files | Purpose |
-|-------|-------------|--------------|---------|
-| **DataCollector** | `monthlyReports_*.xlsb/xlsx`<br>`purchaseOrders_*.xlsb/xlsx` | `productRecords.parquet`<br>`purchaseOrders.parquet` | Process and consolidate dynamic data |
-| **DataLoaderAgent** | Phase 1 `.parquet` files<br>Static `.xlsx` files<br>`databaseSchemas.json`<br>`path_annotations.json` | Versioned `.parquet` files<br>Updated `path_annotations.json` | Load and version all databases |
 
 ### Dependencies
 

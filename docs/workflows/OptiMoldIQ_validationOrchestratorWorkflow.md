@@ -1,323 +1,301 @@
-## I. Workflow: PORequiredCriticalValidator
+# ValidationOrchestrator Workflow
+
+## I. High-Level Architecture
+
 ```
-                                                 ┌──────────────────────────────────────────────────────────────┐
-                                                 │              [ ValidationOrchestrator ]                      │
-                                                 │   Coordinate static, dynamic, and critical PO validations    │
-                                                 └──────────────────────────────────────────────────────────────┘
-                                                                                │
-                                                          Load database schema and path annotations JSON
-                                                                                │
-                                                              ┌────────────────────────────────────┐
-                                                              │ Load 8 parquet files into memory   │
-                                                              └────────────────────────────────────┘
-                                                                                │
-                                                         Validate schema with `@validate_init_dataframes`
-                                                                                │
-                                                                                ▼
-                  ┌─────────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────────────┐
-┌───────────────────────────────────┐                          ┌──────────────────────────────────┐                           ┌─────────────────────────────────────────────┐
-│    [ StaticCrossDataChecker ]     │                          │  [ PORequiredCriticalValidator ] │                           │      [ DynamicCrossDataValidator ]          │
-│ Cross-validate static master data │                          │  Validate whether productRecords │                           │ Validate production records against         │
-│     against dynamic records       │                          │      are aligned with PO DB      │                           │ standard references (mold, machine, resin)  │
-└───────────────────────────────────┘                          └──────────────────────────────────┘                           └─────────────────────────────────────────────┘
-                  │                                                             │                                                                     │
-  Load schema & path annotations                             Load database schemas and path annotations                                 Load schema & path annotations
-                  │                                                             │                                                                     │
- Validate input DataFrames by schema                         ┌────────────────────────────────────────┐                        Validate input DataFrames by schema (decorator)
-                  │                                          │ Validate input DataFrames using schema │                                               │
-Load all required DataFrames from path annotations           └────────────────────────────────────────┘                        Load required DataFrames from path annotations:
-                  │                                                             │                                                                     │
-┌──────────────────────────────────────────┐              ┌─────────────────────────────────────────────────────┐                         ┌────────────────────────┐
-│ For each checking_df_name (productRecords│              │ Load productRecords and purchaseOrders parquet files│                         │ Prepare production data│
-│ or purchaseOrders):                      │              └─────────────────────────────────────────────────────┘                         └────────────────────────┘
-└──────────────────────────────────────────┘                                    │                                                                     │
-                 │                                                Rename poNote → poNo in productRecords                                   ┌──────────────────────┐
-┌─────────────────────────────────────────┐                       Remove rows with null poNo                                               │ Prepare standard data│
-│ Process dataframe (rename poNote → poNo)│                                     │                                                          └──────────────────────┘
-│ Drop rows with null values if needed    │                     Compare PO numbers across both datasets                                               │
-└─────────────────────────────────────────┘                                     ▼                                               ┌────────────────────────────────────────────────┐ 
-                │                                         ┌──────────────────────────────────────────────────────┐              │ Check for invalid data (nulls in critical cols)│
-Run static validations in sequence:                       │ Identify missing POs in purchaseOrders → log warnings│              │ → Generate invalid warnings if found           │  
-                ▼                                         └──────────────────────────────────────────────────────┘              └────────────────────────────────────────────────┘    
-┌───────────────────────────────────────────────────┐                           │                                                                     │
-│ [1] Validate itemInfo consistency                 │     ┌──────────────────────────────────────────────────────────────┐               ┌────────────────────────────┐ 
-│→ Check if (itemCode + itemName) exists in itemInfo│     │ Filter valid POs from both datasets                          │               │ Compare production vs.     │
-└───────────────────────────────────────────────────┘     │ Merge productRecords and purchaseOrders on poNo              │               │ standard at multiple levels│ 
-                ▼                                         │ Vectorized comparison for overlapping fields (excluding poNo)│               └────────────────────────────┘   
-┌───────────────────────────────────┐                     │   → Generate match columns per field and final_match column  │                            │
-│ [2] Validate resinInfo consistency│                     └──────────────────────────────────────────────────────────────┘             ┌───────────────────────────────────────────┐
-│ → Check each resin type (plastic, │                                           │                                                      │ Generate mismatch warnings for each level:│      
-│color, additive) in resinInfo      │                     ┌───────────────────────────────────────────────────────────────────────┐    │ • item_warnings                           │   
-└───────────────────────────────────┘                     │ Identify rows with mismatched fields → generate mismatchType & warning│    │ • item_mold_warnings                      │    
-                ▼                                         │ Format warning messages with context: poNo, date, shift, machineNo    │    │ • mold_machine_tonnage_warnings           │     
-┌──────────────────────────────────────────┐              └───────────────────────────────────────────────────────────────────────┘    │ • item_composition_warnings               │      
-│ [3] Validate itemCompositionSummary      │                                    │                                                      └───────────────────────────────────────────┘
-│ → Validate full composition of itemCode, │                Combine invalid PO warnings + field mismatch warnings into a list                          │
-│resins against summary table              │                                    │                                                                      │
-└──────────────────────────────────────────┘              ┌─────────────────────────────────────────────────────────────────────┐                      │
-                ▼                                         │ Output result as DataFrame with columns:                            │                      │ 
-┌──────────────────────────────────────┐                  │ ['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message']│                      │ 
-│ Generate warnings for all mismatches:│                  └─────────────────────────────────────────────────────────────────────┘                      │ 
-│ - Include poNo, mismatchType,        │                                        │                                                                      │
-│requiredAction, and context message   │                                        │                                                                      │
-└──────────────────────────────────────┘                                        │                                                                      │
-               ▼                                                                │                                                                      ▼
-Combine all warning entries into                                                │                                                    Combine all invalid + mismatch warnings
-one result per checking_df_name                                                 │                                                                      ▼           
-               ▼                                                                │                                                          Return results as DataFrames
-Return or export result DataFrames                                              │                                                                      ▼
-to Excel with version control                                     Save to Excel file with versioning if enabled                          Save result to versioned Excel file
-               └────────────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────────┘
-                                                                                │
-                                                              Merge all warnings: static + dynamic + PO
-                                                                                ▼
-                                              ┌──────────────────────────────────────────────────────────────────┐
-                                              │ Export merged results to Excel using save_output_with_versioning │
-                                              └──────────────────────────────────────────────────────────────────┘
+                            ┌─────────────────────────────────────┐
+                            │      ValidationOrchestrator         │
+                            │   (Main Coordinator Agent)          │
+                            └─────────────────────────────────────┘
+                                           │
+                            ┌──────────────┼──────────────┐
+                            │              │              │
+                            ▼              ▼              ▼
+                ┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
+                │ StaticValidator  │ │ POValidator  │ │ DynamicValidator │
+                │   (Agent 1)      │ │  (Agent 2)   │ │   (Agent 3)      │
+                └──────────────────┘ └──────────────┘ └──────────────────┘
+                            │              │              │
+                            └──────────────┼──────────────┘
+                                           │
+                                           ▼
+                                 ┌─────────────────┐
+                                 │ Results Merger  │
+                                 │ & Excel Export  │
+                                 └─────────────────┘
 ```
 
-## II. Detailed Steps
-
-### Initialization
-
-- 📂 Load database schema: `databaseSchemas.json`
-- 📂 Load path annotations: `path_annotations.json`
-
-- 📊 Load 8 required datasets:
-  - **Dynamic**:
-    - `productRecords`
-    - `purchaseOrders`
-  - **Static**:
-    - `itemInfo`
-    - `resinInfo`
-    - `machineInfo`
-    - `moldSpecificationSummary`
-    - `moldInfo`
-    - `itemCompositionSummary`
-
-- ✅ Validate required columns via `@validate_init_dataframes` decorator
-
----
-
-## III. Validation Stages
-
-### 📌 Stage 1. StaticCrossDataChecker
-- Ensures static master data (`itemInfo`, `machineInfo`, etc.) align with actual entries in `productRecords` and `purchaseOrders`
-
-#### Detailed Steps
-
-##### Initialization
-
-- ✅ Accepts checking target: either `productRecords` or `purchaseOrders`  
-- 📂 Load:
-  - `databaseSchemas.json`  
-  - `path_annotations.json`
-- 📊 Load required datasets:
-  - `itemInfo`
-  - `resinInfo`
-  - `itemCompositionSummary`
-  - `productRecords`
-  - `purchaseOrders`
-
-##### Preprocessing
-
-- Rename `poNote` → `poNo` (only for `productRecords`)
-- Drop rows with:
-  - `null` PO
-  - `null` component values
-
----
-##### Validation
-1. **Item Info Validation**
-
-- Match `(itemCode, itemName)` pairs with `itemInfo`
-- ⚠️ Warn on mismatches
-
----
-
-2.  **Resin Info Validation**
-
-- For each resin type:
-  - `plasticResin`
-  - `colorMasterbatch`
-  - `additiveMasterbatch`
-- Validate code-name pairs
-
----
-
-3.  **Composition Validation**
-
-- Match full compositions against `itemCompositionSummary`
-
----
-
-###### Output
-
-- 📝 Warnings formatted consistently as:  
-  `poNo`, `warningType`, `mismatchType`, `requiredAction`, `message`
-- 📤 Export results:
-  - Version-controlled Excel file per dataset
-
----
-
-###### Input/Output
-
-| Stage           | Input                              | Output                        |
-|------------------|-------------------------------------|-------------------------------|
-| **Initialization** | `databaseSchemas.json`, `path_annotations.json` | Validated schema & paths     |
-| **Loading**        | All referenced `.parquet` files    | Internal DataFrames           |
-| **Validation**     | `productRecords` / `purchaseOrders` | Warning DataFrame             |
-| **Export**         | Combined result                   | Versioned Excel output        |
-
-
----
-
-### 📌 Stage 2. PORequiredCriticalValidator
-
-- Validates that every `poNo` in `productRecords` exists in `purchaseOrders`
-- Compares overlapping fields for consistency
-
-#### Detailed Steps
-
-##### Initialization
-
-* Load `databaseSchemas.json` and `path_annotations.json`
-* Validate presence of required parquet files for `productRecords` and `purchaseOrders`
-
-##### Preprocessing
-
-* Rename `poNote` to `poNo`
-* Drop rows with null `poNo`
-
-##### Validation
-
-1. **PO Number Validation**
-
-   * Identify PO numbers in `productRecords` that do not exist in `purchaseOrders`
-   * Log warnings for these missing PO numbers
-
-2. **Field Value Validation**
-
-   * Identify overlapping fields between the two datasets
-   * Merge records on `poNo`
-   * Vectorized comparison of overlapping fields
-   * Flag rows where values do not match
-   * Build warning entries for each mismatched row
-
-##### Output
-
-* Combine warnings into a final DataFrame
-* Generate summary statistics (valid, invalid, mismatches)
-* Export results to an Excel file with automatic version control
-
----
-
-##### Input/Output
-
-| Stage          | Input                                              | Output                 |
-| -------------- | -------------------------------------------------- | ---------------------- |
-| Initialization | `databaseSchemas.json`, `path_annotations.json`    | Validated DataFrames   |
-| Validation     | `productRecords.parquet`, `purchaseOrders.parquet` | Warning DataFrame      |
-| Export         | Final results                                      | Versioned Excel report |
-
----
-
-### 📌 Stage 3. DynamicCrossDataValidator
-
-- Checks logical consistency between dynamic dataframes
-- Flags item mismatches or missing references
-
-#### Detailed Steps
-
-##### Initialization
-
-- Load `databaseSchemas.json` → Validate expected columns  
-- Load `path_annotations.json` → Locate `.parquet` paths  
-- Ensure required data is available and accessible
-
----
-
-Load 5 required datasets:
-- `productRecords_df` *(dynamic)*
-- `machineInfo_df`
-- `moldSpecificationSummary_df`
-- `moldInfo_df`
-- `itemCompositionSummary_df`
-
----
-
-##### Preprocessing
-
-🔸 Production Data:
-
-- Remove entries with missing `poNote`.
-- Generate `item_composition` from `plastic`, `color`, `additive` info.
-- Merge with `machineInfo_df` to include `machineTonnage`.
-
-🔸 Standard Reference Data:
-
-- Explode multiple `moldNo` per item.
-- Merge `moldSpecificationSummary_df` + `moldInfo_df` → build standard mold-machine map.
-- Join with `itemCompositionSummary_df` to build valid item compositions.
-
----
-##### Validation
-1. **Item Info Validation**
-
-- Match `(itemCode, itemName)` against `itemInfo`
-- ⚠️ Warn on mismatches
-
-2. **Item Specification Cross-check**
-
-- Match `(itemCode, itemName)` against `itemSpecificationSummary`
-- Validate composition: resin, masterbatch, additive
-- ⚠️ Warn on composition mismatches
-
-3. **Mold Info Validation**
-
-- Check `(moldCode, moldType)` against `moldInfo_df`
-- Optionally validate `cavity` count
-- ⚠️ Warn on:
-  - Unknown moldCode
-  - Mismatched moldType
-
-4. **Mold Specification Cross-check**
-
-- Match `(itemCode, moldCode)` against `moldSpecificationSummary_df`
-- Validate:
-  - Item–mold compatibility
-  - Mold tonnage vs assigned machine
-- ⚠️ Warn on mismatches
-
----
-
-##### Input/Output
-
-| Stage             | Input                                | Output                        |
-|------------------|---------------------------------------|-------------------------------|
-| **Initialization** | `databaseSchemas.json`, `path_annotations.json` | Validated schema & paths     |
-| **Loading**        | All referenced `.parquet` files      | Internal DataFrames           |
-| **Validation**     | `productRecords` / `purchaseOrders`  | Warning DataFrame             |
-| **Export**         | Combined result                      | Versioned Excel output        |
-
-
----
-
-## IV. Output Summary
-
-- Combine all warnings into categories:
-  - `static_mismatch`: issues in static data
-  - `po_required_mismatch`: mismatches or missing POs
-  - `dynamic_mismatch`: invalid items or fields
-
-- 📤 Save final results as Excel report with **automatic versioning**
-
----
-
-## V. Input/Output
-
-| Stage          | Input Files                        | Output                              |
-|----------------|------------------------------------|-------------------------------------|
-| **Initialization** | Parquet datasets + JSON annotations | Loaded & validated DataFrames        |
-| **Validation**     | Dynamic and Static DataFrames       | Dict of mismatch warning DataFrames |
-| **Export**         | Combined results                    | Excel file with versioned filename  |
+## II. Data Flow Overview
+
+### Phase 1: Initialization & Data Loading
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           INITIALIZATION PHASE                             │
+│                                                                             │
+│ 1. Load Configuration Files                                                 │
+│    ├── databaseSchemas.json (Column definitions)                           │
+│    └── path_annotations.json (File locations)                              │
+│                                                                             │
+│ 2. Load Data Files (8 Parquet Files)                                       │
+│    ├── Dynamic Data:                                                       │
+│    │   ├── productRecords.parquet                                          │
+│    │   └── purchaseOrders.parquet                                          │
+│    └── Static Reference Data:                                              │
+│        ├── itemInfo.parquet                                                │
+│        ├── resinInfo.parquet                                               │
+│        ├── machineInfo.parquet                                             │
+│        ├── moldInfo.parquet                                                │
+│        ├── moldSpecificationSummary.parquet                                │
+│        └── itemCompositionSummary.parquet                                  │
+│                                                                             │
+│ 3. Schema Validation (@validate_init_dataframes)                           │
+│    └── Ensure all required columns exist                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Phase 2: Parallel Validation Execution
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          VALIDATION PHASE                                  │
+│                                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐            │
+│  │ StaticValidator │  │   POValidator   │  │DynamicValidator │            │
+│  │                 │  │                 │  │                 │            │
+│  │ Validates:      │  │ Validates:      │  │ Validates:      │            │
+│  │ • Item codes    │  │ • PO existence  │  │ • Cross-refs    │            │
+│  │ • Resin codes   │  │ • Field matches │  │ • Logic rules   │            │
+│  │ • Compositions  │  │ • Data quality  │  │ • Consistency   │            │
+│  │                 │  │                 │  │                 │            │
+│  │ ↓ Outputs:      │  │ ↓ Outputs:      │  │ ↓ Outputs:      │            │
+│  │ Static warnings │  │ PO warnings     │  │Dynamic warnings │            │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Phase 3: Results Consolidation
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CONSOLIDATION PHASE                                 │
+│                                                                             │
+│ Input: 3 Warning DataFrames                                                 │
+│ ├── Static warnings (from Agent 1)                                         │
+│ ├── PO warnings (from Agent 2)                                             │
+│ └── Dynamic warnings (from Agent 3)                                        │
+│                                                                             │
+│ Process:                                                                    │
+│ 1. Merge all warnings into unified format                                  │
+│ 2. Add metadata (timestamp, severity, source)                              │
+│ 3. Generate summary statistics                                              │
+│                                                                             │
+│ Output:                                                                     │
+│ └── Excel file with versioning (validation_orchestrator_v{N}.xlsx)         │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## III. Detailed Agent Workflows
+
+### Agent 1: StaticCrossDataChecker
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        StaticValidator Workflow                     │
+│                                                                     │
+│ Input: productRecords + purchaseOrders + Static Reference Data     │
+│                                                                     │
+│ For each dataset (productRecords, purchaseOrders):                 │
+│                                                                     │
+│ Step 1: Data Preprocessing                                          │
+│ ├── Rename poNote → poNo                                           │
+│ ├── Remove null values                                              │
+│ └── Standardize data types                                          │
+│                                                                     │
+│ Step 2: Item Validation                                             │
+│ ├── Check (itemCode + itemName) exists in itemInfo                 │
+│ └── Generate warnings for mismatches                                │
+│                                                                     │
+│ Step 3: Resin Validation                                            │
+│ ├── Validate plasticResin against resinInfo                        │
+│ ├── Validate colorMasterbatch against resinInfo                    │
+│ ├── Validate additiveMasterbatch against resinInfo                 │
+│ └── Generate warnings for each mismatch                             │
+│                                                                     │
+│ Step 4: Composition Validation                                      │
+│ ├── Build full composition string                                   │
+│ ├── Check against itemCompositionSummary                           │
+│ └── Generate warnings for invalid compositions                      │
+│                                                                     │
+│ Output: DataFrame with columns:                                     │
+│ [poNo, warningType, mismatchType, requiredAction, message]         │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Agent 2: PORequiredCriticalValidator
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                       POValidator Workflow                          │
+│                                                                     │
+│ Input: productRecords + purchaseOrders                             │
+│                                                                     │
+│ Step 1: Data Preparation                                            │
+│ ├── Clean productRecords (rename poNote → poNo)                    │
+│ ├── Remove records with null poNo                                   │
+│ └── Identify overlapping columns between datasets                   │
+│                                                                     │
+│ Step 2: PO Existence Check                                          │
+│ ├── Find PO numbers in productRecords                              │
+│ ├── Check if they exist in purchaseOrders                          │
+│ └── Generate warnings for missing POs                               │
+│                                                                     │
+│ Step 3: Field Consistency Check                                     │
+│ ├── Merge datasets on poNo                                         │
+│ ├── Compare overlapping fields (vectorized)                        │
+│ ├── Identify mismatched values                                      │
+│ └── Generate warnings with context                                  │
+│                                                                     │
+│ Step 4: Results Compilation                                         │
+│ ├── Combine existence + consistency warnings                        │
+│ ├── Add metadata (date, shift, machineNo)                          │
+│ └── Format consistent warning structure                             │
+│                                                                     │
+│ Output: DataFrame with structured warnings                          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Agent 3: DynamicCrossDataValidator
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    DynamicValidator Workflow                        │
+│                                                                     │
+│ Input: productRecords + Machine/Mold/Composition References        │
+│                                                                     │
+│ Step 1: Production Data Preparation                                 │
+│ ├── Filter out records with null poNote                            │
+│ ├── Generate item_composition from resin components                 │
+│ └── Merge with machineInfo for tonnage data                        │
+│                                                                     │
+│ Step 2: Reference Data Preparation                                  │
+│ ├── Build mold-machine compatibility matrix                        │
+│ ├── Create item-composition lookup table                           │
+│ └── Generate valid combinations reference                           │
+│                                                                     │
+│ Step 3: Multi-Level Validation                                      │
+│ ├── Level 1: Item Code/Name validation                             │
+│ ├── Level 2: Item-Mold compatibility                               │
+│ ├── Level 3: Mold-Machine tonnage matching                         │
+│ └── Level 4: Item composition consistency                           │
+│                                                                     │
+│ Step 4: Invalid Data Detection                                      │
+│ ├── Check for null values in critical columns                      │
+│ ├── Identify incomplete records                                     │
+│ └── Flag data quality issues                                        │
+│                                                                     │
+│ Output: Two DataFrames                                              │
+│ ├── invalid_warnings: Data quality issues                          │
+│ └── mismatch_warnings: Logic consistency issues                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## IV. Data Structure Standards
+
+### Common Warning Format
+All agents output warnings in this standardized format:
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| `poNo` | Purchase Order Number | "PO-2024-001" |
+| `warningType` | Category of warning | "STATIC_MISMATCH" |
+| `mismatchType` | Specific issue type | "ITEM_CODE_INVALID" |
+| `requiredAction` | Recommended fix | "UPDATE_ITEM_MASTER" |
+| `message` | Detailed description | "Item ABC123 not found in itemInfo" |
+| `severity` | Issue priority | "HIGH", "MEDIUM", "LOW" |
+| `source_agent` | Which agent found it | "StaticValidator" |
+| `timestamp` | When found | "2024-01-15 10:30:00" |
+
+### Results Structure
+```python
+final_results = {
+    'static_mismatch': {
+        'purchaseOrders': DataFrame,    # Issues in PO data vs static refs
+        'productRecords': DataFrame     # Issues in production vs static refs
+    },
+    'po_required_mismatch': DataFrame,  # PO existence and field issues
+    'dynamic_mismatch': {
+        'invalid_items': DataFrame,     # Data quality issues
+        'info_mismatches': DataFrame    # Logic consistency issues
+    },
+    'combined_all': {
+        'item_invalid_warnings': DataFrame,  # All data quality issues
+        'po_mismatch_warnings': DataFrame    # All PO-related issues
+    },
+    'summary_stats': {
+        'total_warnings': int,
+        'warnings_by_type': dict,
+        'warnings_by_severity': dict
+    }
+}
+```
+
+## V. Execution Flow
+
+### Sequential Steps
+1. **Initialize** → Load configs and validate schemas
+2. **Load Data** → Read all 8 parquet files into memory
+3. **Run Validations** → Execute 3 agents in parallel (if possible)
+4. **Merge Results** → Combine warnings into unified structure
+5. **Generate Report** → Create Excel output with versioning
+6. **Log Summary** → Record execution statistics
+
+### Error Handling Strategy
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Error Handling Flow                          │
+│                                                                 │
+│ Level 1: File Loading Errors                                   │
+│ ├── Missing parquet files → Stop execution, log error          │
+│ ├── Schema validation fails → Stop execution, log details      │
+│ └── Permission issues → Stop execution, suggest fix            │
+│                                                                 │
+│ Level 2: Agent Execution Errors                                │
+│ ├── Agent fails → Continue with other agents, log warning      │
+│ ├── Partial data → Process available data, flag incomplete     │
+│ └── Memory issues → Implement chunking, reduce batch size      │
+│                                                                 │
+│ Level 3: Output Generation Errors                              │
+│ ├── Excel write fails → Try alternative format, log error     │
+│ ├── Directory issues → Create directories, retry               │
+│ └── Versioning conflicts → Auto-increment, warn user           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## VI. Performance Optimization
+
+### Memory Management
+- **Lazy Loading**: Load data only when needed
+- **Chunked Processing**: Process large datasets in chunks
+- **Memory Cleanup**: Delete intermediate DataFrames after use
+- **Efficient Joins**: Use appropriate join strategies
+
+### Parallel Execution
+- Run agents independently when possible
+- Use threading for I/O operations
+- Implement timeout mechanisms
+- Monitor resource usage
+
+### Caching Strategy
+- Cache static reference data
+- Reuse loaded schemas across agents
+- Implement result caching for repeated runs
+- Store intermediate results for debugging
+
+## VII. Monitoring & Alerts
+
+### Key Metrics
+- **Execution Time**: Total and per-agent timing
+- **Warning Counts**: By type and severity
+- **Data Quality Score**: Percentage of clean records
+- **Success Rate**: Completed validations vs total
+
+### Alert Conditions
+- High error count (>threshold)
+- Execution time exceeds limit
+- Critical validations fail
+- Data pipeline interrupted

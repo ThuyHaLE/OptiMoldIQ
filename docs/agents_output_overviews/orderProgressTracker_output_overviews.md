@@ -18,6 +18,8 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 
 ## 1. Raw Reports Format:
 
+- See overview: [Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_orderProgressTracker_overview.md)
+
 ### 1. productionStatus
 **Purpose**: Tracks PO production status, materials, machines, molds, and shift/day-level outputs.
 
@@ -105,6 +107,8 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |2|IM1901044|mold\_machine\_tonnage\_warnings|mold\_and\_machine\_tonnage\_not\_matched|update\_moldSpecificationSummary\_or\_double\_check\_productRecords|\(IM1901044, 2019-01-31, 3, NO\.11, 260501M1, CT-PXN-HEAD-COVER-4\.2MM, PXNHC4-M-002, 50\) - Mismatch: 50\_and\_PXNHC4-M-002\_not\_matched\. Please update\_moldSpecificationSummary\_or\_double\_check\_productRecords|
 
 ## 2. Dashboard Report Format: 
+
+- See overview: [Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_processDashboardReports.overview.md)
 
 ### 1. `productionStatus`
 **Purpose**: Track the overall status of each Purchase Order (PO)
