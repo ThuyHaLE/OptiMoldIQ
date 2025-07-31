@@ -51,15 +51,15 @@ class ProcessDashboardReports:
 
         try:
             self.logger.info("Start load data from source path {}", self.excel_file_path)
-            excel_file = pd.ExcelFile(excel_file_path)
+            excel_file = pd.ExcelFile(self.excel_file_path)
             self.sheet_names = excel_file.sheet_names
             excel_file.close()  # Properly close the file
         except FileNotFoundError:
-            self.logger.error("Excel file not found: {}", excel_file_path)
-            raise FileNotFoundError(f"Excel file not found: {excel_file_path}")
+            self.logger.error("Excel file not found: {}", self.excel_file_path)
+            raise FileNotFoundError(f"Excel file not found: {self.excel_file_path}")
         except Exception as e:
-            self.logger.error("Invalid Excel file: {}. Error: {}", excel_file_path, str(e))
-            raise ValueError(f"Invalid Excel file: {excel_file_path}. Error: {str(e)}")
+            self.logger.error("Invalid Excel file: {}. Error: {}", self.excel_file_path, str(e))
+            raise ValueError(f"Invalid Excel file: {self.excel_file_path}. Error: {str(e)}")
 
     def _safe_read_excel(self, sheet_name: str) -> pd.DataFrame:
 
