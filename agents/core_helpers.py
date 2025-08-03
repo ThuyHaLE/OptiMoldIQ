@@ -226,9 +226,12 @@ def summarize_mold_machine_history(hist: pd.DataFrame,
             logger.warning("Found {} invalid molds with NaN values: {}", len(invalid_molds), invalid_molds)
             # Remove invalid molds from the result
             clean_result = result_df[~result_df['moldNo'].isin(invalid_molds)]
+
+            # Return both the dataframe and invalid molds list
+            return clean_result[required_cols], invalid_molds
         
         # Return both the dataframe and invalid molds list
-        return clean_result[required_cols], invalid_molds
+        return result_df[required_cols], invalid_molds
 
 ##################################################
 # """ Mold-Item Plan A Matching Propressing """  #
