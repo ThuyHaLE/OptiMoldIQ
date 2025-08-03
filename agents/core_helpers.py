@@ -39,7 +39,7 @@ def validate_mold_info_df(mold_info_df: pd.DataFrame) -> None:
         logger.error("Mold info DataFrame is empty")
         raise ValueError("Mold info DataFrame is empty")
 
-    required_mold_cols = ['isPriority', 'itemCode', 'moldNo', 'moldEstimatedHourCapacity']
+    required_mold_cols = ['isPriority', 'itemCode', 'moldNo', 'balancedMoldHourCapacity']
 
     missing_mold_cols = [col for col in required_mold_cols if col not in mold_info_df.columns]
 
@@ -48,9 +48,9 @@ def validate_mold_info_df(mold_info_df: pd.DataFrame) -> None:
         raise ValueError(f"Missing columns in mold_info_df: {missing_mold_cols}")
 
     # Validate data types and values
-    if not pd.api.types.is_numeric_dtype(mold_info_df['moldEstimatedHourCapacity']):
-        logger.error("moldEstimatedHourCapacity must be numeric")
-        raise ValueError("moldEstimatedHourCapacity must be numeric")
+    if not pd.api.types.is_numeric_dtype(mold_info_df['balancedMoldHourCapacity']):
+        logger.error("balancedMoldHourCapacity must be numeric")
+        raise ValueError("balancedMoldHourCapacity must be numeric")
     
 
 ##################################################
