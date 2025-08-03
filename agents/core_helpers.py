@@ -179,6 +179,13 @@ def summarize_mold_machine_history(hist: pd.DataFrame,
             how='left'
         )
 
+        # Step 2: Merge with mold info
+        result_df = summary.merge(
+            capacity_mold_info_df[['moldNo', 'moldCavityStandard', 'moldSettingCycle', 'machineTonnage', 'balancedMoldHourCapacity']],
+            on='moldNo',
+            how='left'
+        )
+
         # Step 3: Calculate performance metrics
         result_df['shiftNGRate'] = np.where(
             result_df['totalQuantity'] > 0,
@@ -186,25 +193,42 @@ def summarize_mold_machine_history(hist: pd.DataFrame,
             np.nan
         )
 
+        # Fix: Handle NA values explicitly using pandas.notna()
         result_df['shiftCavityRate'] = np.where(
-            result_df['moldCavityStandard'] > 0,
+            (pd.notna(result_df['moldCavityStandard'])) & (result_df['moldCavityStandard'] > 0),
             result_df['shiftCavities'] / result_df['moldCavityStandard'],
             np.nan
         )
 
         result_df['shiftCycleTimeRate'] = np.where(
-            (result_df['shiftShots'] > 0) & (result_df['moldSettingCycle'] > 0),
+            (pd.notna(result_df['shiftShots'])) & (result_df['shiftShots'] > 0) & 
+            (pd.notna(result_df['moldSettingCycle'])) & (result_df['moldSettingCycle'] > 0),
             ((8 * 3600) / result_df['shiftShots']) / result_df['moldSettingCycle'],
             np.nan
         )
 
         result_df['shiftCapacityRate'] = np.where(
-            (result_df['balancedMoldHourCapacity'] > 0) & (result_df['shiftsUsed'] > 0),
+            (pd.notna(result_df['balancedMoldHourCapacity'])) & (result_df['balancedMoldHourCapacity'] > 0) & 
+            (result_df['shiftsUsed'] > 0),
             (result_df['totalGoodQuantity'] / result_df['shiftsUsed']) / (result_df['balancedMoldHourCapacity'] * 8),
             np.nan
         )
 
-        return result_df[required_cols]
+        # Step 4: Check for invalid molds with NaN values
+        check_columns = ['shiftNGRate', 'shiftCavityRate', 'shiftCycleTimeRate', 'shiftCapacityRate']
+        
+        # Find molds with any NaN values in the check columns
+        invalid_mask = result_df[check_columns].isna().any(axis=1)
+        invalid_molds = result_df.loc[invalid_mask, 'moldNo'].unique().tolist()
+        
+        # Log invalid molds (optional)
+        if invalid_molds:
+            logger.warning("Found {} invalid molds with NaN values: {}", len(invalid_molds), invalid_molds)
+            # Remove invalid molds from the result
+            clean_result = result_df[~result_df['moldNo'].isin(invalid_molds)]
+        
+        # Return both the dataframe and invalid molds list
+        return clean_result[required_cols], invalid_molds
 
 ##################################################
 # """ Mold-Item Plan A Matching Propressing """  #
