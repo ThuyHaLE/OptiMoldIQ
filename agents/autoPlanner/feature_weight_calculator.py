@@ -13,6 +13,7 @@ from agents.autoPlanner.report_text_formatter import generate_confidence_report
 from agents.decorators import validate_init_dataframes
 from agents.utils import save_text_report_with_versioning, load_annotation_path, read_change_log, log_dict_as_table
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
+from agents.autoPlanner.hist_based_item_mold_optimizer import HistBasedItemMoldOptimizer
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
@@ -57,27 +58,27 @@ class FeatureWeightCalculator:
         targets (dict): Target metrics and their optimization directions or goals.
     """
 
-    def __init__(self, 
-                source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+    def __init__(self,
+                source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                 annotation_name: str = "path_annotations.json",
                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                folder_path: str = 'agents/shared_db/OrderProgressTracker', 
+                folder_path: str = 'agents/shared_db/OrderProgressTracker',
                 target_name: str = "change_log.txt",
                 default_dir: str = "agents/shared_db",
-                efficiency: float = 0.85, 
+                efficiency: float = 0.85,
                 loss: float = 0.03,
                 scaling: Literal['absolute', 'relative'] = 'absolute',
-                confidence_weight: float = 0.3, 
+                confidence_weight: float = 0.3,
                 n_bootstrap: int = 500,
                 confidence_level: float = 0.95,
                 min_sample_size: int = 10,
                 feature_weights: Optional[Dict[str, float]] = None,
-                targets = {'shiftNGRate': 'minimize', 
+                targets = {'shiftNGRate': 'minimize',
                            'shiftCavityRate': 1.0,
                            'shiftCycleTimeRate': 1.0,
                            'shiftCapacityRate': 1.0}
                            ):
-    
+
         self.logger = logger.bind(class_="FeatureWeightCalculator")
 
         self.efficiency = efficiency
@@ -102,7 +103,7 @@ class FeatureWeightCalculator:
         self.filename_prefix = "confidence_report"
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "FeatureWeightCalculator"
-    
+
         # Load production report
         proStatus_path = read_change_log(folder_path, target_name)
         self.proStatus_df = pd.read_excel(proStatus_path)
@@ -117,34 +118,48 @@ class FeatureWeightCalculator:
 
         self.machine_info_df = check_newest_machine_layout(self.machineInfo_df)
 
-    def calculate(self, **kwargs):
+    def calculate(self,
+                  mold_stability_index_folder = 'agents/shared_db/HistoryProcessor/mold_stability_index',
+                  mold_stability_index_target_name = "change_log.txt"):
 
         """
         Main method to calculate feature confidence scores and enhanced weights.
         """
 
+        # Load mold stability index
+        mold_stability_index_path = read_change_log(mold_stability_index_folder,
+                                                    mold_stability_index_target_name)
+        mold_stability_index = pd.read_excel(mold_stability_index_path)
+
+        # Suggest the priority for the item-mold pair based on historical records
+        _, capacity_mold_info_df = HistBasedItemMoldOptimizer().process_mold_info(mold_stability_index,
+                                                                                  self.moldSpecificationSummary_df,
+                                                                                  self.moldInfo_df,
+                                                                                  self.efficiency,
+                                                                                  self.loss)
+
         # Rename columns for compatibility
         self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
 
         # Separate good and bad production records based on efficiency/loss
-        good_hist, bad_hist = FeatureWeightCalculator._group_hist_by_performance(self.proStatus_df, 
-                                                                                 self.productRecords_df, 
+        good_hist, bad_hist = FeatureWeightCalculator._group_hist_by_performance(self.proStatus_df,
+                                                                                 self.productRecords_df,
                                                                                  self.moldInfo_df,
-                                                                                 self.efficiency, 
+                                                                                 self.efficiency,
                                                                                  self.loss)
-    
-        good_sample = summarize_mold_machine_history(good_hist, 
-                                                     self.moldInfo_df, self.efficiency, self.loss)
+
+        good_sample, _ = summarize_mold_machine_history(good_hist,
+                                                        capacity_mold_info_df)
         logger.debug('Historical information for good sample: {}-{}', good_sample.shape, good_sample.columns)
 
-        bad_sample = summarize_mold_machine_history(bad_hist, 
-                                                    self.moldInfo_df, self.efficiency, self.loss)
+        bad_sample, _ = summarize_mold_machine_history(bad_hist,
+                                                       capacity_mold_info_df)
         logger.debug('Historical information for bad sample: {}-{}', bad_sample.shape, bad_sample.columns)
 
         # Calculate confidence scores
-        confidence_scores = FeatureWeightCalculator._calculate_confidence_scores(good_sample, 
-                                                                                 bad_sample, 
-                                                                                 self.targets, 
+        confidence_scores = FeatureWeightCalculator._calculate_confidence_scores(good_sample,
+                                                                                 bad_sample,
+                                                                                 self.targets,
                                                                                  self.n_bootstrap,
                                                                                  self.confidence_level,
                                                                                  self.min_sample_size)
@@ -154,9 +169,9 @@ class FeatureWeightCalculator:
                                                                                    self.feature_weights)
 
         # Enhanced weights với confidence
-        enhanced_weights = FeatureWeightCalculator._suggest_weights_with_confidence(good_sample, 
-                                                                                    bad_sample, 
-                                                                                    self.targets, 
+        enhanced_weights = FeatureWeightCalculator._suggest_weights_with_confidence(good_sample,
+                                                                                    bad_sample,
+                                                                                    self.targets,
                                                                                     self.scaling,
                                                                                     self.confidence_weight,
                                                                                     self.n_bootstrap,
@@ -166,14 +181,17 @@ class FeatureWeightCalculator:
 
         return confidence_scores, overall_confidence, enhanced_weights
 
-    def calculate_and_save_report(self, **kwargs):
+    def calculate_and_save_report(self,
+                                  mold_stability_index_folder = 'agents/shared_db/HistoryProcessor/mold_stability_index',
+                                  mold_stability_index_target_name = "change_log.txt"):
 
         """
         Wrapper function to calculate weights and save the result as a report.
         """
 
         # Calculate feature weight
-        confidence_scores, overall_confidence, enhanced_weights = self.calculate()
+        confidence_scores, overall_confidence, enhanced_weights = self.calculate(mold_stability_index_folder,
+                                                                                 mold_stability_index_target_name)
 
         #Generate confidence report
         report = generate_confidence_report(confidence_scores, overall_confidence)
@@ -185,12 +203,12 @@ class FeatureWeightCalculator:
                                          output_dir = self.output_dir,
                                          filename_prefix = self.filename_prefix,
                                          weights = enhanced_weights)
-    
+
     def _load_dataframes(self) -> None:
-        
+
         """
         Load all required DataFrames from parquet files with consistent error handling.
-        
+
         This method loads the following DataFrames:
         - productRecords_df: Production records with item, mold, machine data
         - machineInfo_df: Machine specifications and tonnage information
@@ -205,9 +223,9 @@ class FeatureWeightCalculator:
             ('moldInfo', 'moldInfo_df'),
             ('machineInfo', 'machineInfo_df'),
             ('itemCompositionSummary', 'itemCompositionSummary_df'), #Quantity(KG) for 10000PCS
-            ('productRecords', 'productRecords_df')
+            ('productRecords', 'productRecords_df'),
         ]
-        
+
         # Load each DataFrame with error handling
         for path_key, attr_name in dataframes_to_load:
             path = self.path_annotation.get(path_key)
@@ -225,7 +243,7 @@ class FeatureWeightCalculator:
             except Exception as e:
                 self.logger.error("Failed to load {}: {}", path_key, str(e))
                 raise
-    
+
     @staticmethod
     def _group_hist_by_performance(proStatus_df: pd.DataFrame,
                                    productRecords_df: pd.DataFrame,
@@ -626,7 +644,7 @@ class FeatureWeightCalculator:
             return {k: 1 / len(weights) for k in weights}
 
         return {k: v / total for k, v in weights.items()}
-    
+
     @staticmethod
     def _suggest_weights_with_confidence(good_hist_df: pd.DataFrame,
                                          bad_hist_df: pd.DataFrame,
@@ -650,21 +668,21 @@ class FeatureWeightCalculator:
         Returns:
             Dict of weighted scores with confidence consideration
         """
-        
+
         # Calculate traditional weights
-        traditional_weights = FeatureWeightCalculator._suggest_weights_standard_based(good_hist_df, 
-                                                                                      bad_hist_df, 
-                                                                                      targets, 
+        traditional_weights = FeatureWeightCalculator._suggest_weights_standard_based(good_hist_df,
+                                                                                      bad_hist_df,
+                                                                                      targets,
                                                                                       scaling)
 
         # Calculate confidence scores
-        confidence_scores = FeatureWeightCalculator._calculate_confidence_scores(good_hist_df, 
-                                                                                 bad_hist_df, 
+        confidence_scores = FeatureWeightCalculator._calculate_confidence_scores(good_hist_df,
+                                                                                 bad_hist_df,
                                                                                  targets,
                                                                                  n_bootstrap,
                                                                                  confidence_level,
                                                                                  min_sample_size)
-        
+
         logger.debug('Confidence scores using bootstrap sampling: ', )
         logger.debug('\n{}', log_dict_as_table(confidence_scores, transpose = True))
 
