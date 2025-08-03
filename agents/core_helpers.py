@@ -214,6 +214,9 @@ def summarize_mold_machine_history(hist: pd.DataFrame,
             np.nan
         )
 
+        # Remove duplicates
+        result_df = result_df[required_cols].drop_duplicates().reset_index(drop=True)
+        
         # Step 4: Check for invalid molds with NaN values
         check_columns = ['shiftNGRate', 'shiftCavityRate', 'shiftCycleTimeRate', 'shiftCapacityRate']
         
@@ -228,10 +231,10 @@ def summarize_mold_machine_history(hist: pd.DataFrame,
             clean_result = result_df[~result_df['moldNo'].isin(invalid_molds)]
 
             # Return both the dataframe and invalid molds list
-            return clean_result[required_cols], invalid_molds
+            return clean_result, invalid_molds
         
         # Return both the dataframe and invalid molds list
-        return result_df[required_cols], invalid_molds
+        return result_df, invalid_molds
 
 ##################################################
 # """ Mold-Item Plan A Matching Propressing """  #
