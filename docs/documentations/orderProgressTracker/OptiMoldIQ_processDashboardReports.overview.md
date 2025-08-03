@@ -137,7 +137,7 @@ Groups material components by production order and item.
 
 #### Dashboard Demo:
 
-- See details: [Dashboard Demo](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs\agents_output_overviews\orderProgressTracker_output_overviews.md)
+- See details: [Dashboard Demo](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
 
 ## Usage Examples
 
