@@ -333,12 +333,12 @@ class HistBasedMoldMachineOptimizer:
 
         self.logger.info("Phase 2: Optimizing remaining assignments")
 
-        results, assigned_molds, unassigned_molds, final_matrix = self.optimize_mold_machine_matching(
+        results, round_one_assigned_molds, round_one_unassigned_molds, final_matrix = self.optimize_mold_machine_matching(
             non_unique_match_priority_matrix, lead_time_df
         )
 
         # Include uniquely matched molds into the assigned list
-        assigned_molds.extend(unique_match_list)
+        round_one_assigned_molds.extend(unique_match_list)
 
         # Merge results from unique matches and greedy optimization
         if not unique_match_priority_matrix.empty:
