@@ -33,13 +33,16 @@ from agents.autoPlanner.hist_based_item_mold_optimizer import HistBasedItemMoldO
 class HistoryProcessor:
 
     """
-    A class for processing historical production data and calculating priority matrices.
+    This class responsible for processing historical production data in order to:
+    1. Evaluate Mold Performance and Stability:
+    - Analyze mold stability based on the number of active cavities and actual cycle time.
+    - Apply criteria such as accuracy, consistency, compliance with standard limits, and data completeness.
+    - Calculate key indicators: theoretical output, actual output, efficiency, and normalized productivity.
 
-    This processor analyzes production history to create priority matrices that help
-    optimize mold-machine assignments based on historical performance and weights.
-
-    The class loads production records, machine information, mold specifications,
-    and generates prioritized recommendations for production planning.
+    2. Generate Mold-Machine Priority Matrix:
+    - Use historical production data to assess the performance of each mold-machine pair.
+    - Score each pair based on historical weight and actual efficiency.
+    - The results are presented in the form of a priority matrix to support optimal production planning.
     """
 
     # Configuration constants
@@ -101,7 +104,6 @@ class HistoryProcessor:
         self.path_annotation = load_annotation_path(source_path, annotation_name)
 
         # Set up output configuration for saving results
-        self.filename_prefix = "priority_matrix"  # Prefix for output files
         self.default_dir = Path(default_dir)  # Base directory for outputs
         self.output_dir = self.default_dir / "HistoryProcessor"  # Specific output directory
 
@@ -169,160 +171,6 @@ class HistoryProcessor:
                 # Log detailed error information and re-raise for proper error handling
                 self.logger.error("Failed to load {}: {}", path_key, str(e))
                 raise
-
-    def _load_mold_machine_feature_weights(self, weights_hist_path):
-
-        """Load and validate feature weights from the latest calculation."""
-
-        if not weights_hist_path.exists():
-            logger.error("File not found: {}. Please calculate feature weight first!",
-                        self.weights_hist_path)
-            raise FileNotFoundError(f"File not found: {weights_hist_path}")
-
-        return get_latest_change_row(weights_hist_path)
-
-    def _prepare_mold_machine_historical_data(self):
-
-        """Prepare and filter historical data for analysis."""
-
-        machine_info_df = check_newest_machine_layout(self.machineInfo_df)
-
-        # Filter to completed orders and merge with machine info
-        hist = self.proStatus_df.loc[self.proStatus_df['itemRemain']==0].merge(
-            machine_info_df[['machineNo', 'machineCode', 'machineName', 'machineTonnage']],
-            how='left', on=['machineNo'])
-
-        # Prepare product records
-        self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
-
-        df = self.productRecords_df[['recordDate', 'workingShift',
-                                    'machineNo', 'machineCode',
-                                    'itemCode','itemName',
-                                    'poNo', 'moldNo', 'moldShot', 'moldCavity',
-                                    'itemTotalQuantity', 'itemGoodQuantity']]
-
-        # Filter to meaningful production data
-        filtered_df = df[df['poNo'].isin(hist['poNo']) & (df['itemTotalQuantity'] > 0)]
-
-        return filtered_df
-
-    def _calculate_mold_machine_performance_metrics(self,
-                                                    mold_stability_index_folder,
-                                                    mold_stability_index_target_name,
-                                                    historical_data):
-
-        """Calculate performance metrics for mold-machine combinations."""
-
-        # Load mold stability index
-        mold_stability_index_path = read_change_log(mold_stability_index_folder,
-                                                    mold_stability_index_target_name)
-
-        if mold_stability_index_path is None:
-            self.logger.error("Cannot find file {}/{}", mold_stability_index_folder, mold_stability_index_target_name)
-            raise FileNotFoundError(f"Cannot find file {mold_stability_index_folder}/{mold_stability_index_target_name}")
-
-        mold_stability_index = pd.read_excel(mold_stability_index_path)
-
-        # Suggest the priority for the item-mold pair based on historical records
-        _, capacity_mold_info_df = HistBasedItemMoldOptimizer().process_mold_info(mold_stability_index,
-                                                                                  self.moldSpecificationSummary_df,
-                                                                                  self.moldInfo_df,
-                                                                                  self.efficiency,
-                                                                                  self.loss)
-
-        performance_results, _ = summarize_mold_machine_history(historical_data, capacity_mold_info_df)
-
-        return performance_results
-
-    def _create_mold_machine_priority_matrix(self, results, weights):
-
-        """Apply weights and create the final priority matrix."""
-
-        # Apply weighted scoring
-        results["total_score"] = (results[list(weights.index)] * weights.values).sum(axis=1)
-
-        # Create pivot table
-        weighted_results = results[['moldNo', 'machineCode', 'total_score']].pivot(
-            index="moldNo", columns="machineCode", values="total_score").fillna(0)
-
-        # Convert to priority rankings
-        priority_matrix = weighted_results.apply(rank_nonzero, axis=1)
-
-        return priority_matrix
-
-    def calculate_mold_machine_priority_matrix(self,
-                                               weights_hist_path: str = 'agents/shared_db/FeatureWeightCalculator/weights_hist.xlsx',
-                                               mold_stability_index_folder = 'agents/shared_db/HistoryProcessor/mold_stability_index',
-                                               mold_stability_index_target_name = "change_log.txt"):
-
-        """
-        Calculate the priority matrix for mold-machine assignments based on historical data.
-
-        This method:
-        1. Loads feature weights from the latest weight calculation
-        2. Processes historical production data for completed orders
-        3. Calculates performance metrics for each mold-machine combination
-        4. Applies weighted scoring based on multiple factors
-        5. Ranks combinations to create a priority matrix
-
-        Returns:
-            pandas.DataFrame: Priority matrix with molds as rows, machines as columns,
-                            and priority rankings as values (1 = highest priority)
-
-        Raises:
-            FileNotFoundError: If weights history file is missing
-        """
-
-        # Load weights and validate prerequisites
-        weights = self._load_mold_machine_feature_weights(Path(weights_hist_path))
-
-        # Prepare historical data for analysis
-        historical_data = self._prepare_mold_machine_historical_data()
-
-        # Calculate performance metrics
-        performance_results = self._calculate_mold_machine_performance_metrics(mold_stability_index_folder,
-                                                                               mold_stability_index_target_name,
-                                                                               historical_data)
-
-        # Apply weighted scoring and create priority matrix
-        priority_matrix = self._create_mold_machine_priority_matrix(performance_results, weights)
-
-        return priority_matrix
-
-    def calculate_and_save_mold_machine_priority_matrix(self,
-                                                        weights_hist_path: str = 'agents/shared_db/FeatureWeightCalculator/weights_hist.xlsx',
-                                                        mold_stability_index_folder = 'agents/shared_db/HistoryProcessor/mold_stability_index',
-                                                        mold_stability_index_target_name = "change_log.txt"):
-
-        """
-        Calculate the priority matrix and save it to an Excel file with versioning.
-
-        This method combines calculation and output functionality:
-        1. Calculates the priority matrix using historical data and weights
-        2. Formats the data for export
-        3. Saves to Excel file with automatic versioning
-
-        The output file will be saved in the configured output directory with
-        a timestamp-based version number to prevent overwrites.
-        """
-
-        # Calculate the priority matrix using the main calculation method
-        priority_matrix = self.calculate_mold_machine_priority_matrix(weights_hist_path,
-                                                                      mold_stability_index_folder,
-                                                                      mold_stability_index_target_name)
-
-        # Prepare data for export by resetting index to include moldNo as a regular column
-        # This makes the Excel output more readable and easier to work with
-        self.data = {"priorityMatrix": priority_matrix.reset_index()}
-
-        # Export to Excel file with automatic versioning
-        # The versioning system prevents accidental overwrites of previous results
-        logger.info("Start excel file exporting...")
-        save_output_with_versioning(
-            self.data,          # Dictionary containing the data to save
-            self.output_dir/"priority_matrix",    # Directory where the file will be saved
-            self.filename_prefix, # Prefix for the output filename
-        )
 
     def calculate_mold_stability_index(self,
                                        cavity_stability_threshold = 0.6,
@@ -551,5 +399,180 @@ class HistoryProcessor:
         save_output_with_versioning(
             self.data,          # Dictionary containing the data to save
             self.output_dir/"mold_stability_index",    # Directory where the file will be saved
-            self.filename_prefix, # Prefix for the output filename
+            "mold_stability_index", # Prefix for the output filename
+        )
+
+    def _load_mold_machine_feature_weights(self, weights_hist_path):
+
+        """Load and validate feature weights from the latest calculation."""
+
+        if not weights_hist_path.exists():
+            logger.error("File not found: {}. Please calculate feature weight first!",
+                        self.weights_hist_path)
+            raise FileNotFoundError(f"File not found: {weights_hist_path}")
+
+        return get_latest_change_row(weights_hist_path)
+
+    def _prepare_mold_machine_historical_data(self):
+
+        """Prepare and filter historical data for analysis."""
+
+        machine_info_df = check_newest_machine_layout(self.machineInfo_df)
+
+        # Filter to completed orders and merge with machine info
+        hist = self.proStatus_df.loc[self.proStatus_df['itemRemain']==0].merge(
+            machine_info_df[['machineNo', 'machineCode', 'machineName', 'machineTonnage']],
+            how='left', on=['machineNo'])
+
+        # Prepare product records
+        self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
+
+        df = self.productRecords_df[['recordDate', 'workingShift',
+                                    'machineNo', 'machineCode',
+                                    'itemCode','itemName',
+                                    'poNo', 'moldNo', 'moldShot', 'moldCavity',
+                                    'itemTotalQuantity', 'itemGoodQuantity']]
+
+        # Filter to meaningful production data
+        filtered_df = df[df['poNo'].isin(hist['poNo']) & (df['itemTotalQuantity'] > 0)]
+
+        return filtered_df
+
+    def _calculate_mold_machine_performance_metrics(self,
+                                                    mold_stability_index_folder,
+                                                    mold_stability_index_target_name,
+                                                    historical_data,
+                                                    cavity_stability_threshold,
+                                                    cycle_stability_threshold,
+                                                    total_records_threshold):
+
+        """Calculate performance metrics for mold-machine combinations."""
+
+        # Load mold stability index
+        mold_stability_index_path = read_change_log(mold_stability_index_folder,
+                                                    mold_stability_index_target_name)
+
+        if mold_stability_index_path is None:
+            self.logger.warning("Cannot find file {}/{}", 
+                                mold_stability_index_folder, 
+                                mold_stability_index_target_name)
+            self.logger.info("Start calculate mold stability index first...")
+            mold_stability_index = self.calculate_mold_stability_index(
+                cavity_stability_threshold,
+                cycle_stability_threshold,
+                total_records_threshold)
+        else:    
+            mold_stability_index = pd.read_excel(mold_stability_index_path)
+
+        # Suggest the priority for the item-mold pair based on historical records
+        _, capacity_mold_info_df = HistBasedItemMoldOptimizer().process_mold_info(mold_stability_index,
+                                                                                  self.moldSpecificationSummary_df,
+                                                                                  self.moldInfo_df,
+                                                                                  self.efficiency,
+                                                                                  self.loss)
+
+        performance_results, _ = summarize_mold_machine_history(historical_data, capacity_mold_info_df)
+
+        return performance_results
+
+    def _create_mold_machine_priority_matrix(self, results, weights):
+
+        """Apply weights and create the final priority matrix."""
+
+        # Apply weighted scoring
+        results["total_score"] = (results[list(weights.index)] * weights.values).sum(axis=1)
+
+        # Create pivot table
+        weighted_results = results[['moldNo', 'machineCode', 'total_score']].pivot(
+            index="moldNo", columns="machineCode", values="total_score").fillna(0)
+
+        # Convert to priority rankings
+        priority_matrix = weighted_results.apply(rank_nonzero, axis=1)
+
+        return priority_matrix
+
+    def calculate_mold_machine_priority_matrix(self,
+                                               weights_hist_path: str = 'agents/shared_db/FeatureWeightCalculator/weights_hist.xlsx',
+                                               mold_stability_index_folder = 'agents/shared_db/HistoryProcessor/mold_stability_index',
+                                               mold_stability_index_target_name = "change_log.txt",
+                                               cavity_stability_threshold = 0.6,
+                                               cycle_stability_threshold = 0.4,
+                                               total_records_threshold = 30):
+
+        """
+        Calculate the priority matrix for mold-machine assignments based on historical data.
+
+        This method:
+        1. Loads feature weights from the latest weight calculation
+        2. Processes historical production data for completed orders
+        3. Calculates performance metrics for each mold-machine combination
+        4. Applies weighted scoring based on multiple factors
+        5. Ranks combinations to create a priority matrix
+
+        Returns:
+            pandas.DataFrame: Priority matrix with molds as rows, machines as columns,
+                            and priority rankings as values (1 = highest priority)
+
+        Raises:
+            FileNotFoundError: If weights history file is missing
+        """
+
+        # Load weights and validate prerequisites
+        weights = self._load_mold_machine_feature_weights(Path(weights_hist_path))
+
+        # Prepare historical data for analysis
+        historical_data = self._prepare_mold_machine_historical_data()
+
+        # Calculate performance metrics
+        performance_results = self._calculate_mold_machine_performance_metrics(mold_stability_index_folder,
+                                                                               mold_stability_index_target_name,
+                                                                               historical_data,
+                                                                               cavity_stability_threshold,
+                                                                               cycle_stability_threshold,
+                                                                               total_records_threshold)
+
+        # Apply weighted scoring and create priority matrix
+        priority_matrix = self._create_mold_machine_priority_matrix(performance_results, weights)
+
+        return priority_matrix
+
+    def calculate_and_save_mold_machine_priority_matrix(self,
+                                                        weights_hist_path: str = 'agents/shared_db/FeatureWeightCalculator/weights_hist.xlsx',
+                                                        mold_stability_index_folder = 'agents/shared_db/HistoryProcessor/mold_stability_index',
+                                                        mold_stability_index_target_name = "change_log.txt",
+                                                        cavity_stability_threshold = 0.6,
+                                                        cycle_stability_threshold = 0.4,
+                                                        total_records_threshold = 30):
+
+        """
+        Calculate the priority matrix and save it to an Excel file with versioning.
+
+        This method combines calculation and output functionality:
+        1. Calculates the priority matrix using historical data and weights
+        2. Formats the data for export
+        3. Saves to Excel file with automatic versioning
+
+        The output file will be saved in the configured output directory with
+        a timestamp-based version number to prevent overwrites.
+        """
+
+        # Calculate the priority matrix using the main calculation method
+        priority_matrix = self.calculate_mold_machine_priority_matrix(weights_hist_path,
+                                                                      mold_stability_index_folder,
+                                                                      mold_stability_index_target_name,
+                                                                      cavity_stability_threshold,
+                                                                      cycle_stability_threshold,
+                                                                      total_records_threshold)
+
+        # Prepare data for export by resetting index to include moldNo as a regular column
+        # This makes the Excel output more readable and easier to work with
+        self.data = {"priorityMatrix": priority_matrix.reset_index()}
+
+        # Export to Excel file with automatic versioning
+        # The versioning system prevents accidental overwrites of previous results
+        logger.info("Start excel file exporting...")
+        save_output_with_versioning(
+            self.data,          # Dictionary containing the data to save
+            self.output_dir/"priority_matrix",    # Directory where the file will be saved
+            "priority_matrix", # Prefix for the output filename
         )

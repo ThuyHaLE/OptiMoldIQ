@@ -129,6 +129,11 @@ class FeatureWeightCalculator:
         # Load mold stability index
         mold_stability_index_path = read_change_log(mold_stability_index_folder,
                                                     mold_stability_index_target_name)
+        
+        if mold_stability_index_path is None:
+            self.logger.error("Cannot find file {}/{}", mold_stability_index_folder, mold_stability_index_target_name)
+            raise FileNotFoundError(f"Cannot find file {mold_stability_index_folder}/{mold_stability_index_target_name}")
+            
         mold_stability_index = pd.read_excel(mold_stability_index_path)
 
         # Suggest the priority for the item-mold pair based on historical records
