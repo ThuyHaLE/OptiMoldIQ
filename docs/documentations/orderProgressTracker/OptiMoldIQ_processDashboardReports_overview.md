@@ -222,4 +222,3 @@ This class is designed to work with:
 - Manufacturing dashboards 
 - Reporting and analytics tools
 - Order progress monitoring systems
-
