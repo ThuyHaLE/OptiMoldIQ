@@ -348,8 +348,8 @@ class HistoryProcessor:
             """
 
             def df_processing(productRecords_df, moldInfo_df):
-                filter_df = productRecords_df[productRecords_df['moldShot'] > 0]
-                filter_df['moldCycle'] = round((28800 / filter_df['moldShot']), 2)
+                filter_df = productRecords_df[productRecords_df['moldShot'] > 0].copy()
+                filter_df['moldCycle'] = (28800 / filter_df['moldShot']).round(2)
 
                 df = filter_df.groupby(['moldNo', 'recordDate'])[['moldCavity', 'moldCycle']].agg(list).reset_index()
                 df['moldCavity'] = df['moldCavity'].apply(lambda lst: [int(x) for x in lst])
@@ -474,8 +474,10 @@ class HistoryProcessor:
                 cycle_stability = calculate_cycle_stability(
                     all_cycle_values, standard_cycle, total_records
                 )
-
-                theoretical_hour_capacity = HistoryProcessor.SECONDS_PER_HOUR / standard_cycle * standard_cavity
+                if standard_cycle > 0:
+                  theoretical_hour_capacity = HistoryProcessor.SECONDS_PER_HOUR / standard_cycle * standard_cavity
+                else:
+                  theoretical_hour_capacity = 0
 
                 # Weighted stability
                 overall_stability = (cavity_stability * cavity_stability_threshold) + (cycle_stability * cycle_stability_threshold)
