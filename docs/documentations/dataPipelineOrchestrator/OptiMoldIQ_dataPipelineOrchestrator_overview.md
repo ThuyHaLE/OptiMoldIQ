@@ -1,8 +1,8 @@
-# DataPipelineOrchestrator Agent Documentation
+# DataPipelineOrchestrator Documentation
 
 ## Overview
 
-The **DataPipelineOrchestrator** is the main coordinator agent responsible for managing a comprehensive two-phase data pipeline process. It orchestrates data collection, processing, loading operations, and provides robust error handling with automated recovery mechanisms and notification systems.
+The `DataPipelineOrchestrator` is designed for managing a comprehensive two-phase data pipeline process. It orchestrates data collection, processing, loading operations, and provides robust error handling with automated recovery mechanisms and notification systems.
 
 ## Architecture
 

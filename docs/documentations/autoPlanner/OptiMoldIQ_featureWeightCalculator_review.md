@@ -1,447 +1,453 @@
-# FeatureWeightCalculator Agent Documentation
+# FeatureWeightCalculator Documentation
 
 ## Overview
 
-The **FeatureWeightCalculator** is a sophisticated manufacturing analytics agent designed to evaluate production performance by analyzing historical data and computing confidence-based feature weights. This agent helps optimize manufacturing processes by identifying key performance indicators and their reliability in predicting production outcomes.
+The `FeatureWeightCalculator` is a sophisticated statistical analysis tool designed for manufacturing process optimization. It analyzes historical production data to calculate feature weights and confidence scores that evaluate manufacturing performance, supporting optimal production planning through data-driven insights.
 
-## Key Features
+---
 
-- **Performance Classification**: Automatically separates production records into good and bad performance categories based on efficiency and loss thresholds
-- **Statistical Confidence Analysis**: Uses bootstrap sampling to calculate confidence scores for feature reliability
-- **Dynamic Weight Calculation**: Generates feature weights that combine traditional statistical methods with confidence scoring
-- **Comprehensive Reporting**: Produces detailed confidence reports with statistical insights
-- **Manufacturing-Specific Metrics**: Tailored for injection molding and similar manufacturing processes
+## Class Overview
 
-## Architecture
+### Purpose
+The `FeatureWeightCalculator` serves as a core component in manufacturing analytics pipelines, providing:
+- **Performance Classification**: Categorizes production runs into good/bad performance groups
+- **Statistical Analysis**: Uses bootstrap sampling and confidence intervals for robust analysis
+- **Feature Weight Calculation**: Generates weighted importance scores for manufacturing metrics
+- **Confidence Assessment**: Provides statistical confidence measures for decision reliability
 
-### Class Structure
-
-```python
-class FeatureWeightCalculator:
-    """
-    Calculates feature weights for manufacturing process performance evaluation
-    by analyzing production history and computing confidence-based metrics.
-    """
+### Core Workflow
+```
+Historical Data → Performance Classification → Statistical Analysis → Weight Calculation → Confidence Reports
 ```
 
-### Dependencies
+---
 
-The agent integrates with several core components:
-- **Database Schema Validation**: Ensures data integrity across multiple manufacturing databases
-- **History Processor**: Analyzes mold stability and machine performance history
-- **Auto Planner**: Provides item-mold optimization recommendations
-- **Report Generator**: Creates formatted confidence reports
+## Constructor Parameters
 
-## Initialization Parameters
-
-### Core Configuration
-
+### Basic Configuration
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `source_path` | str | `'agents/shared_db/DataLoaderAgent/newest'` | Path to annotation data |
-| `annotation_name` | str | `"path_annotations.json"` | File name of path annotation |
-| `databaseSchemas_path` | str | `'database/databaseSchemas.json'` | Path to database schema for validation |
-| `folder_path` | str | `'agents/shared_db/OrderProgressTracker'` | Path to production status log folder |
-| `target_name` | str | `"change_log.txt"` | Filename of production status log |
-| `default_dir` | str | `"agents/shared_db"` | Base directory for storing reports |
+| `source_path` | str | `'agents/shared_db/DataLoaderAgent/newest'` | Path to annotation data directory |
+| `annotation_name` | str | `"path_annotations.json"` | Filename of path annotation file |
+| `databaseSchemas_path` | str | `'database/databaseSchemas.json'` | Database schema validation file path |
 
-### Performance Thresholds
-
+### Data Source Configuration
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `efficiency` | float | `0.85` | Efficiency threshold to classify good/bad records |
-| `loss` | float | `0.03` | Allowable production loss threshold |
+| `folder_path` | str | `'agents/shared_db/OrderProgressTracker'` | Production status log directory |
+| `target_name` | str | `"change_log.txt"` | Production status log filename |
+| `default_dir` | str | `"agents/shared_db"` | Base directory for report storage |
 
-### Statistical Parameters
-
+### Analysis Parameters
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `n_bootstrap` | int | `500` | Number of bootstrap samples for confidence estimation |
-| `confidence_level` | float | `0.95` | Desired confidence level for statistical tests |
-| `min_sample_size` | int | `10` | Minimum sample size for reliable estimation |
-| `confidence_weight` | float | `0.3` | Weight assigned to confidence scores in final calculation |
+| `efficiency` | float | `0.85` | Efficiency threshold for performance classification |
+| `loss` | float | `0.03` | Acceptable production loss threshold |
+| `scaling` | Literal['absolute', 'relative'] | `'absolute'` | Feature impact scaling method |
 
-### Feature Configuration
-
+### Statistical Configuration
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `scaling` | Literal['absolute', 'relative'] | `'absolute'` | Method to scale feature impacts |
-| `feature_weights` | Optional[Dict[str, float]] | `None` | Optional preset weights for features |
-| `targets` | dict | See below | Target metrics and optimization directions |
+| `confidence_weight` | float | `0.3` | Weight of confidence in final calculation |
+| `n_bootstrap` | int | `500` | Number of bootstrap samples |
+| `confidence_level` | float | `0.95` | Statistical confidence level |
+| `min_sample_size` | int | `10` | Minimum samples for reliable estimation |
 
-#### Default Target Configuration
+### Advanced Configuration
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `feature_weights` | Optional[Dict[str, float]] | `None` | Preset feature weights |
+| `targets` | Dict | See below | Target metrics configuration |
 
+#### Default Targets Configuration
 ```python
 targets = {
-    'shiftNGRate': 'minimize',        # Minimize defect rate
-    'shiftCavityRate': 1.0,           # Target cavity utilization rate
-    'shiftCycleTimeRate': 1.0,        # Target cycle time efficiency
-    'shiftCapacityRate': 1.0          # Target capacity utilization
+    'shiftNGRate': 'minimize',       # Minimize defect rate
+    'shiftCavityRate': 1.0,          # Target cavity utilization
+    'shiftCycleTimeRate': 1.0,       # Target cycle time efficiency
+    'shiftCapacityRate': 1.0         # Target capacity utilization
 }
 ```
 
-## Data Sources
+---
 
-The agent requires access to the following manufacturing databases:
+## Key Methods
 
-### Required DataFrames
-
-1. **productRecords_df**: Historical production records
-   - Contains item, mold, machine, and shift data
-   - Key fields: `poNo`, `recordDate`, `workingShift`, `machineNo`, `itemCode`, `moldNo`
-
-2. **machineInfo_df**: Machine specifications
-   - Machine tonnage, capabilities, and status information
-   - Updated with newest machine layout configurations
-
-3. **moldSpecificationSummary_df**: Mold specifications
-   - Compatible items, cavity counts, cycle times
-   - Links items to appropriate molds
-
-4. **moldInfo_df**: Detailed mold information
-   - Tonnage requirements, cavity standards, setting cycles
-   - Critical for performance calculations
-
-5. **itemCompositionSummary_df**: Item composition details
-   - Material requirements (resin, masterbatch, additives)
-   - Quantity specifications per unit
-
-6. **proStatus_df**: Production status tracking
-   - Current production orders and their status
-   - Links to machine and mold assignments
-
-## Core Methods
-
-### Main Calculation Methods
+### 1. Primary Analysis Methods
 
 #### `calculate(mold_stability_index_folder, mold_stability_index_target_name)`
+**Purpose**: Main calculation method that orchestrates the entire analysis pipeline.
 
-Primary method that orchestrates the entire analysis process:
+**Parameters**:
+- `mold_stability_index_folder` (str): Path to mold stability index data
+- `mold_stability_index_target_name` (str): Filename of stability index log
 
+**Returns**:
+- `confidence_scores` (Dict): Statistical confidence metrics per feature
+- `overall_confidence` (Dict): Aggregated confidence assessment  
+- `enhanced_weights` (Dict): Final calculated feature weights
+
+**Usage**:
 ```python
+calculator = FeatureWeightCalculator()
 confidence_scores, overall_confidence, enhanced_weights = calculator.calculate()
 ```
 
-**Returns:**
-- `confidence_scores`: Detailed confidence metrics per feature
-- `overall_confidence`: Aggregated confidence assessment
-- `enhanced_weights`: Optimized feature weights with confidence adjustment
-
 #### `calculate_and_save_report(mold_stability_index_folder, mold_stability_index_target_name)`
+**Purpose**: Wrapper method that performs calculation and saves formatted report.
 
-Wrapper method that performs calculation and saves formatted reports:
+**Returns**: None (saves report to configured output directory)
 
+**Usage**:
 ```python
+calculator = FeatureWeightCalculator()
 calculator.calculate_and_save_report()
 ```
 
-### Statistical Analysis Methods
+### 2. Data Loading Methods
+
+#### `_load_dataframes()`
+**Purpose**: Loads all required DataFrames from parquet files with validation.
+
+**Loaded DataFrames**:
+- `productRecords_df`: Production records with item, mold, machine data
+- `machineInfo_df`: Machine specifications and tonnage information
+- `moldSpecificationSummary_df`: Mold specifications and compatible items
+- `moldInfo_df`: Detailed mold information including tonnage requirements
+- `itemCompositionSummary_df`: Item composition details (resin, masterbatch, etc.)
+
+**Error Handling**: Raises `FileNotFoundError` for missing files or paths.
+
+---
+
+## Statistical Methods
+
+### 1. Performance Classification
 
 #### `_group_hist_by_performance(proStatus_df, productRecords_df, moldInfo_df, efficiency, loss)`
+**Purpose**: Classifies historical production data into good/bad performance categories.
 
-Classifies production records into performance categories:
+**Algorithm**:
+1. **Data Preparation**: Filters valid production records with required fields
+2. **Aggregation**: Groups by PO, mold, and machine for shift statistics
+3. **Theoretical Calculation**: Computes expected performance using mold specifications
+4. **Classification**: Compares actual vs. expected performance accounting for efficiency/loss
 
-**Algorithm:**
-1. Calculates theoretical production requirements based on mold specifications
-2. Adjusts for efficiency and loss factors
-3. Compares actual vs. estimated shift usage
-4. Labels records exceeding estimates as "bad performance"
+**Performance Criteria**:
+```python
+net_efficiency = efficiency - loss
+estimated_shifts = theoretical_shifts / net_efficiency
+is_bad_performance = actual_shifts > estimated_shifts
+```
 
-**Returns:** Tuple of (good_hist_df, bad_hist_df)
+**Returns**: 
+- `good_hist` (DataFrame): Records from well-performing production runs
+- `bad_hist` (DataFrame): Records from poorly-performing production runs
+
+### 2. Confidence Score Calculation
 
 #### `_calculate_confidence_scores(good_hist_df, bad_hist_df, targets, n_bootstrap, confidence_level, min_sample_size)`
+**Purpose**: Calculates statistical confidence scores using bootstrap sampling.
 
-Performs bootstrap sampling to calculate confidence metrics:
+**Algorithm Components**:
 
-**Statistical Methods:**
-- Bootstrap resampling for distribution estimation
-- Confidence interval calculation
-- Mann-Whitney U test for significance
-- Target-based achievement scoring
+1. **Bootstrap Sampling**:
+   - Generates `n_bootstrap` resampled datasets
+   - Calculates mean for each bootstrap sample
+   - Creates distribution of bootstrap means
 
-**Output Structure:**
+2. **Confidence Intervals**:
+   ```python
+   alpha = 1 - confidence_level
+   ci_lower = percentile(bootstrap_means, (alpha/2) * 100)
+   ci_upper = percentile(bootstrap_means, (1-alpha/2) * 100)
+   ```
+
+3. **Target-Based Scoring**:
+   - **Minimize targets**: Rewards lower values in good group
+   - **Fixed targets**: Rewards proximity to target value
+
+4. **Separation Analysis**:
+   ```python
+   overlap = max(0, min(good_ci_upper, bad_ci_upper) - max(good_ci_lower, bad_ci_lower))
+   separation_confidence = 1 - (overlap / total_range)
+   ```
+
+5. **Statistical Testing**:
+   - Uses Mann-Whitney U test for group differences
+   - Provides p-value for significance testing
+
+**Confidence Score Formula**:
 ```python
-{
-    'feature_name': {
-        'good_confidence': float,      # Confidence in good group performance
-        'bad_confidence': float,       # Confidence in bad group performance
-        'separation_confidence': float, # Confidence in group separation
-        'statistical_significance': float,
-        'sample_size_good': int,
-        'sample_size_bad': int,
-        'good_mean': float,
-        'bad_mean': float,
-        'good_ci_lower': float,        # Confidence interval bounds
-        'good_ci_upper': float,
-        'bad_ci_lower': float,
-        'bad_ci_upper': float,
-        'p_value': float
-    }
-}
+confidence = (
+    target_achievement * 0.4 +      # How well group meets targets
+    separation_confidence * 0.3 +    # How well groups separate
+    statistical_significance * 0.2 + # Statistical test results
+    distance_penalty * 0.1           # Penalty for deviation
+)
 ```
 
-#### `_calculate_overall_confidence(confidence_scores, feature_weights)`
+**Returns**: Dictionary with detailed confidence metrics per feature.
 
-Aggregates individual feature confidences into overall model reliability:
-
-**Metrics:**
-- Overall good/bad confidence (weighted average)
-- Model reliability (separation × feature validity ratio)
-- Valid features ratio
-
-### Weight Calculation Methods
+### 3. Weight Calculation Methods
 
 #### `_suggest_weights_standard_based(good_hist_df, bad_hist_df, targets, scaling)`
+**Purpose**: Calculates feature weights based on deviation from performance standards.
 
-Traditional weight calculation based on deviation from targets:
+**Algorithm**:
+1. **Deviation Calculation**:
+   - For "minimize" targets: `|mean_value|`
+   - For fixed targets: `|mean_value - target|`
 
-**Algorithm:**
-- For 'minimize' targets: Uses absolute deviation from zero
-- For numeric targets: Uses absolute deviation from target value
-- Applies absolute or relative scaling
-- Normalizes weights to sum to 1
+2. **Score Calculation**:
+   ```python
+   score = |deviation_bad - deviation_good|
+   ```
+
+3. **Scaling Application**:
+   - **Absolute**: Raw deviation differences
+   - **Relative**: Normalized by target magnitude
 
 #### `_suggest_weights_with_confidence(good_hist_df, bad_hist_df, targets, scaling, confidence_weight, ...)`
+**Purpose**: Enhanced weight calculation incorporating statistical confidence.
 
-Enhanced weight calculation incorporating confidence scores:
+**Algorithm**:
+1. Calculate traditional weights using standard method
+2. Calculate confidence scores using bootstrap sampling
+3. Enhance weights with confidence factor:
+   ```python
+   enhanced_weight = traditional_weight * (1 + confidence_factor * confidence_weight)
+   ```
+4. Normalize final weights to sum to 1.0
 
-**Formula:**
-```
-enhanced_weight = traditional_weight × (1 + separation_confidence × confidence_weight)
-```
+### 4. Overall Confidence Assessment
 
-**Benefits:**
-- Reduces weights for unreliable features
-- Amplifies weights for highly confident discriminators
-- Maintains statistical rigor while improving practical applicability
+#### `_calculate_overall_confidence(confidence_scores, feature_weights)`
+**Purpose**: Aggregates individual feature confidences into overall model reliability.
+
+**Metrics Calculated**:
+- `overall_good_confidence`: Weighted average of good group confidences
+- `overall_bad_confidence`: Weighted average of bad group confidences  
+- `overall_separation_confidence`: Weighted average separation quality
+- `model_reliability`: Combined reliability score
+- `valid_features_ratio`: Proportion of features with sufficient data
+
+---
 
 ## Usage Examples
 
 ### Basic Usage
-
 ```python
-# Initialize calculator
-calculator = FeatureWeightCalculator(
-    efficiency=0.85,
-    loss=0.03,
-    confidence_weight=0.3
-)
+# Initialize with default parameters
+calculator = FeatureWeightCalculator()
 
-# Calculate weights and confidence scores
+# Run analysis and get results
 confidence_scores, overall_confidence, enhanced_weights = calculator.calculate()
 
-# Generate and save report
-calculator.calculate_and_save_report()
+# Print results
+print("Enhanced Weights:", enhanced_weights)
+print("Overall Confidence:", overall_confidence['model_reliability'])
 ```
 
 ### Custom Configuration
-
 ```python
-# Custom targets and parameters
+# Initialize with custom parameters
+calculator = FeatureWeightCalculator(
+    efficiency=0.90,           # Higher efficiency threshold
+    loss=0.02,                 # Lower loss tolerance
+    confidence_weight=0.4,     # Higher confidence influence
+    n_bootstrap=1000,          # More bootstrap samples
+    scaling='relative'         # Relative scaling
+)
+
+# Custom targets
 custom_targets = {
     'shiftNGRate': 'minimize',
-    'shiftCycleTimeRate': 0.95,  # Target 95% cycle time efficiency
-    'machineUtilization': 0.90   # Target 90% machine utilization
+    'shiftCycleTimeRate': 0.95,    # Custom target value
+    'shiftCapacityRate': 0.98      # Custom target value
 }
 
+calculator.targets = custom_targets
+confidence_scores, overall_confidence, enhanced_weights = calculator.calculate()
+```
+
+### Analysis with Report Generation
+```python
+# Generate analysis with automatic report saving
 calculator = FeatureWeightCalculator(
-    efficiency=0.90,              # Higher efficiency threshold
-    loss=0.02,                    # Lower loss tolerance
-    targets=custom_targets,
-    n_bootstrap=1000,            # More bootstrap samples
-    confidence_level=0.99,       # Higher confidence level
-    scaling='relative'           # Relative scaling
+    default_dir="output/analysis_reports"
 )
+
+calculator.calculate_and_save_report()
+# This saves a detailed confidence report to the specified directory
 ```
 
-### Integration with Manufacturing Systems
-
+### Advanced Feature Analysis
 ```python
-# Production line optimization
-def optimize_production_weights():
-    calculator = FeatureWeightCalculator()
-    
-    # Calculate current weights
-    _, _, weights = calculator.calculate()
-    
-    # Apply weights to production scheduling
-    scheduler.update_optimization_weights(weights)
-    
-    return weights
+# Access detailed confidence metrics
+confidence_scores, _, _ = calculator.calculate()
 
-# Quality control integration
-def assess_process_reliability():
-    calculator = FeatureWeightCalculator()
-    
-    # Get confidence assessment
-    _, overall_confidence, _ = calculator.calculate()
-    
-    reliability_score = overall_confidence['model_reliability']
-    
-    if reliability_score < 0.7:
-        logger.warning("Low model reliability: {:.1%}".format(reliability_score))
-        return "REVIEW_REQUIRED"
-    elif reliability_score > 0.9:
-        return "HIGH_CONFIDENCE"
-    else:
-        return "MODERATE_CONFIDENCE"
+for feature, metrics in confidence_scores.items():
+    if 'warning' not in metrics:
+        print(f"\nFeature: {feature}")
+        print(f"  Good Group Confidence: {metrics['good_confidence']:.3f}")
+        print(f"  Bad Group Confidence: {metrics['bad_confidence']:.3f}")
+        print(f"  Statistical Significance: {metrics['statistical_significance']:.3f}")
+        print(f"  Sample Sizes: Good={metrics['sample_size_good']}, Bad={metrics['sample_size_bad']}")
 ```
 
-## Output Reports
+---
 
-### Confidence Report Structure
+## Configuration Guide
 
-The agent generates comprehensive reports including:
+### Performance Thresholds
 
-1. **Executive Summary**
-   - Overall model reliability score
-   - Key performance indicators
-   - Confidence level assessment
-
-2. **Feature Analysis**
-   - Individual feature confidence scores
-   - Statistical significance tests
-   - Sample size validation
-
-3. **Performance Classification**
-   - Good vs. bad group characteristics
-   - Separation confidence metrics
-   - Bootstrap confidence intervals
-
-4. **Weight Recommendations**
-   - Enhanced feature weights
-   - Traditional vs. confidence-adjusted weights
-   - Scaling methodology explanation
-
-### Sample Report Output
-
-```
-=== MANUFACTURING PROCESS CONFIDENCE ANALYSIS ===
-
-Model Reliability: 87.3%
-Overall Confidence: High
-
-Feature Performance Summary:
-┌─────────────────────┬──────────────┬─────────────┬────────────────┐
-│ Feature             │ Confidence   │ Separation  │ Enhanced Weight│
-├─────────────────────┼──────────────┼─────────────┼────────────────┤
-│ shiftNGRate         │ 92.1%        │ 89.4%       │ 0.342          │
-│ shiftCycleTimeRate  │ 85.7%        │ 78.2%       │ 0.287          │
-│ shiftCapacityRate   │ 79.3%        │ 71.6%       │ 0.234          │
-│ shiftCavityRate     │ 74.8%        │ 68.9%       │ 0.137          │
-└─────────────────────┴──────────────┴─────────────┴────────────────┘
-
-Recommendations:
-- shiftNGRate shows highest discriminative power
-- Consider monitoring cycle time efficiency closely
-- Sufficient sample sizes for all features (>10 samples)
-```
-
-## Error Handling and Validation
-
-### Data Validation
-
-The agent includes comprehensive validation:
-
+#### Efficiency Setting
 ```python
-@validate_init_dataframes(lambda self: {
-    "productRecords_df": [...],  # Required columns
-    "machineInfo_df": [...],
-    # ... other DataFrames
-})
+efficiency = 0.85  # 85% efficiency expectation
+```
+- **Higher values (0.90-0.95)**: Stricter performance standards
+- **Lower values (0.70-0.85)**: More lenient classification
+- **Impact**: Affects good/bad group classification boundary
+
+#### Loss Tolerance
+```python
+loss = 0.03  # 3% acceptable loss
+```
+- **Lower values**: Stricter quality requirements
+- **Higher values**: More tolerance for production losses
+- **Impact**: Combined with efficiency to set net performance expectations
+
+### Statistical Parameters
+
+#### Bootstrap Configuration
+```python
+n_bootstrap = 500      # Number of bootstrap samples
+confidence_level = 0.95  # 95% confidence intervals
+```
+- **Higher n_bootstrap**: More stable confidence estimates (slower computation)
+- **Higher confidence_level**: Wider confidence intervals, more conservative estimates
+
+#### Sample Size Requirements
+```python
+min_sample_size = 10  # Minimum samples for analysis
+```
+- **Higher values**: More reliable but may exclude some features
+- **Lower values**: Include more features but potentially less reliable
+
+### Feature Weight Tuning
+
+#### Confidence Weight Influence
+```python
+confidence_weight = 0.3  # 30% confidence influence
+```
+- **Higher values (0.4-0.6)**: Prioritize statistically reliable features
+- **Lower values (0.1-0.3)**: Focus more on raw performance differences
+
+#### Scaling Method Selection
+```python
+scaling = 'absolute'  # or 'relative'
+```
+- **Absolute**: Better for features with similar scales
+- **Relative**: Better when features have very different magnitudes
+
+### Target Configuration Examples
+
+#### Quality-Focused Configuration
+```python
+targets = {
+    'shiftNGRate': 'minimize',      # Primary quality focus
+    'shiftCycleTimeRate': 0.95,     # Allow some cycle time variation
+    'shiftCapacityRate': 0.90       # Accept lower capacity for quality
+}
 ```
 
-### Common Error Scenarios
+#### Efficiency-Focused Configuration
+```python
+targets = {
+    'shiftNGRate': 'minimize',      # Still minimize defects
+    'shiftCycleTimeRate': 1.0,      # Demand optimal cycle times
+    'shiftCapacityRate': 1.0        # Demand full capacity utilization
+}
+```
 
-1. **Missing Data Files**
-   - Validates file existence before loading
-   - Provides clear error messages with file paths
+---
 
-2. **Insufficient Sample Sizes**
-   - Warns when sample sizes < `min_sample_size`
-   - Assigns neutral confidence scores for small samples
+## Error Handling
 
-3. **Missing Features**
-   - Handles features not present in data
-   - Sets appropriate default weights and warnings
+### Common Exceptions
 
-4. **Schema Mismatches**
-   - Validates DataFrame schemas against expected structure
-   - Fails fast with descriptive error messages
+#### FileNotFoundError
+```python
+try:
+    calculator = FeatureWeightCalculator()
+    results = calculator.calculate()
+except FileNotFoundError as e:
+    print(f"Data file missing: {e}")
+    # Handle missing data files
+```
+
+#### ValueError
+```python
+try:
+    calculator = FeatureWeightCalculator(scaling='invalid_method')
+except ValueError as e:
+    print(f"Invalid parameter: {e}")
+    # Handle invalid configuration
+```
+
+### Data Quality Issues
+
+#### Insufficient Sample Sizes
+The class automatically handles insufficient sample sizes:
+```python
+# Features with insufficient data receive warning flags
+if 'warning' in confidence_scores[feature]:
+    print(f"Feature {feature}: {confidence_scores[feature]['warning']}")
+```
+
+#### Missing Features
+Missing features in data are handled gracefully:
+```python
+# Missing features receive neutral confidence scores
+missing_feature_score = {
+    'good_confidence': 0.5,
+    'bad_confidence': 0.5,
+    'separation_confidence': 0.0,
+    'warning': 'Feature not found in data'
+}
+```
+
+---
 
 ## Performance Considerations
 
 ### Computational Complexity
 
-- **Bootstrap Sampling**: O(n_bootstrap × sample_size)
-- **Statistical Tests**: O(n × log(n)) per feature
+#### Bootstrap Sampling
+- **Time Complexity**: O(n_bootstrap × sample_size × n_features)
+- **Memory Usage**: O(n_bootstrap × n_features)
+- **Optimization**: Reduce `n_bootstrap` for faster execution
+
+#### Data Loading
+- **I/O Operations**: Multiple parquet file reads
 - **Memory Usage**: Proportional to historical data size
+- **Optimization**: Use data preprocessing to reduce file sizes
 
-### Optimization Recommendations
+### Scalability Guidelines
 
-1. **Adjust Bootstrap Samples**: Reduce `n_bootstrap` for faster execution
-2. **Sample Size Limits**: Bootstrap uses max 50 samples per iteration
-3. **Feature Selection**: Focus on most relevant features to reduce computation
-4. **Data Preprocessing**: Clean data before analysis for better performance
-
-## Integration Points
-
-### Upstream Dependencies
-
-- **DataLoaderAgent**: Provides current manufacturing data
-- **HistoryProcessor**: Supplies mold stability indices
-- **OrderProgressTracker**: Maintains production status logs
-
-### Downstream Consumers
-
-- **AutoPlanner**: Uses weights for optimization decisions
-- **QualityControlAgent**: Monitors confidence thresholds
-- **ReportingSystem**: Incorporates confidence metrics in dashboards
-
-## Configuration Best Practices
-
-### Production Environment
-
+#### Small Datasets (< 10,000 records)
 ```python
-production_config = {
-    'efficiency': 0.85,           # Conservative efficiency target
-    'loss': 0.03,                 # Realistic loss allowance
-    'confidence_level': 0.95,     # Standard confidence level
-    'n_bootstrap': 500,           # Balanced accuracy/speed
-    'min_sample_size': 15,        # Adequate statistical power
-    'confidence_weight': 0.3      # Moderate confidence adjustment
-}
+calculator = FeatureWeightCalculator(
+    n_bootstrap=200,           # Reduced bootstrap samples
+    min_sample_size=5          # Lower minimum sample size
+)
 ```
 
-### Development/Testing
-
+#### Large Datasets (> 100,000 records)
 ```python
-dev_config = {
-    'efficiency': 0.80,           # More lenient for testing
-    'loss': 0.05,                 # Higher loss tolerance
-    'confidence_level': 0.90,     # Faster computation
-    'n_bootstrap': 100,           # Quick iterations
-    'min_sample_size': 5,         # Smaller samples acceptable
-    'confidence_weight': 0.5      # Higher confidence emphasis
-}
+calculator = FeatureWeightCalculator(
+    n_bootstrap=1000,          # More bootstrap samples for stability
+    min_sample_size=50         # Higher minimum for reliability
+)
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Low Model Reliability**
-   - **Cause**: Insufficient data separation between good/bad groups
-   - **Solution**: Adjust efficiency/loss thresholds, collect more data
-
-2. **High Variance in Weights**
-   - **Cause**: Unstable bootstrap samples
-   - **Solution**: Increase `n_bootstrap`, check data quality
-
-3. **Missing Feature Warnings**
-   - **Cause**: Database schema changes or data quality issues
-   - **Solution**: Verify data pipeline, update feature configurations
-
-4. **Memory Issues with Large Datasets**
-   - **Cause**: Large historical datasets
-   - **Solution**: Implement data sampling, use chunked processing

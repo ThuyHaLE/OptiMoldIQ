@@ -1,343 +1,416 @@
-# HistoryProcessor Agent Documentation
+# HistoryProcessor Documentation
 
 ## Overview
 
-The **HistoryProcessor** is a specialized agent designed for manufacturing analytics that processes historical production data to optimize mold-machine assignments in injection molding operations. It provides two main functionalities:
+The `HistoryProcessor` is designed to process historical production data for evaluating mold performance and generating priority matrices for optimal mold-machine allocation in manufacturing processes.
 
-1. **Mold Performance Analysis**: Evaluates mold stability based on cavity utilization and cycle time consistency
-2. **Priority Matrix Generation**: Creates optimized mold-machine assignment recommendations based on historical performance data
+## Main Functions
 
-## Architecture
+### 1. Mold Stability Evaluation
+- Analyzes mold stability based on the number of active cavities and actual cycle time
+- Applies criteria such as accuracy, consistency, compliance with standard limits, and data completeness
+- Calculates key indicators: theoretical output, actual output, efficiency, and normalized productivity
 
-### Core Components
+### 2. Mold-Machine Priority Matrix Generation
+- Uses historical production data to assess the performance of each mold-machine pair
+- Scores each pair based on historical weight and actual efficiency
+- Results are presented as a priority matrix to support optimal production planning
 
-```
-HistoryProcessor
-├── Data Loading & Validation
-├── Mold Stability Analysis
-│   ├── Cavity Stability Calculation
-│   └── Cycle Time Stability Calculation
-└── Priority Matrix Generation
-    ├── Historical Performance Analysis
-    └── Weighted Scoring System
-```
-
-### Key Dependencies
-
-- **pandas**: Data manipulation and analysis
-- **numpy**: Numerical computations
-- **loguru**: Advanced logging capabilities
-- **pathlib**: Path handling
-- Custom modules:
-  - `agents.decorators`: DataFrame validation
-  - `agents.utils`: File I/O utilities
-  - `agents.core_helpers`: Manufacturing-specific helpers
-  - `agents.autoPlanner.hist_based_item_mold_optimizer`: Optimization algorithms
-
-## Class Definition
-
-```python
-class HistoryProcessor:
-    """
-    Agent responsible for processing historical production data to:
-    1. Evaluate Mold Performance and Stability
-    2. Generate Mold-Machine Priority Matrix
-    """
-```
-
-### Configuration Constants
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `SECONDS_PER_HOUR` | 3600 | Time conversion factor |
-| `CYCLE_TIME_TOLERANCE` | 0.2 | Acceptable cycle time deviation (±20%) |
-| `EXTREME_DEVIATION_THRESHOLD` | 1.0 | Threshold for extreme outliers (100%) |
-
-### Stability Scoring Weights
-
-#### Cycle Stability Weights
-- **Accuracy Score**: 30% - Deviation from standard cycle time
-- **Consistency Score**: 25% - Variation in cycle times
-- **Range Compliance**: 25% - Percentage within tolerance
-- **Outlier Penalty**: 10% - Penalty for extreme deviations
-- **Data Completeness**: 10% - Volume of historical data
-
-#### Cavity Stability Weights
-- **Accuracy Rate**: 40% - Match with standard cavity count
-- **Consistency Score**: 30% - Variation in cavity usage
-- **Utilization Rate**: 20% - Average vs. standard cavities
-- **Data Completeness**: 10% - Volume of historical data
+---
 
 ## Initialization
 
 ### Constructor Parameters
 
-```python
-def __init__(self,
-             source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
-             annotation_name: str = "path_annotations.json",
-             databaseSchemas_path: str = 'database/databaseSchemas.json',
-             folder_path: str = 'agents/shared_db/OrderProgressTracker',
-             target_name: str = "change_log.txt",
-             default_dir: str = "agents/shared_db",
-             efficiency: float = 0.85,
-             loss: float = 0.03)
-```
-
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `source_path` | str | 'agents/shared_db/DataLoaderAgent/newest' | Path to data source directory |
-| `annotation_name` | str | "path_annotations.json" | JSON file with path mappings |
-| `databaseSchemas_path` | str | 'database/databaseSchemas.json' | Schema configuration file |
-| `folder_path` | str | 'agents/shared_db/OrderProgressTracker' | Production status folder |
-| `target_name` | str | "change_log.txt" | Change log filename |
-| `default_dir` | str | "agents/shared_db" | Default output directory |
-| `efficiency` | float | 0.85 | Expected production efficiency |
-| `loss` | float | 0.03 | Expected production loss rate |
+| `source_path` | str | `'agents/shared_db/DataLoaderAgent/newest'` | Path to the data source directory containing parquet files |
+| `annotation_name` | str | `"path_annotations.json"` | Name of the JSON file containing path annotations |
+| `databaseSchemas_path` | str | `'database/databaseSchemas.json'` | Path to database schema configuration file |
+| `folder_path` | str | `'agents/shared_db/OrderProgressTracker'` | Path to folder containing change log for production status |
+| `target_name` | str | `"change_log.txt"` | Name of the change log file to read production status from |
+| `default_dir` | str | `"agents/shared_db"` | Default directory for output files |
+| `efficiency` | float | `0.85` | Expected efficiency coefficient (85%) |
+| `loss` | float | `0.03` | Expected loss coefficient (3%) |
 
-### Required DataFrames
-
-The agent automatically loads and validates the following DataFrames:
-
-1. **productRecords_df**: Historical production records
-2. **machineInfo_df**: Machine specifications and capabilities
-3. **moldSpecificationSummary_df**: Mold-item compatibility data
-4. **moldInfo_df**: Detailed mold specifications
-5. **proStatus_df**: Current production status and orders
-
-## Core Methods
-
-### 1. Mold Stability Analysis
-
-#### `calculate_mold_stability_index()`
-
-Calculates comprehensive stability metrics for each mold based on historical performance.
+### Initialization Example
 
 ```python
-def calculate_mold_stability_index(self,
-                                   cavity_stability_threshold=0.6,
-                                   cycle_stability_threshold=0.4,
-                                   total_records_threshold=30) -> pd.DataFrame
+processor = HistoryProcessor(
+    source_path='data/production_records',
+    efficiency=0.80,
+    loss=0.05
+)
 ```
+
+---
+
+## Configuration Constants
+
+### Cavity Stability Weights
+
+```python
+CAVITY_STABILITY_WEIGHTS = {
+    'accuracy_rate_weight': 0.4,        # 40% - Accuracy rate
+    'consistency_score_weight': 0.3,    # 30% - Consistency score
+    'utilization_rate_weight': 0.2,     # 20% - Utilization rate
+    'data_completeness_weight': 0.1     # 10% - Data completeness
+}
+```
+
+### Cycle Stability Weights
+
+```python
+CYCLE_STABILITY_WEIGHTS = {
+    'accuracy_score_weight': 0.3,       # 30% - Accuracy score
+    'consistency_score_weight': 0.25,   # 25% - Consistency score
+    'range_compliance_weight': 0.25,    # 25% - Range compliance
+    'outlier_penalty_weight': 0.1,      # 10% - Outlier penalty
+    'data_completeness_weight': 0.1     # 10% - Data completeness
+}
+```
+
+### Thresholds and Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `SECONDS_PER_HOUR` | 3600 | Seconds in one hour |
+| `CYCLE_TIME_TOLERANCE` | 0.2 | Cycle time tolerance (±20%) |
+| `EXTREME_DEVIATION_THRESHOLD` | 1.0 | Extreme deviation threshold (100%) |
+
+---
+
+## Main Methods
+
+### 1. calculate_mold_stability_index()
+
+**Purpose:** Calculate stability indices for molds based on historical data
 
 **Parameters:**
-- `cavity_stability_threshold` (float): Weight for cavity stability in overall score
-- `cycle_stability_threshold` (float): Weight for cycle stability in overall score  
-- `total_records_threshold` (int): Minimum records needed for reliable analysis
+- `cavity_stability_threshold` (float, default=0.6): Weight threshold for cavity stability
+- `cycle_stability_threshold` (float, default=0.4): Weight threshold for cycle stability  
+- `total_records_threshold` (int, default=30): Minimum number of records threshold
 
-**Returns:**
-DataFrame with columns:
-- `moldNo`: Mold identifier
-- `moldName`: Mold name
-- `cavityStabilityIndex`: Cavity performance score (0-1)
-- `cycleStabilityIndex`: Cycle time performance score (0-1)
-- `theoreticalMoldHourCapacity`: Maximum theoretical output
-- `effectiveMoldHourCapacity`: Stability-adjusted capacity
-- `balancedMoldHourCapacity`: Balanced capacity estimate
+**Returns:** `pandas.DataFrame` with columns:
 
-#### Stability Calculation Logic
+| Column | Type | Description |
+|--------|------|-------------|
+| `moldNo` | str | Mold number identifier |
+| `moldName` | str | Mold name |
+| `cavityStabilityIndex` | float | Cavity stability index (0-1) |
+| `cycleStabilityIndex` | float | Cycle stability index (0-1) |
+| `theoreticalMoldHourCapacity` | float | Theoretical capacity per hour |
+| `effectiveMoldHourCapacity` | float | Effective capacity per hour |
+| `estimatedMoldHourCapacity` | float | Estimated capacity per hour |
+| `balancedMoldHourCapacity` | float | Balanced capacity per hour |
+| `totalRecords` | int | Total number of records |
+| `totalCavityMeasurements` | int | Total cavity measurements |
+| `totalCycleMeasurements` | int | Total cycle measurements |
+| `firstRecordDate` | datetime | First record date |
+| `lastRecordDate` | datetime | Last record date |
 
-**Cavity Stability:**
-1. **Accuracy Rate**: Percentage of measurements matching standard cavity count
-2. **Consistency**: Coefficient of variation in cavity usage
-3. **Utilization Rate**: Average active cavities vs. standard
-4. **Data Completeness**: Penalty for insufficient historical data
-
-**Cycle Time Stability:**
-1. **Accuracy Score**: Average deviation from standard cycle time
-2. **Consistency**: Variation in cycle times
-3. **Range Compliance**: Percentage within ±20% tolerance
-4. **Outlier Penalty**: Penalty for extreme deviations (>100%)
-5. **Data Completeness**: Volume-based reliability factor
-
-### 2. Priority Matrix Generation
-
-#### `calculate_mold_machine_priority_matrix()`
-
-Creates optimized priority rankings for mold-machine combinations.
-
+**Usage Example:**
 ```python
-def calculate_mold_machine_priority_matrix(self,
-                                           weights_hist_path: str,
-                                           mold_stability_index_folder: str,
-                                           mold_stability_index_target_name: str,
-                                           cavity_stability_threshold=0.6,
-                                           cycle_stability_threshold=0.4,
-                                           total_records_threshold=30) -> pd.DataFrame
-```
-
-**Returns:**
-Priority matrix DataFrame with:
-- **Rows**: Mold numbers (`moldNo`)
-- **Columns**: Machine codes (`machineCode`)
-- **Values**: Priority rankings (1 = highest priority, 0 = not compatible)
-
-### 3. Export Methods
-
-#### `calculate_and_save_mold_stability_index()`
-
-Calculates mold stability metrics and exports to Excel with versioning.
-
-#### `calculate_and_save_mold_machine_priority_matrix()`
-
-Generates priority matrix and exports to Excel with versioning.
-
-## Data Processing Pipeline
-
-### 1. Data Loading Phase
-```
-Raw Data Sources → Path Annotations → DataFrame Validation → Loaded DataFrames
-```
-
-### 2. Stability Analysis Phase
-```
-Production Records → Cavity Analysis → Cycle Time Analysis → Stability Indices
-```
-
-### 3. Priority Matrix Phase
-```
-Historical Data → Performance Metrics → Weight Application → Priority Rankings
-```
-
-## Output Files
-
-### Mold Stability Index Output
-- **File Pattern**: `mold_stability_index_YYYYMMDD_HHMMSS.xlsx`
-- **Sheet**: `moldStabilityIndex`
-- **Content**: Comprehensive mold performance metrics
-
-### Priority Matrix Output
-- **File Pattern**: `priority_matrix_YYYYMMDD_HHMMSS.xlsx`
-- **Sheet**: `priorityMatrix`
-- **Content**: Mold-machine priority rankings
-
-## Usage Examples
-
-### Basic Usage
-
-```python
-# Initialize the processor
-processor = HistoryProcessor()
-
-# Calculate and save mold stability analysis
-processor.calculate_and_save_mold_stability_index()
-
-# Generate priority matrix
-processor.calculate_and_save_mold_machine_priority_matrix()
-```
-
-### Custom Configuration
-
-```python
-# Initialize with custom parameters
-processor = HistoryProcessor(
-    efficiency=0.90,
-    loss=0.02,
-    default_dir="custom_output"
-)
-
-# Calculate with custom thresholds
-stability_index = processor.calculate_mold_stability_index(
+stability_results = processor.calculate_mold_stability_index(
     cavity_stability_threshold=0.7,
-    cycle_stability_threshold=0.3,
+    cycle_stability_threshold=0.5,
     total_records_threshold=50
 )
 ```
 
-## Error Handling
+### 2. calculate_mold_machine_priority_matrix()
 
-The agent implements comprehensive error handling for:
+**Purpose:** Generate priority matrix for mold-machine allocation
 
-- **File Not Found**: Missing data files or configuration files
-- **Schema Validation**: DataFrame structure validation
-- **Data Quality**: Invalid or missing values in critical fields
-- **Calculation Errors**: Mathematical operations on edge cases
+**Parameters:**
+- `mold_machine_feature_weights` (pandas.Series): Feature weights for scoring
+- `capacity_mold_info_df` (pandas.DataFrame): Mold capacity information DataFrame
 
-## Performance Considerations
+**Returns:** `pandas.DataFrame` - Priority matrix with:
+- Rows: Mold numbers (moldNo)
+- Columns: Machine codes (machineCode)  
+- Values: Priority rankings (1 = highest priority)
 
-### Optimization Strategies
+**Usage Example:**
+```python
+# Prepare feature weights
+weights = pd.Series({
+    'shiftNGRate': 0.25,
+    'shiftCavityRate': 0.25,
+    'shiftCycleTimeRate': 0.25,
+    'shiftCapacityRate': 0.25
+})
 
-1. **Data Filtering**: Early filtering of irrelevant records
-2. **Vectorized Operations**: NumPy operations for numerical calculations
-3. **Memory Management**: Efficient DataFrame operations
-4. **Caching**: Reuse of intermediate calculations
-
-### Scalability
-
-- **Large Datasets**: Handles production databases with millions of records
-- **Memory Efficiency**: Optimized for memory usage with large DataFrames
-- **Processing Speed**: Vectorized calculations for performance
-
-## Integration Points
-
-### Input Dependencies
-- **DataLoaderAgent**: Provides cleaned production data
-- **OrderProgressTracker**: Current production status
-- **FeatureWeightCalculator**: Weighting factors for priority scoring
-
-### Output Consumers
-- **Production Planning Systems**: Priority matrix for scheduling
-- **Quality Control**: Mold stability metrics for maintenance planning
-- **Reporting Systems**: Performance analytics and dashboards
-
-## Configuration Management
-
-### Path Annotations
-The system uses JSON-based path annotations for flexible file location management:
-
-```json
-{
-  "productRecords": "/path/to/production_records.parquet",
-  "machineInfo": "/path/to/machine_info.parquet",
-  "moldInfo": "/path/to/mold_specifications.parquet"
-}
+priority_matrix = processor.calculate_mold_machine_priority_matrix(
+    weights, 
+    mold_capacity_data
+)
 ```
 
-### Schema Validation
-Automatic validation ensures data consistency:
-- Column presence verification
-- Data type validation
-- Required field checking
+### 3. Save Methods
+
+#### calculate_and_save_mold_stability_index()
+Calculates and saves mold stability index to Excel file with automatic versioning.
+
+#### calculate_and_save_mold_machine_priority_matrix()
+Calculates and saves priority matrix to Excel file with automatic versioning.
+
+---
+
+## Calculation Formulas
+
+### Cavity Stability Index
+
+```
+cavity_stability = (accuracy_rate × 0.4) + 
+                  (consistency_score × 0.3) + 
+                  (utilization_rate × 0.2) + 
+                  (data_completeness × 0.1)
+```
+
+Where:
+- **accuracy_rate**: Proportion of actual cavities matching standard
+- **consistency_score**: 1 - (std_dev / mean) of cavity values
+- **utilization_rate**: average_cavity / standard_cavity
+- **data_completeness**: min(1.0, total_records / threshold)
+
+### Cycle Stability Index
+
+```
+cycle_stability = (accuracy_score × 0.3) + 
+                 (consistency_score × 0.25) + 
+                 (range_compliance × 0.25) + 
+                 (outlier_penalty × 0.1) + 
+                 (data_completeness × 0.1)
+```
+
+Where:
+- **accuracy_score**: 1 - average_deviation_from_standard
+- **consistency_score**: 1 - coefficient_of_variation
+- **range_compliance**: proportion_within_20%_tolerance
+- **outlier_penalty**: 1 - proportion_of_extreme_outliers
+- **data_completeness**: min(1.0, total_records / threshold)
+
+### Capacity Calculations
+
+```python
+# Theoretical capacity
+theoretical_capacity = 3600 / standard_cycle × standard_cavity
+
+# Effective capacity  
+effective_capacity = theoretical_capacity × overall_stability
+
+# Estimated capacity
+estimated_capacity = theoretical_capacity × (efficiency - loss)
+
+# Balanced capacity
+alpha = max(0.1, min(1.0, total_records / threshold))
+balanced_capacity = alpha × effective_capacity + (1-alpha) × estimated_capacity
+```
+
+---
+
+## Data Structure Requirements
+
+### Required Input Data
+
+#### productRecords_df
+- `moldNo`: Mold identifier
+- `recordDate`: Record date
+- `moldShot`: Number of mold shots
+- `moldCavity`: Actual cavity count
+- `itemTotalQuantity`: Total production quantity
+- `itemGoodQuantity`: Good production quantity
+
+#### moldInfo_df  
+- `moldNo`: Mold identifier
+- `moldName`: Mold name
+- `moldCavityStandard`: Standard cavity count
+- `moldSettingCycle`: Set cycle time
+- `machineTonnage`: Machine tonnage requirement
+
+#### machineInfo_df
+- `machineNo`: Machine number
+- `machineCode`: Machine code  
+- `machineName`: Machine name
+- `machineTonnage`: Machine tonnage capacity
+
+#### proStatus_df
+Required columns (validated by decorator):
+```python
+['poReceivedDate', 'poNo', 'itemCode', 'itemName', 'poETA',
+ 'itemQuantity', 'itemRemain', 'startedDate', 'actualFinishedDate',
+ 'proStatus', 'etaStatus', 'machineHist', 'itemType', 'moldList',
+ 'moldHist', 'moldCavity', 'totalMoldShot', 'totalDay', 'totalShift',
+ 'plasticResinCode', 'colorMasterbatchCode', 'additiveMasterbatchCode',
+ 'moldShotMap', 'machineQuantityMap', 'dayQuantityMap',
+ 'shiftQuantityMap', 'materialComponentMap', 'lastestRecordTime',
+ 'machineNo', 'moldNo', 'warningNotes']
+```
+
+---
+
+## Error Handling
+
+### Exception Types
+
+1. **FileNotFoundError**: When required data files are missing
+2. **Schema Validation Error**: When DataFrames don't have required columns
+3. **Data Processing Error**: When errors occur during data processing
+
+### Logging
+
+The class uses `loguru` for detailed logging:
+- **DEBUG**: DataFrame shape and column information
+- **INFO**: Processing progress notifications
+- **ERROR**: Error messages and debug information
+
+### Validation Decorators
+
+The class uses two validation decorators:
+
+1. **@validate_init_dataframes**: Validates schema compliance for core DataFrames
+2. **@validate_init_dataframes**: Additional validation for production status DataFrame
+
+---
+
+## Best Practices
+
+### 1. Data Preparation
+```python
+# Ensure sufficient records for analysis
+min_records = 30  # Minimum 30 records per mold
+
+# Filter meaningful data
+meaningful_data = data[data['moldShot'] > 0]
+
+# Check for required columns
+required_cols = ['moldNo', 'recordDate', 'moldShot', 'moldCavity']
+assert all(col in data.columns for col in required_cols)
+```
+
+### 2. Weight Configuration
+```python
+# Adjust weights based on business requirements
+custom_weights = pd.Series({
+    'shiftNGRate': 0.3,          # Higher weight for NG rate
+    'shiftCavityRate': 0.2,
+    'shiftCycleTimeRate': 0.3,   # Higher weight for cycle time
+    'shiftCapacityRate': 0.2
+})
+```
+
+### 3. Data Validation
+```python
+# Validate data before processing
+assert not df.empty, "DataFrame cannot be empty"
+assert 'moldNo' in df.columns, "Missing moldNo column"
+assert df['moldShot'].sum() > 0, "No meaningful production data"
+```
+
+---
+
+## Complete Usage Example
+
+```python
+# 1. Initialize processor
+processor = HistoryProcessor(
+    source_path='data/production',
+    efficiency=0.85,
+    loss=0.03
+)
+
+# 2. Calculate mold stability index
+stability_results = processor.calculate_mold_stability_index(
+    cavity_stability_threshold=0.6,
+    cycle_stability_threshold=0.4,
+    total_records_threshold=30
+)
+
+# 3. Prepare feature weights for priority matrix
+feature_weights = pd.Series({
+    'shiftNGRate': 0.25,
+    'shiftCavityRate': 0.25,
+    'shiftCycleTimeRate': 0.25,
+    'shiftCapacityRate': 0.25
+})
+
+# 4. Calculate priority matrix
+priority_matrix = processor.calculate_mold_machine_priority_matrix(
+    feature_weights,
+    stability_results
+)
+
+# 5. Save results with automatic versioning
+processor.calculate_and_save_mold_stability_index()
+processor.calculate_and_save_mold_machine_priority_matrix(
+    feature_weights,
+    stability_results
+)
+
+# 6. Access results
+print(f"Analyzed {len(stability_results)} molds")
+print(f"Priority matrix shape: {priority_matrix.shape}")
+```
+
+---
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Missing Data Files**
-   - Check path annotations
-   - Verify file permissions
-   - Ensure parquet file integrity
+1. **"Path not found"**
+   - Verify file paths are correct
+   - Ensure annotation JSON file exists
+   - Check file permissions
 
-2. **Schema Validation Failures**
-   - Compare actual vs. expected columns
-   - Check data types in source files
-   - Verify database schema configuration
+2. **"Missing columns"**  
+   - Verify DataFrame schema matches requirements
+   - Ensure all required columns are present
+   - Check column name spelling and case
 
-3. **Calculation Errors**
-   - Validate input data ranges
-   - Check for division by zero conditions
-   - Ensure sufficient historical data
+3. **"Invalid mold standard"**
+   - Check moldCavityStandard and moldSettingCycle > 0
+   - Clean data before processing
+   - Handle missing or null values
 
-### Logging and Debugging
+4. **"Insufficient data"**
+   - Ensure minimum record thresholds are met
+   - Filter for meaningful production data (moldShot > 0)
+   - Check date ranges for historical data
 
-The agent uses structured logging with contextual information:
-- Class-level logger binding
-- Detailed error messages with context
-- Performance metrics logging
+### Performance Tips
 
-## Best Practices
+1. **Filter early**: Remove unnecessary records before processing
+2. **Use chunking**: Process large datasets in batches
+3. **Cache results**: Save intermediate results to avoid recalculation
+4. **Optimize data types**: Use appropriate dtypes for memory efficiency
 
-### Data Quality
-- Ensure consistent data collection across production systems
-- Implement data validation at source systems
-- Regular data quality audits
+### Debug Information
 
-### Configuration Management
-- Use version control for configuration files
-- Document configuration changes
-- Test configuration changes in development environment
+Enable debug logging to get detailed information:
+```python
+from loguru import logger
+logger.add("debug.log", level="DEBUG")
 
-### Performance Monitoring
-- Monitor processing times for large datasets
-- Track memory usage patterns
-- Set up alerts for processing failures
+# Initialize with debug info
+processor = HistoryProcessor(source_path='data/production')
+```
+
+---
+
+## Performance Characteristics
+
+### Time Complexity
+- **Mold Stability Calculation**: O(n × m) where n = molds, m = average records per mold
+- **Priority Matrix Generation**: O(p × q) where p = molds, q = machines
+
+### Memory Usage
+- Loads all required DataFrames into memory
+- Peak memory usage depends on dataset size
+- Consider chunked processing for very large datasets
+
+### Scalability Considerations
+- Suitable for datasets up to millions of production records
+- For larger datasets, consider distributed processing
+- Memory usage scales linearly with data size

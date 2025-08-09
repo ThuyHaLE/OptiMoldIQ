@@ -1,8 +1,8 @@
-# DynamicCrossDataValidator Agent Documentation
+# DynamicCrossDataValidator Documentation
 
 ## Overview
 
-The `DynamicCrossDataValidator` is a comprehensive validation agent designed to cross-reference production records against standard reference data in manufacturing environments. It ensures data integrity by validating that production records (items, molds, machines, compositions) match against predefined standards and generates detailed warnings for any mismatches.
+The `DynamicCrossDataValidator` is designed to cross-reference production records against standard reference data in manufacturing environments. It ensures data integrity by validating that production records (items, molds, machines, compositions) match against predefined standards and generates detailed warnings for any mismatches.
 
 ## Purpose
 

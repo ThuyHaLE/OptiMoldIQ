@@ -1,8 +1,8 @@
-# DataCollector Agent Documentation
+# DataCollector Documentation
 
 ## Overview
 
-The `DataCollector` agent is a critical component of the data pipeline orchestrator system responsible for collecting, processing, and converting data from various Excel sources into standardized Parquet format. It handles two primary data types: product records from monthly reports and purchase orders, with comprehensive error handling and recovery mechanisms.
+The `DataCollector` is a critical component of the data pipeline orchestrator system responsible for collecting, processing, and converting data from various Excel sources into standardized Parquet format. It handles two primary data types: product records from monthly reports and purchase orders, with comprehensive error handling and recovery mechanisms.
 
 ## Key Features
 

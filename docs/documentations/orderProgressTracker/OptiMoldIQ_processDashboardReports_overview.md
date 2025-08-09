@@ -1,8 +1,8 @@
-# ProcessDashboardReports Class Documentation
+# ProcessDashboardReports Documentation
 
 ## Overview
 
-The `ProcessDashboardReports` class is a comprehensive data processing system designed for manufacturing production tracking and reporting. It extracts, processes, and structures production data from Excel files containing multiple sheets with different aspects of manufacturing operations.
+The `ProcessDashboardReports` is designed for manufacturing production tracking and reporting. It extracts, processes, and structures production data from Excel files containing multiple sheets with different aspects of manufacturing operations.
 
 ## Key Features
 

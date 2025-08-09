@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `PORequiredCriticalValidator` is a data validation agent designed to ensure consistency between product records and purchase orders in a manufacturing or inventory management system. This validator performs critical checks to identify discrepancies that could indicate data quality issues or process violations.
+The `PORequiredCriticalValidator` is designed to ensure consistency between product records and purchase orders in a manufacturing or inventory management system. This validator performs critical checks to identify discrepancies that could indicate data quality issues or process violations.
 
 ## Purpose
 

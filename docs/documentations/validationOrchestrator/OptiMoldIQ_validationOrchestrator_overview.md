@@ -1,8 +1,8 @@
-# ValidationOrchestrator Agent Documentation
+# ValidationOrchestrator Documentation
 
 ## Overview
 
-`ValidationOrchestrator` is the main agent responsible for orchestrating and executing validation processes for production data. It acts as a conductor, coordinating three different types of validation to ensure data integrity and consistency across the production system.
+The `ValidationOrchestrator` is designed for orchestrating and executing validation processes for production data. It acts as a conductor, coordinating three different types of validation to ensure data integrity and consistency across the production system.
 
 ## System Architecture
 

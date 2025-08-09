@@ -1,8 +1,8 @@
-# StaticCrossDataChecker Agent Documentation
+# StaticCrossDataChecker Documentation
 
 ## Overview
 
-The `StaticCrossDataChecker` is a specialized data validation agent designed to cross-reference and validate data consistency between dynamic operational data (production records and purchase orders) and static reference data (item information, resin specifications, and composition summaries).
+The `StaticCrossDataChecker` is designed to cross-reference and validate data consistency between dynamic operational data (production records and purchase orders) and static reference data (item information, resin specifications, and composition summaries).
 
 This agent ensures data integrity by validating that all item codes, resin specifications, and material compositions referenced in operational data exist and match exactly in the corresponding reference tables.
 

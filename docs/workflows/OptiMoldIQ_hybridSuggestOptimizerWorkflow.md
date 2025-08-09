@@ -1,32 +1,31 @@
-# HybridSuggestOptimizer Workflow Documentation
+# Phase 03 - Hybrid Suggest Optimization Workflow Documentation
 
 ## High-Level Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         HybridSuggestOptimizer                              │
-│                   Manufacturing Production Configuration Pipeline           │
+│                        HybridSuggestOptimizer                               │
+│                     Production Optimization Pipeline                        │
 └─────────────────────────────────────────────────────────────────────────────┘
                                         │
                                         ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        🔧 INITIALIZATION PHASE                              │
+│                       🔧 INITIALIZATION PHASE                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ • Load configuration files (schemas, path annotations)                     │
-│ • Validate and load core manufacturing datasets                            │
-│ • Setup production parameters (efficiency: 85%, loss: 3%)                 │
-│ • Initialize HistoryProcessor for mold-machine analysis                    │
+│ • Configuration validation and parameter setup                              │
+│ • Load database schemas and path annotations                                │
+│ • Initialize core components and validate data sources                      │
 └─────────────────────────────────────────────────────────────────────────────┘
                                         │
                                         ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                   📊 HYBRID OPTIMIZATION PIPELINE                          │
+│                    📊 HYBRID OPTIMIZATION PIPELINE                          │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Detailed Workflow Steps
 
-### Phase 1: Initialization & Configuration Loading
+### Phase 1: Initialization & Configuration
 
 ```
 ┌──────────────────────────────────────┐
@@ -34,14 +33,13 @@
 │    HybridSuggestOptimizer()          │
 └──────────────┬───────────────────────┘
                │
-               ├─ Load path_annotations.json
                ├─ Load databaseSchemas.json
-               ├─ Set production parameters (efficiency=0.85, loss=0.03)
-               ├─ Configure mold stability index path
+               ├─ Load path_annotations.json
+               ├─ Validate file paths and parameters
                │
                ▼
 ┌──────────────────────────────────────┐
-│     Load Core Manufacturing Data     │
+│     Load Core Datasets               │
 ├──────────────────────────────────────┤
 │ 📄 moldSpecificationSummary_df       │
 │ 📄 moldInfo_df                       │
@@ -56,111 +54,84 @@
                ▼
 ┌──────────────────────────────────────┐
 │   Initialize HistoryProcessor        │
-│   Setup logging system               │
+│   for Priority Matrix Generation     │
 └──────────────────────────────────────┘
 ```
 
-### Phase 2: Hybrid Optimization Pipeline
+### Phase 2: Hybrid Optimization Processing
 
 ```
                     process() Method Called
                             │
                             ▼
     ┌────────────────────────────────────────────────────────┐
-    │                 Step 1: Load Mold Stability Index      │
+    │              Step 1: Load Mold Stability Index         │
     │ Method: _load_mold_stability_index()                   │
     ├────────────────────────────────────────────────────────┤
-    │ 🔍 Check for existing stability index:                │
-    │    • Load from HistoryProcessor/mold_stability_index   │
-    │    • Handle change_log.txt for version tracking        │
-    │ 📊 Fallback Strategy:                                  │
-    │    • Create empty DataFrame if no data exists           │
-    │    • Log warning for missing historical data            │
-    │ 🏷️  Output: mold_stability_index DataFrame             │
+    │ 📂 Read change_log.txt from stability index folder     │
+    │ 📊 Load latest mold_stability_index.xlsx               │
+    │ 🔄 Fallback to empty structure if file missing         │
+    │ ✅ Validate required columns and data format           │
     └────────────────────┬───────────────────────────────────┘
                          │
                          ▼
     ┌────────────────────────────────────────────────────────┐
-    │              Step 2: Historical Mold Capacity Analysis │
-    │ Method: HistBasedItemMoldOptimizer().process()         │
+    │              Step 2: Estimate Mold Capacities          │
+    │ Method: _estimate_mold_capacities()                    │
+    │ Component: HistBasedItemMoldOptimizer                  │
     ├────────────────────────────────────────────────────────┤
-    │ 🔧 Initialize HistBasedItemMoldOptimizer:              │
-    │    • Pass core DataFrames and stability index          │
-    │    • Configure efficiency and loss parameters          │
-    │ 🧮 Mold Capacity Estimation Process:                   │
-    │    • Analyze historical production performance         │
-    │    • Calculate theoretical vs actual capacity          │
-    │    • Generate mold stability metrics                   │
-    │ 📈 Capacity Calculations:                              │
+    │ 🔍 Process mold stability data with specifications     │
+    │ 🧮 Calculate capacity metrics:                         │
     │    • theoreticalMoldHourCapacity                       │
     │    • effectiveMoldHourCapacity                         │
     │    • estimatedMoldHourCapacity                         │
     │    • balancedMoldHourCapacity                          │
-    │ 📊 Output: invalid_molds, mold_estimated_capacity_df   │
+    │ 📊 Apply trust coefficient: α = min(1.0, records/30)   │
+    │ 🚫 Identify invalid molds (insufficient data)          │
     └────────────────────┬───────────────────────────────────┘
                          │
                          ▼
     ┌────────────────────────────────────────────────────────┐
-    │              Step 3: Feature Weights Loading           │
+    │              Step 3: Load Feature Weights              │
     │ Method: _load_feature_weights()                        │
     ├────────────────────────────────────────────────────────┤
-    │ 🔍 Load Historical Weights:                            │
-    │    • Check agents/FeatureWeightCalculator/weights_hist.xlsx │
-    │    • Extract latest calculated weights                 │
-    │ ⚖️  Default Weight Fallback:                           │
-    │    • shiftNGRate_weight: 0.1 (10%)                    │
-    │    • shiftCavityRate_weight: 0.25 (25%)               │
-    │    • shiftCycleTimeRate_weight: 0.25 (25%)            │
-    │    • shiftCapacityRate_weight: 0.4 (40%)              │
-    │ 📊 Validation:                                         │
-    │    • Ensure weights sum to 1.0                        │
-    │    • Log weight configuration for verification        │
-    │ 🏷️  Output: feature_weights Series                     │
+    │ 📂 Read weights_hist.xlsx from FeatureWeightCalculator │
+    │ 📊 Extract latest weight row using get_latest_change_row│
+    │ ✅ Validate weight columns and ranges                  │
+    │ 🔄 Use default weights if file missing/invalid:       │
+    │    • shiftCapacityRate: 0.4 (40%)                     │
+    │    • shiftCavityRate: 0.25 (25%)                      │
+    │    • shiftCycleTimeRate: 0.25 (25%)                   │
+    │    • shiftNGRate: 0.1 (10%)                           │
     └────────────────────┬───────────────────────────────────┘
                          │
                          ▼
     ┌────────────────────────────────────────────────────────┐
-    │              Step 4: Mold-Machine Priority Matrix      │
-    │ Method: HistoryProcessor.get_mold_machine_priority()   │
+    │              Step 4: Calculate Priority Matrix         │
+    │ Method: _calculate_priority_matrix()                   │
+    │ Component: HistoryProcessor                            │
     ├────────────────────────────────────────────────────────┤
-    │ 🔗 Data Integration:                                   │
-    │    • Merge mold_estimated_capacity_df with weights    │
-    │    • Include machine compatibility information        │
-    │ 🧮 Priority Score Calculation:                         │
-    │    • Weighted sum of performance metrics:             │
-    │      priority = Σ(weight_i × performance_metric_i)    │
-    │ 📊 Matrix Generation:                                  │
-    │    • Rows: Molds (moldNo, moldName)                   │
-    │    • Columns: Machines (machineNo, tonnage)           │
-    │    • Values: Priority scores (1-N scale)              │
-    │ 🎯 Optimization Criteria:                              │
-    │    • High capacity utilization                        │
-    │    • Low defect rates                                 │
-    │    • Optimal cycle times                              │
-    │    • Machine-mold tonnage compatibility               │
-    │ 🏷️  Output: mold_machine_priority_matrix DataFrame     │
+    │ 🔍 Prepare historical mold-machine data               │
+    │ 📊 Filter completed orders (itemRemain = 0)           │
+    │ 🧮 Calculate performance metrics per combination:      │
+    │    • shiftNGRate, shiftCavityRate                     │
+    │    • shiftCycleTimeRate, shiftCapacityRate            │
+    │ ⚖️  Apply weighted scoring using feature weights       │
+    │ 🏆 Convert scores to priority rankings (1=best)       │
+    │ 📋 Create mold-machine priority matrix                 │
     └────────────────────┬───────────────────────────────────┘
                          │
                          ▼
     ┌────────────────────────────────────────────────────────┐
-    │              Step 5: Results Compilation & Validation  │
-    │ Method: process() return statement                     │
+    │              Step 5: Result Compilation                │
+    │ Return: OptimizationResult                             │
     ├────────────────────────────────────────────────────────┤
-    │ ✅ Quality Validation:                                 │
-    │    • Verify mold capacity estimates completeness       │
-    │    • Validate priority matrix dimensions              │
-    │    • Check for invalid mold entries                   │
-    │ 📊 Performance Metrics:                                │
-    │    • Total molds processed vs invalid count           │
-    │    • Matrix density (non-zero priority scores)        │
-    │    • Processing time and memory usage                 │
-    │ 📋 Return Tuple:                                       │
+    │ 📦 Package results into structured container:          │
     │    • invalid_molds: List[str]                         │
     │    • mold_estimated_capacity_df: DataFrame            │
     │    • mold_machine_priority_matrix: DataFrame          │
-    │ 📝 Logging Summary:                                    │
-    │    • Process completion status                        │
-    │    • Key statistics and warnings                      │
+    │ 📊 Log optimization summary and statistics            │
+    │ ⏱️  Record processing time and performance metrics     │
     └────────────────────────────────────────────────────────┘
 ```
 
@@ -168,273 +139,172 @@
 
 ### Input Data Sources
 ```
-moldSpecificationSummary_df    ──┐
-moldInfo_df                    ──┼─► Production Optimization
-mold_stability_index           ──|
-feature_weights                ──┘
+Historical Stability Index  ──┐
+                              ├─► Capacity Estimation
+Feature Weights             ──┤
+                              │
+Mold Specifications         ──┤
+                              ├─► Priority Matrix
+Production Records          ──┤
+                              │
+Machine Information         ──┘
 ```
 
-### Capacity Estimation Logic
+### Capacity Calculation Logic
 ```
-Mold Capacity Analysis Flow:
-┌─────────────────────┐    ┌──────────────────────┐
-│   Historical Data:  │───▶│   Capacity Types:    │
-│   • Production      │    │   • Theoretical      │
-│     records         │    │   • Effective        │
-│   • Cycle times     │    │   • Estimated        │
-│   • Mold cavity     │    │   • Balanced         │
-└─────────────────────┘    └──────────────────────┘
+Capacity Flow:
+┌─────────────────┐    ┌─────────────────┐     ┌─────────────────┐
+│   Theoretical   │───▶│   Effective     │───▶│   Balanced      │
+│   Capacity      │    │   Capacity      │     │   Capacity      │
+│3600/cycle*cavity│    │theoretical*     │     │α*effective +    │
+│                 │    │stability        │     │(1-α)*estimated  │
+└─────────────────┘    └─────────────────┘     └─────────────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │   Estimated     │
+                       │   Capacity      │
+                       │theoretical*     │
+                       │(efficiency-loss)│
+                       └─────────────────┘
+
+Trust Coefficient Logic:
+• α = max(0.1, min(1.0, total_records / 30))
+• More historical data → Higher trust in effective capacity
+• Less historical data → Rely more on estimated capacity
 ```
 
-### Priority Score Calculation
+### Priority Matrix Generation
 ```
-Mold-Machine Priority Matrix:
-┌─────────────────────┐    ┌──────────────────────┐
-│   Performance       │───▶│   Weighted Score:    │
-│   Metrics:          │    │                      │
-│   • shiftNGRate     │    │   priority_score =   │
-│   • shiftCavityRate │    │   Σ(weight_i ×       │
-│   • shiftCycleTime  │    │     metric_i)        │
-│   • shiftCapacity   │    │                      │
-└─────────────────────┘    └──────────────────────┘
-```
+Performance Metrics Calculation:
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│Historical Data  │───▶│Mold-Machine     │───▶│Weighted Score   │
+│Processing       │    │Performance      │    │Calculation      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │Priority Ranking │
+                       │(1=highest)      │
+                       └─────────────────┘
 
-## Statistical Analysis Components
-
-### Mold Stability Assessment
-```
-🔍 Stability Index Methodology:
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Historical    │───▶│   Consistency    │──▶│   Stability     │
-│   Performance   │    │   Metrics:       │    │   Classification│
-│   Data          │    │   • Cavity       │    │   • High        │
-│                 │    │   • Cycle Time   │    │   • Medium      │
-└─────────────────┘    └──────────────────┘    │   • Low         │
-                                               └─────────────────┘
-```
-
-### Capacity Reliability Scoring
-```
-For each mold:
-├── 📊 cavityStabilityIndex: Consistency of cavity utilization
-├── 📊 cycleStabilityIndex: Consistency of cycle times
-├── 📈 totalRecords: Historical data depth
-├── 📈 totalCavityMeasurements: Cavity data points
-├── 📈 totalCycleMeasurements: Cycle time data points
-└── 📅 firstRecordDate - lastRecordDate: Time span coverage
+Weighted Score Formula:
+total_score = Σ(metric_value × feature_weight)
+where metrics = [NGRate, CavityRate, CycleTimeRate, CapacityRate]
 ```
 
 ## Output Structure
 
-### Mold Estimated Capacity DataFrame Columns
+### OptimizationResult Container
 ```
-📋 mold_estimated_capacity_df Structure:
-├── 🔑 moldNo: Unique mold identifier
-├── 📝 moldName: Human-readable mold name  
-├── 📅 acquisitionDate: Mold procurement date
-├── 🏋️ machineTonnage: Required machine tonnage
-├── 🕳️ moldCavityStandard: Standard cavity count
-├── ⏱️ moldSettingCycle: Standard cycle time (seconds)
-├── 📊 cavityStabilityIndex: Cavity consistency metric
-├── 📊 cycleStabilityIndex: Cycle time consistency metric
-├── 🎯 theoreticalMoldHourCapacity: Maximum possible rate
-├── ⚡ effectiveMoldHourCapacity: Efficiency-adjusted rate
-├── 📈 estimatedMoldHourCapacity: Predicted actual rate
-├── ⚖️ balancedMoldHourCapacity: Optimized production rate
-├── 📊 totalRecords: Historical data count
-├── 📊 totalCavityMeasurements: Cavity data points
-├── 📊 totalCycleMeasurements: Cycle data points
-├── 📅 firstRecordDate: Earliest historical record
-└── 📅 lastRecordDate: Latest historical record
+📦 OptimizationResult
+├── 🚫 invalid_molds (List[str])
+│   └── Molds with insufficient historical data
+├── 📊 mold_estimated_capacity_df (DataFrame)
+│   ├── Basic Info: moldNo, moldName, acquisitionDate
+│   ├── Specifications: moldCavityStandard, moldSettingCycle
+│   ├── Stability: cavityStabilityIndex, cycleStabilityIndex
+│   ├── Capacities: theoretical, effective, estimated, balanced
+│   └── Quality: totalRecords, measurements, date ranges
+└── 🏆 mold_machine_priority_matrix (DataFrame)
+    ├── Rows: Mold identifiers (moldNo)
+    ├── Columns: Machine codes (machineCode)
+    └── Values: Priority rankings (1=best, 0=incompatible)
 ```
 
-### Priority Matrix Structure  
+### Key Performance Indicators
 ```
-📊 mold_machine_priority_matrix Structure:
-├── Index: Multi-level (moldNo, moldName)
-├── Columns: Machine identifiers or tonnage groups
-├── Values: Priority scores
-├── Special Values:
-│   ├── 0: Incompatible combination
-│   ├── NaN: No historical data
-│   └── 1,2,3...: Viable priority ranking
-```
-
-### Invalid Molds Tracking
-```
-📋 invalid_molds List Content:
-├── Molds without historical production data
-├── Molds with insufficient data points
-├── Molds with corrupted performance records
-├── Molds incompatible with any available machines
-└── Molds with missing essential specifications
+For each Mold:
+├── 📊 Capacity Estimates: Multiple calculation methods
+├── 🎯 Stability Indices: Consistency metrics (0-1 scale)
+├── 📈 Trust Level: Data quality coefficient (0.1-1.0)
+├── 🏆 Machine Priorities: Ranked compatibility list
+└── ⚠️ Data Quality: Record counts and time spans
 ```
 
 ## Error Handling & Validation
 
 ### Pre-execution Checks
-- ✅ Schema validation for all input DataFrames
-- ✅ Required column presence verification
-- ✅ Path existence validation for stability index
-- ✅ Feature weights file accessibility check
-- ✅ Production parameter bounds validation
+- ✅ Configuration parameter validation (efficiency: 0-1, loss: 0-1)
+- ✅ File path accessibility verification
+- ✅ Database schema compliance
+- ✅ Required DataFrame column presence
 
-### Runtime Safety Mechanisms
+### Runtime Safety
+- 🛡️ Missing stability index file handling
+- 🛡️ Invalid feature weights recovery
+- 🛡️ Empty DataFrame protection
+- 🛡️ Division by zero prevention in calculations
+- 🛡️ Data type conversion error handling
+
+### Fallback Mechanisms
 ```
-Data Quality Safeguards:
-├── Empty DataFrame handling for stability index
-├── Missing feature weights fallback to defaults
-├── Invalid mold identification and exclusion
-├── Division by zero protection in capacity calculations
-├── Tonnage compatibility validation
-└── Matrix dimension consistency checks
-
-Processing Resilience:
-├── 🛡️ Parquet file corruption recovery
-├── 🛡️ Memory optimization for large datasets
-├── 🛡️ Logging for debugging and monitoring
-├── 🛡️ Graceful degradation with partial data
-└── 🛡️ Configuration parameter validation
+Stability Index Missing → Create empty structure
+Feature Weights Missing → Use scientific defaults
+Invalid Data → Skip with logging
+Processing Errors → Graceful degradation
 ```
 
-### Data Integrity Validation
+## Configuration Validation
+
+### validate_configuration() Method
 ```
-Validation Checkpoints:
-┌─────────────────────┐    ┌──────────────────────┐
-│   Input Stage:      │───▶│   Processing Stage:  │
-│   • Schema          │    │   • Capacity logic   │
-│     compliance      │    │   • Weight bounds    │
-│   • Required        │    │   • Matrix density   │
-│     columns         │    │   • Score ranges     │
-└─────────────────────┘    └──────────────────────┘
-                                       │
-                                       ▼
-                           ┌──────────────────────┐
-                           │   Output Stage:      │
-                           │   • Result           │
-                           │     completeness     │
-                           │   • Invalid mold     │
-                           │     documentation    │
-                           └──────────────────────┘
+┌─────────────────┐    ┌─────────────────┐     ┌─────────────────┐
+│Path Validation  │───▶│Parameter Check  │───▶│Data Availability│
+│• source_path    │    │• 0<efficiency≤1 │     │• stability data │
+│• schema_path    │    │• 0≤loss<1       │     │• feature weights│
+│• stability_path │    │• weight ranges  │     │• DataFrames     │
+└─────────────────┘    └─────────────────┘     └─────────────────┘
 ```
+
+## Usage Example
+
+```python
+# Initialize optimizer with production parameters
+optimizer = HybridSuggestOptimizer(
+    source_path=f"{shared_db_dir}/DataLoaderAgent/newest",
+    efficiency=0.85,  # 85% expected efficiency
+    loss=0.03         # 3% expected loss
+)
+
+# Validate configuration before processing
+if optimizer.validate_configuration():
+    # Execute hybrid optimization
+    result = optimizer.process()
+    
+    # Access optimization results
+    invalid_molds = result.invalid_molds
+    capacity_data = result.mold_estimated_capacity_df
+    priority_matrix = result.mold_machine_priority_matrix
+else:
+    # Handle configuration issues
+    logger.error("Configuration validation failed")
+```
+
+## Performance Optimization
+
+### Efficiency Features
+- ⚡ Vectorized pandas operations for data processing
+- 💾 Memory-efficient data types (int8, int32, float32)
+- 🔄 Lazy loading of large datasets
+- 📊 Batch processing for capacity calculations
+
+### Resource Management
+- 🧠 Memory usage monitoring during processing
+- ⏱️ Processing time tracking and optimization
+- 📈 Performance metrics logging
+- 🔧 Automatic garbage collection for large operations
 
 ## Integration Points
 
 ### Upstream Dependencies
-```
-Data Sources:
-├── 📊 DataLoaderAgent: Core manufacturing datasets
-├── 📈 HistoryProcessor: Mold stability indices  
-├── ⚖️ FeatureWeightCalculator: Performance weights
-├── 📋 OrderProgressTracker: Production status
-└── 🗂️ Database Schemas: Data structure contracts
-```
+- **HistoryProcessor**: Provides mold stability indices and performance analysis
+- **FeatureWeightCalculator**: Supplies statistical feature importance weights
+- **DataLoaderAgent**: Core production data through newest directory
+- **OrderProgressTracker**: Current production status and progress tracking
 
 ### Downstream Consumers
-```
-Optimization Systems:
-├── 🎯 Production Scheduler: Mold-machine assignments
-├── 📊 Capacity Planner: Production volume estimation
-├── 🔧 Resource Allocator: Equipment utilization
-├── 📈 Performance Monitor: Efficiency tracking
-└── 🎲 Decision Support: Strategic planning tools
-```
-
-## Performance Characteristics
-
-### Computational Complexity
-```
-Time Complexity: O(M × N × H)
-Where:
-├── M: Number of unique molds
-├── N: Number of available machines  
-└── H: Historical data records per mold
-
-Space Complexity: O(M × N + H)
-├── Priority matrix storage: O(M × N)
-└── Historical data processing: O(H)
-```
-
-### Scalability Considerations
-```
-Optimization Strategies:
-├── 📊 Parquet format for efficient data I/O
-├── 🔄 Incremental processing for large datasets
-├── 💾 Memory-conscious DataFrame operations
-├── 🎯 Selective loading based on date ranges
-├── 🔧 Configurable batch processing sizes
-└── ⚡ Parallel processing for independent molds
-```
-
-## Usage Examples
-
-### Basic Usage
-```python
-# Initialize with default configuration
-optimizer = HybridSuggestOptimizer()
-
-# Execute complete optimization pipeline
-invalid_molds, capacity_df, priority_matrix = optimizer.process()
-
-# Analyze results
-print(f"Successfully processed: {len(capacity_df)} molds")
-print(f"Invalid molds: {len(invalid_molds)}")
-print(f"Priority matrix shape: {priority_matrix.shape}")
-```
-
-### Advanced Configuration
-```python
-# Custom parameters for high-precision environment  
-optimizer = HybridSuggestOptimizer(
-    efficiency=0.90,           # Higher efficiency target
-    loss=0.02,                 # Lower loss expectation
-    source_path='custom/data', # Custom data location
-    mold_stability_index_folder='custom/stability'
-)
-
-# Process with logging
-results = optimizer.process()
-capacity_df = results[1]
-
-# Extract high-priority combinations
-best_combinations = priority_matrix[priority_matrix > 0.8]
-```
-
-### Integration with Planning Systems
-```python
-# Initialize optimizer
-optimizer = HybridSuggestOptimizer()
-invalid_molds, capacity_df, priority_matrix = optimizer.process()
-
-# Use in production planning
-scheduler = ProductionScheduler()
-scheduler.set_mold_capacities(capacity_df)
-scheduler.set_priority_matrix(priority_matrix)
-
-# Generate optimized production plan
-production_plan = scheduler.generate_plan(orders_df)
-```
-
-## Key Performance Indicators
-
-### Process Success Metrics
-```
-Optimization Quality KPIs:
-├── 📊 Valid Mold Ratio: (Total - Invalid) / Total molds
-├── 📊 Matrix Coverage: Non-zero priorities / Total combinations  
-├── 📊 Capacity Estimation Accuracy: Theoretical vs Historical variance
-├── 📊 Processing Time: Total pipeline execution duration
-├── 📊 Memory Efficiency: Peak memory usage / Data size ratio
-└── 📊 Data Freshness: Age of newest historical records used
-```
-
-### Business Impact Indicators  
-```
-Manufacturing Optimization Value:
-├── 🎯 Production Efficiency: Capacity utilization improvement
-├── 🎯 Resource Allocation: Machine-mold matching optimization
-├── 🎯 Quality Improvement: Defect rate reduction potential
-├── 🎯 Cycle Time Optimization: Production speed enhancement
-├── 🎯 Equipment Utilization: Machine availability maximization
-└── 🎯 Planning Accuracy: Forecast vs actual production alignment
-```
+- **Production Planning Systems**: Uses capacity estimates for resource allocation
+- **Machine Assignment Algorithms**: Leverages priority matrix for optimal scheduling
+- **Decision Support Dashboards**: Displays optimization insights for management
+- **Performance Analytics**: Utilizes optimization data for continuous improvement

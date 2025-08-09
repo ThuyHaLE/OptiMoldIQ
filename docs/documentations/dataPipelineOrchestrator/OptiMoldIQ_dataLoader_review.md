@@ -1,8 +1,8 @@
-# DataLoader Agent Documentation
+# DataLoader Documentation
 
 ## Overview
 
-The DataLoader Agent is a comprehensive data management component responsible for loading, processing, and managing database files within a data pipeline orchestration system. It handles both static and dynamic databases, provides change detection capabilities, and includes robust error handling with recovery mechanisms.
+The `DataLoader` is a comprehensive data management component responsible for loading, processing, and managing database files within a data pipeline orchestration system. It handles both static and dynamic databases, provides change detection capabilities, and includes robust error handling with recovery mechanisms.
 
 ## Key Features
 

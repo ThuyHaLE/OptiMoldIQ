@@ -1,8 +1,8 @@
-# OrderProgressTracker Agent Documentation
+# OrderProgressTracker Documentation
 
 ## Overview
 
-The **OrderProgressTracker** is a production monitoring agent designed to track and analyze manufacturing order progress in an injection molding environment. It processes production records, purchase orders, and mold specifications to generate comprehensive status reports with Excel export capabilities.
+The `OrderProgressTracker` is designed to track and analyze manufacturing order progress in an injection molding environment. It processes production records, purchase orders, and mold specifications to generate comprehensive status reports with Excel export capabilities.
 
 ## Key Features
 
