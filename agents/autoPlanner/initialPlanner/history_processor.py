@@ -33,7 +33,7 @@ from agents.core_helpers import check_newest_machine_layout, summarize_mold_mach
 class HistoryProcessor:
 
     """
-    This class responsible for processing historical production data in order to:
+    This class responsible for processing historical production data in order to process 2 parallel phases:
     1. Evaluate Mold Performance and Stability:
     - Analyze mold stability based on the number of active cavities and actual cycle time.
     - Apply criteria such as accuracy, consistency, compliance with standard limits, and data completeness.
@@ -181,7 +181,13 @@ class HistoryProcessor:
                 # Log detailed error information and re-raise for proper error handling
                 self.logger.error("Failed to load {}: {}", path_key, str(e))
                 raise
+    
+    # --------------------------------------#
+    # MOLD STABILITY INDEX CALCULATING PHASE
+    # --------------------------------------#
 
+    # Calculates cavity and cycle stability indices for molds based on historical production data
+    # and will be used to estimate mold capacity in planning steps
     def calculate_mold_stability_index(self,
                                        cavity_stability_threshold = 0.6,
                                        cycle_stability_threshold = 0.4,
@@ -205,104 +211,11 @@ class HistoryProcessor:
                     - cycle_stability_index: Stability index of mold cycle (0-1)
             """
 
-            def df_processing(productRecords_df, moldInfo_df):
-                filter_df = productRecords_df[productRecords_df['moldShot'] > 0].copy()
-                filter_df['moldCycle'] = (28800 / filter_df['moldShot']).round(2)
-
-                df = filter_df.groupby(['moldNo', 'recordDate'])[['moldCavity', 'moldCycle']].agg(list).reset_index()
-                df['moldCavity'] = df['moldCavity'].apply(lambda lst: [int(x) for x in lst])
-                df['moldCycle'] = df['moldCycle'].apply(lambda lst: [float(x) for x in lst])
-
-                field_list = ['moldNo', 'moldName', 'recordDate',
-                              'moldCavity', 'moldCavityStandard', 'moldCycle', 'moldSettingCycle',
-                              'acquisitionDate', 'machineTonnage']
-
-                merged_df = df.merge(moldInfo_df[['moldNo', 'moldName',
-                                                  'moldCavityStandard', 'moldSettingCycle',
-                                                  'acquisitionDate', 'machineTonnage']], how='left', on='moldNo')
-
-                return merged_df[field_list]
-
-            def calculate_cavity_stability(cavity_values, standard_cavity, total_records):
-                """Calculate cavity stability index."""
-
-                if standard_cavity == 0:
-                    print("Invalid Mold Standard Cavity")
-                    return 0.0
-
-                # 1. Accuracy rate (how many values match the standard)
-                correct_count = sum(1 for val in cavity_values if val == standard_cavity)
-                accuracy_rate = correct_count / len(cavity_values) if cavity_values else 0
-
-                # 2. Consistency: variation of cavity values
-                if len(set(cavity_values)) == 1:
-                    consistency_score = 1.0  # Perfectly consistent
-                else:
-                    cv = np.std(cavity_values) / np.mean(cavity_values) if np.mean(cavity_values) > 0 else 1
-                    consistency_score = max(0, 1 - cv)
-
-                # 3. Utilization rate: actual average cavity vs standard
-                avg_active_cavity = np.mean(cavity_values) if cavity_values else 0
-                utilization_rate = min(1.0, avg_active_cavity / standard_cavity) if standard_cavity > 0 else 0
-
-                # 4. Penalty for low data volume
-                data_completeness = min(1.0, total_records / total_records_threshold)
-
-                # Final weighted score
-                stability_score = (
-                    accuracy_rate * HistoryProcessor.CAVITY_STABILITY_WEIGHTS['accuracy_rate_weight'] +           # 40% - Accuracy
-                    consistency_score * HistoryProcessor.CAVITY_STABILITY_WEIGHTS['consistency_score_weight'] +   # 30% - Consistency
-                    utilization_rate * HistoryProcessor.CAVITY_STABILITY_WEIGHTS['utilization_rate_weight'] +     # 20% - Utilization
-                    data_completeness * HistoryProcessor.CAVITY_STABILITY_WEIGHTS['data_completeness_weight']     # 10% - Data completeness
-                )
-
-                return min(1.0, max(0.0, stability_score))
-
-            def calculate_cycle_stability(cycle_values, standard_cycle, total_records):
-                """Calculate cycle time stability index."""
-
-                if standard_cycle == 0:
-                    print("Invalid Mold Standard Cycle Time")
-                    return 0.000001
-
-                # 1. Deviation from standard
-                deviations = [abs(val - standard_cycle) / standard_cycle for val in cycle_values]
-                avg_deviation = np.mean(deviations) if deviations else HistoryProcessor.EXTREME_DEVIATION_THRESHOLD
-                accuracy_score = max(0, 1 - avg_deviation)
-
-                # 2. Consistency: variation of cycle time
-                cv = np.std(cycle_values) / np.mean(cycle_values) if np.mean(cycle_values) > 0 else 1
-                consistency_score = max(0, 1 - cv)
-
-                # 3. Compliance within ±20% range
-                in_range_count = sum(1 for val in cycle_values
-                                    if abs(val - standard_cycle) / standard_cycle <= HistoryProcessor.CYCLE_TIME_TOLERANCE)
-                range_compliance = in_range_count / len(cycle_values) if cycle_values else 0
-
-                # 4. Penalty for extreme outliers (deviation > 100%)
-                extreme_outliers = sum(1 for val in cycle_values
-                                    if abs(val - standard_cycle) / standard_cycle > 1.0)
-                outlier_penalty = max(0, 1 - (extreme_outliers / len(cycle_values))) if cycle_values else 0
-
-                # 5. Data completeness penalty
-                data_completeness = min(1.0, total_records / total_records_threshold)
-
-                # Final weighted score
-                stability_score = (
-                    accuracy_score * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['accuracy_score_weight'] +         # 30% - Accuracy
-                    consistency_score * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['consistency_score_weight'] +   # 25% - Consistency
-                    range_compliance * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['range_compliance_weight'] +     # 25% - Range compliance
-                    outlier_penalty * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['outlier_penalty_weight'] +       # 10% - Outlier penalty
-                    data_completeness * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['data_completeness_weight']     # 10% - Data completeness
-                )
-
-                return min(1.0, max(0.0, stability_score))
-
             # Stability calculation results
             stability_results = []
 
             # Iterate through each mold
-            df = df_processing(self.productRecords_df, self.moldInfo_df)
+            df = HistoryProcessor._stability_index_input_processing(self.productRecords_df, self.moldInfo_df)
             for mold_no in df['moldNo'].unique():
 
                 mold_data = df[df['moldNo'] == mold_no].copy()
@@ -326,11 +239,11 @@ class HistoryProcessor:
                     all_cycle_values.extend(row['moldCycle'])
 
                 # Calculate stability scores
-                cavity_stability = calculate_cavity_stability(
-                    all_cavity_values, standard_cavity, total_records
+                cavity_stability = HistoryProcessor._calculate_cavity_stability(
+                    all_cavity_values, standard_cavity, total_records, total_records_threshold
                 )
-                cycle_stability = calculate_cycle_stability(
-                    all_cycle_values, standard_cycle, total_records
+                cycle_stability = HistoryProcessor._calculate_cycle_stability(
+                    all_cycle_values, standard_cycle, total_records, total_records_threshold
                 )
                 if standard_cycle > 0:
                   theoretical_hour_capacity = HistoryProcessor.SECONDS_PER_HOUR / standard_cycle * standard_cavity
@@ -376,7 +289,9 @@ class HistoryProcessor:
             result_df = pd.DataFrame(stability_results)
 
             return result_df
-
+    
+    # Calculates cavity and cycle stability indices for molds based on historical production data
+    # and save it as monthly reports
     def calculate_and_save_mold_stability_index(self,
                                                 cavity_stability_threshold = 0.6,
                                                 cycle_stability_threshold = 0.4,
@@ -412,87 +327,110 @@ class HistoryProcessor:
             "mold_stability_index", # Prefix for the output filename
         )
 
-    def _prepare_mold_machine_historical_data(self):
+    # Static methods for mold stability index calculating phase
 
-        """Prepare and filter historical data for analysis."""
+    @staticmethod
+    def _stability_index_input_processing(productRecords_df, moldInfo_df):
+        filter_df = productRecords_df[productRecords_df['moldShot'] > 0].copy()
+        filter_df['moldCycle'] = (28800 / filter_df['moldShot']).round(2)
 
-        machine_info_df = check_newest_machine_layout(self.machineInfo_df)
+        df = filter_df.groupby(['moldNo', 'recordDate'])[['moldCavity', 'moldCycle']].agg(list).reset_index()
+        df['moldCavity'] = df['moldCavity'].apply(lambda lst: [int(x) for x in lst])
+        df['moldCycle'] = df['moldCycle'].apply(lambda lst: [float(x) for x in lst])
 
-        # Filter to completed orders and merge with machine info
-        hist = self.proStatus_df.loc[self.proStatus_df['itemRemain']==0].merge(
-            machine_info_df[['machineNo', 'machineCode', 'machineName', 'machineTonnage']],
-            how='left', on=['machineNo'])
+        field_list = ['moldNo', 'moldName', 'recordDate',
+                        'moldCavity', 'moldCavityStandard', 'moldCycle', 'moldSettingCycle',
+                        'acquisitionDate', 'machineTonnage']
 
-        # Prepare product records
-        self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
+        merged_df = df.merge(moldInfo_df[['moldNo', 'moldName',
+                                            'moldCavityStandard', 'moldSettingCycle',
+                                            'acquisitionDate', 'machineTonnage']], how='left', on='moldNo')
 
-        df = self.productRecords_df[['recordDate', 'workingShift',
-                                    'machineNo', 'machineCode',
-                                    'itemCode','itemName',
-                                    'poNo', 'moldNo', 'moldShot', 'moldCavity',
-                                    'itemTotalQuantity', 'itemGoodQuantity']]
+        return merged_df[field_list]
 
-        # Filter to meaningful production data
-        filtered_df = df[df['poNo'].isin(hist['poNo']) & (df['itemTotalQuantity'] > 0)]
+    @staticmethod
+    def _calculate_cavity_stability(cavity_values, standard_cavity, total_records, total_records_threshold):
+        """Calculate cavity stability index."""
 
-        return filtered_df
+        if standard_cavity == 0:
+            print("Invalid Mold Standard Cavity")
+            return 0.0
 
-    def _calculate_mold_machine_performance_metrics(self,
-                                                    capacity_mold_info_df,
-                                                    historical_data):
+        # 1. Accuracy rate (how many values match the standard)
+        correct_count = sum(1 for val in cavity_values if val == standard_cavity)
+        accuracy_rate = correct_count / len(cavity_values) if cavity_values else 0
 
-        """Calculate performance metrics for mold-machine combinations."""
+        # 2. Consistency: variation of cavity values
+        if len(set(cavity_values)) == 1:
+            consistency_score = 1.0  # Perfectly consistent
+        else:
+            cv = np.std(cavity_values) / np.mean(cavity_values) if np.mean(cavity_values) > 0 else 1
+            consistency_score = max(0, 1 - cv)
 
-        performance_results, _ = summarize_mold_machine_history(historical_data, capacity_mold_info_df)
+        # 3. Utilization rate: actual average cavity vs standard
+        avg_active_cavity = np.mean(cavity_values) if cavity_values else 0
+        utilization_rate = min(1.0, avg_active_cavity / standard_cavity) if standard_cavity > 0 else 0
 
-        return performance_results
+        # 4. Penalty for low data volume
+        data_completeness = min(1.0, total_records / total_records_threshold)
 
-    def _create_mold_machine_priority_matrix(self, results, weights):
+        # Final weighted score
+        stability_score = (
+            accuracy_rate * HistoryProcessor.CAVITY_STABILITY_WEIGHTS['accuracy_rate_weight'] +           # 40% - Accuracy
+            consistency_score * HistoryProcessor.CAVITY_STABILITY_WEIGHTS['consistency_score_weight'] +   # 30% - Consistency
+            utilization_rate * HistoryProcessor.CAVITY_STABILITY_WEIGHTS['utilization_rate_weight'] +     # 20% - Utilization
+            data_completeness * HistoryProcessor.CAVITY_STABILITY_WEIGHTS['data_completeness_weight']     # 10% - Data completeness
+        )
 
-        """Apply weights and create the final priority matrix."""
+        return min(1.0, max(0.0, stability_score))
 
-        # Apply weighted scoring
-        results["total_score"] = (results[list(weights.index)] * weights.values).sum(axis=1)
+    @staticmethod
+    def _calculate_cycle_stability(cycle_values, standard_cycle, total_records, total_records_threshold):
+        """Calculate cycle time stability index."""
 
-        # Create pivot table
-        weighted_results = results[['moldNo', 'machineCode', 'total_score']].pivot(
-            index="moldNo", columns="machineCode", values="total_score").fillna(0)
+        if standard_cycle == 0:
+            print("Invalid Mold Standard Cycle Time")
+            return 0.000001
 
-        # Convert to priority rankings
-        priority_matrix = weighted_results.apply(rank_nonzero, axis=1)
+        # 1. Deviation from standard
+        deviations = [abs(val - standard_cycle) / standard_cycle for val in cycle_values]
+        avg_deviation = np.mean(deviations) if deviations else HistoryProcessor.EXTREME_DEVIATION_THRESHOLD
+        accuracy_score = max(0, 1 - avg_deviation)
 
-        return priority_matrix
+        # 2. Consistency: variation of cycle time
+        cv = np.std(cycle_values) / np.mean(cycle_values) if np.mean(cycle_values) > 0 else 1
+        consistency_score = max(0, 1 - cv)
 
-    def _check_mold_dataframe_columns(self, df: pd.DataFrame) -> bool:
+        # 3. Compliance within ±20% range
+        in_range_count = sum(1 for val in cycle_values
+                            if abs(val - standard_cycle) / standard_cycle <= HistoryProcessor.CYCLE_TIME_TOLERANCE)
+        range_compliance = in_range_count / len(cycle_values) if cycle_values else 0
 
-        if not isinstance(df, pd.DataFrame):
-            self.logger.error("Error: Input is not a DataFrame, got {}", type(df))
-            return False
+        # 4. Penalty for extreme outliers (deviation > 100%)
+        extreme_outliers = sum(1 for val in cycle_values
+                            if abs(val - standard_cycle) / standard_cycle > 1.0)
+        outlier_penalty = max(0, 1 - (extreme_outliers / len(cycle_values))) if cycle_values else 0
 
-        missing_columns = [col for col in df.columns if col not in HistoryProcessor.ESTIMATED_MOLD_REQUIRED_COLUMNS]
+        # 5. Data completeness penalty
+        data_completeness = min(1.0, total_records / total_records_threshold)
 
-        if missing_columns:
-            self.logger.error("Missing columns: {}", missing_columns)
-            return False
+        # Final weighted score
+        stability_score = (
+            accuracy_score * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['accuracy_score_weight'] +         # 30% - Accuracy
+            consistency_score * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['consistency_score_weight'] +   # 25% - Consistency
+            range_compliance * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['range_compliance_weight'] +     # 25% - Range compliance
+            outlier_penalty * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['outlier_penalty_weight'] +       # 10% - Outlier penalty
+            data_completeness * HistoryProcessor.CYCLE_STABILITY_WEIGHTS['data_completeness_weight']     # 10% - Data completeness
+        )
 
-        self.logger.info("✅ All required columns are present!")
-        return True
+        return min(1.0, max(0.0, stability_score))
 
-    def _check_series_columns(self, series: pd.Series) -> bool:
+    # ----------------------------------------------#
+    # MOLD MACHINE PRIORITY MATRIX CALCULATING PHASE
+    # ----------------------------------------------#
 
-        if not isinstance(series, pd.Series):
-            self.logger.error("Error: Input is not a Series, got {}", type(series))
-            return False
-
-        missing_columns = [col for col in series.to_dict().keys() if col not in HistoryProcessor.FEATURE_WEIGHTS_REQUIRED_COLUMNS]
-
-        if missing_columns:
-            self.logger.error("Missing columns: {}", missing_columns)
-            return False
-
-        self.logger.info("✅ All required columns are present!")
-        return True
-
+    # Calculate the priority matrix for mold-machine assignments based on historical data
+    # and will be used to suggest a list of machines (in priority order) for each mold in the subsequent planning steps
     def calculate_mold_machine_priority_matrix(self,
                                                mold_machine_feature_weights,
                                                capacity_mold_info_df):
@@ -520,16 +458,22 @@ class HistoryProcessor:
             self.logger.error(f"Error: Invalid input!!!")
 
         # Prepare historical data for analysis
-        historical_data = self._prepare_mold_machine_historical_data()
+        historical_data = self._prepare_mold_machine_historical_data(self.machineInfo_df, 
+                                                                     self.proStatus_df, 
+                                                                     self.productRecords_df)
 
         # Calculate performance metrics
-        performance_results = self._calculate_mold_machine_performance_metrics(capacity_mold_info_df, historical_data)
+        performance_results = HistoryProcessor._calculate_mold_machine_performance_metrics(capacity_mold_info_df, 
+                                                                                           historical_data)
 
         # Apply weighted scoring and create priority matrix
-        priority_matrix = self._create_mold_machine_priority_matrix(performance_results, mold_machine_feature_weights)
+        priority_matrix = HistoryProcessor._create_mold_machine_priority_matrix(performance_results, 
+                                                                                mold_machine_feature_weights)
 
         return priority_matrix
 
+    # Calculate the priority matrix for mold-machine assignments based on historical data
+    # optionally save the result as a report
     def calculate_and_save_mold_machine_priority_matrix(self,
                                                         mold_machine_feature_weights,
                                                         capacity_mold_info_df):
@@ -562,3 +506,88 @@ class HistoryProcessor:
             self.output_dir/"priority_matrix",    # Directory where the file will be saved
             "priority_matrix", # Prefix for the output filename
         )
+    
+    def _check_mold_dataframe_columns(self, df: pd.DataFrame) -> bool:
+
+        if not isinstance(df, pd.DataFrame):
+            self.logger.error("Error: Input is not a DataFrame, got {}", type(df))
+            return False
+
+        missing_columns = [col for col in df.columns if col not in self.ESTIMATED_MOLD_REQUIRED_COLUMNS]
+
+        if missing_columns:
+            self.logger.error("Missing columns: {}", missing_columns)
+            return False
+
+        self.logger.info("✅ All required columns are present!")
+        return True
+
+    def _check_series_columns(self, series: pd.Series) -> bool:
+
+        if not isinstance(series, pd.Series):
+            self.logger.error("Error: Input is not a Series, got {}", type(series))
+            return False
+
+        missing_columns = [col for col in series.to_dict().keys() if col not in self.FEATURE_WEIGHTS_REQUIRED_COLUMNS]
+
+        if missing_columns:
+            self.logger.error("Missing columns: {}", missing_columns)
+            return False
+
+        self.logger.info("✅ All required columns are present!")
+        return True
+    
+    # Static methods for mold machine priority matrix calculating phase
+
+    @staticmethod
+    def _prepare_mold_machine_historical_data(machineInfo_df, proStatus_df, productRecords_df):
+
+        """Prepare and filter historical data for analysis."""
+
+        machine_info_df = check_newest_machine_layout(machineInfo_df)
+
+        # Filter to completed orders and merge with machine info
+        hist = proStatus_df.loc[proStatus_df['itemRemain']==0].merge(
+            machine_info_df[['machineNo', 'machineCode', 'machineName', 'machineTonnage']],
+            how='left', on=['machineNo'])
+
+        # Prepare product records
+        productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
+
+        df = productRecords_df[['recordDate', 'workingShift',
+                                'machineNo', 'machineCode',
+                                'itemCode','itemName',
+                                'poNo', 'moldNo', 'moldShot', 'moldCavity',
+                                'itemTotalQuantity', 'itemGoodQuantity']]
+
+        # Filter to meaningful production data
+        filtered_df = df[df['poNo'].isin(hist['poNo']) & (df['itemTotalQuantity'] > 0)]
+
+        return filtered_df
+    
+    @staticmethod
+    def _calculate_mold_machine_performance_metrics(capacity_mold_info_df,
+                                                    historical_data):
+
+        """Calculate performance metrics for mold-machine combinations."""
+
+        performance_results, _ = summarize_mold_machine_history(historical_data, capacity_mold_info_df)
+
+        return performance_results
+
+    @staticmethod
+    def _create_mold_machine_priority_matrix(results, weights):
+
+        """Apply weights and create the final priority matrix."""
+
+        # Apply weighted scoring
+        results["total_score"] = (results[list(weights.index)] * weights.values).sum(axis=1)
+
+        # Create pivot table
+        weighted_results = results[['moldNo', 'machineCode', 'total_score']].pivot(
+            index="moldNo", columns="machineCode", values="total_score").fillna(0)
+
+        # Convert to priority rankings
+        priority_matrix = weighted_results.apply(rank_nonzero, axis=1)
+
+        return priority_matrix

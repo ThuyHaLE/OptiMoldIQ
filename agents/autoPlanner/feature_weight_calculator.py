@@ -38,8 +38,10 @@ class FeatureWeightCalculator:
 
     """
     This class calculates feature weights used to evaluate manufacturing process performance
-    by analyzing production history and computing confidence-based metrics.
-
+    by analyzing production history and computing confidence-based metrics. 
+    It will be used as input of the next step (Mold-Machine Priority Matrix Generation - 
+    generate a priority matrix to support optimal production planning)
+    
     Parameters:
         source_path (str): Path to the annotation data.
         annotation_name (str): File name of the path annotation.
