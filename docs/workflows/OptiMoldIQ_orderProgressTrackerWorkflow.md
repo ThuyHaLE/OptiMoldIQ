@@ -23,6 +23,8 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+---
+
 ## Detailed Workflow Steps
 
 ### Phase 1: Initialization & Data Loading
@@ -159,6 +161,8 @@
     └────────────────────────────────────────────────────────┘
 ```
 
+---
+
 ## Key Data Transformations
 
 ### Input Data Sources
@@ -190,6 +194,8 @@ ETA Status Logic:
 • No actualFinishedDate → PENDING
 ```
 
+---
+
 ## Output Structure
 
 ### Excel File Organization
@@ -214,6 +220,8 @@ For each Purchase Order:
 └── ⚠️ Quality Issues: warningNotes
 ```
 
+---
+
 ## Error Handling & Validation
 
 ### Pre-execution Checks
@@ -228,6 +236,8 @@ For each Purchase Order:
 - 🛡️ Date parsing error recovery
 - 🛡️ Division by zero protection
 
+---
+
 ## Usage Example
 
 ```python
@@ -240,6 +250,8 @@ tracker.pro_status()
 # Output saved automatically to:
 # agents/shared_db/OrderProgressTracker/auto_status_YYYYMMDD_HHMMSS.xlsx
 ```
+
+---
 
 ## Integration Points
 

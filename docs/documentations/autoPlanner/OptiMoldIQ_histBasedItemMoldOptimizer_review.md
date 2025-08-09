@@ -4,6 +4,8 @@
 
 The `HistBasedItemMoldOptimizer` is designed to optimize mold production capacity based on historical data. This optimizer can calculate theoretical and estimated production capacities, identify unused molds, and assign priority molds for each item code.
 
+---
+
 ## Core Methods
 
 ### 1. `compute_hourly_capacity()`
@@ -144,6 +146,8 @@ def process_mold_info(
 - `invalid_molds`: List of invalid molds requiring review
 - `result_df`: Complete result DataFrame with priority indicators
 
+---
+
 ## Data Structures
 
 ### Input DataFrames
@@ -173,6 +177,8 @@ def process_mold_info(
 - `balancedMoldHourCapacity`: Balanced capacity per hour
 - `isPriority`: Priority mold indicator (Boolean)
 
+---
+
 ## Logging and Monitoring
 
 The class uses `loguru` for comprehensive logging:
@@ -187,6 +193,8 @@ self.logger = logger.bind(class_="HistBasedItemMoldOptimizer")
 - Efficiency and loss parameters
 - Process completion status
 - Missing required columns errors
+
+---
 
 ## Exception Handling
 
@@ -203,6 +211,8 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     # Calculations here
 ```
+
+---
 
 ## Usage Example
 
@@ -227,6 +237,8 @@ print(f"Processed {len(result_df)} mold-item combinations")
 priority_molds = result_df[result_df['isPriority'] == True]
 ```
 
+---
+
 ## Best Practices
 
 1. **Input Data Validation**: Ensure DataFrames are not empty and contain required columns
@@ -242,6 +254,8 @@ priority_molds = result_df[result_df['isPriority'] == True]
 
 5. **Result Processing**: Review invalid_molds for database updates
 
+---
+
 ## Limitations and Notes
 
 - Class assumes moldList is delimited by '/' character
@@ -249,6 +263,8 @@ priority_molds = result_df[result_df['isPriority'] == True]
 - No validation of efficiency - loss logic
 - Requires acquisitionDate in valid datetime format
 - Static method design allows for independent usage but requires careful parameter management
+
+---
 
 ## Performance Considerations
 

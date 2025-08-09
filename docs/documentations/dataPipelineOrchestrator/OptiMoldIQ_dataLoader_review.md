@@ -4,6 +4,8 @@
 
 The `DataLoader` is a comprehensive data management component responsible for loading, processing, and managing database files within a data pipeline orchestration system. It handles both static and dynamic databases, provides change detection capabilities, and includes robust error handling with recovery mechanisms.
 
+---
+
 ## Key Features
 
 - **Multi-Database Support**: Handles both static (Excel) and dynamic (Parquet) database formats
@@ -12,6 +14,8 @@ The `DataLoader` is a comprehensive data management component responsible for lo
 - **File Versioning**: Automatic versioning system for changed files
 - **Performance Monitoring**: Memory and disk usage tracking
 - **Healing System**: Self-recovery mechanisms with status reporting
+
+---
 
 ## Architecture
 
@@ -22,30 +26,9 @@ The `DataLoader` is a comprehensive data management component responsible for lo
 3. **File Management**: Versioning and storage operations
 4. **Comparison Engine**: Fast dataframe comparison using hash-based methods
 
-## Class Reference
+### Main Methods
 
-### DataLoaderAgent
-
-The main agent class that orchestrates all data loading operations.
-
-#### Constructor
-
-```python
-DataLoaderAgent(
-    databaseSchemas_path: str = "database/databaseSchemas.json",
-    annotation_path: str = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
-    default_dir: str = "agents/shared_db"
-)
-```
-
-**Parameters:**
-- `databaseSchemas_path`: Path to database schema configuration file
-- `annotation_path`: Path to file storing database path annotations
-- `default_dir`: Default directory for shared database files
-
-#### Main Methods
-
-##### `process_all_data() -> Dict[str, Any]`
+#### `process_all_data() -> Dict[str, Any]`
 
 Main processing method that handles all databases and returns structured response.
 
@@ -58,7 +41,7 @@ Main processing method that handles all databases and returns structured respons
 - Saves modified files with versioning
 - Provides comprehensive status reporting
 
-##### `_process_database(db_name: str, db_type: str) -> Dict[str, Any]`
+#### `_process_database(db_name: str, db_type: str) -> Dict[str, Any]`
 
 Processes a single database with comprehensive error handling.
 
@@ -69,9 +52,9 @@ Processes a single database with comprehensive error handling.
 **Returns:**
 - Dictionary containing processing results and status information
 
-#### Database Loading Methods
+### Database Loading Methods
 
-##### `_load_dynamic_db(db_name: str, db_type: str) -> Dict[str, Any]`
+#### `_load_dynamic_db(db_name: str, db_type: str) -> Dict[str, Any]`
 
 Loads dynamic database files in Parquet format.
 
@@ -80,7 +63,7 @@ Loads dynamic database files in Parquet format.
 - Parquet file reading
 - Error handling with recovery actions
 
-##### `_load_static_db(db_name: str, db_type: str) -> Dict[str, Any]`
+#### `_load_static_db(db_name: str, db_type: str) -> Dict[str, Any]`
 
 Loads and processes static database files in Excel format.
 
@@ -89,16 +72,16 @@ Loads and processes static database files in Excel format.
 - Data type conversion
 - Schema validation
 
-##### `_load_existing_df(file_path: str) -> Dict[str, Any]`
+#### `_load_existing_df(file_path: str) -> Dict[str, Any]`
 
 Loads existing dataframe from file for comparison purposes.
 
 **Parameters:**
 - `file_path`: Path to the existing dataframe file
 
-#### Comparison and Change Detection
+### Comparison and Change Detection
 
-##### `_compare_dataframes(df1: pd.DataFrame, df2: pd.DataFrame) -> Dict[str, Any]`
+#### `_compare_dataframes(df1: pd.DataFrame, df2: pd.DataFrame) -> Dict[str, Any]`
 
 Compares two dataframes to detect changes using fast hash-based comparison.
 
@@ -106,7 +89,7 @@ Compares two dataframes to detect changes using fast hash-based comparison.
 - `df1`: First dataframe (current data)
 - `df2`: Second dataframe (existing data)
 
-##### `_dataframes_equal_fast(df1, df2) -> bool`
+#### `_dataframes_equal_fast(df1, df2) -> bool`
 
 Static method for fast dataframe comparison using MD5 hashing.
 
@@ -115,9 +98,9 @@ Static method for fast dataframe comparison using MD5 hashing.
 - Hash-based comparison for performance
 - Fallback to regular comparison if hashing fails
 
-#### File Management
+### File Management
 
-##### `_save_changed_files() -> Dict[str, Any]`
+#### `_save_changed_files() -> Dict[str, Any]`
 
 Saves files that have changed with versioning support.
 
@@ -126,7 +109,7 @@ Saves files that have changed with versioning support.
 - Versioning system integration
 - Comprehensive error handling
 
-##### `save_output_with_versioning(data, path_annotation, output_dir, file_format='parquet')`
+#### `save_output_with_versioning(data, path_annotation, output_dir, file_format='parquet')`
 
 Static method for saving dataframes with versioning support and file management.
 
@@ -141,6 +124,8 @@ Static method for saving dataframes with versioning support and file management.
 - Historical file archiving
 - Change log maintenance
 - Path annotation updates
+
+---
 
 ## Data Processing
 
@@ -161,6 +146,8 @@ The `_process_data()` static method handles Excel file processing with:
 - `additiveMasterbatchCode`
 
 These fields receive special string conversion treatment using the `safe_convert()` function.
+
+---
 
 ## Error Handling and Recovery
 
@@ -198,6 +185,8 @@ The agent integrates with a healing system that:
 2. **Updates Recovery Status**: Modifies recovery actions based on system state
 3. **Triggers Downstream Agents**: Notifies other system components
 
+---
+
 ## Configuration
 
 ### Database Schema Configuration
@@ -233,6 +222,8 @@ The system maintains a JSON file tracking current file paths:
 }
 ```
 
+---
+
 ## File Structure
 
 ```
@@ -245,14 +236,16 @@ agents/shared_db/DataLoaderAgent/
 └── change_log.txt
 ```
 
+---
+
 ## Usage Example
 
 ```python
 # Initialize the agent
 agent = DataLoaderAgent(
-    databaseSchemas_path="config/schemas.json",
-    annotation_path="db/annotations.json",
-    default_dir="shared_db"
+    databaseSchemas_path = "database/databaseSchemas.json",
+    annotation_path = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
+    default_dir = "agents/shared_db"
 )
 
 # Process all databases
@@ -266,6 +259,8 @@ else:
     print(f"Processing failed: {result['status']}")
     print(f"Healing actions: {result['healing_actions']}")
 ```
+
+---
 
 ## Monitoring and Metrics
 
@@ -288,6 +283,8 @@ The agent provides comprehensive monitoring information:
 - Triggered downstream agents
 - Error details and types
 
+---
+
 ## Best Practices
 
 1. **Regular Backup Maintenance**: Ensure backup files are available for recovery operations
@@ -296,14 +293,7 @@ The agent provides comprehensive monitoring information:
 4. **Error Response**: Address healing actions promptly to maintain system health
 5. **Storage Management**: Monitor disk usage to prevent storage issues
 
-## Dependencies
-
-- `pandas`: Data manipulation and analysis
-- `loguru`: Logging functionality
-- `pathlib`: Path operations
-- `hashlib`: Hash-based comparisons
-- `psutil`: System monitoring (optional)
-- `pyarrow`: Parquet file operations
+---
 
 ## Error Scenarios and Troubleshooting
 

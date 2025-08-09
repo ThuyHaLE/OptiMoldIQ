@@ -4,6 +4,8 @@
 
 The `ValidationOrchestrator` is designed for orchestrating and executing validation processes for production data. It acts as a conductor, coordinating three different types of validation to ensure data integrity and consistency across the production system.
 
+---
+
 ## System Architecture
 
 ### Role of the ValidationOrchestrator
@@ -41,6 +43,8 @@ The `ValidationOrchestrator` is designed for orchestrating and executing validat
 ```
 - See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_validationOrchestratorWorkflow.md)
 
+---
+
 ## Data Structure
 
 ### Dynamic Data (frequently updated)
@@ -54,6 +58,8 @@ The `ValidationOrchestrator` is designed for orchestrating and executing validat
 - **moldInfo**: Mold details
 - **moldSpecificationSummary**: Mold specification summary
 - **itemCompositionSummary**: Item composition summary
+
+---
 
 ## Types of Validation
 
@@ -86,6 +92,8 @@ The `ValidationOrchestrator` is designed for orchestrating and executing validat
 - Is the production timeline reasonable?
 
 **See details**: [DynamicCrossDataValidator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations\validationOrchestrator\OptiMoldIQ_dynamicCrossDataValidator_overview.md)
+
+---
 
 ## Usage
 
@@ -155,35 +163,26 @@ results = {
 - Memory-efficient DataFrame management
 
 #### Use Cases
-##### 1. Daily Data Validation
-```python
-# Validate new daily data
-orchestrator = ValidationOrchestrator(
-    source_path='daily_data/2024-01-15'
-)
-orchestrator.run_validations_and_save_results()
-```
 
-##### 2. Historical Data Analysis
 ```python
+# Initialize validator with default settings
+orchestrator = ValidationOrchestrator(
+    source_path = 'agents/shared_db/DataLoaderAgent/newest',
+    annotation_name = "path_annotations.json",
+    databaseSchemas_path = 'database/databaseSchemas.json',
+    default_dir = "agents/shared_db")
+
 # Analyze historical data
-orchestrator = ValidationOrchestrator(
-    source_path='historical_data/2023'
-)
-results = orchestrator.run_validations()
-# Analyze trends and patterns
-```
-
-##### 3. Data Quality Monitoring
-```python
-# Monitor data quality in real-time
-orchestrator = ValidationOrchestrator()
 results = orchestrator.run_validations()
 
 # Check number of errors
 total_errors = len(results['combined_all']['po_mismatch_warnings'])
 if total_errors > threshold:
     send_alert(f"Data quality issues detected: {total_errors} errors")
+
+# Analyze and save results
+orchestrator.run_validations_and_save_results()
+
 ```
 
 #### Troubleshooting

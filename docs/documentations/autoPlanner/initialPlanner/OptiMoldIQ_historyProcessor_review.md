@@ -4,6 +4,8 @@
 
 The `HistoryProcessor` is designed to process historical production data for evaluating mold performance and generating priority matrices for optimal mold-machine allocation in manufacturing processes.
 
+---
+
 ## Main Functions
 
 ### 1. Mold Stability Evaluation
@@ -315,10 +317,15 @@ assert df['moldShot'].sum() > 0, "No meaningful production data"
 ```python
 # 1. Initialize processor
 processor = HistoryProcessor(
-    source_path='data/production',
-    efficiency=0.85,
-    loss=0.03
-)
+                source_path = 'agents/shared_db/DataLoaderAgent/newest',
+                annotation_name = "path_annotations.json",
+                databaseSchemas_path = 'database/databaseSchemas.json',
+                folder_path = 'agents/shared_db/OrderProgressTracker',
+                target_name = "change_log.txt",
+                default_dir = "agents/shared_db",
+                efficiency = 0.85,
+                loss = 0.03,
+                )
 
 # 2. Calculate mold stability index
 stability_results = processor.calculate_mold_stability_index(

@@ -4,6 +4,8 @@
 
 The `ProcessDashboardReports` is designed for manufacturing production tracking and reporting. It extracts, processes, and structures production data from Excel files containing multiple sheets with different aspects of manufacturing operations.
 
+---
+
 ## Key Features
 
 - **Multi-sheet Excel Processing**: Handles complex Excel files with multiple related sheets
@@ -11,6 +13,8 @@ The `ProcessDashboardReports` is designed for manufacturing production tracking 
 - **Data Validation**: Includes error handling and data validation warnings
 - **Flexible Data Slicing**: Supports configurable data range limiting
 - **Structured Output**: Returns consistently formatted data suitable for dashboards and reports
+
+---
 
 ## Class Initialization
 
@@ -35,6 +39,8 @@ processor = ProcessDashboardReports(
 | `folder_path` | str | 'agents/shared_db/OrderProgressTracker' | Folder containing change log |
 | `target_name` | str | "change_log.txt" | Change log filename |
 | `limit_range` | Tuple[Optional[int], Optional[int]] | (0, 30) | Data slice range (start, end) |
+
+---
 
 ## Excel Sheet Structure
 
@@ -76,6 +82,8 @@ The class expects an Excel file with the following sheets:
 
 ### 8. po_mismatch_warnings
 **Purpose**: Purchase order mismatch alerts
+
+---
 
 ## Core Methods
 
@@ -139,6 +147,8 @@ Groups material components by production order and item.
 
 - See details: [Dashboard Demo](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
 
+---
+
 ## Usage Examples
 
 ### Basic Usage
@@ -180,6 +190,8 @@ processor = ProcessDashboardReports(
 )
 ```
 
+---
+
 ## Error Handling
 
 The class includes comprehensive error handling:
@@ -190,12 +202,16 @@ The class includes comprehensive error handling:
 - **Missing Columns**: Validates required columns and reports missing ones
 - **Data Type Issues**: Handles datetime formatting and data type conversions
 
+---
+
 ## Logging
 
 The class uses `loguru` for comprehensive logging:
 - Info level: Successful operations and data loading
 - Error level: File errors, missing columns, processing failures
 - Debug information includes row counts and processing steps
+
+---
 
 ## Data Format Standards
 
@@ -214,6 +230,8 @@ Machine codes are parsed to extract:
 Mold codes are split into:
 - `moldNo`: Base mold identifier
 - `details`: Mold specifications (e.g., "M-001")
+
+---
 
 ## Integration Notes
 

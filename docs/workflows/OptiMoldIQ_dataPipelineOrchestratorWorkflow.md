@@ -1,8 +1,10 @@
-# DataPipelineOrchestrator Agent Documentation
+# DataPipelineOrchestrator Workflow Documentation
 
 ## Overview
 
 The **DataPipelineOrchestrator** is the main coordinator agent responsible for managing a comprehensive two-phase data pipeline process. It orchestrates data collection, processing, loading operations, and provides robust error handling with automated recovery mechanisms and notification systems.
+
+---
 
 ## Architecture
 
@@ -75,6 +77,8 @@ The **DataPipelineOrchestrator** is the main coordinator agent responsible for m
 - Versioned `.parquet` files in `newest/`
 - Updated `path_annotations.json`
 - Historical files in `historical_db/`
+
+---
 
 ## Class Reference
 
@@ -159,6 +163,8 @@ else:
     return False
 ```
 
+---
+
 ## Error Handling & Recovery
 
 ### Error Handling Strategy
@@ -212,6 +218,8 @@ for action in healing_actions:
     if action.type == "ROLLBACK_TO_BACKUP" and action.status == "SUCCESS":
         return True  # Safe to proceed to Phase 2
 ```
+
+---
 
 ## Notification System
 
@@ -280,6 +288,8 @@ Trigger Agents      : [triggering_agents]
 ================================================================================
 ```
 
+---
+
 ## Configuration
 
 ### Directory Structure
@@ -325,6 +335,8 @@ from agents.dataPipelineOrchestrator.data_collector import DataCollector
 from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import AgentExecutionInfo
 ```
+
+---
 
 ## Usage Examples
 
@@ -384,6 +396,8 @@ except Exception as e:
     logger.error(f"Orchestrator initialization failed: {e}")
 ```
 
+---
+
 ## Logging
 
 The orchestrator uses structured logging with the `loguru` library:
@@ -398,6 +412,8 @@ self.logger.info("✅ Phase 1: DataCollector completed successfully")
 self.logger.warning("⚠️ Phase 2: DataLoaderAgent failed")
 self.logger.error("❌ Phase 1: DataCollector error")
 ```
+
+---
 
 ## Best Practices
 
@@ -420,6 +436,8 @@ self.logger.error("❌ Phase 1: DataCollector error")
 - Use MockNotificationHandler for testing
 - Test both success and failure scenarios
 - Verify rollback detection logic
+
+---
 
 ## Troubleshooting
 
@@ -453,6 +471,8 @@ from loguru import logger
 logger.add("debug.log", level="DEBUG")
 ```
 
+---
+
 ## Performance Considerations
 
 ### Resource Management
@@ -470,6 +490,8 @@ logger.add("debug.log", level="DEBUG")
 - Memory and disk usage
 - Success/failure rates
 - Rollback frequency
+
+---
 
 ## Security Considerations
 

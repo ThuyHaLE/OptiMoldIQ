@@ -1,4 +1,4 @@
-# Phase 03 - Hybrid Suggest Optimization
+# Hybrid Suggest Optimizing Phase
 
 ## Overview
 
@@ -44,8 +44,6 @@ Historical Insights + Current Data → HybridSuggestOptimizer → Capacity Estim
 - Comprehensive mold capacity estimates with multiple metrics
 - Weighted priority matrix for mold-machine assignments
 
----
-
 ### 2. `HistBasedItemMoldOptimizer`
 **Purpose**: Process mold information and estimate production capacities based on `historical stability data`
 
@@ -67,8 +65,6 @@ Historical Insights + Current Data → HybridSuggestOptimizer → Capacity Estim
 - Invalid mold classifications with reasons
   
 📋 *Details: [histBasedItemMoldOptimizer documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/OptiMoldIQ_histBasedItemMoldOptimizer_review.md)*
-
----
 
 ### 3. `HistoryProcessor` (Priority Matrix Module)
 **Purpose**: Generate mold-machine priority matrix using historical performance data and `feature weights`
@@ -141,6 +137,8 @@ Weight Sum Target: ≈ 1.0 (allows flexibility 0.5-2.0)
 3. **Capacity Estimation**: Calculate mold capacities using historical stability data
 4. **Priority Matrix Generation**: Create weighted priority rankings for mold-machine pairs
 5. **Result Compilation**: Package results into structured OptimizationResult container
+
+---
 
 ## Workflow Diagrams
 

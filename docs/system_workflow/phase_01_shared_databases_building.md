@@ -1,4 +1,4 @@
-# Shared Database Building Workflow
+# Shared Database Building Phase
 
 ## Overview
 
@@ -7,7 +7,6 @@ The *Shared Database Building* is the first stage of the **OptiMoldIQ** system, 
 ```
 Raw Excel Data → dataPipelineOrchestrator → validationOrchestrator → orderProgressTracker → Final Reports
 ```
-
 
 ---
 
@@ -28,7 +27,6 @@ Raw Excel Data → dataPipelineOrchestrator → validationOrchestrator → order
 
 📋 *Details: [dataPipelineOrchestrator documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/)*
 
----
 
 ### 2. `validationOrchestrator`
 **Purpose**: Cross-validate databases to detect mismatches and provide recommendations
@@ -43,7 +41,6 @@ Validation results with detailed warnings (used by `orderProgressTracker`)
 
 📋 *Details: [validationOrchestrator documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/)*
 
----
 
 ### 3. `orderProgressTracker`
 **Purpose**: Aggregate production data by purchase order and generate a comprehensive Excel report
@@ -156,6 +153,8 @@ if detect_updates(data_pipeline_report):
 
 This logic ensures optimal performance by running only when needed.
 
+---
+
 ## Key Benefits
 
 - **Data Quality**: Cross-validated inputs ensure trustable datasets
@@ -205,5 +204,3 @@ for report_name, report_content in all_reports.items():
 - Feeding into front-end dashboards (e.g., Streamlit, React, Superset)
 - Embedding into management reports
 - Periodic data monitoring
-
-This module enhances the usability of orderProgressTracker outputs by summarizing complex Excel data into structured insights.

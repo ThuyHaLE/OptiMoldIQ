@@ -6,6 +6,8 @@ The `StaticCrossDataChecker` is designed to cross-reference and validate data co
 
 This agent ensures data integrity by validating that all item codes, resin specifications, and material compositions referenced in operational data exist and match exactly in the corresponding reference tables.
 
+---
+
 ## Purpose and Scope
 
 ### Primary Functions
@@ -16,6 +18,8 @@ This agent ensures data integrity by validating that all item codes, resin speci
 ### Data Sources
 - **Dynamic Data**: `productRecords`, `purchaseOrders`
 - **Static Reference Data**: `itemInfo`, `resinInfo`, `itemCompositionSummary`
+
+---
 
 ## Architecture and Design
 
@@ -38,6 +42,8 @@ class StaticCrossDataChecker
 4. **Warning Generation and Reporting**
 5. **Output Management**
 
+---
+
 ## Configuration Parameters
 
 ### Constructor Parameters
@@ -58,6 +64,8 @@ checker = StaticCrossDataChecker(
     annotation_name="path_annotations.json"
 )
 ```
+
+---
 
 ## Data Schema Requirements
 
@@ -91,6 +99,8 @@ checker = StaticCrossDataChecker(
 
 #### Context Fields (purchaseOrders)
 - `poNo`: Purchase order number
+
+---
 
 ## Validation Logic
 
@@ -138,6 +148,8 @@ checker = StaticCrossDataChecker(
 
 **Warning Type**: `composition_warnings`
 
+---
+
 ## Warning Structure
 
 All warnings follow a standardized format compatible with the PORequiredCriticalValidator pattern:
@@ -168,13 +180,19 @@ All warnings follow a standardized format compatible with the PORequiredCritical
 | `update_resinInfo_or_double_check_{df_name}` | Update resin reference or verify source data |
 | `update_itemCompositionSummary_or_double_check_{df_name}` | Update composition reference or verify source data |
 
+---
+
 ## Usage Examples
 
 ### Basic Validation
 ```python
 # Initialize checker for both data types
 checker = StaticCrossDataChecker(
-    checking_df_name=["productRecords", "purchaseOrders"]
+        checking_df_name=["productRecords", "purchaseOrders"]
+        source_path = 'agents/shared_db/DataLoaderAgent/newest', 
+        annotation_name = "path_annotations.json",
+        databaseSchemas_path = 'database/databaseSchemas.json',
+        default_dir = "agents/shared_db"
 )
 
 # Run validations and get results
@@ -207,6 +225,8 @@ checker = StaticCrossDataChecker(
 results = checker.run_validations()
 ```
 
+---
+
 ## Output Format
 
 ### Console Output
@@ -225,6 +245,8 @@ The agent generates versioned Excel files with separate sheets for each validate
 - Sheets: One per validated dataframe
 - Columns: poNo, warningType, mismatchType, requiredAction, message
 
+---
+
 ## Error Handling
 
 ### Validation Errors
@@ -236,6 +258,8 @@ The agent generates versioned Excel files with separate sheets for each validate
 - **Missing reference data**: Empty reference tables will cause validation failures
 - **Data type mismatches**: Automatic handling of null values and type conversion
 - **Memory constraints**: Large datasets are processed efficiently using pandas operations
+
+---
 
 ## Performance Considerations
 
@@ -249,22 +273,7 @@ The agent generates versioned Excel files with separate sheets for each validate
 - Memory-efficient processing of large parquet files
 - Optimized for typical manufacturing data volumes
 
-## Dependencies
-
-### Required Libraries
-```python
-import pandas as pd
-from pathlib import Path
-from loguru import logger
-from typing import List
-import os
-```
-
-### Custom Modules
-```python
-from agents.decorators import validate_init_dataframes
-from agents.utils import load_annotation_path, save_output_with_versioning
-```
+---
 
 ## Integration Guidelines
 
@@ -285,6 +294,8 @@ from agents.utils import load_annotation_path, save_output_with_versioning
 - Regular validation of reference data completeness
 - Monitor validation results for data quality trends
 
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -301,6 +312,8 @@ from agents.utils import load_annotation_path, save_output_with_versioning
 - Check path annotations for correct file locations
 - Verify reference data completeness before running validations
 - Monitor memory usage for large datasets
+
+---
 
 ## Maintenance and Updates
 

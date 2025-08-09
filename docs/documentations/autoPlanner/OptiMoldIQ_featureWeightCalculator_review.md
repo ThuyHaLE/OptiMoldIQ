@@ -20,6 +20,31 @@ The `FeatureWeightCalculator` serves as a core component in manufacturing analyt
 Historical Data → Performance Classification → Statistical Analysis → Weight Calculation → Confidence Reports
 ```
 
+### Constructor
+
+```python
+calculator = FeatureWeightCalculator(
+                source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
+                annotation_name: str = "path_annotations.json",
+                databaseSchemas_path: str = 'database/databaseSchemas.json',
+                folder_path: str = 'agents/shared_db/OrderProgressTracker',
+                target_name: str = "change_log.txt",
+                default_dir: str = "agents/shared_db",
+                efficiency: float = 0.85,
+                loss: float = 0.03,
+                scaling: Literal['absolute', 'relative'] = 'absolute',
+                confidence_weight: float = 0.3,
+                n_bootstrap: int = 500,
+                confidence_level: float = 0.95,
+                min_sample_size: int = 10,
+                feature_weights: Optional[Dict[str, float]] = None,
+                targets = {'shiftNGRate': 'minimize',
+                           'shiftCavityRate': 1.0,
+                           'shiftCycleTimeRate': 1.0,
+                           'shiftCapacityRate': 1.0}
+                           )
+```
+
 ---
 
 ## Constructor Parameters

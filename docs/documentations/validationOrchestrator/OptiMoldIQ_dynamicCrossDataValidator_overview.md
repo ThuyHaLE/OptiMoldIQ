@@ -4,6 +4,8 @@
 
 The `DynamicCrossDataValidator` is designed to cross-reference production records against standard reference data in manufacturing environments. It ensures data integrity by validating that production records (items, molds, machines, compositions) match against predefined standards and generates detailed warnings for any mismatches.
 
+---
+
 ## Purpose
 
 This agent addresses critical data quality challenges in manufacturing by:
@@ -11,6 +13,8 @@ This agent addresses critical data quality challenges in manufacturing by:
 - Identifying inconsistencies between actual production and standard specifications
 - Generating actionable warnings for data quality issues
 - Providing comprehensive audit trails for compliance and quality control
+
+---
 
 ## Key Features
 
@@ -36,6 +40,8 @@ This agent addresses critical data quality challenges in manufacturing by:
 - Structured output for easy analysis and reporting
 - Maintains data lineage and validation history
 
+---
+
 ## Architecture
 
 ### Data Flow Pipeline
@@ -55,6 +61,8 @@ Reference Data ────┘                │
 4. **Warning Generator**: Creates structured warning messages
 5. **Export Manager**: Saves results with versioning
 
+---
+
 ## Data Sources
 
 ### Required Input Data
@@ -73,6 +81,8 @@ Reference Data ────┘                │
 - Production records must have valid PO notes (`poNote` not null)
 - Machine tonnage data must be properly formatted (e.g., "100T", "200T")
 - Mold lists can contain multiple molds separated by "/" (e.g., "MOLD1/MOLD2/MOLD3")
+
+---
 
 ## Usage
 
@@ -116,6 +126,8 @@ print(f"Found {len(mismatch_warnings)} production mismatches")
 | `annotation_name` | str | "path_annotations.json" | JSON file with path annotations |
 | `databaseSchemas_path` | str | 'database/databaseSchemas.json' | Database schema configuration |
 | `default_dir` | str | "agents/shared_db" | Default output directory |
+
+---
 
 ## Validation Logic
 
@@ -170,6 +182,8 @@ For each validation level, the system generates structured warnings with:
 - **Required Action**: Recommended remediation steps
 - **Human-readable Message**: Clear description of the issue
 
+---
+
 ## Output Structure
 
 ### Warning Types
@@ -209,6 +223,8 @@ Results are exported to Excel files with automatic versioning:
   - `invalid_warnings`: Items not found in reference data
   - `mismatch_warnings`: Production records that don't match standards
 
+---
+
 ## Error Handling
 
 ### Data Loading Errors
@@ -226,6 +242,8 @@ Results are exported to Excel files with automatic versioning:
 - Maintains data integrity during transformations
 - Provides rollback capabilities for failed operations
 
+---
+
 ## Best Practices
 
 ### Data Quality
@@ -242,6 +260,8 @@ Results are exported to Excel files with automatic versioning:
 - Regularly review and update validation rules
 - Monitor warning trends to identify systemic issues
 - Keep database schemas synchronized
+
+---
 
 ## Troubleshooting
 
@@ -271,10 +291,14 @@ The validator uses structured logging with different levels:
 - **WARNING**: Data quality issues found
 - **ERROR**: Processing failures and exceptions
 
+---
+
 ## Integration with Other Agents
 - Can be integrated with data loading agents for automated workflows
 - Results can feed into reporting and alerting systems
 - Compatible with quality management systems
+
+---
 
 ## Version History
 - Multi-level hierarchical validation

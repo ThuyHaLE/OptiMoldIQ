@@ -4,6 +4,8 @@
 
 The `OrderProgressTracker` is designed to track and analyze manufacturing order progress in an injection molding environment. It processes production records, purchase orders, and mold specifications to generate comprehensive status reports with Excel export capabilities.
 
+--- 
+
 ## Key Features
 
 - **Real-time Production Status Tracking**: Monitor order completion progress and production status
@@ -12,6 +14,8 @@ The `OrderProgressTracker` is designed to track and analyze manufacturing order 
 - **ETA Compliance Monitoring**: Track delivery performance against expected dates
 - **Warning Integration**: Incorporate validation warnings from other system components
 - **Excel Report Generation**: Export detailed production reports with multiple worksheets
+
+--- 
 
 ## Architecture
 
@@ -76,6 +80,8 @@ OrderProgressTracker
 ```
 - See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_orderProgressTrackerWorkflow.md)
 
+--- 
+
 ## Initialization
 
 ### Constructor Parameters
@@ -95,6 +101,8 @@ The agent automatically loads and validates three core datasets:
 1. **productRecords_df**: Production activity records
 2. **purchaseOrders_df**: Purchase order information
 3. **moldSpecificationSummary_df**: Mold and product specifications
+
+--- 
 
 ## Core Functionality
 
@@ -131,6 +139,8 @@ The agent creates comprehensive aggregation maps:
 - **dayQuantityMap**: Daily production quantities
 - **shiftQuantityMap**: Production quantities by shift
 - **materialComponentMap**: Material component combinations
+
+--- 
 
 ## Main Methods
 
@@ -209,6 +219,8 @@ Flattens complex mapping fields into tabular format for Excel export.
 - `dayQuantityMap`
 - `materialComponentMap`
 
+--- 
+
 ## Output Schema
 
 ### Production Status Fields
@@ -237,6 +249,8 @@ Flattens complex mapping fields into tabular format for Excel export.
 | `colorMasterbatchCode` | list | Color masterbatch materials |
 | `additiveMasterbatchCode` | list | Additive masterbatch materials |
 
+--- 
+
 ## Error Handling
 
 ### Validation Checks
@@ -252,14 +266,19 @@ The agent uses structured logging with different levels:
 - **WARNING**: Non-critical issues
 - **ERROR**: Critical failures requiring attention
 
+--- 
+
 ## Usage Example
 
 ```python
 # Initialize the tracker
 tracker = OrderProgressTracker(
-    source_path='data/production',
-    annotation_name='paths.json',
-    databaseSchemas_path='schemas/db_schema.json'
+    source_path = 'agents/shared_db/DataLoaderAgent/newest',
+    annotation_name = "path_annotations.json",
+    databaseSchemas_path = 'database/databaseSchemas.json',
+    folder_path = 'agents/shared_db/ValidationOrchestrator',
+    target_name = "change_log.txt",
+    default_dir = "agents/shared_db"
 )
 
 # Generate production status report
@@ -267,6 +286,8 @@ tracker.pro_status()
 
 # Output will be saved to: agents/shared_db/OrderProgressTracker/auto_status_YYYYMMDD_HHMMSS.xlsx
 ```
+
+--- 
 
 ## Excel Output Structure
 
@@ -279,6 +300,8 @@ The generated Excel file contains multiple worksheets:
 5. **dayQuantityMap**: Daily production summary
 6. **notWorkingStatus**: Non-production records
 7. **Additional Warning Sheets**: If validation warnings exist
+
+--- 
 
 ## Performance Considerations
 
@@ -293,6 +316,8 @@ The generated Excel file contains multiple worksheets:
 - Memory usage scales with number of unique purchase orders
 - Processing time depends on production record volume and complexity
 
+--- 
+
 ## Integration Points
 
 ### Input Dependencies
@@ -304,6 +329,8 @@ The generated Excel file contains multiple worksheets:
 - **Production Management Systems**: Status reports
 - **Quality Control**: Warning analysis
 - **Planning Systems**: Capacity and scheduling data
+
+--- 
 
 ## Troubleshooting
 

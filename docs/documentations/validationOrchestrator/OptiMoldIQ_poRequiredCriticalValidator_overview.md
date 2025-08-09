@@ -4,6 +4,8 @@
 
 The `PORequiredCriticalValidator` is designed to ensure consistency between product records and purchase orders in a manufacturing or inventory management system. This validator performs critical checks to identify discrepancies that could indicate data quality issues or process violations.
 
+---
+
 ## Purpose
 
 This validator addresses the following business requirements:
@@ -11,6 +13,8 @@ This validator addresses the following business requirements:
 - **Process Compliance**: Validates that production activities align with authorized purchase orders
 - **Quality Assurance**: Identifies mismatches between product specifications and purchase order requirements
 - **Risk Management**: Flags potential issues that could impact production or inventory accuracy
+
+---
 
 ## Key Features
 
@@ -33,6 +37,8 @@ This validator addresses the following business requirements:
 - Generates structured warning reports with actionable insights
 - Categorizes validation issues by type and severity
 - Exports results to Excel format for further analysis
+
+---
 
 ## Class Architecture
 
@@ -58,6 +64,8 @@ This validator addresses the following business requirements:
 - **Field Comparison**: Performs vectorized field-level validation
 - **Mismatch Detection**: Identifies and categorizes data discrepancies
 
+---
+
 ## Validation Types
 
 ### 1. Invalid PO Numbers
@@ -72,6 +80,8 @@ This validator addresses the following business requirements:
 - **Action**: Stop processing or double-check product records
 - **Impact**: Medium to High - could indicate specification errors or data entry mistakes
 
+---
+
 ## Usage Examples
 
 ### Basic Usage
@@ -79,7 +89,12 @@ This validator addresses the following business requirements:
 from agents.PORequiredCriticalValidator import PORequiredCriticalValidator
 
 # Initialize validator with default settings
-validator = PORequiredCriticalValidator()
+validator = PORequiredCriticalValidator(
+                source_path = 'agents/shared_db/DataLoaderAgent/newest', 
+                annotation_name = "path_annotations.json",
+                databaseSchemas_path = 'database/databaseSchemas.json',
+                default_dir = "agents/shared_db"
+)
 
 # Run validation and save results
 validator.run_validations_and_save_results()
@@ -98,6 +113,8 @@ validator = PORequiredCriticalValidator(
 warnings_df = validator.run_validations()
 print(f"Found {len(warnings_df)} validation issues")
 ```
+
+---
 
 ## Output Format
 
@@ -119,6 +136,8 @@ Each validation warning contains the following fields:
 (PO99999, 2024-01-16, Evening, Machine03) - Mismatch: PO99999 does not exist in purchaseOrders. Please stop progressing or double check productRecords
 ```
 
+---
+
 ## File Outputs
 
 ### Excel Report
@@ -126,6 +145,8 @@ Each validation warning contains the following fields:
 - **Naming**: `po_required_critical_validator_v{version}.xlsx`
 - **Content**: Detailed validation warnings with full context
 - **Versioning**: Automatic version increment to prevent overwrites
+
+---
 
 ## Error Handling
 
@@ -139,6 +160,8 @@ Each validation warning contains the following fields:
 - Provides comprehensive logging for debugging
 - Continues processing when possible, documenting issues
 
+---
+
 ## Performance Considerations
 
 ### Optimization Features
@@ -150,6 +173,8 @@ Each validation warning contains the following fields:
 - Designed to handle enterprise-scale datasets
 - Efficient memory usage through strategic DataFrame filtering
 - Optimized merge operations for large data volumes
+
+---
 
 ## Integration Guidelines
 
@@ -164,6 +189,8 @@ Each validation warning contains the following fields:
 - Configure logging levels appropriately for production
 - Set up monitoring for validation failure alerts
 - Implement error notification systems for critical issues
+
+---
 
 ## Troubleshooting
 
@@ -185,6 +212,8 @@ Each validation warning contains the following fields:
 - Enable debug logging: `logger.enable("agents.PORequiredCriticalValidator")`
 - Monitor log messages for data quality insights
 - Use shape and column information for data structure validation
+
+---
 
 ## Best Practices
 

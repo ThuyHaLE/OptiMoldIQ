@@ -37,7 +37,6 @@ Shared Database → HistoryProcessor → FeatureWeightCalculator → Insight Rep
 
 📋 *Details: [historyProcessor documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/OptiMoldIQ_historyProcessor_review.md)*
 
----
 
 ### 2. `FeatureWeightCalculator`
 **Purpose**: Sophisticated manufacturing analytics for confidence-based feature weighting
@@ -128,6 +127,8 @@ Shift Capacity Rate: 1.0
        ├── weights_hist.xlsx
        └── change_log.txt
 ```
+
+---
 
 ## Workflow Diagrams
 

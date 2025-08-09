@@ -4,6 +4,8 @@
 
 The `DataCollector` is a critical component of the data pipeline orchestrator system responsible for collecting, processing, and converting data from various Excel sources into standardized Parquet format. It handles two primary data types: product records from monthly reports and purchase orders, with comprehensive error handling and recovery mechanisms.
 
+---
+
 ## Key Features
 
 - **Multi-format Excel Support**: Handles both `.xlsx` and `.xlsb` file formats
@@ -14,19 +16,9 @@ The `DataCollector` is a critical component of the data pipeline orchestrator sy
 - **Change Detection**: Only updates files when actual data changes are detected
 - **Comprehensive Logging**: Detailed logging for monitoring and debugging
 
+---
+
 ## Architecture
-
-### Class Structure
-
-```python
-class DataCollector:
-    def __init__(self, source_dir, default_dir)
-    def process_all_data() -> Dict[str, Any]
-    def _process_data_type(...) -> Dict[str, Any]
-    def _process_single_file(...) -> Dict[str, Any]
-    def _merge_and_process_data(...) -> Dict[str, Any]
-    # ... additional helper methods
-```
 
 ### Directory Structure
 
@@ -41,6 +33,8 @@ agents/shared_db/dynamicDatabase/  # Output directory
 ├── productRecords.parquet         # Processed product records
 └── purchaseOrders.parquet         # Processed purchase orders
 ```
+
+---
 
 ## Data Processing Flow
 
@@ -75,6 +69,8 @@ agents/shared_db/dynamicDatabase/  # Output directory
 - Performs change detection against existing data
 - Saves to Parquet format only if changes detected
 
+---
+
 ## Data Schemas
 
 ### Product Records Schema
@@ -105,6 +101,8 @@ required_fields = [
 ]
 ```
 
+---
+
 ## Error Handling and Recovery
 
 ### Error Types
@@ -127,6 +125,8 @@ The agent implements local healing through the `check_local_backup_and_update_st
 - `RETRY_PROCESSING`: Attempt processing again
 - Various other actions based on error type and configuration
 
+---
+
 ## Processing Statuses
 
 - `SUCCESS`: All operations completed successfully
@@ -134,6 +134,8 @@ The agent implements local healing through the `check_local_backup_and_update_st
 - `WARNING`: Processing completed with warnings
 - `ERROR`: Critical failures preventing processing
 - `PENDING`: Recovery actions awaiting execution
+
+---
 
 ## Output Format
 
@@ -174,6 +176,8 @@ The agent implements local healing through the `check_local_backup_and_update_st
 }
 ```
 
+---
+
 ## Data Processing Rules
 
 ### Data Type Conversions
@@ -188,6 +192,8 @@ The agent implements local healing through the `check_local_backup_and_update_st
 - Working shift values normalized to uppercase
 - Column name standardization for consistency
 - Duplicate row removal across all processed files
+
+---
 
 ## Performance Optimizations
 
@@ -204,27 +210,15 @@ Uses MD5 hash-based comparison for detecting data changes instead of element-wis
 - Filters columns early to reduce memory footprint
 - Uses efficient Parquet compression (Snappy)
 
-## Dependencies
-
-### Required Libraries
-- `pandas`: Data manipulation and analysis
-- `pyxlsb`: Reading .xlsb files
-- `pyarrow`: Parquet file operations
-- `loguru`: Structured logging
-- `pathlib`: Path operations
-- Standard library: `os`, `tempfile`, `shutil`, `hashlib`, `datetime`
-
-### Internal Dependencies
-- `agents.dataPipelineOrchestrator.data_collector_healing_rules`
-- `configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs`
+---
 
 ## Usage Example
 
 ```python
 # Initialize the DataCollector
 collector = DataCollector(
-    source_dir="database/dynamicDatabase",
-    default_dir="agents/shared_db"
+    source_dir = "database/dynamicDatabase",
+    default_dir = "agents/shared_db"
 )
 
 # Process all data types
@@ -239,6 +233,8 @@ elif execution_info['status'] == 'PARTIAL_SUCCESS':
 else:
     print(f"Processing failed: {execution_info['summary']}")
 ```
+
+---
 
 ## Monitoring and Maintenance
 
@@ -262,6 +258,8 @@ else:
 3. **Memory Issues**: Consider processing files in smaller batches for very large datasets
 4. **Parquet Save Errors**: Check disk space and directory permissions
 5. **Recovery Failures**: Ensure backup files exist and are accessible
+
+---
 
 ## Integration Points
 

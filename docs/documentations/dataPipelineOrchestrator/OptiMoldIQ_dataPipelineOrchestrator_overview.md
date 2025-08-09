@@ -4,6 +4,8 @@
 
 The `DataPipelineOrchestrator` is designed for managing a comprehensive two-phase data pipeline process. It orchestrates data collection, processing, loading operations, and provides robust error handling with automated recovery mechanisms and notification systems.
 
+---
+
 ## Architecture
 
 ### Core Components
@@ -22,32 +24,13 @@ Phase 1: Data Collection → Phase 2: Data Loading
 Error Handling ←→ Rollback ←→ Notifications
 ```
 
+---
+
 ## Class Reference
 
-### DataPipelineOrchestrator
+### Key Methods
 
-The main orchestrator class that coordinates the entire data pipeline process.
-
-#### Constructor
-
-```python
-DataPipelineOrchestrator(
-    dynamic_db_source_dir: str = "database/dynamicDatabase",
-    databaseSchemas_path: str = "database/databaseSchemas.json", 
-    annotation_path: str = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
-    default_dir: str = "agents/shared_db"
-)
-```
-
-**Parameters:**
-- `dynamic_db_source_dir`: Directory containing dynamic database source files
-- `databaseSchemas_path`: Path to the database schemas JSON file
-- `annotation_path`: Path to data annotations file used by DataLoaderAgent
-- `default_dir`: Default directory for shared database operations
-
-#### Key Methods
-
-##### `run_pipeline(**kwargs) -> Dict[str, Any]`
+#### `run_pipeline(**kwargs) -> Dict[str, Any]`
 
 Main entry point that executes the complete data pipeline.
 
@@ -75,7 +58,7 @@ Main entry point that executes the complete data pipeline.
 - `partial_success`: Phase 1 failed but Phase 2 succeeded due to rollback
 - `failed`: Either phase failed without recovery
 
-##### `_run_data_collector() -> Any`
+#### `_run_data_collector() -> Any`
 
 Executes Phase 1: `DataCollector` to gather raw data from sources.
 
@@ -87,7 +70,7 @@ Executes Phase 1: `DataCollector` to gather raw data from sources.
 
 - See details: [DataCollector](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataCollector_review.md)
 
-##### `_run_data_loader(collector_result: Any) -> Any`
+#### `_run_data_loader(collector_result: Any) -> Any`
 
 Executes Phase 2: `DataLoaderAgent` to process and load collected data.
   
@@ -98,7 +81,7 @@ Executes Phase 2: `DataLoaderAgent` to process and load collected data.
 
 - See details: [DataLoader](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataLoader_review.md)
 
-##### `_should_proceed_to_data_loader(collector_result: Any) -> bool`
+#### `_should_proceed_to_data_loader(collector_result: Any) -> bool`
 
 Decision logic for Phase 2 execution:
 
@@ -110,6 +93,8 @@ elif rollback_successful:
 else:
     return False
 ```
+
+---
 
 ## Error Handling & Recovery
 
@@ -135,6 +120,8 @@ The system checks for successful `ROLLBACK_TO_BACKUP` actions in:
 | Success | N/A | Proceed |
 | Failed | Success | Proceed |
 | Failed | Failed/None | Skip |
+
+---
 
 ## Notification System
 
@@ -203,6 +190,8 @@ Trigger Agents      : [triggering_agents]
 ================================================================================
 ```
 
+---
+
 ## Configuration
 
 ### Directory Structure
@@ -224,28 +213,19 @@ project_root/
             └── data_pipeline_orchestrator_configs.py
 ```
 
-### Dependencies
-
-```python
-from pathlib import Path
-from typing import Dict, Any
-from loguru import logger
-from datetime import datetime
-from dataclasses import dataclass
-
-# Internal dependencies
-from agents.dataPipelineOrchestrator.data_collector import DataCollector
-from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
-from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import AgentExecutionInfo
-```
+---
 
 ## Usage Examples
 
 ### Basic Usage
-
 ```python
 # Initialize orchestrator with default settings
-orchestrator = DataPipelineOrchestrator()
+orchestrator = DataPipelineOrchestrator(
+    dynamic_db_source_dir = "database/dynamicDatabase",
+    databaseSchemas_path = "database/databaseSchemas.json", 
+    annotation_path = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
+    default_dir = "agents/shared_db"
+)
 
 # Run the complete pipeline
 result = orchestrator.run_pipeline()
@@ -297,6 +277,8 @@ except Exception as e:
     logger.error(f"Orchestrator initialization failed: {e}")
 ```
 
+---
+
 ## Logging
 
 The orchestrator uses structured logging with the `loguru` library:
@@ -311,6 +293,8 @@ self.logger.info("✅ Phase 1: DataCollector completed successfully")
 self.logger.warning("⚠️ Phase 2: DataLoaderAgent failed")
 self.logger.error("❌ Phase 1: DataCollector error")
 ```
+
+---
 
 ## Best Practices
 
@@ -333,6 +317,8 @@ self.logger.error("❌ Phase 1: DataCollector error")
 - Use MockNotificationHandler for testing
 - Test both success and failure scenarios
 - Verify rollback detection logic
+
+---
 
 ## Troubleshooting
 
@@ -366,6 +352,8 @@ from loguru import logger
 logger.add("debug.log", level="DEBUG")
 ```
 
+---
+
 ## Performance Considerations
 
 ### Resource Management
@@ -383,6 +371,8 @@ logger.add("debug.log", level="DEBUG")
 - Memory and disk usage
 - Success/failure rates
 - Rollback frequency
+
+---
 
 ## Security Considerations
 
