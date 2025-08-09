@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from pathlib import Path
+from typing import List
 from loguru import logger
 from agents.decorators import validate_init_dataframes
 
@@ -60,7 +61,7 @@ class HistoryProcessor:
                                 'consistency_score_weight': 0.3,
                                 'utilization_rate_weight': 0.2,
                                 'data_completeness_weight': 0.1}
-    
+
     ESTIMATED_MOLD_REQUIRED_COLUMNS = ['moldNo', 'moldName', 'acquisitionDate', 'machineTonnage',
                                        'moldCavityStandard', 'moldSettingCycle', 'cavityStabilityIndex',
                                        'cycleStabilityIndex', 'theoreticalMoldHourCapacity',
@@ -68,7 +69,7 @@ class HistoryProcessor:
                                        'balancedMoldHourCapacity', 'totalRecords', 'totalCavityMeasurements',
                                        'totalCycleMeasurements', 'firstRecordDate', 'lastRecordDate',
                                        'itemCode', 'itemName', 'itemType', 'moldNum', 'isPriority']
-    
+
     FEATURE_WEIGHTS_REQUIRED_COLUMNS = ['shiftNGRate', 'shiftCavityRate', 'shiftCycleTimeRate', 'shiftCapacityRate']
 
     def __init__(self,
@@ -467,28 +468,28 @@ class HistoryProcessor:
         if not isinstance(df, pd.DataFrame):
             self.logger.error("Error: Input is not a DataFrame, got {}", type(df))
             return False
-        
+
         missing_columns = [col for col in df.columns if col not in HistoryProcessor.ESTIMATED_MOLD_REQUIRED_COLUMNS]
-        
+
         if missing_columns:
             self.logger.error("Missing columns: {}", missing_columns)
             return False
-        
+
         self.logger.info("✅ All required columns are present!")
-        return True 
-    
+        return True
+
     def _check_series_columns(self, series: pd.Series) -> bool:
 
         if not isinstance(series, pd.Series):
             self.logger.error("Error: Input is not a Series, got {}", type(series))
             return False
-    
+
         missing_columns = [col for col in series.to_dict().keys() if col not in HistoryProcessor.FEATURE_WEIGHTS_REQUIRED_COLUMNS]
-        
+
         if missing_columns:
             self.logger.error("Missing columns: {}", missing_columns)
             return False
-        
+
         self.logger.info("✅ All required columns are present!")
         return True
 

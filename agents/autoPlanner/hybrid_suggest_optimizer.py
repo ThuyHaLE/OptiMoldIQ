@@ -2,7 +2,8 @@ import os
 import pandas as pd
 from pathlib import Path
 from agents.decorators import validate_init_dataframes
-from agents.utils import load_annotation_path, read_change_log, get_latest_change_row
+from agents.utils import (load_annotation_path, save_output_with_versioning,
+                          read_change_log, get_latest_change_row)
 from loguru import logger
 from agents.autoPlanner.hist_based_item_mold_optimizer import HistBasedItemMoldOptimizer
 from agents.autoPlanner.initialPlanner.history_processor import HistoryProcessor
@@ -17,19 +18,19 @@ from agents.autoPlanner.initialPlanner.history_processor import HistoryProcessor
 
 class HybridSuggestOptimizer():
     """
-    A hybrid optimization system that combines historical data analysis with mold-machine 
+    A hybrid optimization system that combines historical data analysis with mold-machine
     compatibility matching to suggest optimal production configurations.
-    
+
     This class integrates multiple optimization strategies:
     1. Historical-based mold capacity estimation
     2. Mold stability index analysis
     3. Feature weight calculation for mold-machine priority matrix
     4. Production efficiency optimization
-    
+
     The optimizer helps manufacturing systems make data-driven decisions about
     mold selection, machine allocation, and production planning.
     """
-    
+
     # Default weights (in case not enough insights from historical databases can be extracted) for different performance metrics used in optimization
     # These weights determine the relative importance of each factor in decision making
     INITIAL_FEATURE_WEIGHTS = {
@@ -42,25 +43,25 @@ class HybridSuggestOptimizer():
     # Required columns for mold capacity estimation output
     # These columns contain essential mold performance and capacity metrics
     ESTIMATED_MOLD_REQUIRED_COLUMNS = [
-        'moldNo',                        
-        'moldName',                      
-        'acquisitionDate',              
-        'machineTonnage',               
-        'moldCavityStandard',            
-        'moldSettingCycle',            
-        'cavityStabilityIndex',         
-        'cycleStabilityIndex',           
-        'theoreticalMoldHourCapacity',  
-        'effectiveMoldHourCapacity',     
-        'estimatedMoldHourCapacity',   
-        'balancedMoldHourCapacity',  
-        'totalRecords',               
-        'totalCavityMeasurements',   
-        'totalCycleMeasurements', 
+        'moldNo',
+        'moldName',
+        'acquisitionDate',
+        'machineTonnage',
+        'moldCavityStandard',
+        'moldSettingCycle',
+        'cavityStabilityIndex',
+        'cycleStabilityIndex',
+        'theoreticalMoldHourCapacity',
+        'effectiveMoldHourCapacity',
+        'estimatedMoldHourCapacity',
+        'balancedMoldHourCapacity',
+        'totalRecords',
+        'totalCavityMeasurements',
+        'totalCycleMeasurements',
         'firstRecordDate',
         'lastRecordDate'
     ]
-        
+
     # Required columns for feature weight calculations
     # These represent key performance indicators for mold-machine combinations
     FEATURE_WEIGHTS_REQUIRED_COLUMNS = [
@@ -85,7 +86,7 @@ class HybridSuggestOptimizer():
                  ):
         """
         Initialize the HybridSuggestOptimizer with configuration paths and parameters.
-        
+
         Args:
             source_path (str): Base path for data source files
             annotation_name (str): JSON file containing path mappings
@@ -99,7 +100,7 @@ class HybridSuggestOptimizer():
             efficiency (float): Expected production efficiency (default 0.85 = 85%)
             loss (float): Expected production loss rate (default 0.03 = 3%)
         """
-      
+
         # Initialize logger with class context for better debugging and monitoring
         self.logger = logger.bind(class_="HybridSuggestOptimizer")
 
@@ -134,7 +135,7 @@ class HybridSuggestOptimizer():
         # Initialize HistoryProcessor for analyzing historical production data
         # This component processes past performance to inform future optimization decisions
         self.history_processor = HistoryProcessor(source_path, annotation_name,
-                                                  databaseSchemas_path, folder_path, target_name, 
+                                                  databaseSchemas_path, folder_path, target_name,
                                                   default_dir, self.efficiency, self.loss)
 
     def _load_dataframes(self) -> None:
@@ -192,29 +193,29 @@ class HybridSuggestOptimizer():
     def _load_mold_stability_index(self):
         """
         Load mold stability index data from the most recent file or create initial structure.
-        
+
         The mold stability index contains metrics about how consistently each mold performs,
         including cavity stability, cycle time consistency, and overall reliability measures.
         This data is crucial for making informed decisions about mold selection.
-        
+
         Returns:
             pd.DataFrame: Mold stability index with performance consistency metrics
         """
         # Attempt to find the latest mold stability index file from change log
-        mold_stability_index_path = read_change_log(self.mold_stability_index_folder, 
+        mold_stability_index_path = read_change_log(self.mold_stability_index_folder,
                                                    self.mold_stability_index_target_name)
 
         # Handle case where no historical stability index exists
         if mold_stability_index_path is None:
-            self.logger.warning("Cannot find file {}/{}", 
-                              self.mold_stability_index_folder, 
+            self.logger.warning("Cannot find file {}/{}",
+                              self.mold_stability_index_folder,
                               self.mold_stability_index_target_name)
             self.logger.info("Start loading initial mold stability index...")
-            
+
             def initial_mold_stability_index():
                 """Create an empty DataFrame with the required column structure."""
                 return pd.DataFrame(columns=self.ESTIMATED_MOLD_REQUIRED_COLUMNS)
-            
+
             # Create empty structure for first-time initialization
             mold_stability_index = initial_mold_stability_index()
         else:
@@ -228,19 +229,19 @@ class HybridSuggestOptimizer():
     def _load_feature_weights(self):
         """
         Load the latest feature weights for calculating mold-machine priority matrix.
-        
+
         Feature weights determine the relative importance of different performance metrics
         when evaluating mold-machine combinations. These weights are typically learned
         from historical performance data and updated over time.
-        
+
         Returns:
             pd.Series: Feature weights for different performance metrics
         """
         # Check if historical feature weights file exists
         if not self.mold_machine_weights_hist_path.exists():
-            self.logger.warning("File not found: {}. Please calculate feature weight first!", 
+            self.logger.warning("File not found: {}. Please calculate feature weight first!",
                               self.mold_machine_weights_hist_path)
-            
+
             def initial_feature_weights():
                 """
                 Create initial feature weights using predefined default values.
@@ -248,18 +249,18 @@ class HybridSuggestOptimizer():
                 """
                 # Initialize series with zeros for all required columns
                 feature_weights = pd.Series(0, index=self.FEATURE_WEIGHTS_REQUIRED_COLUMNS, dtype=object)
-                
+
                 # Set initial weights based on manufacturing best practices
                 feature_weights['shiftNGRate'] = self.INITIAL_FEATURE_WEIGHTS['shiftNGRate_weight']
                 feature_weights['shiftCavityRate'] = self.INITIAL_FEATURE_WEIGHTS['shiftCavityRate_weight']
                 feature_weights['shiftCycleTimeRate'] = self.INITIAL_FEATURE_WEIGHTS['shiftCycleTimeRate_weight']
                 feature_weights['shiftCapacityRate'] = self.INITIAL_FEATURE_WEIGHTS['shiftCapacityRate_weight']
-                
+
                 return feature_weights
-            
+
             self.logger.info("Start loading initial feature weight...")
             mold_machine_feature_weights = initial_feature_weights()
-        else:   
+        else:
             # Load the most recent feature weights from historical data
             self.logger.info("Start loading mold machine feature weight...")
             mold_machine_feature_weights = get_latest_change_row(self.mold_machine_weights_hist_path)
@@ -271,16 +272,16 @@ class HybridSuggestOptimizer():
     def process(self):
         """
         Execute the complete hybrid optimization process.
-        
+
         This method orchestrates the entire optimization workflow:
         1. Load mold stability index data
         2. Estimate mold capacities using historical data
         3. Load feature weights for priority calculations
         4. Calculate mold-machine priority matrix
-        
+
         The process combines multiple data sources and algorithms to provide
         comprehensive optimization recommendations for production planning.
-        
+
         Returns:
             tuple: A three-element tuple containing:
                 - invalid_molds: List of molds that couldn't be processed
@@ -289,7 +290,7 @@ class HybridSuggestOptimizer():
         """
         # Step 1: Load mold stability index containing performance consistency metrics
         mold_stability_index = self._load_mold_stability_index()
-        
+
         # Step 2: Estimate mold capacities using historical-based optimization
         self.logger.info("Start estimating mold capacity...")
         invalid_molds, mold_estimated_capacity_df = HistBasedItemMoldOptimizer().process_mold_info(
@@ -300,10 +301,10 @@ class HybridSuggestOptimizer():
             self.loss                         # Expected production loss rate
         )
         self.logger.info("Mold estimated capacity are ready.")
-        
+
         # Step 3: Load feature weights for priority matrix calculation
         mold_machine_feature_weights = self._load_feature_weights()
-        
+
         # Step 4: Calculate mold-machine priority matrix using historical performance data
         self.logger.info("Start calculating mold-machine priority matrix...")
         mold_machine_priority_matrix = self.history_processor.calculate_mold_machine_priority_matrix(
