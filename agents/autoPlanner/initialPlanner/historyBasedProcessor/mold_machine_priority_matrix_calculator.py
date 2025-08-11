@@ -223,8 +223,8 @@ class MoldMachinePriorityMatrixCalculator:
         """
 
         # Calculate the priority matrix using the main calculation method
-        priority_matrix = self.calculate_mold_machine_priority_matrix(mold_machine_feature_weights,
-                                                                      capacity_mold_info_df)
+        priority_matrix = self.process(mold_machine_feature_weights,
+                                       capacity_mold_info_df)
 
         # Prepare data for export by resetting index to include moldNo as a regular column
         # This makes the Excel output more readable and easier to work with

@@ -269,7 +269,7 @@ class MoldStabilityIndexCalculator:
     
     # Calculates cavity and cycle stability indices for molds based on historical production data
     # and save it as monthly reports
-    def process_and_result(self,
+    def process_and_save_result(self,
                            cavity_stability_threshold = 0.6,
                            cycle_stability_threshold = 0.4,
                            total_records_threshold = 30):
@@ -287,7 +287,7 @@ class MoldStabilityIndexCalculator:
         """
 
         # Calculate the priority matrix using the main calculation method
-        mold_stability_index = self.calculate_mold_stability_index(cavity_stability_threshold,
+        mold_stability_index = self.process(cavity_stability_threshold,
                                                                    cycle_stability_threshold,
                                                                    total_records_threshold)
 
