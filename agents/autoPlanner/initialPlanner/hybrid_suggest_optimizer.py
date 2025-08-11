@@ -115,7 +115,7 @@ class HybridSuggestOptimizer:
         # Initialize core components
         self._setup_schemas()
         self._load_dataframes()
-        self._initialize_history_processor()
+        self._initialize_mold_machine_priority_matrix_calculator()
 
     def _setup_schemas(self) -> None:
         """Load database schema configuration for column validation."""
