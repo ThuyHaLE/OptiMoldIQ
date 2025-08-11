@@ -4,7 +4,7 @@ import warnings
 from typing import List
 from loguru import logger
 
-class HistBasedItemMoldOptimizer:
+class ItemMoldCapacityOptimizer:
 
     """
     A class for optimizing mold production capacity based on historical data.
@@ -14,7 +14,7 @@ class HistBasedItemMoldOptimizer:
     """
 
     def __init__(self):
-        self.logger = logger.bind(class_="HistBasedItemMoldOptimizer")
+        self.logger = logger.bind(class_="ItemMoldCapacityOptimizer")
 
     @staticmethod
     def compute_hourly_capacity(df: pd.DataFrame, efficiency: float, loss: float) -> pd.DataFrame:
@@ -101,7 +101,7 @@ class HistBasedItemMoldOptimizer:
         ]
 
         # Calculate capacity for all molds first
-        capacity_df = HistBasedItemMoldOptimizer.compute_hourly_capacity(moldInfo_df, efficiency, loss)
+        capacity_df = ItemMoldCapacityOptimizer.compute_hourly_capacity(moldInfo_df, efficiency, loss)
 
         # Filter only unused molds and select required columns
         available_merge_cols = [col for col in merge_cols if col in capacity_df.columns]
@@ -222,7 +222,7 @@ class HistBasedItemMoldOptimizer:
 
         # Merge used and unused molds with capacity calculations
         self.logger.info("Start process with efficiency: {} - loss: {}", efficiency, loss)
-        updated_capacity_moldInfo_df = HistBasedItemMoldOptimizer.merge_with_unused_molds(
+        updated_capacity_moldInfo_df = ItemMoldCapacityOptimizer.merge_with_unused_molds(
             moldInfo_df, unused_molds, used_molds_df, efficiency, loss
         )
 
@@ -262,7 +262,7 @@ class HistBasedItemMoldOptimizer:
         )
 
         # Assign priority molds for each item code
-        result_df = HistBasedItemMoldOptimizer.assign_priority_mold(merged_df)
+        result_df = ItemMoldCapacityOptimizer.assign_priority_mold(merged_df)
 
         self.logger.info("Process finished!!!")
 

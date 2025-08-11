@@ -13,7 +13,7 @@ from agents.autoPlanner.report_text_formatter import generate_confidence_report
 from agents.decorators import validate_init_dataframes
 from agents.utils import save_text_report_with_versioning, load_annotation_path, read_change_log, log_dict_as_table
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
-from agents.autoPlanner.hist_based_item_mold_optimizer import HistBasedItemMoldOptimizer
+from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
@@ -21,7 +21,6 @@ from agents.autoPlanner.hist_based_item_mold_optimizer import HistBasedItemMoldO
     "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
     "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
     "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
-    "itemCompositionSummary_df": list(self.databaseSchemas_data['staticDB']['itemCompositionSummary']['dtypes'].keys()),
 })
 
 @validate_init_dataframes({"proStatus_df": ['poReceivedDate', 'poNo', 'itemCode', 'itemName', 'poETA',
@@ -34,7 +33,7 @@ from agents.autoPlanner.hist_based_item_mold_optimizer import HistBasedItemMoldO
                                             'machineNo', 'moldNo', 'warningNotes'
                                             ]})
 
-class FeatureWeightCalculator:
+class MoldMachineFeatureWeightCalculator:
 
     """
     This class calculates feature weights used to evaluate manufacturing process performance
@@ -81,7 +80,7 @@ class FeatureWeightCalculator:
                            'shiftCapacityRate': 1.0}
                            ):
 
-        self.logger = logger.bind(class_="FeatureWeightCalculator")
+        self.logger = logger.bind(class_="MoldMachineFeatureWeightCalculator")
 
         self.efficiency = efficiency
         self.loss = loss
@@ -104,7 +103,7 @@ class FeatureWeightCalculator:
         # Set up output configuration
         self.filename_prefix = "confidence_report"
         self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "FeatureWeightCalculator"
+        self.output_dir = self.default_dir / "MoldMachineFeatureWeightCalculator"
 
         # Load production report
         proStatus_path = read_change_log(folder_path, target_name)
@@ -121,7 +120,7 @@ class FeatureWeightCalculator:
         self.machine_info_df = check_newest_machine_layout(self.machineInfo_df)
 
     def calculate(self,
-                  mold_stability_index_folder = 'agents/shared_db/HistoryProcessor/mold_stability_index',
+                  mold_stability_index_folder = 'agents/shared_db/MoldStabilityIndexCalculator/mold_stability_index',
                   mold_stability_index_target_name = "change_log.txt"):
 
         """
@@ -139,7 +138,7 @@ class FeatureWeightCalculator:
         mold_stability_index = pd.read_excel(mold_stability_index_path)
 
         # Suggest the priority for the item-mold pair based on historical records
-        _, capacity_mold_info_df = HistBasedItemMoldOptimizer().process_mold_info(mold_stability_index,
+        _, capacity_mold_info_df = ItemMoldCapacityOptimizer().process_mold_info(mold_stability_index,
                                                                                   self.moldSpecificationSummary_df,
                                                                                   self.moldInfo_df,
                                                                                   self.efficiency,
@@ -149,7 +148,7 @@ class FeatureWeightCalculator:
         self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
 
         # Separate good and bad production records based on efficiency/loss
-        good_hist, bad_hist = FeatureWeightCalculator._group_hist_by_performance(self.proStatus_df,
+        good_hist, bad_hist = MoldMachineFeatureWeightCalculator._group_hist_by_performance(self.proStatus_df,
                                                                                  self.productRecords_df,
                                                                                  self.moldInfo_df,
                                                                                  self.efficiency,
@@ -164,7 +163,7 @@ class FeatureWeightCalculator:
         logger.debug('Historical information for bad sample: {}-{}', bad_sample.shape, bad_sample.columns)
 
         # Calculate confidence scores
-        confidence_scores = FeatureWeightCalculator._calculate_confidence_scores(good_sample,
+        confidence_scores = MoldMachineFeatureWeightCalculator._calculate_confidence_scores(good_sample,
                                                                                  bad_sample,
                                                                                  self.targets,
                                                                                  self.n_bootstrap,
@@ -172,11 +171,11 @@ class FeatureWeightCalculator:
                                                                                  self.min_sample_size)
 
         # Calculate overall confidence
-        overall_confidence = FeatureWeightCalculator._calculate_overall_confidence(confidence_scores,
+        overall_confidence = MoldMachineFeatureWeightCalculator._calculate_overall_confidence(confidence_scores,
                                                                                    self.feature_weights)
 
         # Enhanced weights với confidence
-        enhanced_weights = FeatureWeightCalculator._suggest_weights_with_confidence(good_sample,
+        enhanced_weights = MoldMachineFeatureWeightCalculator._suggest_weights_with_confidence(good_sample,
                                                                                     bad_sample,
                                                                                     self.targets,
                                                                                     self.scaling,
@@ -189,7 +188,7 @@ class FeatureWeightCalculator:
         return confidence_scores, overall_confidence, enhanced_weights
 
     def calculate_and_save_report(self,
-                                  mold_stability_index_folder = 'agents/shared_db/HistoryProcessor/mold_stability_index',
+                                  mold_stability_index_folder = 'agents/shared_db/MoldStabilityIndexCalculator/mold_stability_index',
                                   mold_stability_index_target_name = "change_log.txt"):
 
         """
@@ -221,7 +220,6 @@ class FeatureWeightCalculator:
         - machineInfo_df: Machine specifications and tonnage information
         - moldSpecificationSummary_df: Mold specifications and compatible items
         - moldInfo_df: Detailed mold information including tonnage requirements
-        - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
         """
 
         # Define the mapping between path annotation keys and DataFrame attribute names
@@ -229,7 +227,6 @@ class FeatureWeightCalculator:
             ('moldSpecificationSummary', 'moldSpecificationSummary_df'),
             ('moldInfo', 'moldInfo_df'),
             ('machineInfo', 'machineInfo_df'),
-            ('itemCompositionSummary', 'itemCompositionSummary_df'), #Quantity(KG) for 10000PCS
             ('productRecords', 'productRecords_df'),
         ]
 
@@ -677,13 +674,13 @@ class FeatureWeightCalculator:
         """
 
         # Calculate traditional weights
-        traditional_weights = FeatureWeightCalculator._suggest_weights_standard_based(good_hist_df,
+        traditional_weights = MoldMachineFeatureWeightCalculator._suggest_weights_standard_based(good_hist_df,
                                                                                       bad_hist_df,
                                                                                       targets,
                                                                                       scaling)
 
         # Calculate confidence scores
-        confidence_scores = FeatureWeightCalculator._calculate_confidence_scores(good_hist_df,
+        confidence_scores = MoldMachineFeatureWeightCalculator._calculate_confidence_scores(good_hist_df,
                                                                                  bad_hist_df,
                                                                                  targets,
                                                                                  n_bootstrap,

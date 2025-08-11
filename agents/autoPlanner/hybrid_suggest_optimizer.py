@@ -6,9 +6,8 @@ from dataclasses import dataclass
 from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path, read_change_log, get_latest_change_row
 from loguru import logger
-from agents.autoPlanner.hist_based_item_mold_optimizer import HistBasedItemMoldOptimizer
-from agents.autoPlanner.initialPlanner.history_processor import HistoryProcessor
-
+from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
+from agents.autoPlanner.initialPlanner.historyBasedProcessor.mold_machine_priority_matrix_calculator import MoldMachinePriorityMatrixCalculator
 
 @dataclass
 class OptimizationResult:
@@ -37,7 +36,6 @@ class FeatureWeights:
 
 class MoldCapacityColumns:
     """Required columns for mold capacity estimation output."""
-    
     REQUIRED = [
         'moldNo', 'moldName', 'acquisitionDate', 'machineTonnage',
         'moldCavityStandard', 'moldSettingCycle', 'cavityStabilityIndex',
@@ -74,9 +72,9 @@ class HybridSuggestOptimizer:
                  default_dir: str = "agents/shared_db",
                  folder_path = "agents/OrderProgressTracker",
                  target_name = "change_log.txt",
-                 mold_stability_index_folder = "agents/HistoryProcessor/mold_stability_index",
+                 mold_stability_index_folder = "agents/MoldStabilityIndexCalculator/mold_stability_index",
                  mold_stability_index_target_name = "change_log.txt",
-                 mold_machine_weights_hist_path = "agents/FeatureWeightCalculator/weights_hist.xlsx",
+                 mold_machine_weights_hist_path = "agents/MoldMachineFeatureWeightCalculator/weights_hist.xlsx",
                  efficiency: float = 0.85,
                  loss: float = 0.03,
                  ):
@@ -176,17 +174,17 @@ class HybridSuggestOptimizer:
             self.logger.error("Failed to load {}: {}", path_key, str(e))
             raise
 
-    def _initialize_history_processor(self) -> None:
-        """Initialize HistoryProcessor for analyzing historical production data."""
+    def _initialize_mold_machine_priority_matrix_calculator(self) -> None:
+        """Initialize MoldMachinePriorityMatrixCalculator for analyzing historical production data."""
         try:
-            self.history_processor = HistoryProcessor(
+            self.mold_machine_priority_matrix_calculator = MoldMachinePriorityMatrixCalculator(
                 self.source_path, self.annotation_name, self.databaseSchemas_path,
                 self.folder_path, self.target_name, self.default_dir, 
                 self.efficiency, self.loss
             )
-            self.logger.debug("HistoryProcessor initialized successfully")
+            self.logger.debug("MoldMachinePriorityMatrixCalculator initialized successfully")
         except Exception as e:
-            self.logger.error("Failed to initialize HistoryProcessor: {}", str(e))
+            self.logger.error("Failed to initialize MoldMachinePriorityMatrixCalculator: {}", str(e))
             raise
 
     # ------------------------------------------------------ #
@@ -250,7 +248,7 @@ class HybridSuggestOptimizer:
 
     def _estimate_mold_capacities(self, mold_stability_index: pd.DataFrame) -> Tuple[List[str], pd.DataFrame]:
         """Estimate mold capacities using historical-based optimization."""
-        return HistBasedItemMoldOptimizer().process_mold_info(
+        return ItemMoldCapacityOptimizer().process_mold_info(
             mold_stability_index,             # Stability metrics for each mold
             self.moldSpecificationSummary_df, # Mold-item compatibility mappings
             self.moldInfo_df,                 # Detailed mold specifications
@@ -262,7 +260,7 @@ class HybridSuggestOptimizer:
                                  feature_weights: pd.Series, 
                                  capacity_df: pd.DataFrame) -> pd.DataFrame:
         """Calculate mold-machine priority matrix using historical performance data."""
-        return self.history_processor.calculate_mold_machine_priority_matrix(
+        return self.mold_machine_priority_matrix_calculator.process(
             feature_weights,  # Weights for different performance metrics
             capacity_df       # Estimated capacity data for each mold
         )
