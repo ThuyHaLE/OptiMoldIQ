@@ -263,8 +263,8 @@ class HybridSuggestOptimizer:
                  self.moldInfo_df,
                  self.efficiency,
                  self.loss,
-                 self.databaseSchemas_path,
-                 self.sharedDatabaseSchemas_path
+                 self.databaseSchemas_data,
+                 self.sharedDatabaseSchemas_data
                  ).process()
 
     def _calculate_priority_matrix(self, 
@@ -276,7 +276,8 @@ class HybridSuggestOptimizer:
             mold_machine_priority_matrix_calculator = MoldMachinePriorityMatrixCalculator(
                 feature_weights,  # Weights for different performance metrics
                 capacity_df,       # Estimated capacity data for each mold
-                self.source_path, self.annotation_name, self.databaseSchemas_path, self.sharedDatabaseSchemas_path, 
+                self.databaseSchemas_data, self.sharedDatabaseSchemas_data, 
+                self.source_path, self.annotation_name, 
                 self.folder_path, self.target_name, self.default_dir, self.efficiency, self.loss
             )
             self.logger.debug("MoldMachinePriorityMatrixCalculator initialized successfully")

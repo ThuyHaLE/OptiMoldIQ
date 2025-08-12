@@ -39,8 +39,8 @@ class ItemMoldCapacityOptimizer:
         moldInfo_df: Detailed table with mold technical information
         efficiency: Production efficiency factor (0.0 to 1.0)
         loss: Production loss factor (0.0 to 1.0)
-        databaseSchemas_path (str): Path to database schema for validation.
-        sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
+        databaseSchemas_data: database schema for validation.
+        sharedDatabaseSchemas_data: shared database schema for validation.
     """
 
     def __init__(self,

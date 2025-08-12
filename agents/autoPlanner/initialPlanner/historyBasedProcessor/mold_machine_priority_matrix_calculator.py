@@ -45,10 +45,10 @@ class MoldMachinePriorityMatrixCalculator:
     def __init__(self,
                  mold_machine_feature_weights,
                  mold_estimated_capacity_df,
+                 databaseSchemas_data,
+                 sharedDatabaseSchemas_data,
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                  folder_path: str = 'agents/shared_db/OrderProgressTracker',
                  target_name: str = "change_log.txt",
                  default_dir: str = "agents/shared_db",
@@ -64,8 +64,8 @@ class MoldMachinePriorityMatrixCalculator:
             mold_estimated_capacity_df (pd.DataFrame): Estimated capacity data for each mold
             source_path (str): Path to the data source directory containing parquet files
             annotation_name (str): Name of the JSON file containing path annotations
-            databaseSchemas_path (str): Path to database schema configuration file
-            sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
+            databaseSchemas_data (dict): database schema for validation.
+            sharedDatabaseSchemas_data (dict): shared database schema for validation.
             folder_path (str): Path to folder containing change log for production status
             target_name (str): Name of the change log file to read production status from
             weights_hist_path (str): Path to Excel file containing feature weights history
@@ -80,17 +80,11 @@ class MoldMachinePriorityMatrixCalculator:
 
         # Load database schema configuration for column validation
         # This ensures all DataFrames have the expected structure
-        self.databaseSchemas_data = load_annotation_path(
-            Path(databaseSchemas_path).parent,
-            Path(databaseSchemas_path).name
-        )
+        self.databaseSchemas_data = databaseSchemas_data
 
         # Load shared database schema configuration for column validation
-        self.sharedDatabaseSchemas_data = load_annotation_path(
-            Path(sharedDatabaseSchemas_path).parent,
-            Path(sharedDatabaseSchemas_path).name
-        )
-        
+        self.sharedDatabaseSchemas_data = sharedDatabaseSchemas_data
+
         self.efficiency = efficiency
         self.loss = loss
 
