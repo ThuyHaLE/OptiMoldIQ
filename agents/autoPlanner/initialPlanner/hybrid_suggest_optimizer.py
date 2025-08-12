@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 from typing import Tuple, Dict, Any, List
 from dataclasses import dataclass
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import load_annotation_path, read_change_log, get_latest_change_row
 from loguru import logger
 from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
@@ -225,6 +225,14 @@ class HybridSuggestOptimizer:
             invalid_molds, mold_estimated_capacity_df = self._estimate_mold_capacities(
                 self.mold_stability_index
             )
+            try:
+                cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
+                logger.info('Validation for mold_estimated_capacity...')
+                validate_dataframe(mold_estimated_capacity_df, cols)
+            except Exception as e:
+                logger.error("Validation failed for mold_estimated_capacity (expected cols: %s): %s", cols, e)
+                raise
+
             self.logger.info("Mold capacity estimation completed. Found {} invalid molds.", 
                            len(invalid_molds))
 
