@@ -1,12 +1,9 @@
 import pandas as pd
 import numpy as np
 import warnings
-from typing import List
+from typing import List, Dict
 from loguru import logger
 from agents.decorators import validate_init_dataframes
-
-from pathlib import Path
-from agents.utils import load_annotation_path
 
 # Decorator to validate DataFrames are initialized with the correct schema
 # This ensures that required DataFrames have all necessary columns before processing
@@ -52,8 +49,8 @@ class ItemMoldCapacityOptimizer:
                  moldInfo_df: pd.DataFrame,
                  efficiency: float,
                  loss: float,
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json'
+                 databaseSchemas_data: Dict,
+                 sharedDatabaseSchemas_data: Dict
                  ):
         
         """
@@ -64,16 +61,10 @@ class ItemMoldCapacityOptimizer:
         self.logger = logger.bind(class_="ItemMoldCapacityOptimizer")
 
         # Load database schema configuration for column validation
-        self.databaseSchemas_data = load_annotation_path(
-            Path(databaseSchemas_path).parent,
-            Path(databaseSchemas_path).name
-        )
+        self.databaseSchemas_data = databaseSchemas_data
 
         # Load shared database schema configuration for column validation
-        self.sharedDatabaseSchemas_data = load_annotation_path(
-            Path(sharedDatabaseSchemas_path).parent,
-            Path(sharedDatabaseSchemas_path).name
-        )
+        self.sharedDatabaseSchemas_data = sharedDatabaseSchemas_data
 
         self.mold_stability_index = mold_stability_index
         self.moldSpecificationSummary_df = moldSpecificationSummary_df

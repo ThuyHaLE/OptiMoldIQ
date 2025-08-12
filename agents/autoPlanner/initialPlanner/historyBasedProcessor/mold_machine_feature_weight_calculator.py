@@ -10,7 +10,7 @@ from pathlib import Path
 from loguru import logger
 
 from agents.autoPlanner.report_text_formatter import generate_confidence_report
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import save_text_report_with_versioning, load_annotation_path, read_change_log, log_dict_as_table
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
@@ -25,6 +25,7 @@ from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_
 
 @validate_init_dataframes(lambda self: {
     "proStatus_df": list(self.sharedDatabaseSchemas_data["pro_status"]['dtypes'].keys()),
+    "machine_info_df": list(self.sharedDatabaseSchemas_data["machine_info"]['dtypes'].keys()),
 })
 
 class MoldMachineFeatureWeightCalculator:
@@ -87,7 +88,7 @@ class MoldMachineFeatureWeightCalculator:
         self.min_sample_size = min_sample_size
         self.feature_weights = feature_weights
         self.targets = targets
-
+        
         # Load database schema configuration for column validation
         self.databaseSchemas_data = load_annotation_path(
             Path(databaseSchemas_path).parent,
@@ -134,13 +135,30 @@ class MoldMachineFeatureWeightCalculator:
             raise FileNotFoundError(f"Cannot find file {mold_stability_index_folder}/{mold_stability_index_target_name}")
             
         mold_stability_index = pd.read_excel(mold_stability_index_path)
+        try:
+            cols = list(self.sharedDatabaseSchemas_data["mold_stability_index"]['dtypes'].keys())
+            logger.info('Validation for mold_stability_index...')
+            validate_dataframe(mold_stability_index, cols)
+        except Exception as e:
+            logger.error("Validation failed for mold_stability_index (expected cols: %s): %s", cols, e)
+            raise
 
         # Suggest the priority for the item-mold pair based on historical records
-        _, capacity_mold_info_df = ItemMoldCapacityOptimizer().process_mold_info(mold_stability_index,
-                                                                                  self.moldSpecificationSummary_df,
-                                                                                  self.moldInfo_df,
-                                                                                  self.efficiency,
-                                                                                  self.loss)
+        _, mold_estimated_capacity_df = ItemMoldCapacityOptimizer(mold_stability_index,
+                                                             self.moldSpecificationSummary_df,
+                                                             self.moldInfo_df,
+                                                             self.efficiency,
+                                                             self.loss,
+                                                             self.databaseSchemas_data,
+                                                             self.sharedDatabaseSchemas_data
+                                                             ).process()
+        try:
+            cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
+            logger.info('Validation for mold_estimated_capacity...')
+            validate_dataframe(mold_estimated_capacity_df, cols)
+        except Exception as e:
+            logger.error("Validation failed for mold_estimated_capacity (expected cols: %s): %s", cols, e)
+            raise
 
         # Rename columns for compatibility
         self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
@@ -158,12 +176,25 @@ class MoldMachineFeatureWeightCalculator:
                                                                                  self.loss)
 
         good_sample, _ = summarize_mold_machine_history(good_hist,
-                                                        capacity_mold_info_df)
-        logger.debug('Historical information for good sample: {}-{}', good_sample.shape, good_sample.columns)
+                                                        mold_estimated_capacity_df)
+        try:
+            cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
+            logger.debug('Validation for mold_machine_history_summary (good sample)...')
+            validate_dataframe(good_sample, cols)
+        except Exception as e:
+            logger.error("Validation failed for mold_machine_history_summary (expected cols: %s): %s", cols, e)
+            raise
+
 
         bad_sample, _ = summarize_mold_machine_history(bad_hist,
-                                                       capacity_mold_info_df)
-        logger.debug('Historical information for bad sample: {}-{}', bad_sample.shape, bad_sample.columns)
+                                                       mold_estimated_capacity_df)
+        try:
+            cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
+            logger.debug('Validation for mold_machine_history_summary (bad sample)...')
+            validate_dataframe(bad_sample, cols)
+        except Exception as e:
+            logger.error("Validation failed for mold_machine_history_summary (expected cols: %s): %s", cols, e)
+            raise
 
         # Calculate confidence scores
         confidence_scores = MoldMachineFeatureWeightCalculator._calculate_confidence_scores(good_sample,
