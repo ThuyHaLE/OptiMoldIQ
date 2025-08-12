@@ -1,0 +1,113 @@
+{
+    "pro_status": {
+        "dtypes": {
+            "poReceivedDate": "string",
+            "poNo": "string",
+            "itemCode": "string",
+            "itemName": "string",
+            "poETA": "string",
+            "itemQuantity": "Int64",
+            "itemRemain": "Int64",
+            "startedDate": "string",
+            "actualFinishedDate": "string",
+            "proStatus": "string",
+            "etaStatus": "string",
+            "machineHist": "string",
+            "itemType": "string",
+            "moldList": "string",
+            "moldHist": "string",
+            "moldCavity": "string",
+            "totalMoldShot": "float64",
+            "totalDay": "float64",
+            "totalShift": "float64",
+            "plasticResinCode": "string",
+            "colorMasterbatchCode": "string",
+            "additiveMasterbatchCode": "string",
+            "moldShotMap": "string",
+            "machineQuantityMap": "string",
+            "dayQuantityMap": "string",
+            "shiftQuantityMap": "string",
+            "materialComponentMap": "string",
+            "lastestRecordTime": "datetime64[ns]",
+            "lastestMachineNo": "string",
+            "lastestMoldNo": "string",
+            "warningNotes": "string"
+            }
+        },
+
+    "historical_records": {
+        "dtypes": {
+            "recordDate": "datetime64[ns]",
+            "workingShift": "string",
+            "machineNo": "string",
+            "machineCode": "string",
+            "itemCode": "string",
+            "itemName": "string",
+            "poNo": "string",
+            "moldNo": "string",
+            "moldShot": "Int64",
+            "moldCavity": "Int64",
+            "itemTotalQuantity": "Int64",
+            "itemGoodQuantity": "Int64"
+            }
+        },
+
+    "mold_machine_history_summary": {
+        "dtypes": {
+            "moldNo": "string",
+            "machineCode": "string",
+            "shiftNGRate": "float64",
+            "shiftCavityRate": "float64",
+            "shiftCycleTimeRate": "float64",
+            "shiftCapacityRate": "float64"
+            }
+        },
+
+    "mold_stability_index": {
+        "dtypes": {
+            "moldNo": "string",
+            "moldName": "string",
+            "acquisitionDate": "datetime64[ns]",
+            "machineTonnage": "string",
+            "moldCavityStandard": "Int64",
+            "moldSettingCycle": "Int64",
+            "cavityStabilityIndex": "float64",
+            "cycleStabilityIndex": "float64",
+            "theoreticalMoldHourCapacity": "float64",
+            "effectiveMoldHourCapacity": "float64",
+            "estimatedMoldHourCapacity": "float64",
+            "balancedMoldHourCapacity": "float64",
+            "totalRecords": "Int64",
+            "totalCavityMeasurements": "Int64",
+            "totalCycleMeasurements": "Int64",
+            "firstRecordDate": "datetime64[ns]",
+            "lastRecordDate": "datetime64[ns]"
+            }
+        },
+
+    "mold_estimated_capacity": {
+        "dtypes": {"itemCode": "string",
+        "itemName": "string",
+        "itemType": "string",
+        "moldNum": "Int64",
+        "moldNo": "string",
+        "moldName": "string",
+        "acquisitionDate": "datetime64[ns]",
+        "moldCavityStandard": "Int64",
+        "moldSettingCycle": "Int64",
+        "machineTonnage": "string",
+        "theoreticalMoldHourCapacity": "float64",
+        "balancedMoldHourCapacity": "float64",
+        "isPriority": "boolean"
+        }
+    },
+
+    "machine_info": {
+        "dtypes": {
+            "machineNo": "string",
+            "machineCode": "string",
+            "machineName": "string",
+            "manufacturerName": "string",
+            "machineTonnage": "Int64"}
+        }
+}
