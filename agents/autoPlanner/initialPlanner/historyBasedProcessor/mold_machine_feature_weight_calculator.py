@@ -23,15 +23,9 @@ from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_
     "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
 })
 
-@validate_init_dataframes({"proStatus_df": ['poReceivedDate', 'poNo', 'itemCode', 'itemName', 'poETA',
-                                            'itemQuantity', 'itemRemain', 'startedDate', 'actualFinishedDate',
-                                            'proStatus', 'etaStatus', 'machineHist', 'itemType', 'moldList',
-                                            'moldHist', 'moldCavity', 'totalMoldShot', 'totalDay', 'totalShift',
-                                            'plasticResinCode', 'colorMasterbatchCode', 'additiveMasterbatchCode',
-                                            'moldShotMap', 'machineQuantityMap', 'dayQuantityMap',
-                                            'shiftQuantityMap', 'materialComponentMap', 'lastestRecordTime',
-                                            'machineNo', 'moldNo', 'warningNotes'
-                                            ]})
+@validate_init_dataframes(lambda self: {
+    "proStatus_df": list(self.sharedDatabaseSchemas_data["pro_status"]['dtypes'].keys()),
+})
 
 class MoldMachineFeatureWeightCalculator:
 
@@ -45,6 +39,7 @@ class MoldMachineFeatureWeightCalculator:
         source_path (str): Path to the annotation data.
         annotation_name (str): File name of the path annotation.
         databaseSchemas_path (str): Path to database schema for validation.
+        sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
         folder_path (str): Path to folder containing the production status log.
         target_name (str): Filename of the production status log.
         default_dir (str): Base directory for storing reports.
@@ -63,6 +58,7 @@ class MoldMachineFeatureWeightCalculator:
                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                 annotation_name: str = "path_annotations.json",
                 databaseSchemas_path: str = 'database/databaseSchemas.json',
+                sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                 folder_path: str = 'agents/shared_db/OrderProgressTracker',
                 target_name: str = "change_log.txt",
                 default_dir: str = "agents/shared_db",
@@ -97,6 +93,13 @@ class MoldMachineFeatureWeightCalculator:
             Path(databaseSchemas_path).parent,
             Path(databaseSchemas_path).name
         )
+
+        # Load shared database schema configuration for column validation
+        self.sharedDatabaseSchemas_data = load_annotation_path(
+            Path(sharedDatabaseSchemas_path).parent,
+            Path(sharedDatabaseSchemas_path).name
+        )
+
         # Load path annotations that map logical names to actual file paths
         self.path_annotation = load_annotation_path(source_path, annotation_name)
 
@@ -108,11 +111,6 @@ class MoldMachineFeatureWeightCalculator:
         # Load production report
         proStatus_path = read_change_log(folder_path, target_name)
         self.proStatus_df = pd.read_excel(proStatus_path)
-
-        # Rename columns for consistency
-        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
-                                          'lastestMoldNo': 'moldNo'
-                                          }, inplace=True)
 
         # Load all required DataFrames from parquet files
         self._load_dataframes()
@@ -147,6 +145,11 @@ class MoldMachineFeatureWeightCalculator:
         # Rename columns for compatibility
         self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
 
+        # Rename columns for consistency
+        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
+                                          'lastestMoldNo': 'moldNo'
+                                          }, inplace=True)
+        
         # Separate good and bad production records based on efficiency/loss
         good_hist, bad_hist = MoldMachineFeatureWeightCalculator._group_hist_by_performance(self.proStatus_df,
                                                                                  self.productRecords_df,

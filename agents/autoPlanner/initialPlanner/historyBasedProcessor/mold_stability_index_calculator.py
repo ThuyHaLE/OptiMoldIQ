@@ -13,17 +13,6 @@ from agents.utils import load_annotation_path, save_output_with_versioning, read
     "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
 })
 
-# Additional validation decorator for production status DataFrame with explicit column list
-@validate_init_dataframes({"proStatus_df": [
-    'poReceivedDate', 'poNo', 'itemCode', 'itemName', 'poETA',
-    'itemQuantity', 'itemRemain', 'startedDate', 'actualFinishedDate',
-    'proStatus', 'etaStatus', 'machineHist', 'itemType', 'moldList',
-    'moldHist', 'moldCavity', 'totalMoldShot', 'totalDay', 'totalShift',
-    'plasticResinCode', 'colorMasterbatchCode', 'additiveMasterbatchCode',
-    'moldShotMap', 'machineQuantityMap', 'dayQuantityMap',
-    'shiftQuantityMap', 'materialComponentMap', 'lastestRecordTime',
-    'machineNo', 'moldNo', 'warningNotes']})
-
 class MoldStabilityIndexCalculator: 
 
     """
@@ -54,8 +43,6 @@ class MoldStabilityIndexCalculator:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 folder_path: str = 'agents/shared_db/OrderProgressTracker',
-                 target_name: str = "change_log.txt",
                  default_dir: str = "agents/shared_db",
                  efficiency: float = 0.85,
                  loss: float = 0.03,
@@ -68,8 +55,6 @@ class MoldStabilityIndexCalculator:
             source_path (str): Path to the data source directory containing parquet files
             annotation_name (str): Name of the JSON file containing path annotations
             databaseSchemas_path (str): Path to database schema configuration file
-            folder_path (str): Path to folder containing change log for production status
-            target_name (str): Name of the change log file to read production status from
             weights_hist_path (str): Path to Excel file containing feature weights history
             default_dir (str): Default directory for output files
         """
@@ -95,17 +80,6 @@ class MoldStabilityIndexCalculator:
         self.default_dir = Path(default_dir)  # Base directory for outputs
         self.output_dir = self.default_dir / "MoldStabilityIndexCalculator"  # Specific output directory
         self.prefix = "mold_stability_index"
-
-        # Load production status report from the latest change log entry
-        # This contains current production orders and their status
-        proStatus_path = read_change_log(folder_path, target_name)
-        self.proStatus_df = pd.read_excel(proStatus_path)
-
-        # Rename columns for consistency across the system
-        # Standardize column names to match expected schema
-        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
-                                          'lastestMoldNo': 'moldNo'
-                                          }, inplace=True)
 
         # Load all required DataFrames from parquet files
         self._load_dataframes()

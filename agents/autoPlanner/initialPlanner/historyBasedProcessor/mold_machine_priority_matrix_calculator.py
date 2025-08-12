@@ -2,7 +2,7 @@ import pandas as pd
 import os
 from pathlib import Path
 from loguru import logger
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes, validate_dataframe
 
 from agents.utils import (load_annotation_path, save_output_with_versioning,
                           read_change_log, rank_nonzero)
@@ -16,16 +16,10 @@ from agents.core_helpers import check_newest_machine_layout, summarize_mold_mach
     "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
 })
 
-# Additional validation decorator for production status DataFrame with explicit column list
-@validate_init_dataframes({"proStatus_df": [
-    'poReceivedDate', 'poNo', 'itemCode', 'itemName', 'poETA',
-    'itemQuantity', 'itemRemain', 'startedDate', 'actualFinishedDate',
-    'proStatus', 'etaStatus', 'machineHist', 'itemType', 'moldList',
-    'moldHist', 'moldCavity', 'totalMoldShot', 'totalDay', 'totalShift',
-    'plasticResinCode', 'colorMasterbatchCode', 'additiveMasterbatchCode',
-    'moldShotMap', 'machineQuantityMap', 'dayQuantityMap',
-    'shiftQuantityMap', 'materialComponentMap', 'lastestRecordTime',
-    'machineNo', 'moldNo', 'warningNotes']})
+@validate_init_dataframes(lambda self: {
+    "proStatus_df": list(self.sharedDatabaseSchemas_data["pro_status"]['dtypes'].keys()),
+    "mold_estimated_capacity_df": list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys()),
+})
 
 class MoldMachinePriorityMatrixCalculator:
 
@@ -49,23 +43,29 @@ class MoldMachinePriorityMatrixCalculator:
     FEATURE_WEIGHTS_REQUIRED_COLUMNS = ['shiftNGRate', 'shiftCavityRate', 'shiftCycleTimeRate', 'shiftCapacityRate']
 
     def __init__(self,
+                 mold_machine_feature_weights,
+                 mold_estimated_capacity_df,
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                  folder_path: str = 'agents/shared_db/OrderProgressTracker',
                  target_name: str = "change_log.txt",
                  default_dir: str = "agents/shared_db",
                  efficiency: float = 0.85,
-                 loss: float = 0.03,
+                 loss: float = 0.03
                  ):
 
         """
         Initialize the MoldMachinePriorityMatrixCalculator with configuration paths and parameters.
 
-        Args:
+        Args:   
+            mold_machine_feature_weights(pd.Series): Weights for different performance metrics
+            mold_estimated_capacity_df (pd.DataFrame): Estimated capacity data for each mold
             source_path (str): Path to the data source directory containing parquet files
             annotation_name (str): Name of the JSON file containing path annotations
             databaseSchemas_path (str): Path to database schema configuration file
+            sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
             folder_path (str): Path to folder containing change log for production status
             target_name (str): Name of the change log file to read production status from
             weights_hist_path (str): Path to Excel file containing feature weights history
@@ -75,6 +75,9 @@ class MoldMachinePriorityMatrixCalculator:
         # Initialize logger with class context for better debugging
         self.logger = logger.bind(class_="MoldMachinePriorityMatrixCalculator")
 
+        self.mold_machine_feature_weights = mold_machine_feature_weights
+        self.mold_estimated_capacity_df = mold_estimated_capacity_df
+
         # Load database schema configuration for column validation
         # This ensures all DataFrames have the expected structure
         self.databaseSchemas_data = load_annotation_path(
@@ -82,6 +85,12 @@ class MoldMachinePriorityMatrixCalculator:
             Path(databaseSchemas_path).name
         )
 
+        # Load shared database schema configuration for column validation
+        self.sharedDatabaseSchemas_data = load_annotation_path(
+            Path(sharedDatabaseSchemas_path).parent,
+            Path(sharedDatabaseSchemas_path).name
+        )
+        
         self.efficiency = efficiency
         self.loss = loss
 
@@ -98,12 +107,6 @@ class MoldMachinePriorityMatrixCalculator:
         # This contains current production orders and their status
         proStatus_path = read_change_log(folder_path, target_name)
         self.proStatus_df = pd.read_excel(proStatus_path)
-
-        # Rename columns for consistency across the system
-        # Standardize column names to match expected schema
-        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
-                                          'lastestMoldNo': 'moldNo'
-                                          }, inplace=True)
 
         # Load all required DataFrames from parquet files
         self._load_dataframes()
@@ -163,9 +166,7 @@ class MoldMachinePriorityMatrixCalculator:
 
     # Calculate the priority matrix for mold-machine assignments based on historical data
     # and will be used to suggest a list of machines (in priority order) for each mold in the subsequent planning steps
-    def process(self,
-                mold_machine_feature_weights,
-                capacity_mold_info_df):
+    def process(self):
 
         """
         Calculate the priority matrix for mold-machine assignments based on historical data.
@@ -186,29 +187,47 @@ class MoldMachinePriorityMatrixCalculator:
         """
 
         # Valid inputs
-        if not self._check_series_columns(mold_machine_feature_weights) and self._check_mold_dataframe_columns(capacity_mold_info_df):
+        if not self._check_series_columns(self.mold_machine_feature_weights) and self._check_mold_dataframe_columns(self.mold_estimated_capacity_df):
             self.logger.error(f"Error: Invalid input!!!")
 
+        # Rename columns for consistency across the system
+        # Standardize column names to match expected schema
+        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
+                                          'lastestMoldNo': 'moldNo'
+                                          }, inplace=True)
+        
         # Prepare historical data for analysis
         historical_data = self._prepare_mold_machine_historical_data(self.machineInfo_df, 
                                                                      self.proStatus_df, 
                                                                      self.productRecords_df)
+        try:
+            cols = list(self.sharedDatabaseSchemas_data["historical_records"]['dtypes'].keys())
+            logger.info('Validation for historical_data...')
+            validate_dataframe(historical_data, cols)
+        except Exception as e:
+            logger.error("Validation failed for historical_data (expected cols: %s): %s", cols, e)
+            raise
 
         # Calculate performance metrics
-        performance_results = MoldMachinePriorityMatrixCalculator._calculate_mold_machine_performance_metrics(capacity_mold_info_df, 
-                                                                                           historical_data)
+        mold_machine_history_summary, _ = summarize_mold_machine_history(historical_data, self.mold_estimated_capacity_df)
+        try:
+            cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
+            logger.info('Validation for mold_machine_history_summary...')
+            validate_dataframe(mold_machine_history_summary, cols)
+        except Exception as e:
+            logger.error("Validation failed for mold_machine_history_summary (expected cols: %s): %s", cols, e)
+            raise
 
         # Apply weighted scoring and create priority matrix
-        priority_matrix = MoldMachinePriorityMatrixCalculator._create_mold_machine_priority_matrix(performance_results, 
-                                                                                mold_machine_feature_weights)
+        priority_matrix = MoldMachinePriorityMatrixCalculator._create_mold_machine_priority_matrix(
+            mold_machine_history_summary, 
+            self.mold_machine_feature_weights)
 
         return priority_matrix
 
     # Calculate the priority matrix for mold-machine assignments based on historical data
     # optionally save the result as a report
-    def process_and_save_result(self,
-                                 mold_machine_feature_weights,
-                                 capacity_mold_info_df):
+    def process_and_save_result(self):
 
         """
         Calculate the priority matrix and save it to an Excel file with versioning.
@@ -223,8 +242,7 @@ class MoldMachinePriorityMatrixCalculator:
         """
 
         # Calculate the priority matrix using the main calculation method
-        priority_matrix = self.process(mold_machine_feature_weights,
-                                       capacity_mold_info_df)
+        priority_matrix = self.process()
 
         # Prepare data for export by resetting index to include moldNo as a regular column
         # This makes the Excel output more readable and easier to work with
@@ -296,27 +314,17 @@ class MoldMachinePriorityMatrixCalculator:
         filtered_df = df[df['poNo'].isin(hist['poNo']) & (df['itemTotalQuantity'] > 0)]
 
         return filtered_df
-    
-    @staticmethod
-    def _calculate_mold_machine_performance_metrics(capacity_mold_info_df,
-                                                    historical_data):
-
-        """Calculate performance metrics for mold-machine combinations."""
-
-        performance_results, _ = summarize_mold_machine_history(historical_data, capacity_mold_info_df)
-
-        return performance_results
 
     @staticmethod
-    def _create_mold_machine_priority_matrix(results, weights):
+    def _create_mold_machine_priority_matrix(mold_machine_history_summary, weights):
 
         """Apply weights and create the final priority matrix."""
 
         # Apply weighted scoring
-        results["total_score"] = (results[list(weights.index)] * weights.values).sum(axis=1)
+        mold_machine_history_summary["total_score"] = (mold_machine_history_summary[list(weights.index)] * weights.values).sum(axis=1)
 
         # Create pivot table
-        weighted_results = results[['moldNo', 'machineCode', 'total_score']].pivot(
+        weighted_results = mold_machine_history_summary[['moldNo', 'machineCode', 'total_score']].pivot(
             index="moldNo", columns="machineCode", values="total_score").fillna(0)
 
         # Convert to priority rankings

@@ -52,6 +52,11 @@ class MoldCapacityColumns:
     "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
     "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
 })
+
+@validate_init_dataframes(lambda self: {
+    "mold_stability_index": list(self.sharedDatabaseSchemas_data["mold_stability_index"]['dtypes'].keys()),
+})
+
 class HybridSuggestOptimizer:
     """
     A hybrid optimization system that combines historical data analysis with mold-machine
@@ -69,6 +74,7 @@ class HybridSuggestOptimizer:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                  default_dir: str = "agents/shared_db",
                  folder_path = "agents/OrderProgressTracker",
                  target_name = "change_log.txt",
@@ -85,6 +91,7 @@ class HybridSuggestOptimizer:
             source_path (str): Base path for data source files
             annotation_name (str): JSON file containing path mappings
             databaseSchemas_path (str): Path to database schema definitions
+            sharedDatabaseSchemas_path (str): Path to shared database schema for validation
             default_dir (str): Default directory for shared database files
             folder_path (str): Path for order progress tracking files
             target_name (str): Name of the change log file
@@ -101,6 +108,7 @@ class HybridSuggestOptimizer:
         self.source_path = source_path
         self.annotation_name = annotation_name
         self.databaseSchemas_path = databaseSchemas_path
+        self.sharedDatabaseSchemas_path = sharedDatabaseSchemas_path
         self.default_dir = default_dir
         self.folder_path = folder_path
         self.target_name = target_name
@@ -115,7 +123,14 @@ class HybridSuggestOptimizer:
         # Initialize core components
         self._setup_schemas()
         self._load_dataframes()
-        self._initialize_mold_machine_priority_matrix_calculator()
+
+        # Load mold stability index containing performance consistency metrics
+        self.logger.info("Loading mold stability index...")
+        self.mold_stability_index = self._load_mold_stability_index()
+
+        # Load feature weights for priority matrix calculation
+        self.logger.info("Loading feature weights...")
+        self.mold_machine_feature_weights = self._load_feature_weights()
 
     def _setup_schemas(self) -> None:
         """Load database schema configuration for column validation."""
@@ -125,6 +140,13 @@ class HybridSuggestOptimizer:
                 Path(self.databaseSchemas_path).name
             )
             self.logger.debug("Database schemas loaded successfully")
+
+            self.sharedDatabaseSchemas_data = load_annotation_path(
+                Path(self.sharedDatabaseSchemas_path).parent,
+                Path(self.sharedDatabaseSchemas_path).name
+            )
+            self.logger.debug("Shared database schemas loaded successfully")
+
         except Exception as e:
             self.logger.error("Failed to load database schemas: {}", str(e))
             raise
@@ -174,19 +196,6 @@ class HybridSuggestOptimizer:
             self.logger.error("Failed to load {}: {}", path_key, str(e))
             raise
 
-    def _initialize_mold_machine_priority_matrix_calculator(self) -> None:
-        """Initialize MoldMachinePriorityMatrixCalculator for analyzing historical production data."""
-        try:
-            self.mold_machine_priority_matrix_calculator = MoldMachinePriorityMatrixCalculator(
-                self.source_path, self.annotation_name, self.databaseSchemas_path,
-                self.folder_path, self.target_name, self.default_dir, 
-                self.efficiency, self.loss
-            )
-            self.logger.debug("MoldMachinePriorityMatrixCalculator initialized successfully")
-        except Exception as e:
-            self.logger.error("Failed to initialize MoldMachinePriorityMatrixCalculator: {}", str(e))
-            raise
-
     # ------------------------------------------------------ #
     # HYBRID SUGGEST OPTIMIZER:                              #
     # - ESTIMATE MOLD CAPACITY USING HISTORICAL DATA USING : #
@@ -211,26 +220,18 @@ class HybridSuggestOptimizer:
                               and priority_matrix
         """
         try:
-            # Step 1: Load mold stability index containing performance consistency metrics
-            self.logger.info("Loading mold stability index...")
-            mold_stability_index = self._load_mold_stability_index()
-
-            # Step 2: Estimate mold capacities using historical-based optimization
+            # Estimate mold capacities using historical-based optimization
             self.logger.info("Starting mold capacity estimation...")
             invalid_molds, mold_estimated_capacity_df = self._estimate_mold_capacities(
-                mold_stability_index
+                self.mold_stability_index
             )
             self.logger.info("Mold capacity estimation completed. Found {} invalid molds.", 
                            len(invalid_molds))
 
-            # Step 3: Load feature weights for priority matrix calculation
-            self.logger.info("Loading feature weights...")
-            mold_machine_feature_weights = self._load_feature_weights()
-
-            # Step 4: Calculate mold-machine priority matrix using historical performance data
+            # Calculate mold-machine priority matrix using historical performance data
             self.logger.info("Starting mold-machine priority matrix calculation...")
             mold_machine_priority_matrix = self._calculate_priority_matrix(
-                mold_machine_feature_weights, 
+                self.mold_machine_feature_weights, 
                 mold_estimated_capacity_df
             )
             self.logger.info("Priority matrix calculation completed.")
@@ -248,22 +249,35 @@ class HybridSuggestOptimizer:
 
     def _estimate_mold_capacities(self, mold_stability_index: pd.DataFrame) -> Tuple[List[str], pd.DataFrame]:
         """Estimate mold capacities using historical-based optimization."""
-        return ItemMoldCapacityOptimizer().process_mold_info(
-            mold_stability_index,             # Stability metrics for each mold
-            self.moldSpecificationSummary_df, # Mold-item compatibility mappings
-            self.moldInfo_df,                 # Detailed mold specifications
-            self.efficiency,                  # Expected production efficiency
-            self.loss                         # Expected production loss rate
-        )
+        return ItemMoldCapacityOptimizer(
+                 mold_stability_index,
+                 self.moldSpecificationSummary_df,
+                 self.moldInfo_df,
+                 self.efficiency,
+                 self.loss,
+                 self.databaseSchemas_path,
+                 self.sharedDatabaseSchemas_path
+                 ).process()
 
     def _calculate_priority_matrix(self, 
-                                 feature_weights: pd.Series, 
-                                 capacity_df: pd.DataFrame) -> pd.DataFrame:
+                                   feature_weights: pd.Series, 
+                                   capacity_df: pd.DataFrame) -> pd.DataFrame:
+        
+        """Initialize MoldMachinePriorityMatrixCalculator for analyzing historical production data."""
+        try:
+            mold_machine_priority_matrix_calculator = MoldMachinePriorityMatrixCalculator(
+                feature_weights,  # Weights for different performance metrics
+                capacity_df,       # Estimated capacity data for each mold
+                self.source_path, self.annotation_name, self.databaseSchemas_path, self.sharedDatabaseSchemas_path, 
+                self.folder_path, self.target_name, self.default_dir, self.efficiency, self.loss
+            )
+            self.logger.debug("MoldMachinePriorityMatrixCalculator initialized successfully")
+        except Exception as e:
+            self.logger.error("Failed to initialize MoldMachinePriorityMatrixCalculator: {}", str(e))
+            raise
+
         """Calculate mold-machine priority matrix using historical performance data."""
-        return self.mold_machine_priority_matrix_calculator.process(
-            feature_weights,  # Weights for different performance metrics
-            capacity_df       # Estimated capacity data for each mold
-        )
+        return mold_machine_priority_matrix_calculator.process()
     
     # ------------------------- #
     # LOAD MOLD STABILITY INDEX #

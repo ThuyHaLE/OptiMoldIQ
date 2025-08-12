@@ -3,21 +3,155 @@ import numpy as np
 import warnings
 from typing import List
 from loguru import logger
+from agents.decorators import validate_init_dataframes
+
+from pathlib import Path
+from agents.utils import load_annotation_path
+
+# Decorator to validate DataFrames are initialized with the correct schema
+# This ensures that required DataFrames have all necessary columns before processing
+@validate_init_dataframes(lambda self: {
+    "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
+    "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
+})
+
+@validate_init_dataframes(lambda self: {
+    "mold_stability_index": list(self.sharedDatabaseSchemas_data["mold_stability_index"]['dtypes'].keys()),
+})
 
 class ItemMoldCapacityOptimizer:
 
     """
-    A class for optimizing mold production capacity based on historical data.
+    Optimize mold production capacity using historical stability data.
 
-    This optimizer calculates theoretical and estimated production capacities,
-    identifies unused molds, and assigns priority molds for each item code.
+    Workflow:
+    1. Identify molds that have been used before (from the Mold Stability Index).
+    2. Determine molds that have never been used by comparing against the full mold list.
+    3. For unused molds:
+        - Calculate theoretical capacity based on mold and machine specifications.
+        - Estimate realistic capacity considering operational constraints.
+    4. Merge used and unused mold data into one table.
+    5. For each item code, assign priority to molds with the highest estimated capacity.
+
+    This process helps select the most efficient mold for production,
+    balancing proven historical performance with potential unused mold capacity.
+
+    Parameters:
+        mold_stability_index: Historical mold stability index
+        moldSpecificationSummary_df: Summary table mapping product codes to mold lists
+        moldInfo_df: Detailed table with mold technical information
+        efficiency: Production efficiency factor (0.0 to 1.0)
+        loss: Production loss factor (0.0 to 1.0)
+        databaseSchemas_path (str): Path to database schema for validation.
+        sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
     """
 
-    def __init__(self):
+    def __init__(self,
+                 mold_stability_index: pd.DataFrame,
+                 moldSpecificationSummary_df: pd.DataFrame,
+                 moldInfo_df: pd.DataFrame,
+                 efficiency: float,
+                 loss: float,
+                 databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json'
+                 ):
+        
+        """
+        Process and combine mold information from specification and detail datasets.
+
+        """
+        
         self.logger = logger.bind(class_="ItemMoldCapacityOptimizer")
 
+        # Load database schema configuration for column validation
+        self.databaseSchemas_data = load_annotation_path(
+            Path(databaseSchemas_path).parent,
+            Path(databaseSchemas_path).name
+        )
+
+        # Load shared database schema configuration for column validation
+        self.sharedDatabaseSchemas_data = load_annotation_path(
+            Path(sharedDatabaseSchemas_path).parent,
+            Path(sharedDatabaseSchemas_path).name
+        )
+
+        self.mold_stability_index = mold_stability_index
+        self.moldSpecificationSummary_df = moldSpecificationSummary_df
+        self.moldInfo_df = moldInfo_df
+        self.efficiency = efficiency
+        self.loss = loss
+
+    def process(self) -> pd.DataFrame:
+
+        """
+        Process and combine mold information from specification and detail datasets.
+        """
+
+        if self.moldSpecificationSummary_df.empty or self.moldInfo_df.empty:
+            self.logger.error("Invalid dataframe with moldSpecificationSummary or moldInfo !!!")
+            raise
+
+        # Identify invalid molds (in historical records but not in moldInfo)
+        invalid_molds = self.mold_stability_index[~self.mold_stability_index['moldNo'].isin(self.moldInfo_df['moldNo'])]['moldNo'].to_list()
+        self.logger.info("Found {} mold(s) not in moldInfo (need double-check or update information): {}",
+                         len(invalid_molds), invalid_molds)
+
+        # Identify unused molds (in moldInfo but not in historical records)
+        unused_molds = self.moldInfo_df[~self.moldInfo_df['moldNo'].isin(self.mold_stability_index['moldNo'])]['moldNo'].tolist()
+        self.logger.info("Found {} mold(s) not in historical data (never used): {}",
+                         len(unused_molds), unused_molds)
+
+        # Merge used and unused molds with capacity calculations
+        self.logger.info("Start process with efficiency: {} - loss: {}", self.efficiency, self.loss)
+        updated_capacity_moldInfo_df = ItemMoldCapacityOptimizer.merge_with_unused_molds(
+            self.moldInfo_df, unused_molds, self.mold_stability_index, self.efficiency, self.loss
+        )
+
+        # Process moldList column safely
+        moldSpec_df = self.moldSpecificationSummary_df.copy()
+
+        # Handle missing or null moldList values
+        moldSpec_df['moldList'] = moldSpec_df['moldList'].fillna('')
+        moldSpec_df['moldList'] = moldSpec_df['moldList'].astype(str)
+
+        # Split moldList by '/' delimiter and explode into separate rows
+        moldSpec_df['moldList'] = moldSpec_df['moldList'].str.split('/')
+        moldSpec_df_exploded = moldSpec_df.explode('moldList', ignore_index=True)
+
+        # Clean up moldList values
+        moldSpec_df_exploded['moldList'] = moldSpec_df_exploded['moldList'].str.strip()
+        moldSpec_df_exploded = moldSpec_df_exploded[moldSpec_df_exploded['moldList'] != '']
+
+        # Rename for merging
+        moldSpec_df_exploded.rename(columns={'moldList': 'moldNo'}, inplace=True)
+
+        # Define columns for merging
+        merge_cols = [
+            'moldNo', 'moldName', 'acquisitionDate', 'moldCavityStandard',
+            'moldSettingCycle', 'machineTonnage', 'theoreticalMoldHourCapacity',
+            'balancedMoldHourCapacity'
+        ]
+
+        # Filter available columns
+        available_cols = [col for col in merge_cols if col in updated_capacity_moldInfo_df.columns]
+
+        # Merge specification data with mold details
+        merged_df = moldSpec_df_exploded.merge(
+            updated_capacity_moldInfo_df[available_cols],
+            how='left',
+            on=['moldNo']
+        )
+
+        # Assign priority molds for each item code
+        result_df = ItemMoldCapacityOptimizer.assign_priority_mold(merged_df)
+
+        self.logger.info("Process finished!!!")
+
+        return invalid_molds, result_df
+
     @staticmethod
-    def compute_hourly_capacity(df: pd.DataFrame, efficiency: float, loss: float) -> pd.DataFrame:
+    def compute_hourly_capacity(df: pd.DataFrame, 
+                                efficiency: float, loss: float) -> pd.DataFrame:
 
         """
         Calculate mold production capacity per hour.
@@ -67,17 +201,17 @@ class ItemMoldCapacityOptimizer:
             # Ensure non-negative values
             df['estimatedMoldHourCapacity'] = df['estimatedMoldHourCapacity'].clip(lower=0)
 
-            # Balanced capacity (currently same as estimated)
+            # Balanced capacity (currently same as estimated) if historical mold stability index not available
             df['balancedMoldHourCapacity'] = df['estimatedMoldHourCapacity']
 
         return df
 
     @staticmethod
     def merge_with_unused_molds(moldInfo_df: pd.DataFrame,
-                               unused_molds: List[str],
-                               used_molds_df: pd.DataFrame,
-                               efficiency: float,
-                               loss: float) -> pd.DataFrame:
+                                unused_molds: List[str],
+                                used_molds_df: pd.DataFrame,
+                                efficiency: float,
+                                loss: float) -> pd.DataFrame:
 
         """
         Merge unused molds with used molds data.
@@ -184,86 +318,3 @@ class ItemMoldCapacityOptimizer:
             df.loc[idx, 'isPriority'] = True
 
         return df
-
-    def process_mold_info(self,
-                         used_molds_df: pd.DataFrame,
-                         moldSpecificationSummary_df: pd.DataFrame,
-                         moldInfo_df: pd.DataFrame,
-                         efficiency: float,
-                         loss: float) -> pd.DataFrame:
-
-        """
-        Process and combine mold information from specification and detail datasets.
-
-        Args:
-            used_molds_df: Historical mold usage data
-            moldSpecificationSummary_df: Summary table mapping product codes to mold lists
-            moldInfo_df: Detailed table with mold technical information
-            efficiency: Production efficiency factor (0.0 to 1.0)
-            loss: Production loss factor (0.0 to 1.0)
-
-        Returns:
-            Merged DataFrame with mold details and priority indicators
-        """
-
-        if moldSpecificationSummary_df.empty or moldInfo_df.empty:
-            self.logger.error("Invalid dataframe with moldSpecificationSummary or moldInfo !!!")
-            return pd.DataFrame()
-
-        # Identify invalid molds (in historical records but not in moldInfo)
-        invalid_molds = used_molds_df[~used_molds_df['moldNo'].isin(moldInfo_df['moldNo'])]['moldNo'].to_list()
-        self.logger.info("Found {} mold(s) not in moldInfo (need double-check or update information): {}",
-                         len(invalid_molds), invalid_molds)
-
-        # Identify unused molds (in moldInfo but not in historical records)
-        unused_molds = moldInfo_df[~moldInfo_df['moldNo'].isin(used_molds_df['moldNo'])]['moldNo'].tolist()
-        self.logger.info("Found {} mold(s) not in historical data (never used): {}",
-                         len(unused_molds), unused_molds)
-
-        # Merge used and unused molds with capacity calculations
-        self.logger.info("Start process with efficiency: {} - loss: {}", efficiency, loss)
-        updated_capacity_moldInfo_df = ItemMoldCapacityOptimizer.merge_with_unused_molds(
-            moldInfo_df, unused_molds, used_molds_df, efficiency, loss
-        )
-
-        # Process moldList column safely
-        moldSpec_df = moldSpecificationSummary_df.copy()
-
-        # Handle missing or null moldList values
-        moldSpec_df['moldList'] = moldSpec_df['moldList'].fillna('')
-        moldSpec_df['moldList'] = moldSpec_df['moldList'].astype(str)
-
-        # Split moldList by '/' delimiter and explode into separate rows
-        moldSpec_df['moldList'] = moldSpec_df['moldList'].str.split('/')
-        moldSpec_df_exploded = moldSpec_df.explode('moldList', ignore_index=True)
-
-        # Clean up moldList values
-        moldSpec_df_exploded['moldList'] = moldSpec_df_exploded['moldList'].str.strip()
-        moldSpec_df_exploded = moldSpec_df_exploded[moldSpec_df_exploded['moldList'] != '']
-
-        # Rename for merging
-        moldSpec_df_exploded.rename(columns={'moldList': 'moldNo'}, inplace=True)
-
-        # Define columns for merging
-        merge_cols = [
-            'moldNo', 'moldName', 'acquisitionDate', 'moldCavityStandard',
-            'moldSettingCycle', 'machineTonnage', 'theoreticalMoldHourCapacity',
-            'balancedMoldHourCapacity'
-        ]
-
-        # Filter available columns
-        available_cols = [col for col in merge_cols if col in updated_capacity_moldInfo_df.columns]
-
-        # Merge specification data with mold details
-        merged_df = moldSpec_df_exploded.merge(
-            updated_capacity_moldInfo_df[available_cols],
-            how='left',
-            on=['moldNo']
-        )
-
-        # Assign priority molds for each item code
-        result_df = ItemMoldCapacityOptimizer.assign_priority_mold(merged_df)
-
-        self.logger.info("Process finished!!!")
-
-        return invalid_molds, result_df
