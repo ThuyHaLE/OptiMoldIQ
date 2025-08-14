@@ -3,7 +3,7 @@ import numpy as np
 import os
 from typing import Tuple
 
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes, validate_dataframe
 from pathlib import Path
 from loguru import logger
 from agents.utils import load_annotation_path, read_change_log
@@ -12,20 +12,19 @@ from agents.core_helpers import check_newest_machine_layout
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
-    "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
-    "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
     "itemCompositionSummary_df": list(self.databaseSchemas_data['staticDB']['itemCompositionSummary']['dtypes'].keys()),
 })
 
-@validate_init_dataframes({"proStatus_df": [
-    'poReceivedDate', 'poNo', 'itemCode', 'itemName', 'poETA',
-    'itemQuantity', 'itemRemain', 'startedDate', 'actualFinishedDate',
-    'proStatus', 'etaStatus', 'machineHist', 'itemType', 'moldList',
-    'moldHist', 'moldCavity', 'totalMoldShot', 'totalDay', 'totalShift',
-    'plasticResinCode', 'colorMasterbatchCode', 'additiveMasterbatchCode',
-    'moldShotMap', 'machineQuantityMap', 'dayQuantityMap',
-    'shiftQuantityMap', 'materialComponentMap', 'lastestRecordTime',
-    'machineNo', 'moldNo', 'warningNotes']})
+@validate_init_dataframes(lambda self: {
+    "proStatus_df": list(self.sharedDatabaseSchemas_data["pro_status"]['dtypes'].keys()),
+    "machine_info_df": list(self.sharedDatabaseSchemas_data["machine_info"]['dtypes'].keys()),
+})
+
+class RequiredColumns:
+    # Select available columns
+    PRODUCING_BASE_COLS = ['poNo', 'itemCode', 'itemName', 'poETA', 'moldNo',
+                           'itemQuantity', 'itemRemain', 'machineNo', 'startedDate']
+    PENDING_BASE_COLS = ['poNo', 'itemCode', 'itemName', 'poETA', 'itemRemain']
 
 class ProducingProcessor:
 
@@ -38,6 +37,7 @@ class ProducingProcessor:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
+                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                  folder_path: str = 'agents/shared_db/OrderProgressTracker',
                  target_name: str = "change_log.txt",
                  default_dir: str = "agents/shared_db",
@@ -57,11 +57,9 @@ class ProducingProcessor:
         self.efficiency = efficiency
         self.loss = loss
 
-        # Load database schema configuration for column validation
-        self.databaseSchemas_data = load_annotation_path(
-            Path(databaseSchemas_path).parent,
-            Path(databaseSchemas_path).name
-        )
+        self.databaseSchemas_path = databaseSchemas_path
+        self.sharedDatabaseSchemas_path = sharedDatabaseSchemas_path
+
         # Load path annotations that map logical names to actual file paths
         self.path_annotation = load_annotation_path(source_path, annotation_name)
 
@@ -74,36 +72,30 @@ class ProducingProcessor:
         proStatus_path = read_change_log(folder_path, target_name)
         self.proStatus_df = pd.read_excel(proStatus_path)
 
-        # Rename columns for consistency
-        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
-                                          'lastestMoldNo': 'moldNo'
-                                          }, inplace=True)
-
         # Load all required DataFrames from parquet files
+        self._setup_schemas()
         self._load_dataframes()
-
-    def process(self, capacity_mold_info_df):
-      try:
-        # Process the data
 
         self.machine_info_df = check_newest_machine_layout(self.machineInfo_df)
 
-        (producing_data,
-         pro_plan,
-         mold_plan,
-         plastic_plan) = self._process_production_data(self.proStatus_df,
-                                                       capacity_mold_info_df,
-                                                       self.machine_info_df,
-                                                       self.itemCompositionSummary_df)
+    def _setup_schemas(self) -> None:
+        """Load database schema configuration for column validation."""
+        try:
+            self.databaseSchemas_data = load_annotation_path(
+                Path(self.databaseSchemas_path).parent,
+                Path(self.databaseSchemas_path).name
+            )
+            self.logger.debug("Database schemas loaded successfully")
 
-        self.logger.info("Manufacturing data processing completed successfully!")
+            self.sharedDatabaseSchemas_data = load_annotation_path(
+                Path(self.sharedDatabaseSchemas_path).parent,
+                Path(self.sharedDatabaseSchemas_path).name
+            )
+            self.logger.debug("Shared database schemas loaded successfully")
 
-        return producing_data, pro_plan, mold_plan, plastic_plan
-
-      except FileNotFoundError as e:
-          self.logger.debug("File not found: {}. \nPlease ensure all required data files are available.", e)
-      except Exception as e:
-          self.logger.debug("Error processing data: {}. \nPlease check your data files and try again.", e)
+        except Exception as e:
+            self.logger.error("Failed to load database schemas: {}", str(e))
+            raise
 
     def _load_dataframes(self) -> None:
 
@@ -112,16 +104,12 @@ class ProducingProcessor:
 
         This method loads the following DataFrames:
         - machineInfo_df: Machine specifications and tonnage information
-        - moldSpecificationSummary_df: Mold specifications and compatible items
-        - moldInfo_df: Detailed mold information including tonnage requirements
         - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
         """
 
         # Define the mapping between path annotation keys and DataFrame attribute names
         dataframes_to_load = [
             ('machineInfo', 'machineInfo_df'),
-            ('moldSpecificationSummary', 'moldSpecificationSummary_df'),
-            ('moldInfo', 'moldInfo_df'),
             ('itemCompositionSummary', 'itemCompositionSummary_df')
         ]
 
@@ -143,18 +131,74 @@ class ProducingProcessor:
                 self.logger.error("Failed to load {}: {}", path_key, str(e))
                 raise
 
+    @staticmethod
+    def _split_producing_and_pending_orders(proStatus_df, 
+                                            producing_base_cols,
+                                            pending_base_cols):
+
+        if proStatus_df.empty:
+            logger.error('Error processing data: Empty proStatus_df')
+
+        # Get producing data
+        producing_status_data = proStatus_df[
+            (proStatus_df['itemRemain'] > 0) & (proStatus_df['proStatus'] == 'MOLDING')
+            ][producing_base_cols].copy().sort_values(by='machineNo')
+
+        # Get paused POs
+        paused = proStatus_df[
+            (proStatus_df['itemRemain'] > 0) & (proStatus_df['proStatus'] == 'PAUSED')
+        ][pending_base_cols].copy()
+        paused.rename(columns={'itemRemain': 'itemQuantity'}, inplace=True)
+
+        # Get pending POs
+        pending = proStatus_df[
+            (proStatus_df['itemRemain'] > 0) & (proStatus_df['proStatus'] == 'PENDING')
+        ][pending_base_cols].copy()
+        pending.rename(columns={'itemRemain': 'itemQuantity'}, inplace=True)
+
+        # Combine paused and pending POs as pending data
+        pending_status_data = pd.concat([paused, pending], ignore_index=True)
+        
+        return producing_status_data, pending_status_data
+
+    def process(self, 
+                mold_estimated_capacity_df):
+        
+        try:
+            cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
+            logger.info('Validation for mold_estimated_capacity...')
+            validate_dataframe(mold_estimated_capacity_df, cols)
+        except Exception as e:
+            logger.error("Validation failed for mold_estimated_capacity (expected cols: %s): %s", cols, e)
+            raise
+
+        # Process the data
+        try:
+            (pending_status_data,
+            producing_status_data,
+            pro_plan,
+            mold_plan,
+            plastic_plan) = self._process_production_data(self.proStatus_df,
+                                                          mold_estimated_capacity_df)
+            self.logger.info("Manufacturing data processing completed successfully!")
+            return pending_status_data, producing_status_data, pro_plan, mold_plan, plastic_plan
+
+        except FileNotFoundError as e:
+            self.logger.debug("File not found: {}. \nPlease ensure all required data files are available.", e)
+        except Exception as e:
+            self.logger.debug("Error processing data: {}. \nPlease check your data files and try again.", e)
+
+
     def _process_production_data(self,
                                  proStatus_df: pd.DataFrame,
-                                 mold_info_df: pd.DataFrame,
-                                 machine_info_df: pd.DataFrame,
-                                 itemCompositionSummary_df: pd.DataFrame) -> Tuple[pd.DataFrame, ...]:
+                                 mold_estimated_capacity_df: pd.DataFrame) -> Tuple[pd.DataFrame, ...]:
 
         """
         Process production data to generate production, mold, and plastic plans.
 
         Args:
             proStatus_df: DataFrame with production status information
-            mold_info_df: DataFrame with mold information
+            mold_estimated_capacity_df: DataFrame with mold information
             machine_info_df: DataFrame with machine information
             itemCompositionSummary_df: DataFrame with item composition data
 
@@ -162,68 +206,70 @@ class ProducingProcessor:
             Tuple of (producing_data, pro_plan, mold_plan, plastic_plan)
         """
 
-        if proStatus_df.empty:
-            return tuple(pd.DataFrame() for _ in range(4))
-
+        # Rename columns for consistency
+        proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
+                                     'lastestMoldNo': 'moldNo'}, inplace=True)
+        
         # Filter producing data
-        producing_data = proStatus_df[
-            (proStatus_df['itemRemain'] > 0) &
-            (proStatus_df['proStatus'] == 'MOLDING')
-        ].copy()
+        producing_status_data, pending_status_data = ProducingProcessor._split_producing_and_pending_orders(proStatus_df,
+                                                                                                            RequiredColumns.PRODUCING_BASE_COLS,
+                                                                                                            RequiredColumns.PENDING_BASE_COLS)
 
-        if producing_data.empty:
-            return tuple(pd.DataFrame() for _ in range(4))
+        if producing_status_data.empty:
 
-        # Select available columns
-        base_cols = ['poNo', 'itemCode', 'itemName', 'poETA', 'moldNo',
-                    'itemQuantity', 'itemRemain', 'machineNo', 'startedDate']
-        available_cols = [col for col in base_cols if col in producing_data.columns]
-
-        producing_data = producing_data[available_cols].sort_values(by='machineNo')
+            def empty_df_from_schema(schema_dict, key):
+                return pd.DataFrame(columns=list(schema_dict[key]['dtypes'].keys()))
+        
+            producing_status_data = empty_df_from_schema(self.sharedDatabaseSchemas_data, "producing_data")
+            producing_pro_plan = empty_df_from_schema(self.sharedDatabaseSchemas_data, "producing_pro_plan")
+            producing_mold_plan = empty_df_from_schema(self.sharedDatabaseSchemas_data, "producing_mold_plan")
+            producing_plastic_plan = empty_df_from_schema(self.sharedDatabaseSchemas_data, "producing_plastic_plan")
+            
+            return pending_status_data, producing_status_data, producing_pro_plan, producing_mold_plan, producing_plastic_plan
 
         # Merge with mold info
-        if not mold_info_df.empty:
+        if not mold_estimated_capacity_df.empty:
             mold_merge_cols = ['itemCode', 'moldNo', 'moldName',
                               'theoreticalMoldHourCapacity', 'balancedMoldHourCapacity']
-            available_mold_cols = [col for col in mold_merge_cols if col in mold_info_df.columns]
+            available_mold_cols = [col for col in mold_merge_cols if col in mold_estimated_capacity_df.columns]
 
-            producing_data = producing_data.merge(
-                mold_info_df[available_mold_cols],
+            producing_status_data = producing_status_data.merge(
+                mold_estimated_capacity_df[available_mold_cols],
                 how='left', on=['itemCode', 'moldNo']
             )
 
         # Merge with machine info
-        if not machine_info_df.empty:
+        if not self.machine_info_df.empty:
             machine_merge_cols = ['machineNo', 'machineCode', 'machineName', 'machineTonnage']
-            available_machine_cols = [col for col in machine_merge_cols if col in machine_info_df.columns]
+            available_machine_cols = [col for col in machine_merge_cols if col in self.machine_info_df.columns]
 
-            producing_data = producing_data.merge(
-                machine_info_df[available_machine_cols],
+            producing_status_data = producing_status_data.merge(
+                self.machine_info_df[available_machine_cols],
                 how='left', on=['machineNo']
             )
 
         # Calculate time-related columns
-        producing_data = self._calculate_time_metrics(producing_data)
+        producing_status_data = self._calculate_time_metrics(producing_status_data)
 
         # Create output plans
-        output_plan = pd.DataFrame({
-            'machineNo': machine_info_df['machineNo'].unique() if not machine_info_df.empty else []
+        output_plan_format = pd.DataFrame({
+            'machineNo': self.machine_info_df['machineNo'].unique() if not self.machine_info_df.empty else []
         })
 
-        machine_info_subset = machine_info_df[
+        machine_info_subset = self.machine_info_df[
             [col for col in ['machineCode', 'machineName', 'machineTonnage', 'machineNo']
-             if col in machine_info_df.columns]
-        ] if not machine_info_df.empty else pd.DataFrame()
+             if col in self.machine_info_df.columns]
+        ] if not self.machine_info_df.empty else pd.DataFrame()
 
         # Create plans
-        pro_plan = self._create_production_plan(output_plan, machine_info_subset, producing_data)
-        mold_plan = self._create_mold_plan(output_plan, machine_info_subset, producing_data)
-        plastic_plan = self._create_plastic_plan(output_plan, machine_info_subset,
-                                                producing_data, itemCompositionSummary_df)
+        producing_pro_plan = self._create_production_plan(output_plan_format, machine_info_subset, producing_status_data)
+        producing_mold_plan = self._create_mold_plan(output_plan_format, machine_info_subset, producing_status_data)
+        producing_plastic_plan = self._create_plastic_plan(output_plan_format, machine_info_subset, producing_status_data)
 
-        return producing_data, pro_plan, mold_plan, plastic_plan
+        return pending_status_data, producing_status_data, producing_pro_plan, producing_mold_plan, producing_plastic_plan
 
-    def _calculate_time_metrics(self, producing_data: pd.DataFrame) -> pd.DataFrame:
+    def _calculate_time_metrics(self, 
+                                producing_data: pd.DataFrame) -> pd.DataFrame:
 
         """Calculate time-related metrics for production data."""
 
@@ -263,20 +309,25 @@ class ProducingProcessor:
             )
 
         return producing_data
+    
+    ############################
+    #  Create production plan  #
+    ############################
 
-    def _create_production_plan(self, output_plan: pd.DataFrame,
-                              machine_info_subset: pd.DataFrame,
-                              producing_data: pd.DataFrame) -> pd.DataFrame:
+    def _create_production_plan(self, 
+                                output_plan_format: pd.DataFrame,
+                                machine_info: pd.DataFrame,
+                                producing_data: pd.DataFrame) -> pd.DataFrame:
 
         """Create production plan."""
 
-        if output_plan.empty:
+        if output_plan_format.empty:
             return pd.DataFrame()
 
-        pro_plan = output_plan.copy()
+        pro_plan = output_plan_format.copy()
 
-        if not machine_info_subset.empty:
-            pro_plan = pro_plan.merge(machine_info_subset, how='left', on=['machineNo'])
+        if not machine_info.empty:
+            pro_plan = pro_plan.merge(machine_info, how='left', on=['machineNo'])
 
         if not producing_data.empty and 'itemName_poNo' in producing_data.columns:
             merge_cols = ['machineNo', 'itemName_poNo']
@@ -289,20 +340,25 @@ class ProducingProcessor:
             )
 
         return pro_plan
+    
+    #########################
+    #    Create mold plan   #
+    #########################
 
-    def _create_mold_plan(self, output_plan: pd.DataFrame,
-                         machine_info_subset: pd.DataFrame,
-                         producing_data: pd.DataFrame) -> pd.DataFrame:
+    def _create_mold_plan(self, 
+                          output_plan_format: pd.DataFrame,
+                          machine_info: pd.DataFrame,
+                          producing_data: pd.DataFrame) -> pd.DataFrame:
 
         """Create mold plan."""
 
-        if output_plan.empty:
+        if output_plan_format.empty:
             return pd.DataFrame()
 
-        mold_plan = output_plan.copy()
+        mold_plan = output_plan_format.copy()
 
-        if not machine_info_subset.empty:
-            mold_plan = mold_plan.merge(machine_info_subset, how='left', on=['machineNo'])
+        if not machine_info.empty:
+            mold_plan = mold_plan.merge(machine_info, how='left', on=['machineNo'])
 
         if not producing_data.empty and 'moldName' in producing_data.columns:
             merge_cols = ['machineNo', 'moldName']
@@ -316,26 +372,30 @@ class ProducingProcessor:
 
         return mold_plan
 
-    def _create_plastic_plan(self, output_plan: pd.DataFrame,
-                           machine_info_subset: pd.DataFrame,
-                           producing_data: pd.DataFrame,
-                           itemCompositionSummary_df: pd.DataFrame) -> pd.DataFrame:
+    #########################
+    #  Create plastic plan  #
+    #########################
+
+    def _create_plastic_plan(self, 
+                             output_plan_format: pd.DataFrame,
+                             machine_info: pd.DataFrame,
+                             producing_data: pd.DataFrame) -> pd.DataFrame:
 
         """Create plastic plan with composition data."""
 
-        if output_plan.empty:
+        if output_plan_format.empty:
             return pd.DataFrame()
 
-        plastic_plan = output_plan.copy()
+        plastic_plan = output_plan_format.copy()
 
-        if not machine_info_subset.empty:
-            plastic_plan = plastic_plan.merge(machine_info_subset, how='left', on=['machineNo'])
+        if not machine_info.empty:
+            plastic_plan = plastic_plan.merge(machine_info, how='left', on=['machineNo'])
 
-        if producing_data.empty or itemCompositionSummary_df.empty:
+        if producing_data.empty or self.itemCompositionSummary_df.empty:
             return plastic_plan
 
         # Process plastic data
-        plastic_data = self._process_plastic_data(producing_data, itemCompositionSummary_df)
+        plastic_data = self._process_plastic_data(producing_data)
 
         if plastic_data.empty:
             return plastic_plan
@@ -372,8 +432,8 @@ class ProducingProcessor:
 
         return plastic_plan
 
-    def _process_plastic_data(self, producing_data: pd.DataFrame,
-                            itemCompositionSummary_df: pd.DataFrame) -> pd.DataFrame:
+    def _process_plastic_data(self, 
+                              producing_data: pd.DataFrame) -> pd.DataFrame:
 
         """Process plastic composition data."""
 
@@ -396,14 +456,14 @@ class ProducingProcessor:
                            'colorMasterbatch', 'colorMasterbatchQuantity',
                            'additiveMasterbatch', 'additiveMasterbatchQuantity']
 
-        available_composition_cols = [col for col in composition_cols
-                                    if col in itemCompositionSummary_df.columns]
+        available_composition_cols = [col for col in composition_cols 
+                                      if col in self.itemCompositionSummary_df.columns]
 
         if len(available_composition_cols) < 2:  # Need at least itemCode and one composition
             return plastic_data
 
         plastic_data = plastic_data.merge(
-            itemCompositionSummary_df[available_composition_cols],
+            self.itemCompositionSummary_df[available_composition_cols],
             how='left', on=['itemCode']
         )
 
@@ -420,9 +480,10 @@ class ProducingProcessor:
 
         return plastic_data
 
-    def _calculate_material_quantities(self, plastic_data: pd.DataFrame) -> None:
+    def _calculate_material_quantities(self, 
+                                       plastic_data: pd.DataFrame) -> None:
 
-        """Calculate estimated material quantities."""
+        """Calculate estimated material quantities (KG)."""
 
         if 'estimatedOutputQuantity' not in plastic_data.columns:
             return
