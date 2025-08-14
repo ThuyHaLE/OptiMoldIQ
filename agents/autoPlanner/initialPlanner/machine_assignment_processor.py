@@ -12,8 +12,8 @@ class MachineAssignmentProcessor:
     """
 
     def __init__(self,
-                 final_results: pd.DataFrame,
-                 lead_times: pd.DataFrame,
+                 assigned_matrix: pd.DataFrame,
+                 mold_lead_times: pd.DataFrame,
                  pending_data: pd.DataFrame,
                  machine_info_df: pd.DataFrame,
                  producing_mold_list: List,
@@ -21,8 +21,8 @@ class MachineAssignmentProcessor:
 
         self.logger = logger.bind(class_="MachineAssignmentProcessor")
 
-        self.final_results = final_results
-        self.lead_times = lead_times
+        self.assigned_matrix = assigned_matrix
+        self.mold_lead_times = mold_lead_times
         self.pending_data = pending_data
         self.machine_info_df = machine_info_df
         self.producing_mold_list = producing_mold_list
@@ -54,10 +54,10 @@ class MachineAssignmentProcessor:
         """Cached mapping from moldNo to moldLeadTime."""
 
         if self._lead_time_mapping is None:
-            lead_times_unique = self.lead_times.drop_duplicates(subset=['moldNo', 'itemCode'])
-            if len(lead_times_unique) < len(self.lead_times):
+            lead_times_unique = self.mold_lead_times.drop_duplicates(subset=['moldNo', 'itemCode'])
+            if len(lead_times_unique) < len(self.mold_lead_times):
                 self.logger.warning("Found {} duplicate moldNo entries in lead_times. Using first occurrence.",
-                                    len(self.lead_times) - len(lead_times_unique))
+                                    len(self.mold_lead_times) - len(lead_times_unique))
             self._lead_time_mapping = lead_times_unique.set_index('moldNo')['moldLeadTime'].to_dict()
         return self._lead_time_mapping
 
@@ -80,14 +80,14 @@ class MachineAssignmentProcessor:
         self.logger.info("Generating assignment summary...")
 
         # Handle duplicate moldNo in lead_times by taking first occurrence
-        lead_times_unique = self.lead_times[['itemCode', 'moldNo']].drop_duplicates(subset=['itemCode', 'moldNo'])
+        lead_times_unique = self.mold_lead_times[['itemCode', 'moldNo']].drop_duplicates(subset=['itemCode', 'moldNo'])
 
         # Check if there are still duplicates and warn
-        if len(lead_times_unique) < len(self.lead_times[['itemCode', 'moldNo']]):
+        if len(lead_times_unique) < len(self.mold_lead_times[['itemCode', 'moldNo']]):
             self.logger.warning("Found duplicate moldNo in lead_times. Using first occurrence for each moldNo.")
 
         # Merge without validation first, then check manually if needed
-        df = (self.final_results
+        df = (self.assigned_matrix
               .reset_index()
               .merge(lead_times_unique,
                     how='left', on='moldNo'))
@@ -227,7 +227,7 @@ class MachineAssignmentProcessor:
         df = flattened_df.copy()
         df['poETA'] = pd.to_datetime(df['poETA'], errors='coerce')
         df['itemQuantity'] = pd.to_numeric(df['itemQuantity'], errors='coerce').fillna(0)
-        df['moldLeadTime'] = pd.to_numeric(df['moldLeadTime'], errors='coerce').fillna('None')
+        df['moldLeadTime'] = pd.to_numeric(df['moldLeadTime'], errors='coerce').fillna(0).astype('Int64')
 
         # Create producing mold priority flag (0 for producing molds, 1 for others)
         # This will be used as the first sort key to give producing molds highest priority
