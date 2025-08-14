@@ -12,7 +12,6 @@ class PriorityOrder(Enum):
     PRIORITY_2 = "priority_order_2"
     PRIORITY_3 = "priority_order_3"
 
-
 @dataclass
 class OptimizationStats:
     """Statistics tracking for optimization process"""
@@ -28,7 +27,6 @@ class OptimizationStats:
             return (self.end_time - self.start_time).total_seconds()
         return None
 
-
 @dataclass
 class OptimizationResult:
     """Container for optimization results"""
@@ -38,14 +36,13 @@ class OptimizationResult:
     stats: OptimizationStats
     overloaded_machines: set
 
-
 class PriorityOrdersConfig:
     """Configuration for priority orders"""
     
     PRIORITY_ORDERS = {
-        PriorityOrder.PRIORITY_1.value: ['machine_compatibility', 'moldLeadTime', 'totalQuantity'], 
-        PriorityOrder.PRIORITY_2.value: ['totalQuantity', 'machine_compatibility', 'moldLeadTime'],
-        PriorityOrder.PRIORITY_3.value: ['moldLeadTime', 'totalQuantity', 'machine_compatibility']
+        "priority_order_1": ['machine_compatibility', 'moldLeadTime', 'totalQuantity'], 
+        "priority_order_2": ['totalQuantity', 'machine_compatibility', 'moldLeadTime'],
+        "priority_order_3": ['moldLeadTime', 'totalQuantity', 'machine_compatibility']
     }
     
     @classmethod
@@ -59,7 +56,6 @@ class PriorityOrdersConfig:
         
         return cls.PRIORITY_ORDERS[order]
 
-
 class CompatibilityBasedMoldMachineOptimizer:
 
     def __init__(self, log_progress_interval: int = 10):
@@ -70,7 +66,7 @@ class CompatibilityBasedMoldMachineOptimizer:
                          mold_machine_assigned_matrix: pd.DataFrame,
                          unassigned_mold_lead_times: Union[Dict[str, int], pd.DataFrame],
                          compatibility_matrix: pd.DataFrame,
-                         priority_order: Union[str, PriorityOrder] = PriorityOrder.PRIORITY_1,
+                         priority_order: Union[str, PriorityOrder] = "priority_order_1",
                          max_load_threshold: Optional[int] = 30,
                          verbose: bool = True) -> OptimizationResult:
         
