@@ -72,10 +72,10 @@ class HybridSuggestOptimizer:
     """
 
     def __init__(self,
+                 databaseSchemas_data,
+                 sharedDatabaseSchemas_data,
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                  default_dir: str = "agents/shared_db",
                  folder_path: str = "agents/OrderProgressTracker",
                  target_name: str = "change_log.txt",
@@ -91,8 +91,8 @@ class HybridSuggestOptimizer:
         Args:
             source_path (str): Base path for data source files
             annotation_name (str): JSON file containing path mappings
-            databaseSchemas_path (str): Path to database schema definitions
-            sharedDatabaseSchemas_path (str): Path to shared database schema for validation
+            databaseSchemas_data (dict): database schema for validation.
+            sharedDatabaseSchemas_data (dict): shared database schema for validation.
             default_dir (str): Default directory for shared database files
             folder_path (str): Path for order progress tracking files
             target_name (str): Name of the change log file
@@ -108,49 +108,36 @@ class HybridSuggestOptimizer:
         # Store all configuration parameters
         self.source_path = source_path
         self.annotation_name = annotation_name
-        self.databaseSchemas_path = databaseSchemas_path
-        self.sharedDatabaseSchemas_path = sharedDatabaseSchemas_path
+        self._load_dataframes()
+
+        # Load database schema configuration for column validation
+        # This ensures all DataFrames have the expected structure
+        self.databaseSchemas_data = databaseSchemas_data
+
+        # Load shared database schema configuration for column validation
+        self.sharedDatabaseSchemas_data = sharedDatabaseSchemas_data
+
         self.default_dir = default_dir
         self.folder_path = folder_path
         self.target_name = target_name
-        self.mold_stability_index_folder = mold_stability_index_folder
-        self.mold_stability_index_target_name = mold_stability_index_target_name
-        self.mold_machine_weights_hist_path = mold_machine_weights_hist_path
 
         # Store production parameters for capacity calculations
         self.efficiency = efficiency  # Overall equipment effectiveness (OEE)
         self.loss = loss             # Expected material/time loss factor
 
-        # Initialize core components
-        self._setup_schemas()
-        self._load_dataframes()
 
         # Load mold stability index containing performance consistency metrics
         self.logger.info("Loading mold stability index...")
-        self.mold_stability_index = self._load_mold_stability_index()
+        self.mold_stability_index = self._load_mold_stability_index(
+            mold_stability_index_folder,
+            mold_stability_index_target_name
+        )
 
         # Load feature weights for priority matrix calculation
         self.logger.info("Loading feature weights...")
-        self.mold_machine_feature_weights = self._load_feature_weights()
-
-    def _setup_schemas(self) -> None:
-        """Load database schema configuration for column validation."""
-        try:
-            self.databaseSchemas_data = load_annotation_path(
-                Path(self.databaseSchemas_path).parent,
-                Path(self.databaseSchemas_path).name
-            )
-            self.logger.debug("Database schemas loaded successfully")
-
-            self.sharedDatabaseSchemas_data = load_annotation_path(
-                Path(self.sharedDatabaseSchemas_path).parent,
-                Path(self.sharedDatabaseSchemas_path).name
-            )
-            self.logger.debug("Shared database schemas loaded successfully")
-
-        except Exception as e:
-            self.logger.error("Failed to load database schemas: {}", str(e))
-            raise
+        self.mold_machine_feature_weights = self._load_feature_weights(
+            mold_machine_weights_hist_path
+        )
 
     def _load_dataframes(self) -> None:
         """Load all required DataFrames from parquet files with comprehensive error handling."""
@@ -281,7 +268,8 @@ class HybridSuggestOptimizer:
                 capacity_df,       # Estimated capacity data for each mold
                 self.databaseSchemas_data, self.sharedDatabaseSchemas_data, 
                 self.source_path, self.annotation_name, 
-                self.folder_path, self.target_name, self.default_dir, self.efficiency, self.loss
+                self.folder_path, self.target_name, self.default_dir, 
+                self.efficiency, self.loss
             )
             self.logger.debug("MoldMachinePriorityMatrixCalculator initialized successfully")
         except Exception as e:
@@ -295,7 +283,9 @@ class HybridSuggestOptimizer:
     # LOAD MOLD STABILITY INDEX #
     # ------------------------- #
 
-    def _load_mold_stability_index(self) -> pd.DataFrame:
+    def _load_mold_stability_index(self,
+                                   mold_stability_index_folder,
+                                   mold_stability_index_target_name) -> pd.DataFrame:
         """
         Load mold stability index data from the nearest monthly report or create initial structure.
 
@@ -307,16 +297,16 @@ class HybridSuggestOptimizer:
         """
         # Attempt to find the latest mold stability index file from change log
         stability_path = read_change_log(
-            self.mold_stability_index_folder,
-            self.mold_stability_index_target_name
+            mold_stability_index_folder,
+            mold_stability_index_target_name
         )
 
         # Handle case where no historical stability index exists
         if stability_path is None:
             self.logger.warning(
                 "Cannot find stability index file {}/{}",
-                self.mold_stability_index_folder,
-                self.mold_stability_index_target_name
+                mold_stability_index_folder,
+                mold_stability_index_target_name
             )
             self.logger.info("Creating initial mold stability index structure...")
             return self._create_initial_stability_index()
@@ -340,7 +330,8 @@ class HybridSuggestOptimizer:
     # LOAD FEATURE WEIGHTS #
     # -------------------- #
 
-    def _load_feature_weights(self) -> pd.Series:
+    def _load_feature_weights(self, 
+                              mold_machine_weights_hist_path) -> pd.Series:
         """
         Load the monthly feature weights for calculating mold-machine priority matrix.
 
@@ -352,18 +343,18 @@ class HybridSuggestOptimizer:
             pd.Series: Feature weights for different performance metrics
         """
         # Check if historical feature weights file exists
-        if not Path(self.mold_machine_weights_hist_path).exists():
+        if not Path(mold_machine_weights_hist_path).exists():
             self.logger.warning(
                 "Feature weights file not found: {}. Using default weights.",
-                self.mold_machine_weights_hist_path
+                mold_machine_weights_hist_path
             )
             return self._create_initial_feature_weights()
 
         try:
             # Load the most recent feature weights from historical data
             self.logger.info("Loading historical feature weights from: {}", 
-                           self.mold_machine_weights_hist_path)
-            weights = get_latest_change_row(Path(self.mold_machine_weights_hist_path))
+                             mold_machine_weights_hist_path)
+            weights = get_latest_change_row(Path(mold_machine_weights_hist_path))
             
             # Validate loaded weights
             if not self._validate_feature_weights(weights):
@@ -440,26 +431,12 @@ class HybridSuggestOptimizer:
 
     def validate_configuration(self) -> bool:
         """
-        Validate that all required paths and configurations are accessible.
+        Validate that all required configurations are accessible.
         
         Returns:
             bool: True if configuration is valid, False otherwise
         """
         validation_results = []
-        
-        # Check critical paths exist
-        paths_to_check = [
-            (self.source_path, "Source path"),
-            (Path(self.databaseSchemas_path).parent, "Database schemas directory"),
-            (Path(self.sharedDatabaseSchemas_path).parent, "Shared database schemas directory"),
-        ]
-        
-        for path, description in paths_to_check:
-            if not os.path.exists(path):
-                self.logger.error("{} does not exist: {}", description, path)
-                validation_results.append(False)
-            else:
-                validation_results.append(True)
         
         # Validate configuration parameters
         if not (0 < self.efficiency <= 1):
@@ -481,23 +458,3 @@ class HybridSuggestOptimizer:
             self.logger.error("Configuration validation failed")
             
         return is_valid
-
-    def get_optimization_summary(self) -> Dict[str, Any]:
-        """
-        Get a summary of the current optimization configuration.
-        
-        Returns:
-            Dict containing key configuration parameters and status
-        """
-        return {
-            'efficiency': self.efficiency,
-            'loss': self.loss,
-            'source_path': self.source_path,
-            'mold_stability_index_folder': self.mold_stability_index_folder,
-            'feature_weights_path': self.mold_machine_weights_hist_path,
-            'feature_weights_exists': Path(self.mold_machine_weights_hist_path).exists(),
-            'dataframes_loaded': {
-                'moldSpecificationSummary_df': hasattr(self, 'moldSpecificationSummary_df'),
-                'moldInfo_df': hasattr(self, 'moldInfo_df')
-            }
-        }
