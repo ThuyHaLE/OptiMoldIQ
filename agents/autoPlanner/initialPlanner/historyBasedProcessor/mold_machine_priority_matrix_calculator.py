@@ -203,7 +203,8 @@ class MoldMachinePriorityMatrixCalculator:
             raise
 
         # Calculate performance metrics
-        mold_machine_history_summary, _ = summarize_mold_machine_history(historical_data, self.mold_estimated_capacity_df)
+        mold_machine_history_summary, invalid_molds = summarize_mold_machine_history(historical_data, 
+                                                                                     self.mold_estimated_capacity_df)
         try:
             cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
             logger.info('Validation for mold_machine_history_summary...')
@@ -217,7 +218,7 @@ class MoldMachinePriorityMatrixCalculator:
             mold_machine_history_summary, 
             self.mold_machine_feature_weights)
 
-        return priority_matrix
+        return priority_matrix, invalid_molds
 
     # Calculate the priority matrix for mold-machine assignments based on historical data
     # optionally save the result as a report
@@ -236,11 +237,14 @@ class MoldMachinePriorityMatrixCalculator:
         """
 
         # Calculate the priority matrix using the main calculation method
-        priority_matrix = self.process()
+        priority_matrix, invalid_molds = self.process()
 
         # Prepare data for export by resetting index to include moldNo as a regular column
         # This makes the Excel output more readable and easier to work with
-        self.data = {"priorityMatrix": priority_matrix.reset_index()}
+        self.data = {
+            "priorityMatrix": priority_matrix.reset_index(),
+            "invalidMolds": pd.DataFrame({"invalid_molds": invalid_molds})
+            }
 
         # Export to Excel file with automatic versioning
         # The versioning system prevents accidental overwrites of previous results

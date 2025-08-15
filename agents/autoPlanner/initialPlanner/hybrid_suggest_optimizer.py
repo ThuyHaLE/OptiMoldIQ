@@ -12,7 +12,8 @@ from agents.autoPlanner.initialPlanner.historyBasedProcessor.mold_machine_priori
 @dataclass
 class OptimizationResult:
     """Container for optimization results."""
-    invalid_molds: List[str]
+    estimated_capacity_invalid_molds: List[str]
+    priority_matrix_invalid_molds: List[str]
     mold_estimated_capacity_df: pd.DataFrame
     mold_machine_priority_matrix: pd.DataFrame
 
@@ -76,11 +77,11 @@ class HybridSuggestOptimizer:
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
                  sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                  default_dir: str = "agents/shared_db",
-                 folder_path = "agents/OrderProgressTracker",
-                 target_name = "change_log.txt",
-                 mold_stability_index_folder = "agents/MoldStabilityIndexCalculator/mold_stability_index",
-                 mold_stability_index_target_name = "change_log.txt",
-                 mold_machine_weights_hist_path = "agents/MoldMachineFeatureWeightCalculator/weights_hist.xlsx",
+                 folder_path: str = "agents/OrderProgressTracker",
+                 target_name: str = "change_log.txt",
+                 mold_stability_index_folder: str = "agents/MoldStabilityIndexCalculator/mold_stability_index",
+                 mold_stability_index_target_name: str = "change_log.txt",
+                 mold_machine_weights_hist_path: str = "agents/MoldMachineFeatureWeightCalculator/weights_hist.xlsx",
                  efficiency: float = 0.85,
                  loss: float = 0.03,
                  ):
@@ -114,7 +115,7 @@ class HybridSuggestOptimizer:
         self.target_name = target_name
         self.mold_stability_index_folder = mold_stability_index_folder
         self.mold_stability_index_target_name = mold_stability_index_target_name
-        self.mold_machine_weights_hist_path = Path(mold_machine_weights_hist_path)
+        self.mold_machine_weights_hist_path = mold_machine_weights_hist_path
 
         # Store production parameters for capacity calculations
         self.efficiency = efficiency  # Overall equipment effectiveness (OEE)
@@ -222,7 +223,7 @@ class HybridSuggestOptimizer:
         try:
             # Estimate mold capacities using historical-based optimization
             self.logger.info("Starting mold capacity estimation...")
-            invalid_molds, mold_estimated_capacity_df = self._estimate_mold_capacities(
+            estimated_capacity_invalid_molds, mold_estimated_capacity_df = self._estimate_mold_capacities(
                 self.mold_stability_index
             )
             try:
@@ -234,19 +235,21 @@ class HybridSuggestOptimizer:
                 raise
 
             self.logger.info("Mold capacity estimation completed. Found {} invalid molds.", 
-                           len(invalid_molds))
+                           len(estimated_capacity_invalid_molds))
 
             # Calculate mold-machine priority matrix using historical performance data
             self.logger.info("Starting mold-machine priority matrix calculation...")
-            mold_machine_priority_matrix = self._calculate_priority_matrix(
+            mold_machine_priority_matrix, priority_matrix_invalid_molds = self._calculate_priority_matrix(
                 self.mold_machine_feature_weights, 
                 mold_estimated_capacity_df
             )
-            self.logger.info("Priority matrix calculation completed.")
+            self.logger.info("Priority matrix calculation completed. Found {} invalid molds.", 
+                           len(priority_matrix_invalid_molds))
 
             # Return structured optimization results
             return OptimizationResult(
-                invalid_molds=invalid_molds,
+                estimated_capacity_invalid_molds = estimated_capacity_invalid_molds,
+                priority_matrix_invalid_molds=priority_matrix_invalid_molds,
                 mold_estimated_capacity_df=mold_estimated_capacity_df,
                 mold_machine_priority_matrix=mold_machine_priority_matrix
             )
@@ -349,7 +352,7 @@ class HybridSuggestOptimizer:
             pd.Series: Feature weights for different performance metrics
         """
         # Check if historical feature weights file exists
-        if not self.mold_machine_weights_hist_path.exists():
+        if not Path(self.mold_machine_weights_hist_path).exists():
             self.logger.warning(
                 "Feature weights file not found: {}. Using default weights.",
                 self.mold_machine_weights_hist_path
@@ -360,7 +363,7 @@ class HybridSuggestOptimizer:
             # Load the most recent feature weights from historical data
             self.logger.info("Loading historical feature weights from: {}", 
                            self.mold_machine_weights_hist_path)
-            weights = get_latest_change_row(self.mold_machine_weights_hist_path)
+            weights = get_latest_change_row(Path(self.mold_machine_weights_hist_path))
             
             # Validate loaded weights
             if not self._validate_feature_weights(weights):
@@ -448,7 +451,7 @@ class HybridSuggestOptimizer:
         paths_to_check = [
             (self.source_path, "Source path"),
             (Path(self.databaseSchemas_path).parent, "Database schemas directory"),
-            (self.mold_stability_index_folder, "Mold stability index folder"),
+            (Path(self.sharedDatabaseSchemas_path).parent, "Shared database schemas directory"),
         ]
         
         for path, description in paths_to_check:
@@ -491,8 +494,8 @@ class HybridSuggestOptimizer:
             'loss': self.loss,
             'source_path': self.source_path,
             'mold_stability_index_folder': self.mold_stability_index_folder,
-            'feature_weights_path': str(self.mold_machine_weights_hist_path),
-            'feature_weights_exists': self.mold_machine_weights_hist_path.exists(),
+            'feature_weights_path': self.mold_machine_weights_hist_path,
+            'feature_weights_exists': Path(self.mold_machine_weights_hist_path).exists(),
             'dataframes_loaded': {
                 'moldSpecificationSummary_df': hasattr(self, 'moldSpecificationSummary_df'),
                 'moldInfo_df': hasattr(self, 'moldInfo_df')

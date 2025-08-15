@@ -241,7 +241,10 @@ class ItemMoldCapacityOptimizer:
         unused_molds_df = partial_df.reindex(columns=empty_df.columns, fill_value=None)
 
         # Combine all molds
-        all_molds_df = pd.concat([used_molds_df, unused_molds_df], ignore_index=True)
+        if used_molds_df.empty:
+            all_molds_df = unused_molds_df.copy()
+        else:
+            all_molds_df = pd.concat([used_molds_df, unused_molds_df], ignore_index=True)
 
         return all_molds_df
 
