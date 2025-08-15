@@ -3,6 +3,14 @@ import numpy as np
 from loguru import logger
 from typing import Tuple, List, Dict
 import time
+from dataclasses import dataclass
+
+@dataclass
+class HistBasedOptimizationResult:
+    """Container for optimization results"""
+    assigned_matrix: pd.DataFrame
+    assignments: List[str]
+    unassigned_molds: List[str]
 
 class HistBasedMoldMachineOptimizer:
 
@@ -35,7 +43,7 @@ class HistBasedMoldMachineOptimizer:
             'unique_matches': 0
         }
 
-    def run_optimization(self) -> Tuple[pd.DataFrame, List[str], List[str]]:
+    def run_optimization(self) -> HistBasedOptimizationResult:
 
         """
         Main wrapper function to run the complete optimization process.
@@ -48,7 +56,9 @@ class HistBasedMoldMachineOptimizer:
             max_load_threshold: Maximum load threshold for round 2
 
         Returns:
-            Tuple of (final_results, all_assigned_molds, final_unassigned_molds)
+        --------
+        HistBasedOptimizationResult
+            Complete optimization results
         """
 
         self.logger.info("=" * 50)
@@ -85,7 +95,9 @@ class HistBasedMoldMachineOptimizer:
         if len(round_one_unassigned_molds) == 0:
             self.logger.info("Optimization completed")
             round_one_assigned_matrix.index.name = 'moldNo'
-            return round_one_assigned_matrix, round_one_assigned_molds, round_one_unassigned_molds
+            return HistBasedOptimizationResult(assigned_matrix=round_one_assigned_matrix,
+                                      assignments=round_one_assigned_molds,
+                                      unassigned_molds=round_one_unassigned_molds)
         else:
             round_two_start_time = time.time()
             self.logger.info("Starting optimization process round 2")
@@ -113,9 +125,10 @@ class HistBasedMoldMachineOptimizer:
             self.logger.info("Success rate: {:.1f}%", round_two_success_rate)
             self.logger.info("Total execution time: {:.2f} seconds", round_two_total_time)
             self.logger.info("=" * 50)
-
-            return final_assigned_matrix, all_assigned_molds, round_two_unassigned_molds
-        
+            
+            return HistBasedOptimizationResult(assigned_matrix=final_assigned_matrix,
+                                      assignments=all_assigned_molds,
+                                      unassigned_molds=round_two_unassigned_molds)   
     
     ###############################################
     # Round 1: Constraint-Based Greedy Assignment #

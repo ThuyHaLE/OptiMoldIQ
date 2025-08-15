@@ -31,7 +31,7 @@ class OptimizationStats:
 class OptimizationResult:
     """Container for optimization results"""
     assigned_matrix: pd.DataFrame
-    assignments: Dict[str, str]
+    assignments: List[str]
     unassigned_molds: List[str]
     stats: OptimizationStats
     overloaded_machines: set
@@ -102,7 +102,7 @@ class CompatibilityBasedMoldMachineOptimizer:
             priority_criteria = PriorityOrdersConfig.get_priority_order(priority_order)
             
             # Initialize tracking variables
-            assignments = {}
+            assignments = []
             unassigned_molds = []
             overloaded_machines = set()
             
@@ -145,7 +145,7 @@ class CompatibilityBasedMoldMachineOptimizer:
                     mold_lead_time = result['lead_time']
                     
                     # Record assignment
-                    assignments[mold_id] = best_machine
+                    assignments.append(mold_id)
                     current_load[best_machine] += mold_lead_time
                     stats.assignments_made += 1
 
@@ -163,7 +163,7 @@ class CompatibilityBasedMoldMachineOptimizer:
             # Finalize results
             assigned_matrix.index.name = "moldNo"
             stats.end_time = datetime.now()
-            stats.unique_matches = len(set(assignments.values()))
+            stats.unique_matches = len(assignments)
 
             if verbose:
                 self._log_final_results(stats, mold_priorities, assignments, 
@@ -354,7 +354,7 @@ class CompatibilityBasedMoldMachineOptimizer:
     def _log_final_results(self, 
                            stats: OptimizationStats, 
                            mold_priorities: List[str],
-                           assignments: Dict[str, str], 
+                           assignments: List[str], 
                            unassigned_molds: List[str],
                            current_load: Dict[str, int], 
                            overloaded_machines: set,
@@ -362,12 +362,15 @@ class CompatibilityBasedMoldMachineOptimizer:
         
         """Log final optimization results"""
 
-        self.logger.info("=== OPTIMIZATION COMPLETED ===")
-        self.logger.info("Duration: {:.2f} seconds", stats.duration or 0)
-        self.logger.info("Total molds processed: {}", len(mold_priorities))
-        self.logger.info("Successfully assigned: {}", len(assignments))
-        self.logger.info("Unassigned: {}", len(unassigned_molds))
-        self.logger.info("Unique machines used: {}", stats.unique_matches)
+        self.logger.info("=" * 50)
+        self.logger.info("ROUND 3 - OPTIMIZATION RESULTS SUMMARY")
+        self.logger.info("=" * 50)
+        self.logger.info("Successfully assigned molds: {}. \nDetails: {}", len(assignments), assignments)
+        self.logger.info("Unassigned molds: {}. \nDetail: {}", len(unassigned_molds), unassigned_molds)
+        self.logger.info("Total molds processed: {}", mold_priorities)
+        self.logger.info("Success rate: {:.1f}%", len(assignments)/len(mold_priorities))
+        self.logger.info("Total execution time: {:.2f} seconds", stats.duration or 0)
+        self.logger.info("=" * 50)
 
         if max_load_threshold is not None and overloaded_machines:
             self.logger.info("=== MACHINES SKIPPED DUE TO HIGH LOAD ===")
