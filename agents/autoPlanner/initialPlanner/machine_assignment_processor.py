@@ -28,6 +28,9 @@ class MachineAssignmentProcessor:
         self.producing_mold_list = producing_mold_list
         self.producing_info_list = producing_info_list
 
+        self.po_item_dict = dict(zip(self.pending_data ['poNo'], 
+                                     self.pending_data ['itemName']))
+
         # Cache frequently used mappings
         self._item_to_po_mapping = None
         self._lead_time_mapping = None
@@ -134,6 +137,7 @@ class MachineAssignmentProcessor:
             for mold_no, item_code in pairs:
                 mold_no, item_code = mold_no.strip(), item_code.strip()
                 po_infos = self.item_to_po_mapping.get(item_code)
+                #{'10236M': [('IM1901020', 10000, '2019-01-15')],...}
 
                 if po_infos:
                     converted.extend(f"('{mold_no}',{po})" for po in po_infos)
@@ -186,7 +190,7 @@ class MachineAssignmentProcessor:
                 rows.append({
                     'machineCode': machine,
                     'moldNo': None,
-                    'itemCode': None,
+                    'poNo': None,
                     'itemQuantity': None,
                     'poETA': None,
                     'moldLeadTime': None
@@ -198,12 +202,12 @@ class MachineAssignmentProcessor:
                         {
                             'machineCode': machine,
                             'moldNo': mold_no,
-                            'itemCode': item_code,
+                            'poNo': po_no,
                             'itemQuantity': quantity,
                             'poETA': date,
                             'moldLeadTime': mold_lead_time
                         }
-                        for item_code, quantity, date in items
+                        for po_no, quantity, date in items
                     ])
 
         result = pd.DataFrame(rows)
@@ -310,8 +314,8 @@ class MachineAssignmentProcessor:
                 (df_optimized['machineCode'] == machine_code) &
                 (~pd.isna(df_optimized['moldNo'])) &
                 (df_optimized['moldNo'] != '') &
-                (~pd.isna(df_optimized['itemCode'])) &
-                (df_optimized['itemCode'] != '') &
+                (~pd.isna(df_optimized['poNo'])) &
+                (df_optimized['poNo'] != '') &
                 (df_optimized['itemQuantity'] > 0)
             ].copy()
 
@@ -319,7 +323,7 @@ class MachineAssignmentProcessor:
             empty_rows = df_optimized[
                 (df_optimized['machineCode'] == machine_code) &
                 ((pd.isna(df_optimized['moldNo']) | (df_optimized['moldNo'] == '')) |
-                (pd.isna(df_optimized['itemCode']) | (df_optimized['itemCode'] == '')) |
+                (pd.isna(df_optimized['poNo']) | (df_optimized['poNo'] == '')) |
                 (df_optimized['itemQuantity'] == 0) | pd.isna(df_optimized['itemQuantity']))
             ]
 
@@ -341,7 +345,7 @@ class MachineAssignmentProcessor:
                 current_machine = df_optimized.loc[idx, 'machineCode']
                 df_optimized.loc[idx, 'machineCode'] = machine_code
                 moved_jobs.append({
-                    'itemCode': df_optimized.loc[idx, 'itemCode'],
+                    'poNo': df_optimized.loc[idx, 'poNo'],
                     'from_machine': current_machine,
                     'quantity': df_optimized.loc[idx, 'itemQuantity'],
                     'original_priority': df_optimized.loc[idx, 'priorityRank']
@@ -395,7 +399,7 @@ class MachineAssignmentProcessor:
                     empty_row = pd.DataFrame({
                         'machineCode': [source_machine],
                         'moldNo': [None],
-                        'itemCode': [None],
+                        'poNo': [None],
                         'itemQuantity': [0],
                         'poETA': [pd.NaT],
                         'moldLeadTime': [None],
@@ -421,14 +425,14 @@ class MachineAssignmentProcessor:
 
             for job in moved_jobs:
                 self.logger.info("  - Job {} (Qty: {}, Original Priority: {}) from machine {}",
-                              job['itemCode'], job['quantity'], job['original_priority'], job['from_machine'])
+                              job['poNo'], job['quantity'], job['original_priority'], job['from_machine'])
 
             # Log final priority structure on target machine
             final_target_jobs = df_optimized[df_optimized['machineCode'] == machine_code].sort_values('priorityRank')
             self.logger.info("Final priority on machine {}:", machine_code)
             for _, row in final_target_jobs.iterrows():
                 self.logger.info("  Priority {}: {} - {}",
-                              row['priorityRank'], row['moldNo'], row['itemCode'])
+                              row['priorityRank'], row['moldNo'], row['poNo'])
 
         return df_optimized
 
@@ -499,18 +503,19 @@ class MachineAssignmentProcessor:
             'machineCode': 'Machine Code',
             'machineNo': 'Machine No.',
             'moldNo': 'Assigned Mold',
-            'itemCode': 'Item Code',
+            'poNo': 'PO No.',
             'itemQuantity': 'PO Quantity',
             'poETA': 'ETA (PO Date)',
             'priorityRank': 'Priority in Machine',
             'moldLeadTime': 'Mold Lead Time'
         }
 
+        beautified['Item Name'] = beautified['poNo'].map(self.po_item_dict)
         beautified = beautified.rename(columns=column_mapping)
 
         # Reorder columns logically
         preferred_order = [
-            'Machine No.', 'Machine Code', 'Assigned Mold', 'Item Code',
+            'Machine No.', 'Machine Code', 'Assigned Mold', 'PO No.', 'Item Name',
             'PO Quantity', 'ETA (PO Date)', 'Mold Lead Time', 'Priority in Machine'
         ]
 
@@ -548,7 +553,8 @@ class MachineAssignmentProcessor:
             # Step 5: Optimize and beautify the final result
             optimized_df = self.optimize_mold_assignment(prioritized_df)
             final_result = self.beautify_dataframe(optimized_df)
-            self.logger.info("Pipeline completed successfully. Final result: {} - ", len(final_result), final_result.columns)
+            self.logger.info("Pipeline completed successfully. Final result: {} - ", 
+                             len(final_result), final_result.columns)
 
             return final_result
 
