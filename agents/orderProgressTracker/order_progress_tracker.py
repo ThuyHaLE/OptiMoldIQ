@@ -201,6 +201,8 @@ class OrderProgressTracker:
             self.filename_prefix,
         )
 
+        return self.data
+
     @staticmethod
     def _get_shift_start(row, shift_start_map,
                          date_field_name='recordDate',
@@ -736,6 +738,9 @@ class OrderProgressTracker:
                     return ""
 
             df["warningNotes"] = df["poNo"].apply(get_warning_notes)
+
+        else:
+            df["warningNotes"] = ""
 
         return df
 

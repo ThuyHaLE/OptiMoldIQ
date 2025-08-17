@@ -220,6 +220,8 @@ class ValidationOrchestrator:
             )
             self.logger.info("Results exported successfully!")
 
+            return final_results
+
         except Exception as e:
             self.logger.error("Failed to save results: {}", str(e))
             raise

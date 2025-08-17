@@ -286,6 +286,8 @@ class ProducingProcessor:
             self.filename_prefix,
         )
 
+        return self.data
+
     def _process_production_data(self,
                                  proStatus_df: pd.DataFrame,
                                  mold_estimated_capacity_df: pd.DataFrame) -> Tuple[pd.DataFrame, ...]:

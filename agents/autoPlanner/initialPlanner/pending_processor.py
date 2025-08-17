@@ -655,6 +655,8 @@ class PendingProcessor:
                 self.output_dir,
                 self.filename_prefix,
         )
+            
+            return self.data
         
         except Exception as e:
             self.logger.error("Processing pipeline failed: {}", str(e))
