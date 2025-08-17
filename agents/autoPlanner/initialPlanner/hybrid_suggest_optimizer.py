@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from pathlib import Path
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, List
 from dataclasses import dataclass
 from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import load_annotation_path, read_change_log, get_latest_change_row

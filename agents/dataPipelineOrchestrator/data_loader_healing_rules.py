@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import (
-    ProcessingStatus, ProcessingScale, RecoveryAction, Priority)
+    ProcessingStatus, ProcessingScale, RecoveryAction)
 
 
 def check_annotation_paths_and_update_status(recovery_actions, annotation_path):

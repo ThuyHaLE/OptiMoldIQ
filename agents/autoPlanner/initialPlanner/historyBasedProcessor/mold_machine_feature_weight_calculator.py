@@ -9,7 +9,7 @@ from typing import Tuple, Literal, Dict, Union, Optional
 from pathlib import Path
 from loguru import logger
 
-from agents.autoPlanner.report_text_formatter import generate_confidence_report
+from agents.autoPlanner.reportFormatters.report_text_formatter import generate_confidence_report
 from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import save_text_report_with_versioning, load_annotation_path, read_change_log, log_dict_as_table
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history

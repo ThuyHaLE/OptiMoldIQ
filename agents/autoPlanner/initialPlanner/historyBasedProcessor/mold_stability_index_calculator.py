@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from loguru import logger
 from agents.decorators import validate_init_dataframes
-from agents.utils import load_annotation_path, save_output_with_versioning, read_change_log
+from agents.utils import load_annotation_path, save_output_with_versioning
 
 # Decorator to validate DataFrames are initialized with the correct schema
 # This ensures that required DataFrames have all necessary columns before processing
