@@ -657,6 +657,7 @@ class HistBasedMoldMachineOptimizer:
         """Convert producing data to leadtime format."""
 
         df = df.copy()
+        df['remainTime'] = pd.to_timedelta(df['remainTime'], unit='hours', errors='coerce')
         df['remainTime'] = (df['remainTime'].dt.total_seconds() / 86400).round().astype('int')  # Convert to days
         return list(df[['itemCode', 'machineCode', 'remainTime']].itertuples(index=False, name=None))
 
