@@ -378,12 +378,12 @@ class ProducingProcessor:
 
             producing_data['leadTime'] = pd.to_timedelta(
                 producing_data['itemQuantity'] / producing_data['balancedMoldHourCapacity'],
-                unit='hours'
+                unit='hours', errors='coerce'
             )
 
             producing_data['remainTime'] = pd.to_timedelta(
                 producing_data['itemRemain'] / producing_data['balancedMoldHourCapacity'],
-                unit='hours'
+                unit='hours', errors='coerce'
             )
 
         if 'startedDate' in producing_data.columns:
