@@ -262,8 +262,8 @@ class MoldStabilityIndexCalculator:
 
         # Calculate the priority matrix using the main calculation method
         mold_stability_index = self.process(cavity_stability_threshold,
-                                                                   cycle_stability_threshold,
-                                                                   total_records_threshold)
+                                            cycle_stability_threshold,
+                                            total_records_threshold)
 
         # Prepare data for export by resetting index to include moldNo as a regular column
         # This makes the Excel output more readable and easier to work with
@@ -274,8 +274,8 @@ class MoldStabilityIndexCalculator:
         logger.info("Start excel file exporting...")
         save_output_with_versioning(
             self.data,          # Dictionary containing the data to save
-            self.output_dir/"mold_stability_index",    # Directory where the file will be saved
-            self.prefix, # Prefix for the output filename
+            self.output_dir,    # Directory where the file will be saved
+            self.prefix,        # Prefix for the output filename
         )
 
     # Static methods for mold stability index calculating phase
