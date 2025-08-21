@@ -82,13 +82,9 @@ class DataPipelineOrchestrator:
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DataPipelineOrchestrator"
         
-        # Create output directory if it doesn't exist
-        # This ensures we have a place to store pipeline results and logs
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        
         # Initialize notification system for error reporting and manual review alerts
         self.notification_handler = MockNotificationHandler()
-        self.notifier = ManualReviewNotifier(self.notification_handler, self.output_dir)
+        self.notifier = ManualReviewNotifier(self.notification_handler)
         self.report_collection = {}
 
     def _serialize_report_content(self, content: Any) -> str:
@@ -186,27 +182,28 @@ class DataPipelineOrchestrator:
                     self.logger.error("Failed to move file {}: {}", f.name, e)
                     raise OSError(f"Failed to move file {f.name}: {e}")
                 
-        for agent_id, message in self.report_collection.items():
-            # Create timestamped output file path
-            timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
-            filename = f"{timestamp_file}_{agent_id}_success_report.txt"
-            output_path = Path(newest_dir / filename)
+        for agent_id, info in self.report_collection.items():
+            for prefix_name, message in info.items():
+                # Create timestamped output file path
+                timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
+                filename = f"{timestamp_file}_{agent_id}_{prefix_name}.txt"
+                output_path = Path(newest_dir / filename)
 
-            try:
-                # Convert message to string if it's not already
-                if isinstance(message, str):
-                    content = message
-                else:
-                    # Handle AgentExecutionInfo or other objects
-                    content = self._serialize_report_content(message)
-                
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                log_entries.append(f"  ⤷ Saved new file: newest/{filename}\n")
-                self.logger.info("Saved new file: newest/{}", filename)
-            except Exception as e:
-                self.logger.error("Failed to save file {}: {}", filename, e)
-                raise OSError(f"Failed to save file {filename}: {e}")
+                try:
+                    # Convert message to string if it's not already
+                    if isinstance(message, str):
+                        content = message
+                    else:
+                        # Handle AgentExecutionInfo or other objects
+                        content = self._serialize_report_content(message)
+                    
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    log_entries.append(f"  ⤷ Saved new file: newest/{filename}\n")
+                    self.logger.info("Saved new file: newest/{}", filename)
+                except Exception as e:
+                    self.logger.error("Failed to save file {}: {}", filename, e)
+                    raise OSError(f"Failed to save file {filename}: {e}")
 
         try:
             with open(log_path, "a", encoding="utf-8") as log_file:
@@ -252,8 +249,8 @@ class DataPipelineOrchestrator:
         pipeline_result = self._create_pipeline_result(collector_result, loader_result)
         
         self.logger.info("✅ DataPipelineOrchestrator completed")
-        self.report_collection['DataPipelineOrchestrator'] = pipeline_result
-
+        self.report_collection['DataPipelineOrchestrator'] = {'final_report': pipeline_result}
+        
         self.save_report()
         self.logger.info("✅ All reports saved successfully")
 
@@ -284,12 +281,13 @@ class DataPipelineOrchestrator:
             # Check collection result and log appropriate message
             if result.status == 'success':
                 self.logger.info("✅ Phase 1: DataCollector completed successfully")
-                self.report_collection['DataCollector'] = result
+                self.report_collection['DataCollector'] = {'success_report': result}
             else:
                 self.logger.warning("⚠️ Phase 1: DataCollector failed")
                 # Handle failure by triggering manual review notification
-                self._handle_data_collector_failure(result)
-            
+                self.report_collection['DataCollector'] = {
+                    'manual_review_notification': self._handle_data_collector_failure(result)}
+
             return result
             
         except Exception as e:
@@ -332,11 +330,12 @@ class DataPipelineOrchestrator:
             # Check loading result and log appropriate message
             if result.status == 'success':
                 self.logger.info("✅ Phase 2: DataLoaderAgent completed successfully")
-                self.report_collection['DataLoader'] = result
+                self.report_collection['DataLoader'] = {'success_report': result}
             else:
                 self.logger.warning("⚠️ Phase 2: DataLoaderAgent failed")
                 # Handle failure by triggering manual review notification
-                self._handle_data_loader_failure(result)
+                self.report_collection['DataLoader'] = {
+                    'manual_review_notification': self._handle_data_loader_failure(result)}
             
             return result
             
@@ -397,7 +396,10 @@ class DataPipelineOrchestrator:
         
         try:
             # Trigger manual review notification with failure details
-            self.notifier.trigger_manual_review(result)
+            _, message = self.notifier.create_notification_message(result)
+            #self.notifier.trigger_manual_review(result)
+            return message
+        
         except Exception as e:
             # Log if notification sending itself fails
             self.logger.error(f"Failed to send notification for DataCollector: {str(e)}")
@@ -418,7 +420,9 @@ class DataPipelineOrchestrator:
         
         try:
             # Trigger manual review notification with failure details
-            self.notifier.trigger_manual_review(result)
+            _, message = self.notifier.create_notification_message(result)
+            #self.notifier.trigger_manual_review(result)
+            return message
         except Exception as e:
             # Log if notification sending itself fails
             self.logger.error(f"Failed to send notification for DataLoaderAgent: {str(e)}")

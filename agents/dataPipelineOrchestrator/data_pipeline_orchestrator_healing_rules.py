@@ -1,7 +1,5 @@
 from loguru import logger
 from typing import Dict, Optional
-from pathlib import Path
-from datetime import datetime
 
 # Import healing system constants for error handling and recovery
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import AgentExecutionInfo
@@ -16,7 +14,7 @@ class ManualReviewNotifier:
     into readable notification messages and saves them to files.
     """
 
-    def __init__(self, notification_handler, dest):
+    def __init__(self, notification_handler):
 
         """
         Initialize the manual review notifier.
@@ -27,9 +25,11 @@ class ManualReviewNotifier:
         """
 
         self.notification_handler = notification_handler
-        self.dest = dest
     
-    def trigger_manual_review(self, execution_info: AgentExecutionInfo, detail: Optional[Dict] = None) -> bool:
+    def trigger_manual_review(self, 
+                              execution_info: AgentExecutionInfo, 
+                              detail: Optional[Dict] = None
+                              ) -> bool:
         
         """
         Trigger manual review notification for failed agent execution.
@@ -50,24 +50,12 @@ class ManualReviewNotifier:
 
         try:
             # Create notification message with execution details
-            agent_id, message = self._create_notification_message(execution_info, detail)
-            
-            # Create timestamped output file path
-            timestamp_now = datetime.now()
-            timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
-            output_path = Path(f"{self.dest}/{timestamp_file}_{agent_id}_manual_review_notification.txt")
-
-            # Ensure output directory exists
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Save notification message to file for inspection
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(message)
+            agent_id, message = self.create_notification_message(execution_info, detail)
 
             # Send notification via handler (email, etc.)
             success = self.notification_handler.send_notification(
                 recipient="admin@company.com",
-                subject=f"Manual Review Required: {execution_info.agent_id}",
+                subject=f"Manual Review Required: {agent_id}",
                 message=message,
                 priority="HIGH"  # High priority for manual review requests
             )
@@ -83,7 +71,9 @@ class ManualReviewNotifier:
             logger.error(f"Error sending notification: {str(e)}")
             return False
 
-    def _create_notification_message(self, execution_info: AgentExecutionInfo, detail: Optional[Dict] = None) -> str:
+    def create_notification_message(self, 
+                                    execution_info: AgentExecutionInfo, 
+                                    detail: Optional[Dict] = None) -> str:
         
         """
         Create comprehensive notification message from execution info.
