@@ -41,7 +41,6 @@ class MockNotificationHandler:
 
         return True
 
-
 class DataPipelineOrchestrator:
 
     """
@@ -87,74 +86,6 @@ class DataPipelineOrchestrator:
         self.notifier = ManualReviewNotifier(self.notification_handler)
         self.report_collection = {}
 
-    def _serialize_report_content(self, content: Any) -> str:
-        """
-        Convert various content types to string format for file output.
-        
-        Args:
-            content: The content to serialize (could be AgentExecutionInfo, dict, etc.)
-            
-        Returns:
-            str: Serialized content as string
-        """
-        import json
-        from dataclasses import asdict, is_dataclass
-        
-        if isinstance(content, str):
-            return content
-        
-        elif is_dataclass(content):
-            # Handle dataclass objects like AgentExecutionInfo
-            if hasattr(content, '__str__') and content.__class__.__str__ is not object.__str__:
-                # Use custom __str__ method if available
-                return str(content)
-            else:
-                # Convert to dict and then to JSON
-                try:
-                    content_dict = asdict(content)
-                    # Handle enum values in the dict
-                    content_dict = self._convert_enums_to_strings(content_dict)
-                    return json.dumps(content_dict, indent=2, default=str)
-                except Exception as e:
-                    self.logger.warning("Failed to serialize dataclass to JSON: {}. Using repr.", e)
-                    return repr(content)
-        
-        elif isinstance(content, dict):
-            # Handle dictionary content
-            try:
-                # Convert any enum values to strings
-                clean_content = self._convert_enums_to_strings(content)
-                return json.dumps(clean_content, indent=2, default=str)
-            except Exception as e:
-                self.logger.warning("Failed to serialize dict to JSON: {}. Using repr.", e)
-                return repr(content)
-        
-        else:
-            # Fallback for other types
-            try:
-                return json.dumps(content, indent=2, default=str)
-            except Exception:
-                return repr(content)
-
-    def _convert_enums_to_strings(self, obj: Any) -> Any:
-        """
-        Recursively convert enum values to strings in nested data structures.
-        
-        Args:
-            obj: Object that may contain enum values
-            
-        Returns:
-            Object with enum values converted to strings
-        """
-        if hasattr(obj, 'value'):  # Likely an enum
-            return obj.value
-        elif isinstance(obj, dict):
-            return {k: self._convert_enums_to_strings(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [self._convert_enums_to_strings(item) for item in obj]
-        else:
-            return obj
-
     def save_report(self) -> None:
         
         """Save the report to a file and return the filename"""
@@ -195,7 +126,7 @@ class DataPipelineOrchestrator:
                         content = message
                     else:
                         # Handle AgentExecutionInfo or other objects
-                        content = self._serialize_report_content(message)
+                        content = self._generate_success_report(message)
                     
                     with open(output_path, 'w', encoding='utf-8') as f:
                         f.write(content)
@@ -235,7 +166,8 @@ class DataPipelineOrchestrator:
                 - timestamp: Pipeline execution timestamp
         """
 
-        self.logger.info("🚀 Starting DataPipelineOrchestrator...")
+        agent_id = "DataPipelineOrchestrator"
+        self.logger.info("🚀 Starting {}...", agent_id)
         
         # Phase 1: Data Collection
         # Collect raw data from various sources
@@ -248,10 +180,18 @@ class DataPipelineOrchestrator:
         # Create comprehensive pipeline result summary
         pipeline_result = self._create_pipeline_result(collector_result, loader_result)
         
-        self.logger.info("✅ DataPipelineOrchestrator completed")
-        self.report_collection['DataPipelineOrchestrator'] = {'final_report': pipeline_result}
+        self.logger.info("✅ {} completed", agent_id)
+
+        final_report = {
+            'Agent ID' : agent_id,
+            'Timestamp': self._get_timestamp(),
+            'Content'  : pipeline_result
+            }
+        
+        self.report_collection[agent_id] = {'final_report': final_report}
         
         self.save_report()
+
         self.logger.info("✅ All reports saved successfully")
 
         return pipeline_result
@@ -271,21 +211,27 @@ class DataPipelineOrchestrator:
             Any: DataCollector result object with status and details
         """
 
-        self.logger.info("📊 Phase 1: Running DataCollector...")
+        agent_id = 'DataCollector'
+        self.logger.info("📊 Phase 1: Running {}...", agent_id)
         
         try:
             # Initialize DataCollector with source directory and output directory
             collector = DataCollector(self.dynamic_db_source_dir, self.default_dir)
             result = collector.process_all_data()
-            
+
             # Check collection result and log appropriate message
             if result.status == 'success':
-                self.logger.info("✅ Phase 1: DataCollector completed successfully")
-                self.report_collection['DataCollector'] = {'success_report': result}
+                self.logger.info("✅ Phase 1: {} completed successfully", agent_id)
+                success_report = {
+                    'Agent ID' : agent_id,
+                    'Timestamp': self._get_timestamp(),
+                    'Content'  : result
+                    }
+                self.report_collection[agent_id] = {'success_report': success_report}
             else:
-                self.logger.warning("⚠️ Phase 1: DataCollector failed")
+                self.logger.warning("⚠️ Phase 1: {} failed", agent_id)
                 # Handle failure by triggering manual review notification
-                self.report_collection['DataCollector'] = {
+                self.report_collection[agent_id] = {
                     'manual_review_notification': self._handle_data_collector_failure(result)}
 
             return result
@@ -315,12 +261,13 @@ class DataPipelineOrchestrator:
         
         # Determine if we should proceed based on collector result
         should_proceed = self._should_proceed_to_data_loader(collector_result)
+        agent_id = 'DataLoaderAgent'
         
         if not should_proceed:
-            self.logger.info("⏹️ Phase 2: Skipping DataLoaderAgent due to unrecoverable collector failure")
+            self.logger.info("⏹️ Phase 2: Skipping {} due to unrecoverable collector failure", agent_id)
             return None
         
-        self.logger.info("📋 Phase 2: Running DataLoaderAgent...")
+        self.logger.info("📋 Phase 2: Running {}...", agent_id)
         
         try:
             # Initialize DataLoaderAgent with schema and annotation paths
@@ -329,12 +276,17 @@ class DataPipelineOrchestrator:
             
             # Check loading result and log appropriate message
             if result.status == 'success':
-                self.logger.info("✅ Phase 2: DataLoaderAgent completed successfully")
-                self.report_collection['DataLoader'] = {'success_report': result}
+                self.logger.info("✅ Phase 2: {} completed successfully", agent_id)
+                success_report = {
+                    'Agent ID' : agent_id,
+                    'Timestamp': self._get_timestamp(),
+                    'Content'  : result
+                    }
+                self.report_collection[agent_id] = {'success_report': success_report}
             else:
-                self.logger.warning("⚠️ Phase 2: DataLoaderAgent failed")
+                self.logger.warning("⚠️ Phase 2: {} failed", agent_id)
                 # Handle failure by triggering manual review notification
-                self.report_collection['DataLoader'] = {
+                self.report_collection[agent_id] = {
                     'manual_review_notification': self._handle_data_loader_failure(result)}
             
             return result
@@ -457,7 +409,9 @@ class DataPipelineOrchestrator:
             error_message=error_message
         )
 
-    def _create_pipeline_result(self, collector_result: Any, loader_result: Any) -> Dict[str, Any]:
+    def _create_pipeline_result(self, 
+                                collector_result: Any, 
+                                loader_result: Any) -> Dict[str, Any]:
         
         """
         Create comprehensive pipeline result summary from individual phase results.
@@ -504,8 +458,69 @@ class DataPipelineOrchestrator:
         Get current timestamp in ISO format for pipeline result tracking.
         
         Returns:
-            str: Current timestamp in ISO format (YYYY-MM-DDTHH:MM:SS.microseconds)
+            str: Current timestamp in ISO format (YYYY-MM-DD HH:MM:SS)
         """
         
-        from datetime import datetime
-        return datetime.now().isoformat()
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    def _generate_success_report(self, content: Any, indent=0):
+        """
+        Generate human-readable report from nested dataclass/dict/list/enum.
+        Supports both success and error content.
+        """
+        from dataclasses import asdict, is_dataclass
+
+        def _normalize_content(obj: Any) -> Any:
+            """
+            Recursively convert dataclasses, enums, and other non-serializable objects into JSON-friendly structures.
+            """
+            if is_dataclass(obj):
+                return _normalize_content(asdict(obj))  # dataclass -> dict
+            elif hasattr(obj, "value"):  # Enum
+                return obj.value
+            elif isinstance(obj, dict):
+                return {k: _normalize_content(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple, set)):
+                if all(not isinstance(v, (dict, list, tuple, set)) for v in obj):
+                    return ", ".join(str(_normalize_content(v)) for v in obj)
+                else:
+                    return [_normalize_content(v) for v in obj]
+            else:
+                return obj
+
+        def _normalize_content(obj: Any) -> Any:
+            """
+            Recursively convert dataclasses, enums, and other non-serializable objects into JSON-friendly structures.
+            """
+            if is_dataclass(obj):
+                return _normalize_content(asdict(obj))  # convert dataclass -> dict
+            elif hasattr(obj, "value"):  # Enum
+                return obj.value
+            elif isinstance(obj, dict):
+                return {k: _normalize_content(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple, set)):
+                return [_normalize_content(v) for v in obj]
+            else:
+                return obj
+            
+        data = _normalize_content(content)
+    
+        lines = []
+        prefix = "  " * indent
+
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(v, (dict, list)):
+                    lines.append(f"{prefix}• {k.upper()}:")
+                    lines.append(self._generate_success_report(v, indent + 1))
+                else:
+                    lines.append(f"{prefix}• {k.upper()}: {v}")
+        elif isinstance(data, list):
+            for idx, item in enumerate(data, start=1):
+                if isinstance(item, dict):
+                    lines.append(self._generate_success_report(item, indent + 1))
+                else:
+                    lines.append(f"{prefix}- {item}")
+        else:
+            lines.append(f"{prefix}{data}")
+        return "\n".join(lines)
