@@ -240,74 +240,44 @@ final_results = {
 }
 ```
 
+### Directory Structure
+
+```
+agents/
+├── database/
+│   ├── databaseSchemas.json                                     # Schema definitions (ValidationOrchestrator input)
+│   ├── staticDatabase/
+│   └── dynamicDatabase/                                         # Raw data sources (Data Collector input)
+└── shared_db/
+    ├── dynamicDatabase/                                         
+    |    ├── productRecords.parquet                              
+    |    └── purchaseOrders.parquet                              
+    ├── DataLoaderAgent/                                         
+    |   ├── historical_db/                                       
+    |   ├── newest/                                              
+    |   |    ├── YYYYMMDD_HHMM_itemCompositionSummary.parquet   
+    |   |    ├── YYYYMMDD_HHMM_itemInfo.parquet                 
+    |   |    ├── YYYYMMDD_HHMM_machineInfo.parquet              
+    |   |    ├── YYYYMMDD_HHMM_moldInfo.parquet                 
+    |   |    ├── YYYYMMDD_HHMM_moldSpecificationSummary.parquet 
+    |   |    ├── YYYYMMDD_HHMM_productRecords.parquet           
+    |   |    ├── YYYYMMDD_HHMM_purchaseOrders.parquet           
+    |   |    ├── YYYYMMDD_HHMM_resinInfo.parquet                
+    |   |    └── path_annotations.json                           # File path annotations (ValidationOrchestrator input)
+    |   └── change_log.txt                                       
+    └── ValidationOrchestrator/                                  # ValidationOrchestrator outputs
+        ├── historical_db/                                       # Archived reports
+        ├── newest/                                              # Current execution reports   
+        |    └── YYYYMMDD_HHMM_validation_orchestrator.xlsx 
+        └── change_log.txt                                       # ValidationOrchestrator change log
+```
+
 ---
 
 ## Execution Flow
-
-### Sequential Steps
 1. **Initialize** → Load configs and validate schemas
 2. **Load Data** → Read all 8 parquet files into memory
 3. **Run Validations** → Execute 3 agents in parallel (if possible)
 4. **Merge Results** → Combine warnings into unified structure
 5. **Generate Report** → Create Excel output with versioning
 6. **Log Summary** → Record execution statistics
-
-### Error Handling Strategy
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Error Handling Flow                          │
-│                                                                 │
-│ Level 1: File Loading Errors                                   │
-│ ├── Missing parquet files → Stop execution, log error          │
-│ ├── Schema validation fails → Stop execution, log details      │
-│ └── Permission issues → Stop execution, suggest fix            │
-│                                                                 │
-│ Level 2: Agent Execution Errors                                │
-│ ├── Agent fails → Continue with other agents, log warning      │
-│ ├── Partial data → Process available data, flag incomplete     │
-│ └── Memory issues → Implement chunking, reduce batch size      │
-│                                                                 │
-│ Level 3: Output Generation Errors                              │
-│ ├── Excel write fails → Try alternative format, log error     │
-│ ├── Directory issues → Create directories, retry               │
-│ └── Versioning conflicts → Auto-increment, warn user           │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Performance Optimization
-
-### Memory Management
-- **Lazy Loading**: Load data only when needed
-- **Chunked Processing**: Process large datasets in chunks
-- **Memory Cleanup**: Delete intermediate DataFrames after use
-- **Efficient Joins**: Use appropriate join strategies
-
-### Parallel Execution
-- Run agents independently when possible
-- Use threading for I/O operations
-- Implement timeout mechanisms
-- Monitor resource usage
-
-### Caching Strategy
-- Cache static reference data
-- Reuse loaded schemas across agents
-- Implement result caching for repeated runs
-- Store intermediate results for debugging
-
----
-
-## Monitoring & Alerts
-
-### Key Metrics
-- **Execution Time**: Total and per-agent timing
-- **Warning Counts**: By type and severity
-- **Data Quality Score**: Percentage of clean records
-- **Success Rate**: Completed validations vs total
-
-### Alert Conditions
-- High error count (>threshold)
-- Execution time exceeds limit
-- Critical validations fail
-- Data pipeline interrupted

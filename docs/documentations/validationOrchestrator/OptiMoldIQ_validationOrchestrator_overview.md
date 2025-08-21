@@ -1,249 +1,218 @@
-# ValidationOrchestrator Documentation
+# ValidationOrchestrator
 
-## Overview
+## Agent Info
 
-The `ValidationOrchestrator` is designed for orchestrating and executing validation processes for production data. It acts as a conductor, coordinating three different types of validation to ensure data integrity and consistency across the production system.
+- **Name**: ValidationOrchestrator
+- **Purpose**:
+  - Coordinate multiple validation processes (static, dynamic, and required field validation)
+  - Ensure manufacturing data quality and schema consistency across datasets
+  - Provide consolidated reporting and version-controlled validation results
+- **Owner**:
+- **Status**: Active
+- **Location**: agents/validationOrchestrator/
 
 ---
 
-## System Architecture
+## What it does
+The `ValidationOrchestrator` coordinates validation workflows across both dynamic data (e.g., product records, purchase orders) and static reference data (e.g., item, resin, machine, and mold information). 
+It integrates three main validation components:
 
-### Role of the ValidationOrchestrator
-- **Parent Agent**: Coordinates sub-validation agents
-- **Data Validator**: Validates data from multiple sources
-- **Result Consolidator**: Aggregates and exports validation reports
+-  [StaticCrossDataChecker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/OptiMoldIQ_staticCrossDataChecker_overview.md) – ensures consistency against reference datasets
+- [PORequiredCriticalValidator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/OptiMoldIQ_poRequiredCriticalValidator_overview.md) – verifies required fields in purchase orders
+- [DynamicCrossDataValidator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/OptiMoldIQ_dynamicCrossDataValidator_overview.md)  – validates relationships across dynamic datasets
+  
+The orchestrator consolidates all results into structured reports, exports them with versioning, and logs detailed execution outcomes for monitoring and recovery.
 
-### Coordinated Sub-Agents
-1. **StaticCrossDataChecker**: Validates data against static reference datasets
-2. **PORequiredCriticalValidator**: Validates required fields in purchase orders
-3. **DynamicCrossDataValidator**: Validates cross-references among dynamic datasets
+### Key Features
 
-### Workflow
+- **Multi-Stage Validation**
+  - Static cross-data validation against reference datasets
+  - Purchase order required field validation
+  - Dynamic cross-data validation across frequently updated datasets
+- **Schema Enforcement**
+  - Ensures loaded DataFrames conform to database schema definitions
+  - Validates parquet files against annotated schema metadata
+- **Consolidated Reporting**
+  - Aggregates validation results from multiple checks
+  - Produces combined DataFrame for unified reporting
+- **Versioned Output**
+  - Exports validation results with timestamp-based versioning
+  - Prevents overwriting through automated file management
+- **Error Handling & Logging**
+  - Structured error handling for missing files or schema mismatches
+  - Detailed logging for each DataFrame load and validation step
+
+---
+
+## Architecture Overview
 ```
-                            ┌─────────────────────────────────────┐
-                            │      ValidationOrchestrator         │
-                            │   (Main Coordinator Agent)          │
-                            └─────────────────────────────────────┘
-                                           │
-                            ┌──────────────┼──────────────┐
-                            │              │              │
-                            ▼              ▼              ▼
-                ┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
-                │ StaticValidator  │ │ POValidator  │ │ DynamicValidator │
-                │   (Agent 1)      │ │  (Agent 2)   │ │   (Agent 3)      │
-                └──────────────────┘ └──────────────┘ └──────────────────┘
-                            │              │              │
-                            └──────────────┼──────────────┘
-                                           │
-                                           ▼
-                                 ┌─────────────────┐
-                                 │ Results Merger  │
-                                 │ & Excel Export  │
-                                 └─────────────────┘
+                    ┌─────────────────────────┐
+                    │   ValidationOrchestrator│
+                    │   (Main Coordinator)    │
+                    └───────────────┬─────────┘
+                                    │
+                    ┌──────────────┼──────────────────────────────┐
+                    │              │                              │
+                    v              v                              v
+┌──────────────────────┐   ┌──────────────────────┐   ┌─────────────────────────┐
+│ StaticCrossDataChecker│   │PORequiredCriticalVal.│   │DynamicCrossDataValidator│
+│ (Reference Consistency)│ │ (PO Required Fields) │   │ (Cross-Dataset Checks)  │
+└─────────────┬────────┘   └────────────┬────────┘   └──────────────┬─────────┘
+              │                         │                           │
+              v                         v                           v
+       ┌──────────────┐         ┌──────────────┐            ┌──────────────┐
+       │ Static Mismatch│       │ PO Field Warn │            │ Dynamic Issues│
+       └──────────────┘         └──────────────┘            └──────────────┘
+                      \            |            /
+                       \           |           /
+                        \          v          /
+                         ┌──────────────────┐
+                         │ Consolidated      │
+                         │ Validation Report │
+                         └──────────────────┘
+```
+
+---
+
+## Pre-requisites Checklist
+Before running the pipeline, ensure:
+
+- [ ] **Annotation path (DataLoaderAgent) available**: `path_annotations.json`
+- [ ] **Static reference data available**: Item, Resin, Machine, and Mold datasets
+- [ ] **Dynamic data available**: Purchase Orders, product master, monthly reports
+- [ ] **Schema file accessible**: `database/databaseSchemas.json` 
+- [ ] **Write permissions**: Full access to `agents/shared_db/`
+- [ ] **Python dependencies**: loguru, pathlib, pandas, pyarrow
+- [ ] **Disk space**: At least 2x input data size available
+
+---
+
+## Error Handling Scenarios
+| Scenario       | Static Validation | PO Validation | Dynamic Validation | Final Status      | Action Required                 |
+| -------------- | ----------------- | ------------- | ------------------ | ----------------- | ------------------------------- |
+| Happy Path     | ✅ Success         | ✅ Success     | ✅ Success          | `success`         | None                            |
+| Static Fail    | ❌ Failed          | ✅ Success     | ✅ Success          | `partial_success` | Fix static reference data       |
+| PO Fail        | ✅ Success         | ❌ Failed      | ✅ Success          | `failed`          | Check missing/invalid PO fields |
+| Dynamic Fail   | ✅ Success         | ✅ Success     | ❌ Failed           | `failed`          | Inspect relational integrity    |
+| Multiple Fails | ❌ Failed          | ❌ Failed      | ❌ Failed           | `failed`          | Full manual review              |
+
+---
+
+## Input & Output
+- **Input**: Dynamic datasets (PO, master records, reports), static reference datasets, schema files
+- **Output**: Validation results (reports + structured JSON summary)
+- **Format**: Hierarchical dictionary with status and detailed error messages
+
+---
+
+## Simple Workflow
+```
+Config Validation → StaticCrossDataChecker → PORequiredCriticalValidator → DynamicCrossDataValidator → Results + Reports
 ```
 - See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_validationOrchestratorWorkflow.md)
 
----
-
-## Data Structure
-
-### Dynamic Data (frequently updated)
-- **productRecords**: Daily production records
-- **purchaseOrders**: Customer purchase orders
-
-### Static Data (reference data)
-- **itemInfo**: Master information about items
-- **resinInfo**: Resin/material information
-- **machineInfo**: Production machine information
-- **moldInfo**: Mold details
-- **moldSpecificationSummary**: Mold specification summary
-- **itemCompositionSummary**: Item composition summary
+**Detailed Steps**:
+1. **Initialization**: Load schema + configuration paths
+2. **Static Validation**: Verify static datasets (item, resin, machine, mold)
+3. **PO Validation**: Check required PO fields and critical constraints
+4. **Dynamic Validation**: Run cross-dataset relational checks
+5. **Reporting**: Merge all results into consolidated reports (with version control)
+6. **Final Result**: Return orchestrator summary with error categories
 
 ---
 
-## Types of Validation
-
-### 1. Static Cross-Data Validation
-**Purpose**: Check consistency between dynamic data and static references
-
-**Examples**:
-- Does `Item ID` in `productRecords` exist in `itemInfo`?
-- Is the `Machine ID` valid as per `machineInfo`?
-- Does the `Resin code` match the entries in `resinInfo`?
-
-**See details**: [StaticCrossDataChecker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations\validationOrchestrator\OptiMoldIQ_staticCrossDataChecker_overview.md)
-
-### 2. Purchase Order Required Field Validation
-**Purpose**: Ensure all required fields in purchase orders are filled correctly
-
-**Examples**:
-- `Customer ID` must not be empty
-- `Order quantity` must be greater than 0
-- `Delivery date` must be specified
-
-**See details**: [PORequiredCriticalValidator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations\validationOrchestrator\OptiMoldIQ_poRequiredCriticalValidator_overview.md)
-
-### 3. Dynamic Cross-Data Validation
-**Purpose**: Check consistency among dynamic datasets
-
-**Examples**:
-- Do purchase orders and production records align?
-- Is the production quantity appropriate for the order?
-- Is the production timeline reasonable?
-
-**See details**: [DynamicCrossDataValidator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations\validationOrchestrator\OptiMoldIQ_dynamicCrossDataValidator_overview.md)
-
----
-
-## Usage
-
-### Basic Initialization
-```python
-# Using default configuration
-orchestrator = ValidationOrchestrator()
-
-# Run validations and save results
-orchestrator.run_validations_and_save_results()
+## Directory Structure
+```
+agents/shared_db/                                    
+└── ValidationOrchestrator/                                  
+    ├── historical_db/                                       
+    ├── newest/                                              
+    |    └── YYYYMMDD_HHMM_validation_orchestrator.xlsx 
+    └── change_log.txt                                       
 ```
 
-### Custom Configuration Initialization
+---
+
+## Dependencies
+- `StaticCrossDataChecker`: Validates static reference datasets
+- `PORequiredCriticalValidator`: Ensures required PO fields are filled and consistent
+- `DynamicCrossDataValidator`: Validates relational consistency across dynamic datasets
+- `loguru`: Structured logging with contextual information
+
+---
+
+## How to Run
+### Basic Usage
+
+```python
+# Initialize orchestrator
+orchestrator = ValidationOrchestrator()
+
+# Run validation
+result = orchestrator.run_validation()
+
+# Inspect results
+print(f"Validation status: {result['overall_status']}")
+print(f"Completed at: {result['timestamp']}")
+```
+
+### Custom Configuration
+
 ```python
 orchestrator = ValidationOrchestrator(
-    source_path='path/to/your/data',
-    annotation_name='custom_annotations.json',
-    databaseSchemas_path='path/to/schemas.json',
-    default_dir='output/directory'
+    dynamic_db_source_dir="custom/source/path",
+    schema_path="custom/validationSchemas.json",
+    default_dir="custom/output"
+)
+
+result = orchestrator.run_validation(
+    enable_notifications=True
 )
 ```
 
-### Run Validation Without Saving Files
+---
+
+## Development/Testing Mode
+
 ```python
-results = orchestrator.run_validations()
-# Process results as needed
+# Debug mode with verbose logging
+import logging
+logging.getLogger("ValidationOrchestrator").setLevel(logging.DEBUG)
+
+# Run test validation
+orchestrator = ValidationOrchestrator()
+result = orchestrator.run_validation()
 ```
 
-### Output Structure
-#### Return Format
-```python
-results = {
-    'static_mismatch': {
-        'purchaseOrders': DataFrame,      # Static validation errors in PO
-        'productRecords': DataFrame       # Static validation errors in production
+---
+
+## Result Structure
+```json
+{
+    "overall_status": "success|partial_success|failed",
+    "static_result": {
+        "status": "success|error",
+        "issues": ["missing_mold_record", "invalid_resin_id"],
+        "execution_time": "00:00:45"
     },
-    'po_required_mismatch': DataFrame,    # Missing required PO fields
-    'dynamic_mismatch': {
-        'invalid_items': DataFrame,       # Invalid items
-        'info_mismatches': DataFrame      # Cross-reference mismatches
+    "po_result": {
+        "status": "success|error",
+        "missing_fields": ["customer_code", "delivery_date"],
+        "execution_time": "00:01:30"
     },
-    'combined_all': {
-        'item_invalid_warnings': DataFrame,  # Consolidated item warnings
-        'po_mismatch_warnings': DataFrame    # Consolidated PO warnings
-    }
+    "dynamic_result": {
+        "status": "success|error",
+        "violations": ["orphan_product_entry"],
+        "execution_time": "00:04:00"
+    },
+    "timestamp": "2024-01-01T12:00:00.000000"
 }
 ```
-#### Output Files
-- Excel files: Saved with automatic versioning
-- Directory: agents/shared_db/ValidationOrchestrator/
-- File name: validation_orchestrator_v{version}.xlsx
-  
-### Advanced Features
-#### Schema Validation
-- Automatically checks DataFrame schemas on initialization
-- Uses @validate_init_dataframes decorator
-- Ensures all required columns are present
 
-#### Error Handling
-- Detailed logging with loguru
-- Graceful error handling during file loading
-- Validation pipeline continues even if a sub-agent fails
+---
 
-#### Data Loading
-- Automatic loading of .parquet files
-- Path resolution via annotation files
-- Memory-efficient DataFrame management
-
-#### Use Cases
-
-```python
-# Initialize validator with default settings
-orchestrator = ValidationOrchestrator(
-    source_path = 'agents/shared_db/DataLoaderAgent/newest',
-    annotation_name = "path_annotations.json",
-    databaseSchemas_path = 'database/databaseSchemas.json',
-    default_dir = "agents/shared_db")
-
-# Analyze historical data
-results = orchestrator.run_validations()
-
-# Check number of errors
-total_errors = len(results['combined_all']['po_mismatch_warnings'])
-if total_errors > threshold:
-    send_alert(f"Data quality issues detected: {total_errors} errors")
-
-# Analyze and save results
-orchestrator.run_validations_and_save_results()
-
-```
-
-#### Troubleshooting
-##### Common Errors
-###### 1. FileNotFoundError
-```python
-# Error: Path to 'productRecords' not found
-# Solution: Check `path_annotations.json` and ensure files exist
-```
-###### 2. Schema Mismatch
-```python
-# Error: DataFrame columns don't match expected schema
-# Solution: Update `databaseSchemas.json` or verify data source
-```
-
-###### 3. Memory Issues
-```python
-# Error: Out of memory when loading large datasets
-# Solution: Process data in chunks or increase memory allocation
-```
-
-#### Debug Tips
-- Enable debug logging: Set log level to DEBUG
-- Check data shapes: Look at log output for DataFrame shapes
-- Validate schemas: Run schema validation separately
-- Test individual validators: Run each sub-agent independently
-
-#### Performance Optimization
-##### Recommendations
-- Data Partitioning: Split large datasets into smaller chunks
-- Parallel Processing: Run validators in parallel where possible
-- Caching: Cache static reference data
-- Incremental Validation: Only validate newly changed data
-
-##### Memory Management
-- Lazy loading of DataFrames
-- Automatic cleanup after validation
-- Efficient pandas operations
-
-#### Configuration Management
-##### Key Configuration Files
-- databaseSchemas.json: Defines schemas for all tables
-- path_annotations.json: Maps paths to data files
-- Agent configs: Individual configurations for each validator agent
-
-##### Best Practices
-- Version control: Track schema file changes
-- Environment-specific configs: Separate configs for dev/staging/prod
-- Validation rules: Document all validation rules
-- Change management: Establish process for schema updates
-
-#### Monitoring and Alerting
-
-##### Key Metrics
-- Error count: Number of validation errors
-- Processing time: Time taken to complete validation
-- Data completeness: Percentage of missing data
-- Success rate: Pass rate for validations
-
-##### Alert Conditions
-- Error count exceeds threshold
-- Processing time is too long
-- Critical validation failures
-- Data pipeline failures
+## Configuration Paths
+- **dynamic_db_source_dir**: database/dynamicDatabase (raw dynamic datasets)
+- **schema_path**: database/validationSchemas.json (database schema definitions)
+- **default_dir**: agents/shared_db (base output directory)
+- **output_dir**: agents/shared_db/ValidationOrchestrator (validation reports & logs)

@@ -145,13 +145,11 @@ Main processing method that orchestrates the entire data loading pipeline.
 
 ```
 agents/shared_db/DataLoaderAgent/
+├── historical_db/
 ├── newest/
 │   ├── 20241201_1430_database1.parquet
 │   ├── 20241201_1430_database2.parquet
 │   └── path_annotations.json
-├── historical_db/
-│   ├── 20241130_0900_database1.parquet
-│   └── 20241130_0900_database2.parquet
 └── change_log.txt
 ```
 
@@ -165,28 +163,9 @@ Files are saved with timestamp prefixes in the format: `YYYYMMDD_HHMM_databasena
 
 ---
 
-## 6. Performance Considerations
+## 6. Usage Examples
 
-### 6.1 Optimization Features
-
-1. **Hash-based Comparison**: Fast change detection using MD5 hashing
-2. **Incremental Processing**: Only processes databases with detected changes
-3. **Memory Efficient**: Processes databases individually to minimize memory usage
-4. **Compressed Storage**: Uses Snappy compression for Parquet files
-
-### 6.2 Resource Monitoring
-
-The agent tracks:
-- Memory usage (MB and percentage)
-- Disk usage for output directory
-- Processing duration
-- Number of records processed
-
----
-
-## 7. Usage Examples
-
-### 7.1 Basic Usage
+### 6.1 Basic Usage
 
 ```python
 from data_loader_agent import DataLoaderAgent
@@ -208,7 +187,7 @@ else:
         print(f"Recovery action needed: {action}")
 ```
 
-### 7.2 Custom Configuration
+### 6.2 Custom Configuration
 
 ```python
 # Initialize with custom paths
@@ -223,9 +202,9 @@ result = agent.process_all_data()
 
 ---
 
-## 8. Integration Guidelines
+## 7. Integration Guidelines
 
-### 8.1 Downstream Agent Triggering
+### 7.1 Downstream Agent Triggering
 
 When data changes are detected, the agent can trigger downstream agents:
 
@@ -237,7 +216,7 @@ if result['trigger_agents']:
         trigger_agent(agent_id)
 ```
 
-### 8.2 Error Recovery Integration
+### 7.2 Error Recovery Integration
 
 ```python
 # Handle recovery actions

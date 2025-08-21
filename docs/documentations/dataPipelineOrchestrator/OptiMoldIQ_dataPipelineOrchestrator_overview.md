@@ -34,46 +34,6 @@ The `DataPipelineOrchestrator` manages a complete data pipeline consisting of tw
 
 ---
 
-## Directory Structure
-
-```
-agents/
-├── database/
-│   ├── databaseSchemas.json                                     # Schema definitions (Data Loader input)
-│   ├── staticDatabase/
-│   └── dynamicDatabase/                                         # Raw data sources (Data Collector input)
-│       ├── monthlyReports_history/                              # Product records source
-│       │   └── monthlyReports_YYYYMM.xlsb
-│       └── purchaseOrders_history/                              # Purchase orders source
-│           └── purchaseOrder_YYYYMM.xlsx
-└── shared_db/
-    ├── dynamicDatabase/                                         # Phase 1 outputs
-    |    ├── productRecords.parquet                              # Processed product records
-    |    └── purchaseOrders.parquet                              # Processed purchase orders
-    ├── DataLoaderAgent/                                         # Phase 2 outputs
-    |   ├── historical_db/                                       # Archived previous versions
-    |   ├── newest/                                              # Current processed data
-    |   |    ├── YYYYMMDD_HHMM_itemCompositionSummary.parquet   
-    |   |    ├── YYYYMMDD_HHMM_itemInfo.parquet                 
-    |   |    ├── YYYYMMDD_HHMM_machineInfo.parquet              
-    |   |    ├── YYYYMMDD_HHMM_moldInfo.parquet                 
-    |   |    ├── YYYYMMDD_HHMM_moldSpecificationSummary.parquet 
-    |   |    ├── YYYYMMDD_HHMM_productRecords.parquet           
-    |   |    ├── YYYYMMDD_HHMM_purchaseOrders.parquet           
-    |   |    ├── YYYYMMDD_HHMM_resinInfo.parquet                
-    |   |    └── path_annotations.json                           # File path annotations
-    |   └── change_log.txt                                       # Change tracking log
-    └── DataPipelineOrchestrator/                                # Orchestrator outputs & reports
-        ├── historical_db/                                       # Archived reports
-        ├── newest/                                              # Current execution reports
-        |    ├── YYYYMMDD_HHMM_DataCollector_(report_type).txt           
-        |    ├── YYYYMMDD_HHMM_DataLoader_(report_type).txt              
-        |    └── YYYYMMDD_HHMM_DataPipelineOrchestrator_final_report.txt 
-        └── change_log.txt                                       # Orchestrator change log
-```
-
----
-
 ## Pre-requisites Checklist
 Before running the pipeline, ensure:
 
@@ -121,28 +81,27 @@ Config Validation → Phase 1 (DataCollector) → Error Check & Recovery → Pha
 
 ---
 
+## Directory Structure
+
+```
+agents/shared_db/
+└── DataPipelineOrchestrator/                                # Orchestrator outputs & reports
+    ├── historical_db/                                       # Archived reports
+    ├── newest/                                              # Current execution reports
+    |    ├── YYYYMMDD_HHMM_DataCollector_(report_type).txt           
+    |    ├── YYYYMMDD_HHMM_DataLoader_(report_type).txt              
+    |    └── YYYYMMDD_HHMM_DataPipelineOrchestrator_final_report.txt 
+    └── change_log.txt                                       # Orchestrator change log
+```
+
+---
+
 ## Dependencies
 - **DataCollector**: Processes raw data from `database/dynamicDatabase`
 - **DataLoaderAgent**: Loads processed data using schemas and annotations
 - **ManualReviewNotifier**: Sends notifications for manual intervention requirements
 - **MockNotificationHandler**: Development/testing notification system
 - **loguru**: Structured logging with contextual information
-
----
-
-## Performance Notes
-
-### Typical Processing Times
-- **Phase 1 (DataCollector)**: 2-5 minutes (depends on file sizes)
-- **Phase 2 (DataLoaderAgent)**: 5-10 minutes (depends on data complexity)
-- **Total Pipeline**: 7-15 minutes end-to-end
-- **Report Generation**: < 30 seconds
-
-### Resource Requirements
-- **Memory**: ~500MB peak usage during processing
-- **Disk**: 2x input data size (for intermediate and backup files)
-- **CPU**: Single-threaded processing (optimization opportunity)
-- **Network**: Minimal (local file operations only)
 
 ---
 
@@ -195,7 +154,7 @@ result = orchestrator.run_pipeline()
 ---
 
 ## Result Structure
-```python
+```json
 {
     "overall_status": "success|partial_success|failed",
     "collector_result": {

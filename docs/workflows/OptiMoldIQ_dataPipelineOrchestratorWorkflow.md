@@ -324,7 +324,7 @@ Trigger Agents      : [triggering_agents]
 ### 6.1 Directory Structure
 
 ```
-project_root/
+agents/
 ├── database/
 │   ├── databaseSchemas.json               # Database schema definitions (DataLoader input)    
 │   ├── staticDatabase/
@@ -337,14 +337,18 @@ project_root/
 |       |    ├── productRecords.parquet                     
 |       |    └── purchaseOrders.parquet        
 │       ├── DataLoaderAgent/               # DataLoader output (.parquet files)
-│       │   ├── historical_db/ 
-│       │   ├── newest/                    
-│       │   │   └── path_annotations.json  # Version tracking
-|       |   └── change_log.txt             # DataLoaderAgent change log
+│       |   ├── historical_db/                                       
+│       |   ├── newest/                                              
+│       |   |    ├── ...          
+│       |   |    └── path_annotations.json # Version tracking
+│       |   └── change_log.txt             # DataLoaderAgent change log
 │       └── DataPipelineOrchestrator/      # Orchestrator reports
-|           ├── historical_db/             
-|           ├── newest/                    
-|           └── change_log.txt             # Orchestrator change log
+│           ├── historical_db/                                     
+│           ├── newest/                                             
+│           |    ├── YYYYMMDD_HHMM_DataCollector_(report_type).txt           
+│           |    ├── YYYYMMDD_HHMM_DataLoader_(report_type).txt              
+│           |    └── YYYYMMDD_HHMM_DataPipelineOrchestrator_final_report.txt 
+│           └── change_log.txt             # Orchestrator change log
 └── configs/
     └── recovery/
         └── dataPipelineOrchestrator/
