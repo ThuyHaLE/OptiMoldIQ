@@ -1,387 +1,282 @@
-# DataPipelineOrchestrator Documentation
+# DataPipelineOrchestrator
 
-## Overview
-
-The `DataPipelineOrchestrator` is designed for managing a comprehensive two-phase data pipeline process. It orchestrates data collection, processing, loading operations, and provides robust error handling with automated recovery mechanisms and notification systems.
-
----
-
-## Architecture
-
-### Core Components
-
-1. **DataPipelineOrchestrator** - Main orchestrator class
-2. **MockNotificationHandler** - Notification system for testing
-3. **ManualReviewNotifier** - Handles manual review notifications
-4. **DataCollector** - Phase 1: Data collection agent
-5. **DataLoaderAgent** - Phase 2: Data processing and loading agent
-
-### Two-Phase Pipeline Design
-
-```
-Phase 1: Data Collection → Phase 2: Data Loading
-     ↓                           ↓
-Error Handling ←→ Rollback ←→ Notifications
-```
+## Agent Info
+- **Name**: DataPipelineOrchestrator
+- **Purpose**: 
+  - Manage a comprehensive two-phase data pipeline process (collect → load)
+  - Provide robust error handling with automated recovery mechanisms and notification systems
+- **Owner**: 
+- **Status**: Active
+- **Location**: `agents/dataPipelineOrchestrator/`
 
 ---
 
-## Class Reference
+## What it does
+The `DataPipelineOrchestrator` manages a complete data pipeline consisting of two sequential phases: collecting raw data from various sources ([DataCollector](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataCollector_review.md)), then processing and loading it into target systems ([DataLoader](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataLoader_review.md)). It includes intelligent rollback mechanisms and notification systems for comprehensive error handling.
 
-### Key Methods
+---
 
-#### `run_pipeline(**kwargs) -> Dict[str, Any]`
+## Architecture Overview
 
-Main entry point that executes the complete data pipeline.
-
-**Process Flow:**
-1. Execute Phase 1 (DataCollector)
-2. Evaluate Phase 1 results
-3. Conditionally execute Phase 2 (DataLoaderAgent)
-4. Handle errors and notifications
-5. Return comprehensive results
-
-- See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_dataPipelineOrchestratorWorkflow.md)
-  
-**Returns:**
-```python
-{
-    'overall_status': 'success' | 'partial_success' | 'failed',
-    'collector_result': Any,  # Phase 1 results
-    'loader_result': Any,     # Phase 2 results
-    'timestamp': str          # ISO format timestamp
-}
 ```
-
-**Status Definitions:**
-- `success`: Both phases completed successfully
-- `partial_success`: Phase 1 failed but Phase 2 succeeded due to rollback
-- `failed`: Either phase failed without recovery
-
-#### `_run_data_collector() -> Any`
-
-Executes Phase 1: `DataCollector` to gather raw data from sources.
-
-**Process:**
-1. Initialize DataCollector with source directory
-2. Process all available data sources
-3. Handle collection errors
-4. Trigger notifications on failure
-
-- See details: [DataCollector](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataCollector_review.md)
-
-#### `_run_data_loader(collector_result: Any) -> Any`
-
-Executes Phase 2: `DataLoaderAgent` to process and load collected data.
-  
-**Conditional Logic:**
-- Proceeds if Phase 1 was successful
-- Proceeds if Phase 1 failed but rollback was successful  
-- Skips if Phase 1 failed without successful rollback
-
-- See details: [DataLoader](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataLoader_review.md)
-
-#### `_should_proceed_to_data_loader(collector_result: Any) -> bool`
-
-Decision logic for Phase 2 execution:
-
-```python
-if collector_result.status == 'success':
-    return True
-elif rollback_successful:
-    return True
-else:
-    return False
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   DataCollector │ -> │ DataPipeline     │ -> │ DataLoaderAgent │
+│   (Phase 1)     │    │ Orchestrator     │    │   (Phase 2)     │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                       │                       │
+         v                       v                       v
+   ┌─────────────┐        ┌─────────────┐        ┌─────────────┐
+   │ Raw Data    │        │ Error       │        │ Processed   │
+   │ Sources     │        │ Handling &  │        │ Data &      │
+   │ (.xlsx/.xlsb)│       │ Notifications│       │ Reports     │
+   └─────────────┘        └─────────────┘        └─────────────┘
 ```
 
 ---
 
-## Error Handling & Recovery
-
-### Error Handling Strategy
-
-The orchestrator implements a multi-layered error handling approach:
-
-1. **Try-Catch Blocks**: Wrap each phase execution
-2. **Status Checking**: Evaluate phase results
-3. **Rollback Detection**: Check for successful recovery actions
-4. **Notification System**: Alert administrators of failures
-
-### Recovery Mechanisms
-
-#### Rollback Detection
-The system checks for successful `ROLLBACK_TO_BACKUP` actions in:
-- Healing actions from the execution info
-- Recovery actions within detail records
-
-#### Decision Matrix
-| Phase 1 Status | Rollback Status | Phase 2 Action |
-|---------------|----------------|----------------|
-| Success | N/A | Proceed |
-| Failed | Success | Proceed |
-| Failed | Failed/None | Skip |
-
----
-
-## Notification System
-
-### MockNotificationHandler
-
-Simulates notification sending for testing purposes.
-
-```python
-def send_notification(
-    recipient: str, 
-    subject: str, 
-    message: str, 
-    priority: str
-) -> bool
-```
-
-### ManualReviewNotifier
-
-Handles comprehensive manual review notifications.
-
-#### Key Features
-
-1. **Structured Notifications**: Creates detailed notification messages
-2. **File Persistence**: Saves notifications to timestamped files
-3. **Rollback Verification**: Checks for successful rollback operations
-4. **Multi-format Support**: Handles various enum and status formats
-
-#### Notification Structure
+## Directory Structure
 
 ```
-================================================================================
-                    MANUAL REVIEW NOTIFICATION
-================================================================================
-
-Agent ID     : [agent_identifier]
-Status       : [FAILED/ERROR]
-Timestamp    : [iso_timestamp]
-
------------------------------- SUMMARY ------------------------------
-Total Databases     : [count]
-Successful          : [count]
-Failed              : [count]
-Warnings            : [count]
-Changed Files       : [count]
-Files Saved         : [count]
-
-------------------------- ERROR DETAILS -------------------------
-ERROR #1:
-  Data Type      : [data_type]
-  Error Type     : [error_classification]
-  Error Message  : [detailed_error_message]
-  
-  Recovery Actions:
-    1. [PRIORITY] Action_Name at Scale → Status: [SUCCESS/FAILED]
-
----------------------- HEALING ACTIONS ----------------------
-1. [HIGH] ROLLBACK_TO_BACKUP at database → Status: SUCCESS
-
--------------------------- METADATA --------------------------
-Duration (s)        : [execution_time]
-Memory Usage (MB)   : [memory_usage] ([percentage]%)
-Disk Output (MB)    : [disk_usage]
-Disk Free Space (MB): [available_space]
-Trigger Agents      : [triggering_agents]
-
-================================================================================
-```
-
----
-
-## Configuration
-
-### Directory Structure
-
-```
-project_root/
+agents/
 ├── database/
-│   ├── dynamicDatabase/          # Source data directory
-│   └── databaseSchemas.json      # Database schemas
-├── agents/
-│   └── shared_db/
-│       ├── DataLoaderAgent/
-│       │   └── newest/
-│       │       └── path_annotations.json
-│       └── DataPipelineOrchestrator/  # Output directory
-└── configs/
-    └── recovery/
-        └── dataPipelineOrchestrator/
-            └── data_pipeline_orchestrator_configs.py
+│   ├── databaseSchemas.json                                     # Schema definitions (Data Loader input)
+│   ├── staticDatabase/
+│   └── dynamicDatabase/                                         # Raw data sources (Data Collector input)
+│       ├── monthlyReports_history/                              # Product records source
+│       │   └── monthlyReports_YYYYMM.xlsb
+│       └── purchaseOrders_history/                              # Purchase orders source
+│           └── purchaseOrder_YYYYMM.xlsx
+└── shared_db/
+    ├── dynamicDatabase/                                         # Phase 1 outputs
+    |    ├── productRecords.parquet                              # Processed product records
+    |    └── purchaseOrders.parquet                              # Processed purchase orders
+    ├── DataLoaderAgent/                                         # Phase 2 outputs
+    |   ├── historical_db/                                       # Archived previous versions
+    |   ├── newest/                                              # Current processed data
+    |   |    ├── YYYYMMDD_HHMM_itemCompositionSummary.parquet   
+    |   |    ├── YYYYMMDD_HHMM_itemInfo.parquet                 
+    |   |    ├── YYYYMMDD_HHMM_machineInfo.parquet              
+    |   |    ├── YYYYMMDD_HHMM_moldInfo.parquet                 
+    |   |    ├── YYYYMMDD_HHMM_moldSpecificationSummary.parquet 
+    |   |    ├── YYYYMMDD_HHMM_productRecords.parquet           
+    |   |    ├── YYYYMMDD_HHMM_purchaseOrders.parquet           
+    |   |    ├── YYYYMMDD_HHMM_resinInfo.parquet                
+    |   |    └── path_annotations.json                           # File path annotations
+    |   └── change_log.txt                                       # Change tracking log
+    └── DataPipelineOrchestrator/                                # Orchestrator outputs & reports
+        ├── historical_db/                                       # Archived reports
+        ├── newest/                                              # Current execution reports
+        |    ├── YYYYMMDD_HHMM_DataCollector_(report_type).txt           
+        |    ├── YYYYMMDD_HHMM_DataLoader_(report_type).txt              
+        |    └── YYYYMMDD_HHMM_DataPipelineOrchestrator_final_report.txt 
+        └── change_log.txt                                       # Orchestrator change log
 ```
 
 ---
 
-## Usage Examples
+## Pre-requisites Checklist
+Before running the pipeline, ensure:
+
+- [ ] **Source directory exists**: `database/dynamicDatabase/`
+- [ ] **Source data available**: Monthly reports (.xlsb) and purchase orders (.xlsx)
+- [ ] **Schema file accessible**: `database/databaseSchemas.json` 
+- [ ] **Write permissions**: Full access to `agents/shared_db/`
+- [ ] **Python dependencies**: loguru, pathlib, pandas, pyarrow
+- [ ] **Disk space**: At least 2x input data size available
+
+---
+
+## Error Handling Scenarios
+
+| Scenario | Phase 1 Status | Rollback | Phase 2 | Final Status | Action Required |
+|----------|----------------|----------|---------|--------------|-----------------|
+| Happy Path | ✅ Success | N/A | ✅ Success | `success` | None |
+| Collector Fail + Rollback OK | ❌ Failed | ✅ Success | ✅ Success | `partial_success` | Monitor logs |
+| Collector Fail + Rollback Fail | ❌ Failed | ❌ Failed | ⏹️ Skipped | `failed` | Manual intervention |
+| Collector OK + Loader Fail | ✅ Success | N/A | ❌ Failed | `failed` | Check data quality |
+| Both Phases Fail | ❌ Failed | ❌ Failed | ❌ Failed | `failed` | Full system check |
+
+---
+
+## Input & Output
+- **Input**: Configuration paths, raw data files (Excel formats)
+- **Output**: Pipeline execution results with comprehensive status reporting
+- **Format**: Python dictionary with hierarchical status information
+
+---
+
+## Simple Workflow
+```
+Config Validation → Phase 1 (DataCollector) → Error Check & Recovery → Phase 2 (DataLoaderAgent) → Results + Notifications + Reports
+```
+- See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_dataPipelineOrchestratorWorkflow.md)
+
+**Detailed Steps:**
+1. **Initialization**: Load configuration and validate all paths
+2. **Phase 1**: Run DataCollector to process raw Excel files into Parquet format
+3. **Error Handling**: If Phase 1 fails, attempt rollback and send notifications
+4. **Phase 2**: Run DataLoaderAgent (only if Phase 1 succeeds OR rollback succeeds)
+5. **Reporting**: Generate comprehensive execution reports and archive previous versions
+6. **Final Result**: Create pipeline summary with overall status and detailed phase information
+
+---
+
+## Dependencies
+- **DataCollector**: Processes raw data from `database/dynamicDatabase`
+- **DataLoaderAgent**: Loads processed data using schemas and annotations
+- **ManualReviewNotifier**: Sends notifications for manual intervention requirements
+- **MockNotificationHandler**: Development/testing notification system
+- **loguru**: Structured logging with contextual information
+
+---
+
+## Performance Notes
+
+### Typical Processing Times
+- **Phase 1 (DataCollector)**: 2-5 minutes (depends on file sizes)
+- **Phase 2 (DataLoaderAgent)**: 5-10 minutes (depends on data complexity)
+- **Total Pipeline**: 7-15 minutes end-to-end
+- **Report Generation**: < 30 seconds
+
+### Resource Requirements
+- **Memory**: ~500MB peak usage during processing
+- **Disk**: 2x input data size (for intermediate and backup files)
+- **CPU**: Single-threaded processing (optimization opportunity)
+- **Network**: Minimal (local file operations only)
+
+---
+
+## How to Run
 
 ### Basic Usage
 ```python
-# Initialize orchestrator with default settings
-orchestrator = DataPipelineOrchestrator(
-    dynamic_db_source_dir = "database/dynamicDatabase",
-    databaseSchemas_path = "database/databaseSchemas.json", 
-    annotation_path = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
-    default_dir = "agents/shared_db"
-)
+# Initialize with default configuration
+orchestrator = DataPipelineOrchestrator()
 
-# Run the complete pipeline
+# Run complete pipeline
 result = orchestrator.run_pipeline()
 
-# Check results
-if result['overall_status'] == 'success':
-    print("Pipeline completed successfully")
-elif result['overall_status'] == 'partial_success':
-    print("Pipeline completed with collector failure but successful recovery")
-else:
-    print("Pipeline failed")
+# Check execution status
+print(f"Pipeline status: {result['overall_status']}")
+print(f"Completed at: {result['timestamp']}")
 ```
 
 ### Custom Configuration
-
 ```python
 # Initialize with custom paths
 orchestrator = DataPipelineOrchestrator(
-    dynamic_db_source_dir="custom/data/sources",
+    dynamic_db_source_dir="custom/source/path",
     databaseSchemas_path="custom/schemas.json",
     annotation_path="custom/annotations.json",
-    default_dir="custom/shared"
+    default_dir="custom/output"
 )
 
 # Run with additional parameters
 result = orchestrator.run_pipeline(
-    custom_param="value",
-    retry_count=3
+    max_retries=3,
+    enable_notifications=True
 )
 ```
 
-### Error Handling
-
+### Development/Testing Mode
 ```python
-try:
-    orchestrator = DataPipelineOrchestrator()
-    result = orchestrator.run_pipeline()
-    
-    # Handle different result statuses
-    match result['overall_status']:
-        case 'success':
-            handle_success(result)
-        case 'partial_success':
-            handle_partial_success(result)
-        case 'failed':
-            handle_failure(result)
-            
-except Exception as e:
-    logger.error(f"Orchestrator initialization failed: {e}")
-```
-
----
-
-## Logging
-
-The orchestrator uses structured logging with the `loguru` library:
-
-```python
-# Class-specific logger binding
-self.logger = logger.bind(class_="DataPipelineOrchestrator")
-
-# Emoji-enhanced log messages for better visibility
-self.logger.info("🚀 Starting DataPipelineOrchestrator...")
-self.logger.info("✅ Phase 1: DataCollector completed successfully")
-self.logger.warning("⚠️ Phase 2: DataLoaderAgent failed")
-self.logger.error("❌ Phase 1: DataCollector error")
-```
-
----
-
-## Best Practices
-
-### 1. Error Resilience
-- Always check phase results before proceeding
-- Implement proper rollback detection
-- Use structured error result objects
-
-### 2. Monitoring
-- Enable comprehensive logging
-- Set up notification handlers for production
-- Monitor file system usage and permissions
-
-### 3. Configuration Management
-- Use environment-specific configuration files
-- Validate paths and permissions during initialization
-- Implement configuration validation
-
-### 4. Testing
-- Use MockNotificationHandler for testing
-- Test both success and failure scenarios
-- Verify rollback detection logic
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Path Configuration Errors**
-   - Verify all directory paths exist
-   - Check file permissions
-   - Validate JSON schema files
-
-2. **Phase Execution Failures**
-   - Check DataCollector and DataLoaderAgent logs
-   - Verify data source availability
-   - Monitor system resources
-
-3. **Notification Issues**
-   - Verify notification handler configuration
-   - Check output directory permissions
-   - Monitor notification delivery
-
-### Debug Mode
-
-Enable detailed logging for troubleshooting:
-
-```python
+# Debug mode with verbose logging
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("DataPipelineOrchestrator").setLevel(logging.DEBUG)
 
-# Or with loguru
-from loguru import logger
-logger.add("debug.log", level="DEBUG")
+# Mock notifications for testing
+orchestrator = DataPipelineOrchestrator()
+orchestrator.notification_handler = MockNotificationHandler()
+
+# Test run
+result = orchestrator.run_pipeline()
 ```
 
 ---
 
-## Performance Considerations
-
-### Resource Management
-- Monitor memory usage during large data processing
-- Implement data chunking for large datasets
-- Clean up temporary files after processing
-
-### Scalability
-- Consider parallel processing for independent data sources
-- Implement connection pooling for database operations
-- Use asynchronous operations where appropriate
-
-### Monitoring Metrics
-- Pipeline execution duration
-- Memory and disk usage
-- Success/failure rates
-- Rollback frequency
+## Result Structure
+```python
+{
+    "overall_status": "success|partial_success|failed",
+    "collector_result": {
+        "status": "success|error",
+        "component": "DataCollector",
+        "files_processed": 12,
+        "records_count": 45000,
+        "execution_time": "00:03:24",
+        "healing_actions": [...]  # If any rollback actions taken
+    },
+    "loader_result": {
+        "status": "success|error", 
+        "component": "DataLoaderAgent",
+        "tables_created": 8,
+        "data_validation": "passed|failed",
+        "execution_time": "00:07:45"
+    },
+    "timestamp": "2024-01-01T12:00:00.000000"
+}
+```
 
 ---
 
-## Security Considerations
+## Configuration Paths
+- **dynamic_db_source_dir**: `database/dynamicDatabase` (raw Excel files)
+- **databaseSchemas_path**: `database/databaseSchemas.json` (database schema definitions)
+- **annotation_path**: `agents/shared_db/DataLoaderAgent/newest/path_annotations.json` (file mapping)
+- **default_dir**: `agents/shared_db` (base output directory)
+- **output_dir**: `agents/shared_db/DataPipelineOrchestrator` (reports and logs)
 
-### Data Protection
-- Secure handling of sensitive data in notifications
-- Proper file permissions for output directories
-- Sanitize error messages in notifications
+---
 
-### Access Control
-- Implement proper authentication for notification recipients
-- Secure configuration file access
-- Monitor pipeline execution logs
+## Common Issues & Solutions
+
+| Problem | Symptoms | Quick Fix | Prevention |
+|---------|----------|-----------|------------|
+| Phase 1 fails | Excel files not processed | Check file permissions & format | Validate source files regularly |
+| Phase 2 skipped | Only Phase 1 runs | Verify rollback status in logs | Monitor rollback success rates |
+| Notification fails | No alerts received | Check MockNotificationHandler config | Test notification system regularly |
+| Path not found | FileNotFoundError in logs | Verify all config paths exist | Use absolute paths in production |
+| Memory errors | Process killed/crashes | Reduce batch size or add memory | Monitor resource usage |
+| Disk full | Write operations fail | Clean old files from historical_db | Implement automated cleanup |
+
+---
+
+## Monitoring & Observability
+
+### Log Levels & Indicators
+- **🚀 INFO**: Pipeline startup and major milestones
+- **📊 INFO**: Phase transitions and progress updates
+- **✅ INFO**: Successful completions
+- **⚠️ WARNING**: Recoverable issues and rollbacks
+- **❌ ERROR**: Critical failures requiring intervention
+- **🔄 INFO**: Rollback operations
+- **📧 INFO**: Notification sending
+
+### Key Metrics to Track
+- **Pipeline Success Rate**: Overall success percentage over time
+- **Phase Success Rates**: Individual phase performance metrics
+- **Rollback Frequency**: How often recovery mechanisms activate
+- **Processing Time**: Performance trends and bottlenecks
+- **Data Quality**: Record counts and validation results
+- **Notification Triggers**: Manual intervention frequency
+
+### Health Checks
+```python
+# Quick health check
+def pipeline_health_check():
+    orchestrator = DataPipelineOrchestrator()
+    
+    # Check all paths exist
+    paths_ok = all([
+        Path(orchestrator.dynamic_db_source_dir).exists(),
+        Path(orchestrator.databaseSchemas_path).exists(),
+        Path(orchestrator.annotation_path).exists()
+    ])
+    
+    return {
+        "paths_accessible": paths_ok,
+        "last_run": get_last_execution_timestamp(),
+        "disk_space": get_available_disk_space(),
+        "service_status": "healthy" if paths_ok else "degraded"
+    }
+```

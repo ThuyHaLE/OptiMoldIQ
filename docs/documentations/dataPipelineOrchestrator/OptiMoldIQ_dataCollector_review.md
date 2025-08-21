@@ -1,273 +1,150 @@
-# DataCollector Documentation
+# DataCollector
 
-## Overview
+## 1. Overview
+`DataCollector` is an agent in the **data pipeline orchestrator**, responsible for **collecting, processing, and standardizing data** from Excel files (monthly reports, purchase orders) and exporting the results as **Parquet** files.
 
-The `DataCollector` is a critical component of the data pipeline orchestrator system responsible for collecting, processing, and converting data from various Excel sources into standardized Parquet format. It handles two primary data types: product records from monthly reports and purchase orders, with comprehensive error handling and recovery mechanisms.
-
----
-
-## Key Features
-
-- **Multi-format Excel Support**: Handles both `.xlsx` and `.xlsb` file formats
-- **Atomic File Operations**: Uses temporary files and atomic moves to prevent data corruption
-- **Duplicate Detection**: Automatically removes duplicate records during processing
-- **Data Validation**: Validates required fields and data types according to predefined schemas
-- **Error Recovery**: Implements local healing mechanisms with backup rollback capabilities
-- **Change Detection**: Only updates files when actual data changes are detected
-- **Comprehensive Logging**: Detailed logging for monitoring and debugging
+It supports:
+- Reading `.xlsb` and `.xlsx` files.
+- Standardizing schema according to business rules.
+- Merging data, removing duplicates, handling null values.
+- **Healing/rollback** mechanism when errors occur (backup/retry).
+- Produces results with metadata and triggers downstream agents.
 
 ---
 
-## Architecture
+## 2. Class: `DataCollector`
 
-### Directory Structure
-
-```
-database/dynamicDatabase/          # Source directory
-├── monthlyReports_history/        # Product records source
-│   └── monthlyReports_YYYYMM.xlsb
-└── purchaseOrders_history/        # Purchase orders source
-    └── purchaseOrder_YYYYMM.xlsx
-
-agents/shared_db/dynamicDatabase/  # Output directory
-├── productRecords.parquet         # Processed product records
-└── purchaseOrders.parquet         # Processed purchase orders
-```
-
----
-
-## Data Processing Flow
-
-### 1. Initialization
-- Sets up source and output directories
-- Creates output directories if they don't exist
-- Loads agent configuration for error handling
-
-### 2. Main Processing (`process_all_data`)
-- Processes product records from monthly reports
-- Processes purchase orders from purchase order files
-- Determines overall status based on individual results
-- Returns comprehensive execution information
-
-### 3. Data Type Processing (`_process_data_type`)
-- Validates source folder existence
-- Loads existing data for comparison
-- Processes each file individually
-- Handles partial failures gracefully
-- Applies local healing mechanisms when errors occur
-
-### 4. File Processing (`_process_single_file`)
-- Reads Excel files using appropriate engines
-- Validates required fields presence
-- Filters columns to include only required fields
-- Returns structured processing results
-
-### 5. Data Merging (`_merge_and_process_data`)
-- Concatenates multiple dataframes
-- Removes duplicate records
-- Applies data type conversions and cleaning
-- Performs change detection against existing data
-- Saves to Parquet format only if changes detected
-
----
-
-## Data Schemas
-
-### Product Records Schema
+### 2.1 Initialization
 ```python
-required_fields = [
-    'recordDate', 'workingShift', 'machineNo', 'machineCode', 
-    'itemCode', 'itemName', 'colorChanged', 'moldChanged', 
-    'machineChanged', 'poNote', 'moldNo', 'moldShot', 
-    'moldCavity', 'itemTotalQuantity', 'itemGoodQuantity',
-    'itemBlackSpot', 'itemOilDeposit', 'itemScratch', 
-    'itemCrack', 'itemSinkMark', 'itemShort', 'itemBurst',
-    'itemBend', 'itemStain', 'otherNG', 'plasticResine',
-    'plasticResineCode', 'plasticResineLot', 'colorMasterbatch',
-    'colorMasterbatchCode', 'additiveMasterbatch', 
-    'additiveMasterbatchCode'
-]
+collector = DataCollector(
+    source_dir="database/dynamicDatabase",
+    default_dir="agents/shared_db"
+)
 ```
-
-### Purchase Orders Schema
-```python
-required_fields = [
-    'poReceivedDate', 'poNo', 'poETA', 'itemCode', 'itemName',
-    'itemQuantity', 'plasticResinCode', 'plasticResin',
-    'plasticResinQuantity', 'colorMasterbatchCode', 
-    'colorMasterbatch', 'colorMasterbatchQuantity',
-    'additiveMasterbatchCode', 'additiveMasterbatch',
-    'additiveMasterbatchQuantity'
-]
-```
+- `source_dir`: Directory containing source Excel files.
+- `default_dir`: Base directory for output files.
+- `output_dir`: automatically set to `default_dir/dynamicDatabase`.
 
 ---
 
-## Error Handling and Recovery
+### 2.2 Main Method
 
-### Error Types
-- `FILE_NOT_FOUND`: Source folder or files don't exist
-- `UNSUPPORTED_DATA_TYPE`: Unknown data type processing request
-- `FILE_READ_ERROR`: Cannot read Excel files
-- `MISSING_FIELDS`: Required columns missing from source data
-- `DATA_PROCESSING_ERROR`: General processing failures
-- `PARQUET_SAVE_ERROR`: Cannot save output files
+#### `process_all_data() -> Dict[str, Any]`
+- Processes all datasets (productRecords + purchaseOrders).
+- Calls `_process_data_type()` for each dataset.
+- Aggregates results (status, summary, metadata).
+- Determines downstream agents to trigger and recovery actions.
 
-### Recovery Mechanisms
-The agent implements local healing through the `check_local_backup_and_update_status` function:
-
-1. **Backup Validation**: Checks for existence of backup Parquet files
-2. **Status Updates**: Updates recovery action statuses based on backup availability
-3. **Rollback Capability**: Can restore from backup when local recovery is possible
-
-### Recovery Actions
-- `ROLLBACK_TO_BACKUP`: Restore from previously saved backup files
-- `RETRY_PROCESSING`: Attempt processing again
-- Various other actions based on error type and configuration
-
----
-
-## Processing Statuses
-
-- `SUCCESS`: All operations completed successfully
-- `PARTIAL_SUCCESS`: Some files processed successfully, others failed
-- `WARNING`: Processing completed with warnings
-- `ERROR`: Critical failures preventing processing
-- `PENDING`: Recovery actions awaiting execution
-
----
-
-## Output Format
-
-### Execution Information Structure
-```python
+**Output Example**
+```json
 {
-    "agent_id": "DATA_COLLECTOR",
-    "status": "SUCCESS|PARTIAL_SUCCESS|WARNING|ERROR",
-    "summary": {
-        "total_datasets": 2,
-        "successful": 2,
-        "failed": 0,
-        "warnings": 0
-    },
-    "details": [
-        {
-            "data_type": "productRecords|purchaseOrders",
-            "status": "...",
-            "files_processed": 10,
-            "files_successful": 10,
-            "files_failed": 0,
-            "records_processed": 5000,
-            "output_file": "/path/to/output.parquet",
-            "file_size_mb": 2.5,
-            "data_updated": true,
-            "warnings": ["Removed 5 duplicate rows"]
-        }
-    ],
-    "healing_actions": ["RETRY_PROCESSING"],
-    "trigger_agents": ["DATA_LOADER"],
-    "metadata": {
-        "processing_duration": null,
-        "disk_usage": {
-            "output_directory_mb": 10.5,
-            "available_space_mb": 1024.0
-        }
+  "agent_id": "DATA_COLLECTOR",
+  "status": "SUCCESS",
+  "summary": {
+    "total_datasets": 2,
+    "successful": 2,
+    "failed": 0,
+    "warnings": 1
+  },
+  "details": [...],
+  "healing_actions": [],
+  "trigger_agents": ["DATA_LOADER"],
+  "metadata": {
+    "processing_duration": null,
+    "disk_usage": {
+      "output_directory_mb": 12.5,
+      "available_space_mb": 10240.0
     }
+  }
 }
 ```
 
 ---
 
-## Data Processing Rules
+### 2.3 Processing Methods
 
-### Data Type Conversions
-- **Product Records**: Excel serial dates converted to datetime objects
-- **Purchase Orders**: Date columns converted using pandas datetime parsing
-- **Material Codes**: Numeric codes safely converted to strings
-- **String Columns**: Object types converted to pandas string dtype
-- **Numeric Columns**: Appropriate nullable integer/float types assigned
+#### `_process_data_type(...)`
+- Input: folder path, output path, pattern, sheet, data_type.
+- Checks folder, required fields, reads source files.
+- Returns result (success / partial / error).
+- Healing mechanism: **rollback from backup**.
 
-### Data Cleaning
-- Null-like string values (`"nan"`, `"null"`, `"none"`, `""`, `"n/a"`) replaced with pandas NA
-- Working shift values normalized to uppercase
-- Column name standardization for consistency
-- Duplicate row removal across all processed files
+#### `_process_single_file(file_path, sheet, required_fields)`
+- Reads Excel → DataFrame.
+- Validates required columns.
+- Returns filtered dataframe according to schema.
 
----
+#### `_merge_and_process_data(merged_dfs, summary_file_path, existing_df)`
+- Merges multiple DataFrames.
+- Removes duplicates, applies schema, standardizes nulls, converts datatypes.
+- Checks changes against existing data.
+- Saves parquet (atomic write).
 
-## Performance Optimizations
-
-### Fast DataFrame Comparison
-Uses MD5 hash-based comparison for detecting data changes instead of element-wise comparison for better performance on large datasets.
-
-### Atomic File Operations
-- Saves to temporary files first
-- Uses atomic move operations to prevent corruption
-- Automatic cleanup of temporary files on errors
-
-### Memory Efficient Processing
-- Processes files individually before merging
-- Filters columns early to reduce memory footprint
-- Uses efficient Parquet compression (Snappy)
+#### `_save_parquet_file(df, summary_file_path)`
+- Saves dataframe to parquet safely (temp file + move).
+- Compresses with `snappy`.
+- Returns file size (MB).
 
 ---
 
-## Usage Example
+### 2.4 Helper Methods
 
-```python
-# Initialize the DataCollector
-collector = DataCollector(
-    source_dir = "database/dynamicDatabase",
-    default_dir = "agents/shared_db"
-)
-
-# Process all data types
-execution_info = collector.process_all_data()
-
-# Check results
-if execution_info['status'] == 'SUCCESS':
-    print("All data processed successfully")
-elif execution_info['status'] == 'PARTIAL_SUCCESS':
-    print("Some files failed to process")
-    print(f"Failed files: {execution_info['details'][0]['failed_files']}")
-else:
-    print(f"Processing failed: {execution_info['summary']}")
-```
+- `_get_source_files(folder, name_start, ext)` → finds valid files.
+- `_load_existing_data(file)` → loads existing parquet file.
+- `_get_healing_actions(results)` → determines required recovery actions.
+- `_get_trigger_agents(results)` → determines downstream agents to trigger.
+- `_get_disk_usage()` → output directory disk usage info.
+- `_dataframes_equal_fast(df1, df2)` → fast hash-based comparison.
+- `_get_required_fields()` → schema definitions for each dataset.
+- `_data_prosesssing(df, summary_file_path)` → cleans and standardizes data.
 
 ---
 
-## Monitoring and Maintenance
+## 3. Supported Data Types
 
-### Key Metrics to Monitor
-- Processing success rates
-- File processing times
-- Disk usage in output directory
-- Duplicate detection rates
-- Recovery action success rates
+### 3.1 Product Records (`monthlyReports_*.xlsb`)
+- Sheet: `Sheet1`
+- Schema:
+  - `recordDate` (Excel serial → datetime)
+  - `workingShift` (UPPERCASE)
+  - `machineNo`, `machineCode`, `itemCode`, `itemName`, ...
+  - Defects: `itemBlackSpot`, `itemOilDeposit`, `itemScratch`, ...
+  - Material info: `plasticResinCode`, `colorMasterbatchCode`, `additiveMasterbatchCode`
 
-### Maintenance Tasks
-- Regular backup validation
-- Log file rotation and cleanup
-- Monitoring of source directory growth
-- Performance optimization based on processing volumes
-
-### Troubleshooting Common Issues
-
-1. **Files Not Found**: Check source directory permissions and file naming conventions
-2. **Missing Fields**: Verify Excel file structure matches expected schema
-3. **Memory Issues**: Consider processing files in smaller batches for very large datasets
-4. **Parquet Save Errors**: Check disk space and directory permissions
-5. **Recovery Failures**: Ensure backup files exist and are accessible
+### 3.2 Purchase Orders (`purchaseOrder_*.xlsx`)
+- Sheet: `poList`
+- Schema:
+  - `poReceivedDate`, `poETA` (datetime)
+  - `poNo`, `itemCode`, `itemName`
+  - `plasticResinCode`, `colorMasterbatchCode`, `additiveMasterbatchCode`
+  - Quantity fields: `plasticResinQuantity`, `colorMasterbatchQuantity`, `additiveMasterbatchQuantity`
 
 ---
 
-## Integration Points
+## 4. Error Handling & Healing
 
-### Upstream Dependencies
-- Excel file generation processes that create source files
-- File system monitoring for new data availability
+| Error Type              | Action                          |
+|--------------------------|---------------------------------|
+| FILE_NOT_FOUND          | Rollback from local backup      |
+| UNSUPPORTED_DATA_TYPE   | Rollback                        |
+| FILE_READ_ERROR         | Rollback                        |
+| MISSING_FIELDS          | Rollback                        |
+| DATA_PROCESSING_ERROR   | Rollback                        |
+| PARQUET_SAVE_ERROR      | Rollback                        |
 
-### Downstream Dependencies
-- Data loading agents that consume the Parquet files
-- Analytics systems that depend on processed data
-- Notification systems for error reporting
+---
+
+## 5. Triggers
+
+- If `SUCCESS`: trigger `DATA_LOADER`.
+- If `ERROR`: trigger `ADMIN_NOTIFICATION`.
+- If `PARTIAL_SUCCESS`: add `RETRY_PROCESSING`.
+
+---
+
+## 6. Metadata & Monitoring
+- `disk_usage`: parquet file size, free disk space.
+- `processing_duration`: optional execution time measurement.
+- `warnings`: e.g. `"Removed 25 duplicate rows"`.
+
+---

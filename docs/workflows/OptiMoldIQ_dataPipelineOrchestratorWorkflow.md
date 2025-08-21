@@ -1,29 +1,30 @@
 # DataPipelineOrchestrator Workflow Documentation
 
-## Overview
+## 1. Overview
 
 The **DataPipelineOrchestrator** is the main coordinator agent responsible for managing a comprehensive two-phase data pipeline process. It orchestrates data collection, processing, loading operations, and provides robust error handling with automated recovery mechanisms and notification systems.
 
 ---
 
-## Architecture
+## 2. Architecture
 
-### Core Components
+### 2.1 Core Components
 
-1. **DataPipelineOrchestrator** - Main orchestrator class
-2. **MockNotificationHandler** - Notification system for testing
-3. **ManualReviewNotifier** - Handles manual review notifications
-4. **DataCollector** - Phase 1: Data collection agent
-5. **DataLoaderAgent** - Phase 2: Data processing and loading agent
+1. **DataPipelineOrchestrator** -- Main orchestrator class
+2. **DataCollector** -- Phase 1 agent: data collection and normalization
+3. **DataLoaderAgent** -- Phase 2 agent: data loading and version management
+4. **ManualReviewNotifier** -- Notification handler for manual review
+5. **MockNotificationHandler** -- Mock system for testing notifications
 
-### Two-Phase Pipeline Workflow
+### 2.2 Two-Phase Pipeline Workflow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                             [ DataPipelineOrchestrator ]                                        │
 │                    Orchestrates the entire batch data processing flow                           │
-└──────────────┬──────────────────────────────────────────────────────────────────────────────────┘
-               ▼ Phase 1                                                           
+└───────────────────────────────────────────┬─────────────────────────────────────────────────────┘
+                ┌───────────────────────────┴─────────────────────────────────────────┐
+                ▼ Phase 1                                                             ▼                 
         ┌──────────────────────┐                                            ┌──────────────────────┐
         │   DataCollector      │                                            │   DataLoaderAgent    │
         │ (Process Dynamic DB) │────── Phase 2 ───────────────────────────⯈│ (Load All Databases) │
@@ -31,23 +32,42 @@ The **DataPipelineOrchestrator** is the main coordinator agent responsible for m
                │                                                                        │
                ▼                                                                        ▼
     📊 Process Excel Reports                                           🔍 Check Database Changes
-    • Read .xlsb/.xlsx files                                          • Compare with schema
-    • Merge & validate data                                           • Compare with annotations  
-    • Compare hash with existing                                      • Save new versions if changed
-    • Save as .parquet if changed                                     • Update path_annotations.json
+    • Read .xlsb/.xlsx files                                            • Compare with schema
+    • Merge & validate data                                             • Compare with annotations  
+    • Compare hash with existing                                        • Save new versions if changed
+    • Save as .parquet if changed                                       • Update path_annotations.json
 ```
 
-### Detailed Phase Breakdown
+### 2.3 Detailed Phase Breakdown
 
 #### 🔄 Phase 1: DataCollector (Dynamic Database Processing)
 
-| Step | Process | Details |
-|------|---------|---------|
-| **1** | **Read Source Files** | Process `monthlyReports_history` and `purchaseOrders_history` folders |
-| **2** | **Data Normalization** | Handle missing columns, normalize dates, shifts, resin codes |
-| **3** | **Data Cleaning** | Remove duplicates and validate data integrity |
-| **4** | **Change Detection** | Compare new data with existing `.parquet` using hash comparison |
-| **5** | **File Generation** | Save new `.parquet` files using atomic write + snappy compression |
+  ------------------------------------------------------------------------
+  Step         Process                                  Details
+  ------------ ---------------------------------------- ------------------
+  1            Read Source Files                        Process
+                                                        `.xlsb`/`.xlsx`
+                                                        from history
+                                                        folders
+
+  2            Data Normalization                       Normalize dates,
+                                                        resin codes,
+                                                        missing columns
+
+  3            Data Cleaning                            Remove duplicates,
+                                                        validate integrity
+
+  4            Change Detection                         Hash comparison
+                                                        against existing
+                                                        parquet
+
+  5            File Generation                          Save `.parquet`
+                                                        with snappy
+                                                        compression
+  ------------------------------------------------------------------------
+
+**Success Criteria:** Hash detects new data, `.parquet` saved.\
+**Failure Modes:** File not found, corrupted Excel, schema mismatch.
 
 **Input Sources:**
 - `monthlyReports_history/` → `.xlsb`/`.xlsx` files
@@ -59,13 +79,28 @@ The **DataPipelineOrchestrator** is the main coordinator agent responsible for m
 
 #### 📋 Phase 2: DataLoaderAgent (All Database Loading)
 
-| Step | Process | Details |
-|------|---------|---------|
-| **1** | **Schema Loading** | Load `databaseSchemas.json` for schema definitions |
-| **2** | **Annotations Loading** | Load `path_annotations.json` for version references |
-| **3** | **Data Processing** | For each database:<br>• **Dynamic DB**: Load `.parquet` from Phase 1<br>• **Static DB**: Load `.xlsx` from configured paths |
-| **4** | **Change Detection** | Compare new vs old content using hash comparison |
-| **5** | **Version Management** | If different:<br>• Move old → `historical_db/`<br>• Save new → `newest/` with timestamp<br>• Update `path_annotations.json` |
+  --------------------------------------------------------------------------------
+  Step        Process                                    Details
+  ----------- ------------------------------------------ -------------------------
+  1           Schema Loading                             Load
+                                                         `databaseSchemas.json`
+
+  2           Annotations Loading                        Load
+                                                         `path_annotations.json`
+
+  3           Data Processing                            Load parquet (dynamic) +
+                                                         xlsx (static)
+
+  4           Change Detection                           Hash comparison new vs
+                                                         old
+
+  5           Version Management                         Save new to `newest/`,
+                                                         archive old →
+                                                         `historical_db/`
+  --------------------------------------------------------------------------------
+
+**Failure Modes:** Schema mismatch, corrupted `.xlsx`, rollback
+detection failure.
 
 **Input Sources:**
 - Dynamic: `.parquet` files from Phase 1
@@ -80,13 +115,9 @@ The **DataPipelineOrchestrator** is the main coordinator agent responsible for m
 
 ---
 
-## Class Reference
+## 3. Class DataPipelineOrchestrator
 
-### DataPipelineOrchestrator
-
-The main orchestrator class that coordinates the entire data pipeline process.
-
-#### Constructor
+### 3.1 Constructor
 
 ```python
 DataPipelineOrchestrator(
@@ -103,9 +134,9 @@ DataPipelineOrchestrator(
 - `annotation_path`: Path to data annotations file used by DataLoaderAgent
 - `default_dir`: Default directory for shared database operations
 
-#### Key Methods
+### 3.2 Key Methods
 
-##### `run_pipeline(**kwargs) -> Dict[str, Any]`
+#### `run_pipeline(**kwargs) -> Dict[str, Any]`
 
 Main entry point that executes the complete data pipeline.
 
@@ -131,7 +162,7 @@ Main entry point that executes the complete data pipeline.
 - `partial_success`: Phase 1 failed but Phase 2 succeeded due to rollback
 - `failed`: Either phase failed without recovery
 
-##### `_run_data_collector() -> Any`
+#### `_run_data_collector() -> Any`
 
 Executes Phase 1: DataCollector to gather raw data from sources.
 
@@ -141,7 +172,7 @@ Executes Phase 1: DataCollector to gather raw data from sources.
 3. Handle collection errors
 4. Trigger notifications on failure
 
-##### `_run_data_loader(collector_result: Any) -> Any`
+#### `_run_data_loader(collector_result: Any) -> Any`
 
 Executes Phase 2: DataLoaderAgent to process and load collected data.
 
@@ -150,7 +181,7 @@ Executes Phase 2: DataLoaderAgent to process and load collected data.
 - Proceeds if Phase 1 failed but rollback was successful  
 - Skips if Phase 1 failed without successful rollback
 
-##### `_should_proceed_to_data_loader(collector_result: Any) -> bool`
+#### `_should_proceed_to_data_loader(collector_result: Any) -> bool`
 
 Decision logic for Phase 2 execution:
 
@@ -165,11 +196,9 @@ else:
 
 ---
 
-## Error Handling & Recovery
+## 4. Error Handling & Recovery
 
-### Error Handling Strategy
-
-The orchestrator implements a comprehensive error handling approach with automatic recovery mechanisms:
+Error Handling Strategy: The orchestrator implements a comprehensive error handling approach with automatic recovery mechanisms:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -190,14 +219,14 @@ The orchestrator implements a comprehensive error handling approach with automat
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-#### Multi-Layer Error Handling
+### Multi-Layer Error Handling
 1. **Try-Catch Blocks**: Wrap each phase execution with exception handling
 2. **Status Validation**: Check phase results before proceeding  
 3. **Rollback Detection**: Automatic detection of successful recovery actions
 4. **Notification System**: Alert administrators for manual intervention
 5. **Pipeline Continuation Logic**: Smart decision-making for Phase 2 execution
 
-#### Pipeline Continuation Decision Matrix
+### Pipeline Continuation Decision Matrix
 
 | Phase 1 Status | Rollback Status | Phase 2 Action | Reasoning |
 |----------------|-----------------|-----------------|-----------|
@@ -206,7 +235,7 @@ The orchestrator implements a comprehensive error handling approach with automat
 | ❌ **Failed** | ❌ **Failed** | ⏹️ **Skip** | Cannot recover - stop pipeline |
 | ❌ **Failed** | ❓ **None** | ⏹️ **Skip** | No recovery attempted - stop pipeline |
 
-#### Rollback Mechanism
+### Rollback Mechanism
 The system automatically detects successful `ROLLBACK_TO_BACKUP` actions in:
 - **Healing Actions**: Primary recovery actions from execution info
 - **Recovery Actions**: Detailed recovery attempts within error records
@@ -221,9 +250,9 @@ for action in healing_actions:
 
 ---
 
-## Notification System
+## 5. Notification System
 
-### MockNotificationHandler
+### 5.1 MockNotificationHandler
 
 Simulates notification sending for testing purposes.
 
@@ -236,7 +265,7 @@ def send_notification(
 ) -> bool
 ```
 
-### ManualReviewNotifier
+### 5.2 ManualReviewNotifier
 
 Handles comprehensive manual review notifications.
 
@@ -290,217 +319,68 @@ Trigger Agents      : [triggering_agents]
 
 ---
 
-## Configuration
+## 6. Configuration
 
-### Directory Structure
+### 6.1 Directory Structure
 
 ```
 project_root/
 ├── database/
-│   ├── dynamicDatabase/                    # Phase 1 output (.parquet files)
-│   ├── databaseSchemas.json               # Database schema definitions
-│   ├── monthlyReports_history/            # Input: Monthly report files
-│   └── purchaseOrders_history/            # Input: Purchase order files
+│   ├── databaseSchemas.json               # Database schema definitions (DataLoader input)    
+│   ├── staticDatabase/
+│   └── dynamicDatabase/                   # DataCollector input
+│       ├── monthlyReports_history/        # Input: Monthly report files
+│       └── purchaseOrders_history/        # Input: Purchase order files
 ├── agents/
 │   └── shared_db/
-│       ├── DataLoaderAgent/
-│       │   ├── newest/                    # Latest database versions
+|       ├── dynamicDatabase/               # DataCollector output (.parquet files)
+|       |    ├── productRecords.parquet                     
+|       |    └── purchaseOrders.parquet        
+│       ├── DataLoaderAgent/               # DataLoader output (.parquet files)
+│       │   ├── historical_db/ 
+│       │   ├── newest/                    
 │       │   │   └── path_annotations.json  # Version tracking
-│       │   └── historical_db/             # Previous database versions
-│       └── DataPipelineOrchestrator/      # Orchestrator output
+|       |   └── change_log.txt             # DataLoaderAgent change log
+│       └── DataPipelineOrchestrator/      # Orchestrator reports
+|           ├── historical_db/             
+|           ├── newest/                    
+|           └── change_log.txt             # Orchestrator change log
 └── configs/
     └── recovery/
         └── dataPipelineOrchestrator/
             └── data_pipeline_orchestrator_configs.py
 ```
 
-### Data Flow Overview
+### 6.2 Data Flow Overview
 
 | Agent | Input Files | Output Files | Purpose |
 |-------|-------------|--------------|---------|
 | **DataCollector** | `monthlyReports_*.xlsb/xlsx`<br>`purchaseOrders_*.xlsb/xlsx` | `productRecords.parquet`<br>`purchaseOrders.parquet` | Process and consolidate dynamic data |
 | **DataLoaderAgent** | Phase 1 `.parquet` files<br>Static `.xlsx` files<br>`databaseSchemas.json`<br>`path_annotations.json` | Versioned `.parquet` files<br>Updated `path_annotations.json` | Load and version all databases |
 
-### Dependencies
-
-```python
-from pathlib import Path
-from typing import Dict, Any
-from loguru import logger
-from datetime import datetime
-from dataclasses import dataclass
-
-# Internal dependencies
-from agents.dataPipelineOrchestrator.data_collector import DataCollector
-from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
-from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import AgentExecutionInfo
-```
-
 ---
 
-## Usage Examples
-
-### Basic Usage
+## 7. Usage Examples
 
 ```python
-# Initialize orchestrator with default settings
+# Basic usage
 orchestrator = DataPipelineOrchestrator()
-
-# Run the complete pipeline
 result = orchestrator.run_pipeline()
-
-# Check results
 if result['overall_status'] == 'success':
-    print("Pipeline completed successfully")
+    print("Pipeline OK")
 elif result['overall_status'] == 'partial_success':
-    print("Pipeline completed with collector failure but successful recovery")
+    print("Collector failed but rollback succeeded")
 else:
     print("Pipeline failed")
 ```
 
-### Custom Configuration
-
 ```python
-# Initialize with custom paths
+# Custom paths
 orchestrator = DataPipelineOrchestrator(
-    dynamic_db_source_dir="custom/data/sources",
+    dynamic_db_source_dir="custom/data",
     databaseSchemas_path="custom/schemas.json",
     annotation_path="custom/annotations.json",
     default_dir="custom/shared"
 )
-
-# Run with additional parameters
-result = orchestrator.run_pipeline(
-    custom_param="value",
-    retry_count=3
-)
+result = orchestrator.run_pipeline()
 ```
-
-### Error Handling
-
-```python
-try:
-    orchestrator = DataPipelineOrchestrator()
-    result = orchestrator.run_pipeline()
-    
-    # Handle different result statuses
-    match result['overall_status']:
-        case 'success':
-            handle_success(result)
-        case 'partial_success':
-            handle_partial_success(result)
-        case 'failed':
-            handle_failure(result)
-            
-except Exception as e:
-    logger.error(f"Orchestrator initialization failed: {e}")
-```
-
----
-
-## Logging
-
-The orchestrator uses structured logging with the `loguru` library:
-
-```python
-# Class-specific logger binding
-self.logger = logger.bind(class_="DataPipelineOrchestrator")
-
-# Emoji-enhanced log messages for better visibility
-self.logger.info("🚀 Starting DataPipelineOrchestrator...")
-self.logger.info("✅ Phase 1: DataCollector completed successfully")
-self.logger.warning("⚠️ Phase 2: DataLoaderAgent failed")
-self.logger.error("❌ Phase 1: DataCollector error")
-```
-
----
-
-## Best Practices
-
-### 1. Error Resilience
-- Always check phase results before proceeding
-- Implement proper rollback detection
-- Use structured error result objects
-
-### 2. Monitoring
-- Enable comprehensive logging
-- Set up notification handlers for production
-- Monitor file system usage and permissions
-
-### 3. Configuration Management
-- Use environment-specific configuration files
-- Validate paths and permissions during initialization
-- Implement configuration validation
-
-### 4. Testing
-- Use MockNotificationHandler for testing
-- Test both success and failure scenarios
-- Verify rollback detection logic
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Path Configuration Errors**
-   - Verify all directory paths exist
-   - Check file permissions
-   - Validate JSON schema files
-
-2. **Phase Execution Failures**
-   - Check DataCollector and DataLoaderAgent logs
-   - Verify data source availability
-   - Monitor system resources
-
-3. **Notification Issues**
-   - Verify notification handler configuration
-   - Check output directory permissions
-   - Monitor notification delivery
-
-### Debug Mode
-
-Enable detailed logging for troubleshooting:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-# Or with loguru
-from loguru import logger
-logger.add("debug.log", level="DEBUG")
-```
-
----
-
-## Performance Considerations
-
-### Resource Management
-- Monitor memory usage during large data processing
-- Implement data chunking for large datasets
-- Clean up temporary files after processing
-
-### Scalability
-- Consider parallel processing for independent data sources
-- Implement connection pooling for database operations
-- Use asynchronous operations where appropriate
-
-### Monitoring Metrics
-- Pipeline execution duration
-- Memory and disk usage
-- Success/failure rates
-- Rollback frequency
-
----
-
-## Security Considerations
-
-### Data Protection
-- Secure handling of sensitive data in notifications
-- Proper file permissions for output directories
-- Sanitize error messages in notifications
-
-### Access Control
-- Implement proper authentication for notification recipients
-- Secure configuration file access
-- Monitor pipeline execution logs

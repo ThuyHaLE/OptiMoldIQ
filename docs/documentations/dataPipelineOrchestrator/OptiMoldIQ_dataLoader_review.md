@@ -1,313 +1,251 @@
-# DataLoader Documentation
+# DataLoader
 
-## Overview
+## 1. Overview
 
-The `DataLoader` is a comprehensive data management component responsible for loading, processing, and managing database files within a data pipeline orchestration system. It handles both static and dynamic databases, provides change detection capabilities, and includes robust error handling with recovery mechanisms.
+The `DataLoader` is responsible for loading, processing, and managing database files within the data pipeline. It supports:
+- Static databases (Excel files)
+- Dynamic databases (Parquet files)
+- Change detection between versions
+- File versioning and historical backups
+- Error handling with recovery mechanisms
+- Triggering downstream agents after updates
+
+This agent is part of the data pipeline orchestrator and integrates with the healing system for automated recovery.
+
+### Key Features
+
+- **Database Processing**
+  - Handles multiple database types (static/dynamic)
+  - Validates schema consistency
+  - Detects data changes using hash-based comparison
+- **Version Control**
+  - Saves updated files with timestamp-based versioning
+  - Moves old files to a historical directory
+  - Maintains annotation mapping for file paths
+- **Error Handling & Recovery**
+  - Supports rollback and recovery actions
+  - Captures error metadata (e.g., file not found, read errors, schema mismatches)
+  - Provides healing actions and trigger agents for orchestration
+**Monitoring & Logging**
+  - Tracks memory and disk usage
+  - Maintains change logs
+  - Provides execution summaries
 
 ---
 
-## Key Features
+## 2. Class: `DataLoader`
 
-- **Multi-Database Support**: Handles both static (Excel) and dynamic (Parquet) database formats
-- **Change Detection**: Efficiently compares current and existing data to identify updates
-- **Error Recovery**: Comprehensive error handling with configurable recovery actions
-- **File Versioning**: Automatic versioning system for changed files
-- **Performance Monitoring**: Memory and disk usage tracking
-- **Healing System**: Self-recovery mechanisms with status reporting
+### 2.1 Constructor
 
----
+```python
+DataLoaderAgent(
+    databaseSchemas_path: str = "database/databaseSchemas.json",
+    annotation_path: str = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
+    default_dir: str = "agents/shared_db"
+)
+```
 
-## Architecture
+**Parameters:**
+- `databaseSchemas_path`: Path to database schema configuration
+- `annotation_path`: Path to file storing database path annotations
+- `default_dir`: Default directory for shared database files
 
-### Core Components
-
-1. **DataLoaderAgent**: Main class handling database operations
-2. **Healing System**: Error recovery and status management
-3. **File Management**: Versioning and storage operations
-4. **Comparison Engine**: Fast dataframe comparison using hash-based methods
-
-### Main Methods
+### 2.1 Primary Methods
 
 #### `process_all_data() -> Dict[str, Any]`
 
-Main processing method that handles all databases and returns structured response.
+Main processing method that orchestrates the entire data loading pipeline.
 
 **Returns:**
-- Dictionary containing execution information including status, results, and metadata
-
-**Key Features:**
-- Processes all configured databases
-- Detects data changes
-- Saves modified files with versioning
-- Provides comprehensive status reporting
-
-#### `_process_database(db_name: str, db_type: str) -> Dict[str, Any]`
-
-Processes a single database with comprehensive error handling.
-
-**Parameters:**
-- `db_name`: Name of the database to process
-- `db_type`: Type of database (static or dynamic)
-
-**Returns:**
-- Dictionary containing processing results and status information
-
-### Database Loading Methods
-
-#### `_load_dynamic_db(db_name: str, db_type: str) -> Dict[str, Any]`
-
-Loads dynamic database files in Parquet format.
-
-**Features:**
-- File existence validation
-- Parquet file reading
-- Error handling with recovery actions
-
-#### `_load_static_db(db_name: str, db_type: str) -> Dict[str, Any]`
-
-Loads and processes static database files in Excel format.
-
-**Features:**
-- Excel file processing
-- Data type conversion
-- Schema validation
-
-#### `_load_existing_df(file_path: str) -> Dict[str, Any]`
-
-Loads existing dataframe from file for comparison purposes.
-
-**Parameters:**
-- `file_path`: Path to the existing dataframe file
-
-### Comparison and Change Detection
-
-#### `_compare_dataframes(df1: pd.DataFrame, df2: pd.DataFrame) -> Dict[str, Any]`
-
-Compares two dataframes to detect changes using fast hash-based comparison.
-
-**Parameters:**
-- `df1`: First dataframe (current data)
-- `df2`: Second dataframe (existing data)
-
-#### `_dataframes_equal_fast(df1, df2) -> bool`
-
-Static method for fast dataframe comparison using MD5 hashing.
-
-**Features:**
-- Quick shape comparison
-- Hash-based comparison for performance
-- Fallback to regular comparison if hashing fails
-
-### File Management
-
-#### `_save_changed_files() -> Dict[str, Any]`
-
-Saves files that have changed with versioning support.
-
-**Features:**
-- Change detection validation
-- Versioning system integration
-- Comprehensive error handling
-
-#### `save_output_with_versioning(data, path_annotation, output_dir, file_format='parquet')`
-
-Static method for saving dataframes with versioning support and file management.
-
-**Parameters:**
-- `data`: Dictionary mapping database names to dataframes
-- `path_annotation`: Dictionary tracking file paths
-- `output_dir`: Output directory path
-- `file_format`: File format for saving (default: parquet)
-
-**Features:**
-- Automatic timestamp generation
-- Historical file archiving
-- Change log maintenance
-- Path annotation updates
-
----
-
-## Data Processing
-
-### Static Database Processing
-
-The `_process_data()` static method handles Excel file processing with:
-
-#### Data Cleaning Features
-
-1. **Null Value Detection**: Identifies and cleans null-like string values
-2. **Type Conversion**: Safe conversion of numeric values to strings for specific fields
-3. **Schema Application**: Applies configured data types from schema
-
-#### Special Cases Handling
-
-- `plasticResinCode`
-- `colorMasterbatchCode` 
-- `additiveMasterbatchCode`
-
-These fields receive special string conversion treatment using the `safe_convert()` function.
-
----
-
-## Error Handling and Recovery
-
-### Error Types
-
-The system handles various error types:
-
-- `FILE_NOT_FOUND`: Missing database files
-- `FILE_READ_ERROR`: File reading failures
-- `DATA_CORRUPTION`: Data integrity issues
-- `SCHEMA_MISMATCH`: Schema validation failures
-- `HASH_COMPARISON_ERROR`: Comparison operation failures
-- `PARQUET_SAVE_ERROR`: File saving failures
-
-### Processing Status Types
-
-- `SUCCESS`: Operation completed successfully
-- `ERROR`: Critical failure occurred
-- `WARNING`: Non-critical issues detected
-- `PARTIAL_SUCCESS`: Partial completion with some issues
-
-### Recovery Actions
-
-The system supports various recovery actions:
-
-- `RETRY_PROCESSING`: Retry failed operations
-- `ROLLBACK_TO_BACKUP`: Restore from backup files
-- `TRIGGER_MANUAL_REVIEW`: Request human intervention
-
-### Healing System Integration
-
-The agent integrates with a healing system that:
-
-1. **Checks Annotation Paths**: Validates backup file availability
-2. **Updates Recovery Status**: Modifies recovery actions based on system state
-3. **Triggers Downstream Agents**: Notifies other system components
-
----
-
-## Configuration
-
-### Database Schema Configuration
-
-The agent expects a JSON configuration file with the following structure:
-
-```json
+```python
 {
-  "staticDB": {
-    "database_name": {
-      "path": "/path/to/database.xlsx",
-      "dtypes": {
-        "column1": "string",
-        "column2": "int64"
-      }
+    "agent_id": str,
+    "status": str,  # SUCCESS, ERROR, WARNING, PARTIAL_SUCCESS
+    "summary": {
+        "total_databases": int,
+        "successful": int,
+        "failed": int,
+        "warnings": int,
+        "changed_files": int,
+        "files_saved": int
+    },
+    "details": List[Dict],  # Individual database processing results
+    "healing_actions": List[str],  # Recovery actions to execute
+    "trigger_agents": List[str],  # Downstream agents to trigger
+    "metadata": {
+        "processing_duration_seconds": float,
+        "memory_usage": Dict,
+        "disk_usage": Dict
     }
-  },
-  "dynamicDB": {
-    "database_name": {
-      "path": "/path/to/database.parquet"
-    }
-  }
-}
-```
-
-### Path Annotations
-
-The system maintains a JSON file tracking current file paths:
-
-```json
-{
-  "database_name": "/path/to/current/file.parquet"
 }
 ```
 
 ---
 
-## File Structure
+## 3. Configuration
+
+### 3.1 Database Schema Structure
+
+```json
+{
+    "staticDB": {
+        "database_name": {
+            "path": "path/to/excel/file.xlsx",
+            "dtypes": {
+                "column1": "str",
+                "column2": "int64",
+                "column3": "float64"
+            }
+        }
+    },
+    "dynamicDB": {
+        "database_name": {
+            "path": "path/to/parquet/file.parquet"
+        }
+    }
+}
+```
+
+### 3.2 Path Annotations Structure
+
+```json
+{
+    "database_name1": "/full/path/to/saved/file1.parquet",
+    "database_name2": "/full/path/to/saved/file2.parquet"
+}
+```
+
+---
+
+## 4. Error Handling
+
+### 4.1 Error Types
+
+| Error Type | Description | Recovery Actions |
+|------------|-------------|------------------|
+| `FILE_NOT_FOUND` | Database file doesn't exist | Rollback to backup, Manual review |
+| `FILE_READ_ERROR` | Cannot read database file | Retry processing, Check permissions |
+| `SCHEMA_MISMATCH` | Data doesn't match expected schema | Validate schema, Manual intervention |
+| `DATA_CORRUPTION` | Data integrity issues detected | Rollback to backup, Data validation |
+| `HASH_COMPARISON_ERROR` | Change detection failure | Retry comparison, Manual review |
+| `PARQUET_SAVE_ERROR` | Cannot save processed data | Check disk space, Retry save |
+
+### 4.2 Processing Status
+
+- **SUCCESS**: All operations completed successfully
+- **WARNING**: Minor issues detected but processing continued
+- **ERROR**: Critical failure preventing completion
+- **PARTIAL_SUCCESS**: Some databases processed successfully, others failed
+
+---
+
+## 5. File Management
+
+### 5.1 Directory Structure
 
 ```
 agents/shared_db/DataLoaderAgent/
 ├── newest/
-│   ├── path_annotations.json
-│   └── YYYYMMDD_HHMM_database_name.parquet
+│   ├── 20241201_1430_database1.parquet
+│   ├── 20241201_1430_database2.parquet
+│   └── path_annotations.json
 ├── historical_db/
-│   └── [archived files]
+│   ├── 20241130_0900_database1.parquet
+│   └── 20241130_0900_database2.parquet
 └── change_log.txt
 ```
 
+### 5.2 Versioning System
+
+Files are saved with timestamp prefixes in the format: `YYYYMMDD_HHMM_databasename.parquet`
+
+- **newest/**: Contains current versions of all databases
+- **historical_db/**: Archives previous versions when new data is detected
+- **change_log.txt**: Audit trail of all file operations
+
 ---
 
-## Usage Example
+## 6. Performance Considerations
+
+### 6.1 Optimization Features
+
+1. **Hash-based Comparison**: Fast change detection using MD5 hashing
+2. **Incremental Processing**: Only processes databases with detected changes
+3. **Memory Efficient**: Processes databases individually to minimize memory usage
+4. **Compressed Storage**: Uses Snappy compression for Parquet files
+
+### 6.2 Resource Monitoring
+
+The agent tracks:
+- Memory usage (MB and percentage)
+- Disk usage for output directory
+- Processing duration
+- Number of records processed
+
+---
+
+## 7. Usage Examples
+
+### 7.1 Basic Usage
 
 ```python
-# Initialize the agent
-agent = DataLoaderAgent(
-    databaseSchemas_path = "database/databaseSchemas.json",
-    annotation_path = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
-    default_dir = "agents/shared_db"
-)
+from data_loader_agent import DataLoaderAgent
 
-# Process all databases
+# Initialize agent
+agent = DataLoaderAgent()
+
+# Process all configured databases
 result = agent.process_all_data()
 
 # Check results
 if result['status'] == 'SUCCESS':
-    print(f"Processed {result['summary']['total_databases']} databases")
-    print(f"Changed files: {result['summary']['changed_files']}")
+    print(f"Successfully processed {result['summary']['successful']} databases")
+    if result['summary']['changed_files'] > 0:
+        print(f"Detected changes in {result['summary']['changed_files']} files")
 else:
     print(f"Processing failed: {result['status']}")
-    print(f"Healing actions: {result['healing_actions']}")
+    for action in result['healing_actions']:
+        print(f"Recovery action needed: {action}")
+```
+
+### 7.2 Custom Configuration
+
+```python
+# Initialize with custom paths
+agent = DataLoaderAgent(
+    databaseSchemas_path="config/my_schemas.json",
+    annotation_path="data/annotations.json",
+    default_dir="output/processed"
+)
+
+result = agent.process_all_data()
 ```
 
 ---
 
-## Monitoring and Metrics
+## 8. Integration Guidelines
 
-The agent provides comprehensive monitoring information:
+### 8.1 Downstream Agent Triggering
 
-### Summary Metrics
-- Total databases processed
-- Successful/failed operations
-- Warning count
-- Changed files count
-- Files saved count
+When data changes are detected, the agent can trigger downstream agents:
 
-### Performance Metrics
-- Processing duration
-- Memory usage (MB and percentage)
-- Disk usage (output directory size and available space)
+```python
+# Check which agents should be triggered
+if result['trigger_agents']:
+    for agent_id in result['trigger_agents']:
+        # Trigger downstream agent
+        trigger_agent(agent_id)
+```
 
-### Healing Information
-- Recovery actions taken
-- Triggered downstream agents
-- Error details and types
+### 8.2 Error Recovery Integration
 
----
-
-## Best Practices
-
-1. **Regular Backup Maintenance**: Ensure backup files are available for recovery operations
-2. **Schema Validation**: Keep database schemas up-to-date in configuration
-3. **Monitoring**: Regularly check processing logs and status reports
-4. **Error Response**: Address healing actions promptly to maintain system health
-5. **Storage Management**: Monitor disk usage to prevent storage issues
-
----
-
-## Error Scenarios and Troubleshooting
-
-### Common Issues
-
-1. **File Not Found**: Check file paths in schema configuration
-2. **Permission Denied**: Verify file system permissions
-3. **Memory Issues**: Monitor large file processing
-4. **Schema Mismatches**: Validate data types in configuration
-5. **Disk Space**: Ensure adequate storage for versioning
-
-### Recovery Procedures
-
-1. **Check Logs**: Review error messages and recovery actions
-2. **Validate Paths**: Ensure all file paths are accessible
-3. **Backup Restoration**: Use healing system for automatic recovery
-4. **Manual Intervention**: Address complex issues requiring human review
+```python
+# Handle recovery actions
+for action in result['healing_actions']:
+    if action == 'ROLLBACK_TO_BACKUP':
+        # Implement rollback logic
+        rollback_database()
+    elif action == 'TRIGGER_MANUAL_REVIEW':
+        # Notify administrators
+        send_alert_to_admins()
+```
