@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Dict, Any
 from loguru import logger
+from datetime import datetime
+import shutil
 
 from agents.dataPipelineOrchestrator.data_collector import DataCollector
 from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
@@ -13,7 +15,11 @@ class MockNotificationHandler:
     This class simulates email/notification sending without actual external dependencies.
     """
 
-    def send_notification(self, recipient: str, subject: str, message: str, priority: str) -> bool:
+    def send_notification(self, 
+                          recipient: str, 
+                          subject: str, 
+                          message: str, 
+                          priority: str) -> bool:
 
         """
         Simulate sending a notification by printing to console.
@@ -83,7 +89,133 @@ class DataPipelineOrchestrator:
         # Initialize notification system for error reporting and manual review alerts
         self.notification_handler = MockNotificationHandler()
         self.notifier = ManualReviewNotifier(self.notification_handler, self.output_dir)
+        self.report_collection = {}
 
+    def _serialize_report_content(self, content: Any) -> str:
+        """
+        Convert various content types to string format for file output.
+        
+        Args:
+            content: The content to serialize (could be AgentExecutionInfo, dict, etc.)
+            
+        Returns:
+            str: Serialized content as string
+        """
+        import json
+        from dataclasses import asdict, is_dataclass
+        
+        if isinstance(content, str):
+            return content
+        
+        elif is_dataclass(content):
+            # Handle dataclass objects like AgentExecutionInfo
+            if hasattr(content, '__str__') and content.__class__.__str__ is not object.__str__:
+                # Use custom __str__ method if available
+                return str(content)
+            else:
+                # Convert to dict and then to JSON
+                try:
+                    content_dict = asdict(content)
+                    # Handle enum values in the dict
+                    content_dict = self._convert_enums_to_strings(content_dict)
+                    return json.dumps(content_dict, indent=2, default=str)
+                except Exception as e:
+                    self.logger.warning("Failed to serialize dataclass to JSON: {}. Using repr.", e)
+                    return repr(content)
+        
+        elif isinstance(content, dict):
+            # Handle dictionary content
+            try:
+                # Convert any enum values to strings
+                clean_content = self._convert_enums_to_strings(content)
+                return json.dumps(clean_content, indent=2, default=str)
+            except Exception as e:
+                self.logger.warning("Failed to serialize dict to JSON: {}. Using repr.", e)
+                return repr(content)
+        
+        else:
+            # Fallback for other types
+            try:
+                return json.dumps(content, indent=2, default=str)
+            except Exception:
+                return repr(content)
+
+    def _convert_enums_to_strings(self, obj: Any) -> Any:
+        """
+        Recursively convert enum values to strings in nested data structures.
+        
+        Args:
+            obj: Object that may contain enum values
+            
+        Returns:
+            Object with enum values converted to strings
+        """
+        if hasattr(obj, 'value'):  # Likely an enum
+            return obj.value
+        elif isinstance(obj, dict):
+            return {k: self._convert_enums_to_strings(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_enums_to_strings(item) for item in obj]
+        else:
+            return obj
+
+    def save_report(self) -> None:
+        
+        """Save the report to a file and return the filename"""
+
+        output_dir = Path(self.output_dir)
+        log_path = output_dir / "change_log.txt"
+        timestamp_now = datetime.now()
+        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+        log_entries = [f"[{timestamp_str}] Saving new version...\n"]
+
+        newest_dir = output_dir / "newest"
+        newest_dir.mkdir(parents=True, exist_ok=True)
+        historical_dir = output_dir / "historical_db"
+        historical_dir.mkdir(parents=True, exist_ok=True)
+
+        # Move old files to historical_db
+        for f in newest_dir.iterdir():
+            if f.is_file():
+                try:
+                    dest = historical_dir / f.name
+                    shutil.move(str(f), dest)
+                    log_entries.append(f"  ⤷ Moved old file: {f.name} → historical_db/{f.name}\n")
+                    self.logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
+                except Exception as e:
+                    self.logger.error("Failed to move file {}: {}", f.name, e)
+                    raise OSError(f"Failed to move file {f.name}: {e}")
+                
+        for agent_id, message in self.report_collection.items():
+            # Create timestamped output file path
+            timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
+            filename = f"{timestamp_file}_{agent_id}_success_report.txt"
+            output_path = Path(newest_dir / filename)
+
+            try:
+                # Convert message to string if it's not already
+                if isinstance(message, str):
+                    content = message
+                else:
+                    # Handle AgentExecutionInfo or other objects
+                    content = self._serialize_report_content(message)
+                
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                log_entries.append(f"  ⤷ Saved new file: newest/{filename}\n")
+                self.logger.info("Saved new file: newest/{}", filename)
+            except Exception as e:
+                self.logger.error("Failed to save file {}: {}", filename, e)
+                raise OSError(f"Failed to save file {filename}: {e}")
+
+        try:
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.writelines(log_entries)
+            self.logger.info("Updated change log {}", log_path)
+        except Exception as e:
+            self.logger.error("Failed to update change log {}: {}", log_path, e)
+            raise OSError(f"Failed to update change log {log_path}: {e}")  
+        
     def run_pipeline(self, **kwargs) -> Dict[str, Any]:
         
         """
@@ -120,6 +252,11 @@ class DataPipelineOrchestrator:
         pipeline_result = self._create_pipeline_result(collector_result, loader_result)
         
         self.logger.info("✅ DataPipelineOrchestrator completed")
+        self.report_collection['DataPipelineOrchestrator'] = pipeline_result
+
+        self.save_report()
+        self.logger.info("✅ All reports saved successfully")
+
         return pipeline_result
 
     def _run_data_collector(self) -> Any:
@@ -147,6 +284,7 @@ class DataPipelineOrchestrator:
             # Check collection result and log appropriate message
             if result.status == 'success':
                 self.logger.info("✅ Phase 1: DataCollector completed successfully")
+                self.report_collection['DataCollector'] = result
             else:
                 self.logger.warning("⚠️ Phase 1: DataCollector failed")
                 # Handle failure by triggering manual review notification
@@ -194,6 +332,7 @@ class DataPipelineOrchestrator:
             # Check loading result and log appropriate message
             if result.status == 'success':
                 self.logger.info("✅ Phase 2: DataLoaderAgent completed successfully")
+                self.report_collection['DataLoader'] = result
             else:
                 self.logger.warning("⚠️ Phase 2: DataLoaderAgent failed")
                 # Handle failure by triggering manual review notification

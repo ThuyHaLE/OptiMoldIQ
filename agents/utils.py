@@ -7,7 +7,7 @@ import os
 import json 
 import re
 from tabulate import tabulate
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 def save_output_with_versioning(
     data: dict[str, pd.DataFrame],
@@ -82,18 +82,14 @@ def load_annotation_path(source_path: str = 'agents/shared_db/DataLoaderAgent/ne
   else:
       logger.error("No existing annotation - please call dataLoader first...")
       raise FileNotFoundError(f"No existing annotation - please call dataLoader first: {annotation_path}")
-  
 
-def extract_latest_saved_file(log_text: str) -> Optional[str]:
-    
+def extract_latest_saved_files(log_text: str) -> Optional[List[str]]:
     """
-    Extract the most recently saved file name from log text.
-    Assumes log format includes: "[timestamp] ⤷ Saved new file: ..."
+    Extract all saved file names from the most recent log block.
     """
-    
     if not log_text.strip():
         return None
-    
+
     # Match all log blocks by timestamp
     pattern = r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\](.*?)(?=\n\[|$)'
     matches = re.findall(pattern, log_text, flags=re.DOTALL)
@@ -109,12 +105,10 @@ def extract_latest_saved_file(log_text: str) -> Optional[str]:
     latest_ts_str = max(log_blocks, key=lambda ts: datetime.strptime(ts, '%Y-%m-%d %H:%M:%S'))
     latest_block = log_blocks[latest_ts_str]
 
-    # Extract saved file name from the latest block
-    saved_file_match = re.search(r'⤷ Saved new file: (.+)', latest_block)
-    if saved_file_match:
-        return saved_file_match.group(1).strip()
-    
-    return None
+    # Extract ALL saved file names from the latest block
+    saved_files = re.findall(r'⤷ Saved new file: (.+)', latest_block)
+
+    return [f.strip() for f in saved_files] if saved_files else None
 
 def read_change_log(folder_path, target_name):
 
@@ -137,12 +131,15 @@ def read_change_log(folder_path, target_name):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             log_text = f.read()
-            newest_file_name = extract_latest_saved_file(log_text)
+            newest_files = extract_latest_saved_files(log_text)
             
-            if newest_file_name:
-                return os.path.join(folder_path, newest_file_name)
+            if newest_files:
+              if len(newest_files) > 1:
+                return [os.path.join(folder_path, f) for f in newest_files]
+              else:
+                return newest_files[0]
             else:
-                logger.warning("No file information found saved in '{}'", target_name)
+                logger.warning(f"No file information found saved in '{target_name}'")
                 return None
                 
     except Exception as e:
