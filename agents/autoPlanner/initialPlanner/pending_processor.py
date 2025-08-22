@@ -100,7 +100,7 @@ class PendingProcessor:
         self.logger = logger.bind(class_="PendingProcessor")
 
         # Set up output configuration
-        self.filename_prefix = "PendingProcessor"
+        self.filename_prefix = "pending_processor"
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "PendingProcessor"
         
