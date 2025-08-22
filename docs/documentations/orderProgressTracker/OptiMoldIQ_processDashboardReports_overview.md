@@ -1,6 +1,6 @@
 # ProcessDashboardReports Documentation
 
-## Overview
+## 1. Overview
 
 The `ProcessDashboardReports` is designed for manufacturing production tracking and reporting. It extracts, processes, and structures production data from Excel files containing multiple sheets with different aspects of manufacturing operations.
 
@@ -8,7 +8,7 @@ The `ProcessDashboardReports` is designed for manufacturing production tracking 
 
 ---
 
-## Key Features
+## 2. Key Features
 
 - **Multi-sheet Excel Processing**: Handles complex Excel files with multiple related sheets
 - **Production Tracking**: Monitors machine usage, mold operations, daily quantities, and production status
@@ -18,7 +18,7 @@ The `ProcessDashboardReports` is designed for manufacturing production tracking 
 
 ---
 
-## Class Initialization
+## 3. Class Initialization
 
 ```python
 from agents.dashboard_reports import ProcessDashboardReports
@@ -44,50 +44,50 @@ processor = ProcessDashboardReports(
 
 ---
 
-## Excel Sheet Structure
+## 4. Excel Sheet Structure
 
 The class expects an Excel file with the following sheets:
 
-### 1. productionStatus
+### 4.1 productionStatus
 **Purpose**: Main production status tracking
 **Key Columns**: 
 - `poReceivedDate`, `poNo`, `itemCode`, `itemName`
 - `itemQuantity`, `itemRemain`, `proStatus`, `etaStatus`
 - `machineHist`, `moldHist`, `totalMoldShot`
 
-### 2. machineQuantityMap
+### 4.2 machineQuantityMap
 **Purpose**: Machine capacity and quantity mappings
 **Key Columns**: 
 - `poNo`, `itemCode`, `itemName`, `machineCode`, `moldedQuantity`
 
-### 3. moldShotMap
+### 4.3 moldShotMap
 **Purpose**: Mold shot tracking and equipment usage
 **Key Columns**: 
 - `poNo`, `itemCode`, `itemName`, `moldNo`, `shotCount`
 
-### 4. dayQuantityMap
+### 4.4 dayQuantityMap
 **Purpose**: Daily production quantity tracking
 **Key Columns**: 
 - `poNo`, `itemCode`, `itemName`, `workingDay`, `moldedQuantity`
 
-### 5. materialComponentMap
+### 4.5 materialComponentMap
 **Purpose**: Material and component mappings
 **Key Columns**: 
 - `poNo`, `itemCode`, `itemName`
 - `plasticResinCode`, `colorMasterbatchCode`, `additiveMasterbatchCode`
 
-### 6. notWorkingStatus
+### 4.6 notWorkingStatus
 **Purpose**: Non-working time and downtime tracking
 
-### 7. item_invalid_warnings
+### 4.7 item_invalid_warnings
 **Purpose**: Data validation warnings for items
 
-### 8. po_mismatch_warnings
+### 4.8 po_mismatch_warnings
 **Purpose**: Purchase order mismatch alerts
 
 ---
 
-## Core Methods
+## 5. Core Methods
 
 1. `get_sheet_summary()` → Returns an overview of all available sheets in the Excel file.
 
@@ -129,9 +129,9 @@ The class expects an Excel file with the following sheets:
 
 ---
 
-## Usage Examples
+## 6. Usage Examples
 
-### Basic Usage
+### 6.1 Basic Usage
 ```python
 # Initialize processor
 processor = ProcessDashboardReports("production_data.xlsx")
@@ -145,7 +145,7 @@ machine_data = processor.process_machine_quantity_map()
 production_status = processor.process_production_status()
 ```
 
-### Generate Complete Dashboard Data
+### 6.2 Generate Complete Dashboard Data
 ```python
 # Generate all reports at once
 all_reports = processor.generate_all_reports()
@@ -155,7 +155,7 @@ for machine in all_reports['machine_quantity_map']:
     print(f"Machine {machine['machineNo']}: {len(machine['items'])} items")
 ```
 
-### Custom Data Range
+### 6.3 Custom Data Range
 ```python
 # Process only first 10 records
 processor = ProcessDashboardReports(
@@ -172,7 +172,7 @@ processor = ProcessDashboardReports(
 
 ---
 
-## Error Handling
+## 7. Error Handling
 
 The class includes comprehensive error handling:
 
@@ -184,7 +184,7 @@ The class includes comprehensive error handling:
 
 ---
 
-## Logging
+## 8. Logging
 
 The class uses `loguru` for comprehensive logging:
 - Info level: Successful operations and data loading
@@ -193,27 +193,27 @@ The class uses `loguru` for comprehensive logging:
 
 ---
 
-## Data Format Standards
+## 9. Data Format Standards
 
-### poItemInfo Format
+### 9.1 poItemInfo Format
 All items are formatted as: `"PO | ItemCode | ItemName"`
 
-### Date Formatting
+### 9.2 Date Formatting
 All dates are standardized to: `YYYY-MM-DD` format
 
-### Machine Code Parsing
+### 9.3 Machine Code Parsing
 Machine codes are parsed to extract:
 - `machineNo`: Base machine number (e.g., "NO.01")
 - `details`: Additional machine specifications
 
-### Mold Code Parsing
+### 9.4 Mold Code Parsing
 Mold codes are split into:
 - `moldNo`: Base mold identifier
 - `details`: Mold specifications (e.g., "M-001")
 
 ---
 
-## Integration Notes
+## 10. Integration Notes
 
 This class is designed to work with:
 - Production tracking systems

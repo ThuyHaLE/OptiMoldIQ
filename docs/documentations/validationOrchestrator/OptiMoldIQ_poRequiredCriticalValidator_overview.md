@@ -31,8 +31,6 @@ validator = PORequiredCriticalValidator(
 -   `databaseSchemas_path`: Schema configuration (JSON) describing database structure.
 -   `default_dir`: Base directory for output reports.
 
----
-
 ### 2.2 Main Methods
 
 #### `run_validations() -> pd.DataFrame`
@@ -66,8 +64,6 @@ validator = PORequiredCriticalValidator(
     -   Valid vs. invalid counts.
     -   Breakdown by mismatch type.
 
----
-
 ### 2.3 Processing Steps
 
 #### `_process_product_records()`
@@ -89,8 +85,6 @@ validator = PORequiredCriticalValidator(
 3.  **Generate warnings**:
     -   Field mismatch warnings → `_process_warnings`.
     -   Invalid PO warnings → `_process_invalid_po_warnings`.
-
----
 
 ### 2.4 Helper Methods
 

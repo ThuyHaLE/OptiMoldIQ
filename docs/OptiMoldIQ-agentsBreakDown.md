@@ -60,11 +60,11 @@
 
 ## 4. AutoPlanner
 **Roles:**
-- **InitialPlanner**: Creates initial plans based on static data (resin, mold, machine specs).
+- **InitialPlanner**: Creates initial plans based on static data (resin, mold, machine specs) and historical insights (if date records are sufficient for historical insights).
 - **PlanRefiner**: Optimizes and adjusts plans using real-time data and validation feedback.
 
-**Inputs:** PO, stock, machine/mold/resin capabilities.  
-**Outputs:** Detailed production schedules by day/week/month.  
+**Inputs:** PO, stock, machine/mold/resin capabilities and historical records.  
+**Outputs:** Detailed production schedules by machine.  
 **Interactions:** Integrates feedback from TaskOrchestrator, ValidationOrchestrator, and Tracker.
 
 **Key Features:**

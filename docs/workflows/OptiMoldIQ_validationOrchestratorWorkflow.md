@@ -1,6 +1,6 @@
 # ValidationOrchestrator
 
-## High-Level Architecture
+## 1. High-Level Architecture
 
 ```
                             ┌─────────────────────────────────────┐
@@ -26,9 +26,9 @@
 
 ---
 
-## Data Flow Overview
+## 2. Data Flow Overview
 
-### Phase 1: Initialization & Data Loading
+### 2.1 Phase 1: Initialization & Data Loading
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           INITIALIZATION PHASE                             │
@@ -54,7 +54,7 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Phase 2: Parallel Validation Execution
+### 2.2 Phase 2: Parallel Validation Execution
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          VALIDATION PHASE                                  │
@@ -73,7 +73,7 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Phase 3: Results Consolidation
+### 2.3 Phase 3: Results Consolidation
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        CONSOLIDATION PHASE                                 │
@@ -95,9 +95,9 @@
 
 ---
 
-## Detailed Agent Workflows
+## 3. Detailed Agent Workflows
 
-### Agent 1: StaticCrossDataChecker
+### 3.1 StaticCrossDataChecker
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        StaticValidator Workflow                     │
@@ -131,7 +131,7 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Agent 2: PORequiredCriticalValidator
+### 3.2 PORequiredCriticalValidator
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       POValidator Workflow                          │
@@ -163,7 +163,7 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Agent 3: DynamicCrossDataValidator
+### 3.3 DynamicCrossDataValidator
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    DynamicValidator Workflow                        │
@@ -199,9 +199,9 @@
 
 ---
 
-## Data Structure Standards
+## 4. Data Structure Standards
 
-### Common Warning Format
+### 4.1 Common Warning Format
 All agents output warnings in this standardized format:
 
 | Column | Description | Example |
@@ -215,7 +215,7 @@ All agents output warnings in this standardized format:
 | `source_agent` | Which agent found it | "StaticValidator" |
 | `timestamp` | When found | "2024-01-15 10:30:00" |
 
-### Results Structure
+### 4.2 Results Structure
 ```python
 final_results = {
     'static_mismatch': {
@@ -239,29 +239,17 @@ final_results = {
 }
 ```
 
-### Directory Structure
+### 4.3 Directory Structure
 
 ```
 agents/
 ├── database/
-│   ├── databaseSchemas.json                                     # Schema definitions (ValidationOrchestrator input)
-│   ├── staticDatabase/
-│   └── dynamicDatabase/                                         # Raw data sources (Data Collector input)
+│   └── databaseSchemas.json                                     # Schema definitions (ValidationOrchestrator input)
 └── shared_db/
-    ├── dynamicDatabase/                                         
-    |    ├── productRecords.parquet                              
-    |    └── purchaseOrders.parquet                              
-    ├── DataLoaderAgent/                                         
-    |   ├── historical_db/                                       
-    |   ├── newest/                                              
-    |   |    ├── YYYYMMDD_HHMM_itemCompositionSummary.parquet   
-    |   |    ├── YYYYMMDD_HHMM_itemInfo.parquet                 
-    |   |    ├── YYYYMMDD_HHMM_machineInfo.parquet              
-    |   |    ├── YYYYMMDD_HHMM_moldInfo.parquet                 
-    |   |    ├── YYYYMMDD_HHMM_moldSpecificationSummary.parquet 
-    |   |    ├── YYYYMMDD_HHMM_productRecords.parquet           
-    |   |    ├── YYYYMMDD_HHMM_purchaseOrders.parquet           
-    |   |    ├── YYYYMMDD_HHMM_resinInfo.parquet                
+    ├── dynamicDatabase/                                                                
+    |    └── ...                          
+    ├── DataLoaderAgent/                                                                            
+    |   ├── newest/                                                       
     |   |    └── path_annotations.json                           # File path annotations (ValidationOrchestrator input)
     |   └── change_log.txt                                       
     └── ValidationOrchestrator/                                  # ValidationOrchestrator outputs
@@ -273,7 +261,7 @@ agents/
 
 ---
 
-## Execution Flow
+## 5. Execution Flow
 1. **Initialize** → Load configs and validate schemas
 2. **Load Data** → Read all 8 parquet files into memory
 3. **Run Validations** → Execute 3 agents in parallel (if possible)

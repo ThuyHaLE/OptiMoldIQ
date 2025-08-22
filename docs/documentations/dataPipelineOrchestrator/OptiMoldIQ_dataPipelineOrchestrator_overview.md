@@ -1,6 +1,6 @@
 # DataPipelineOrchestrator
 
-## Agent Info
+## 1. Agent Info
 - **Name**: DataPipelineOrchestrator
 - **Purpose**: 
   - Manage a comprehensive two-phase data pipeline process (collect → load)
@@ -11,12 +11,12 @@
 
 ---
 
-## What it does
+## 2. What it does
 The `DataPipelineOrchestrator` manages a complete data pipeline consisting of two sequential phases: (1) collecting raw data from various sources ([DataCollector](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataCollector_review.md)), then (2) processing and loading it into target systems ([DataLoader](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataLoader_review.md)). It includes intelligent rollback mechanisms and notification systems for comprehensive error handling.
 
 ---
 
-## Architecture Overview
+## 3. Architecture Overview
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -34,7 +34,7 @@ The `DataPipelineOrchestrator` manages a complete data pipeline consisting of tw
 
 ---
 
-## Pre-requisites Checklist
+## 4. Pre-requisites Checklist
 Before running the pipeline, ensure:
 
 - [ ] **Source directory exists**: `database/dynamicDatabase/`
@@ -46,7 +46,7 @@ Before running the pipeline, ensure:
 
 ---
 
-## Error Handling Scenarios
+## 5. Error Handling Scenarios
 
 | Scenario | Phase 1 Status | Rollback | Phase 2 | Final Status | Action Required |
 |----------|----------------|----------|---------|--------------|-----------------|
@@ -58,14 +58,14 @@ Before running the pipeline, ensure:
 
 ---
 
-## Input & Output
+## 6. Input & Output
 - **Input**: Configuration paths, raw data files (Excel formats)
 - **Output**: Pipeline execution results with comprehensive status reporting
 - **Format**: Python dictionary with hierarchical status information
 
 ---
 
-## Simple Workflow
+## 7. Simple Workflow
 ```
 Config Validation → Phase 1 (DataCollector) → Error Check & Recovery → Phase 2 (DataLoaderAgent) → Results + Notifications + Reports
 ```
@@ -81,7 +81,7 @@ Config Validation → Phase 1 (DataCollector) → Error Check & Recovery → Pha
 
 ---
 
-## Directory Structure
+## 8. Directory Structure
 
 ```
 agents/shared_db/
@@ -96,7 +96,7 @@ agents/shared_db/
 
 ---
 
-## Dependencies
+## 9. Dependencies
 - **DataCollector**: Processes raw data from `database/dynamicDatabase`
 - **DataLoaderAgent**: Loads processed data using schemas and annotations
 - **ManualReviewNotifier**: Sends notifications for manual intervention requirements
@@ -105,9 +105,9 @@ agents/shared_db/
 
 ---
 
-## How to Run
+## 10. How to Run
 
-### Basic Usage
+### 10.1 Basic Usage
 ```python
 # Initialize with default configuration
 orchestrator = DataPipelineOrchestrator()
@@ -120,7 +120,7 @@ print(f"Pipeline status: {result['overall_status']}")
 print(f"Completed at: {result['timestamp']}")
 ```
 
-### Custom Configuration
+### 10.2 Custom Configuration
 ```python
 # Initialize with custom paths
 orchestrator = DataPipelineOrchestrator(
@@ -137,7 +137,7 @@ result = orchestrator.run_pipeline(
 )
 ```
 
-### Development/Testing Mode
+### 10.3 Development/Testing Mode
 ```python
 # Debug mode with verbose logging
 import logging
@@ -153,7 +153,7 @@ result = orchestrator.run_pipeline()
 
 ---
 
-## Result Structure
+## 11. Result Structure
 ```json
 {
     "overall_status": "success|partial_success|failed",
@@ -178,7 +178,7 @@ result = orchestrator.run_pipeline()
 
 ---
 
-## Configuration Paths
+## 12. Configuration Paths
 - **dynamic_db_source_dir**: `database/dynamicDatabase` (raw Excel files)
 - **databaseSchemas_path**: `database/databaseSchemas.json` (database schema definitions)
 - **annotation_path**: `agents/shared_db/DataLoaderAgent/newest/path_annotations.json` (file mapping)
@@ -187,7 +187,7 @@ result = orchestrator.run_pipeline()
 
 ---
 
-## Common Issues & Solutions
+## 13. Common Issues & Solutions
 
 | Problem | Symptoms | Quick Fix | Prevention |
 |---------|----------|-----------|------------|
@@ -200,9 +200,9 @@ result = orchestrator.run_pipeline()
 
 ---
 
-## Monitoring & Observability
+## 14. Monitoring & Observability
 
-### Log Levels & Indicators
+### 14.1 Log Levels & Indicators
 - **🚀 INFO**: Pipeline startup and major milestones
 - **📊 INFO**: Phase transitions and progress updates
 - **✅ INFO**: Successful completions
@@ -211,7 +211,7 @@ result = orchestrator.run_pipeline()
 - **🔄 INFO**: Rollback operations
 - **📧 INFO**: Notification sending
 
-### Key Metrics to Track
+### 14.2 Key Metrics to Track
 - **Pipeline Success Rate**: Overall success percentage over time
 - **Phase Success Rates**: Individual phase performance metrics
 - **Rollback Frequency**: How often recovery mechanisms activate
@@ -219,7 +219,7 @@ result = orchestrator.run_pipeline()
 - **Data Quality**: Record counts and validation results
 - **Notification Triggers**: Manual intervention frequency
 
-### Health Checks
+### 14.3 Health Checks
 ```python
 # Quick health check
 def pipeline_health_check():

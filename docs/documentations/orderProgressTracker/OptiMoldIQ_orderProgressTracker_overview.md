@@ -1,6 +1,6 @@
 # OrderProgressTracker
 
-## Agent Info
+## 1. Agent Info
 
 - **Name**: OrderProgressTracker
 - **Purpose**:
@@ -13,13 +13,13 @@
 
 ---
 
-## What it does
+## 2. What it does
 
 The `OrderProgressTracker` processes **dynamic production records** and **purchase order data** against **static mold specifications** to provide comprehensive production status reporting and analytics. It tracks production lifecycle from order receipt through completion, monitoring machine utilization, mold performance, and delivery schedule compliance.
 
 The tracker integrates with validation systems to provide quality-assured production insights and maintains detailed historical tracking for operational decision-making.
 
-### Key Features
+### 2.1 Key Features
 
 - **Real-Time Status Tracking**
   - `PENDING`: Orders awaiting production start
@@ -45,7 +45,7 @@ The tracker integrates with validation systems to provide quality-assured produc
   - `Multi-sheet Excel` exports with automated versioning
   - Historical tracking of production status snapshots
   
-### Optional
+### 2.2 Optional
 
 `ProcessDashboardReports` processes multi-sheet Excel files to track `OrderProgressTracker` outputs and returns structured results for dashboards and reports with built-in validation.
 
@@ -53,7 +53,7 @@ The tracker integrates with validation systems to provide quality-assured produc
 
 ---
 
-## Architecture Overview
+## 3. Architecture Overview
 
 ```
                     ┌─────────────────────────┐
@@ -100,9 +100,10 @@ The tracker integrates with validation systems to provide quality-assured produc
                     └─────────────────────────┘
 ```
 → See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_orderProgressTrackerWorkflow.md)
+
 ---
 
-## Pre-requisites Checklist
+## 4. Pre-requisites Checklist
 
 Before running the tracker, ensure:
 
@@ -117,7 +118,7 @@ Before running the tracker, ensure:
 
 ---
 
-## Error Handling Scenarios
+## 5. Error Handling Scenarios
 
 | Scenario | Data Load | Status Processing | Aggregation | Validation Integration | Final Status | Action Required |
 |----------|-----------|-------------------|-------------|----------------------|--------------|-----------------|
@@ -130,9 +131,7 @@ Before running the tracker, ensure:
 
 ---
 
-## Processing Pipeline
-
-### Step-by-Step Workflow
+## 6. Processing Pipeline
 
 ```
 Data Loading → Order Merging → Production Extraction → Status Processing → 
@@ -182,7 +181,7 @@ Pause Detection → Latest Info → Warning Integration → Excel Export
 
 ---
 
-## Input & Output
+## 7. Input & Output
 
 - **Input**: 
   - Dynamic datasets (productRecords, purchaseOrders)
@@ -202,9 +201,9 @@ Pause Detection → Latest Info → Warning Integration → Excel Export
 
 ---
 
-## Status Logic Engine
+## 8. Status Logic Engine
 
-### Production Status Classification
+### 8.1 Production Status Classification
 
 ```python
 # Default state
@@ -224,7 +223,7 @@ if pending_order_not_active_in_latest_shift:
     proStatus = 'PAUSED'
 ```
 
-### ETA Compliance Classification
+### 8.2 ETA Compliance Classification
 
 ```python
 # Default state
@@ -239,7 +238,7 @@ if actualFinishedDate > poETA and itemRemain == 0:
     etaStatus = 'LATE'
 ```
 
-### Shift Management System
+### 8.3 Shift Management System
 
 | Shift Code | Start Time | Description |
 |------------|------------|-------------|
@@ -256,7 +255,7 @@ if actualFinishedDate > poETA and itemRemain == 0:
 
 ---
 
-## Directory Structure
+## 9. Directory Structure
 
 ```
 agents/shared_db                                              
@@ -269,9 +268,9 @@ agents/shared_db
 
 ---
 
-## Data Schema & Output Structure
+## 10. Data Schema & Output Structure
 
-### Main Production Status Fields
+### 10.1 Main Production Status Fields
 
 ```python
 pro_status_fields = [
@@ -294,7 +293,7 @@ pro_status_fields = [
 ]
 ```
 
-### Excel Output Sheets
+### 10.2 Excel Output Sheets
 
 | Sheet Name | Content | Purpose |
 |------------|---------|---------|
@@ -309,7 +308,7 @@ pro_status_fields = [
 → See details: [Data Structure](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
 ---
 
-## Dependencies
+## 11. Dependencies
 
 - **DataLoaderAgent**: Provides processed parquet files with production and order data
 - **ValidationOrchestrator**: Supplies data quality warnings and validation results
@@ -318,9 +317,9 @@ pro_status_fields = [
 
 ---
 
-## How to Run
+## 12. How to Run
 
-### Basic Usage
+### 12.1 Basic Usage
 
 ```python
 # Initialize tracker
@@ -334,7 +333,7 @@ production_status = result['productionStatus']
 material_analysis = result['materialComponentMap']
 ```
 
-### Custom Configuration
+### 12.2 Custom Configuration
 
 ```python
 # Custom paths and settings
@@ -349,7 +348,7 @@ tracker = OrderProgressTracker(
 result = tracker.pro_status()
 ```
 
-### Development/Testing Mode
+### 12.3 Development/Testing Mode
 
 ```python
 # Enable debug logging
@@ -366,7 +365,7 @@ print(f"Processing completed: {len(result)} output sheets")
 
 ---
 
-## Result Structure
+## 13. Result Structure
 
 ```python
 {
@@ -389,7 +388,7 @@ print(f"Processing completed: {len(result)} output sheets")
 
 ---
 
-## Configuration Paths
+## 14. Configuration Paths
 
 - **source_path**: `agents/shared_db/DataLoaderAgent/newest` (processed parquet files)
 - **annotation_name**: `path_annotations.json` (file path mappings)  
@@ -401,9 +400,9 @@ print(f"Processing completed: {len(result)} output sheets")
 
 ---
 
-## Monitoring & Alerts
+## 15. Monitoring & Alerts
 
-### Key Performance Indicators
+### 15.1 Key Performance Indicators
 
 - **Production Efficiency**: Percentage of orders ONTIME vs LATE
 - **Throughput**: Orders completed per day/shift
@@ -411,7 +410,7 @@ print(f"Processing completed: {len(result)} output sheets")
 - **Quality Issues**: Validation warnings per order
 - **Pipeline Health**: Data freshness and processing success rates
 
-### Operational Monitoring
+### 15.2 Operational Monitoring
 
 - **Daily Reports**: Automated generation of production status
 - **Exception Handling**: Structured logging for debugging and recovery

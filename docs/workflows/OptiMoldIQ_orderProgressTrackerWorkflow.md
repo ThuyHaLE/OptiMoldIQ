@@ -1,6 +1,6 @@
 # OrderProgressTracker
 
-## 🎯 Overview
+## 1. Overview
 
 The `OrderProgressTracker` is a comprehensive production monitoring system that tracks manufacturing progress, analyzes production efficiency, and generates detailed status reports. It processes production records, purchase orders, and mold specifications to provide real-time insights into manufacturing operations.
 
@@ -13,7 +13,7 @@ The `OrderProgressTracker` is a comprehensive production monitoring system that 
 
 ---
 
-## 🏗️ System Architecture
+## 2. System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -52,9 +52,9 @@ The `OrderProgressTracker` is a comprehensive production monitoring system that 
 
 ---
 
-## 🔄 Detailed Processing Workflow
+## 3. Detailed Processing Workflow
 
-### Phase 1: System Initialization
+### 3.1 Phase 1: System Initialization
 
 ```
     🚀 OrderProgressTracker.__init__()
@@ -104,7 +104,7 @@ The `OrderProgressTracker` is a comprehensive production monitoring system that 
 - **Shift Mapping Setup**: Configure production shift start times
 - **Data Type Definitions**: Set up column types for consistent processing
 
-### Phase 2: Production Data Processing
+### 3.2 Phase 2: Production Data Processing
 
 ```
                     🎯 pro_status() Method Called
@@ -290,9 +290,9 @@ ValidationOrchestrator Pipeline:
 
 ---
 
-## 📊 Output Data Structure
+## 4. Output Structure
 
-### Excel Workbook Layout
+### 4.1 Excel Workbook Layout
 
 ```
 📋 auto_status_YYYYMMDD_HHMMSS.xlsx
@@ -310,7 +310,7 @@ ValidationOrchestrator Pipeline:
 └── 🚨 [Dynamic Warning Sheets]  # Quality control alerts
 ```
 
-### Key Performance Indicators
+### 4.2 Key Performance Indicators
 
 **Per Purchase Order Metrics:**
 ```python
@@ -329,11 +329,37 @@ KPIs = {
 - **Schedule Performance**: On-time delivery tracking
 - **Quality Monitoring**: Warning trend analysis
 
+### 4.3 Output Data Structure
+
+```
+agents                                 # Source directory
+├── database
+|    └── databaseSchemas.json          # Schema definitions (OrderProgressTracker input) 
+└── shared_db                  
+    ├── dynamicDatabase/                                         
+    |    └── ...                                                       
+    ├── DataLoaderAgent/                                      
+    |   ├── historical_db/                                      
+    |   ├── newest/                                             
+    |   |   ├── ...          
+    |   |   └── path_annotations.json  # File path annotations (OrderProgressTracker input)                     
+    |   └── change_log.txt                          
+    ├── ValidationOrchestrator
+    |     ├── historical_db/                                                                       
+    |     ├── newest/                                             
+    |     └── change_log.txt            # Validation changes (OrderProgressTracker input) 
+    ├── OrderProgressTracker            # OrderProgressTracker output
+    |     ├── historical_db/                                               
+    |     ├── newest/                                                            
+    |     |    └──  YYYYMMDD_HHMM_auto_status.xlsx   # Progress status report
+    |     └── change_log.txt                         # Progress change log
+```
+
 ---
 
-## 🛡️ Error Handling & Data Quality
+## 5. Error Handling & Data Quality
 
-### Pre-Execution Validation
+### 5.1 Pre-Execution Validation
 ```python
 Validation_Checks = [
     '✅ File path existence verification',
@@ -344,7 +370,7 @@ Validation_Checks = [
 ]
 ```
 
-### Runtime Safety Mechanisms
+### 5.2 Runtime Safety Mechanisms
 ```python
 Safety_Features = [
     '🛡️ Empty DataFrame graceful handling',
@@ -355,7 +381,7 @@ Safety_Features = [
 ]
 ```
 
-### Data Quality Monitoring
+### 5.3 Data Quality Monitoring
 - **Completeness**: Track missing critical fields
 - **Consistency**: Validate cross-table relationships  
 - **Accuracy**: Flag potential data anomalies
@@ -363,9 +389,9 @@ Safety_Features = [
 
 ---
 
-## 🔌 Integration Architecture
+## 6. Integration Architecture
 
-### Upstream Data Dependencies
+### 6.1 Upstream Data Dependencies
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -397,7 +423,7 @@ Safety_Features = [
 - **ValidationOrchestrator**: Supplies data quality warnings and mismatch alerts
 - **DatabaseSchemas**: Defines data structure contracts and validation rules
 
-### Downstream Integration Points
+### 6.2 Downstream Integration Points
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -425,9 +451,9 @@ Safety_Features = [
 
 ---
 
-## 💻 Usage Examples
+## 7. Usage Examples
 
-### Basic Implementation
+### 7.1 Basic Implementation
 ```python
 # Standard production report generation
 tracker = OrderProgressTracker()
@@ -436,7 +462,7 @@ report_data = tracker.pro_status()
 # Output: agents/shared_db/OrderProgressTracker/auto_status_YYYYMMDD_HHMMSS.xlsx
 ```
 
-### Custom Configuration
+### 7.2 Custom Configuration
 ```python
 # Custom paths and settings
 tracker = OrderProgressTracker(
@@ -447,7 +473,7 @@ tracker = OrderProgressTracker(
 production_report = tracker.pro_status()
 ```
 
-### API Integration
+### 7.3 API Integration
 ```python
 # Access structured data for API responses
 tracker = OrderProgressTracker()
@@ -464,15 +490,15 @@ api_response = {
 
 ---
 
-## 📈 Performance Considerations
+## 8. Performance Considerations
 
-### Optimization Features
+### 8.1 Optimization Features
 - **Vectorized Operations**: Pandas-optimized data transformations
 - **Memory Management**: Efficient handling of large production datasets
 - **Parallel Processing**: Concurrent aggregation calculations where applicable
 - **Lazy Loading**: On-demand data loading for improved startup times
 
-### Scalability Metrics
+### 8.2 Scalability Metrics
 - **Data Volume**: Handles 100k+ production records efficiently
 - **Processing Time**: Sub-minute report generation for typical datasets
 - **Memory Usage**: Optimized for production server deployment
@@ -480,9 +506,9 @@ api_response = {
 
 ---
 
-## 🔧 Maintenance & Troubleshooting
+## 9. Maintenance & Troubleshooting
 
-### Common Issues & Solutions
+### 9.1 Common Issues & Solutions
 
 | Issue | Symptom | Solution |
 |-------|---------|----------|
@@ -491,7 +517,7 @@ api_response = {
 | Empty Reports | No production data | Check productRecords_df data quality |
 | Performance Issues | Slow processing | Optimize data filtering and indexing |
 
-### Monitoring Recommendations
+### 9.2 Monitoring Recommendations
 - **Log Analysis**: Regular review of processing logs for warnings
 - **Data Quality Checks**: Automated validation of input data completeness
 - **Performance Tracking**: Monitor processing times and resource usage
@@ -499,9 +525,9 @@ api_response = {
 
 ---
 
-## 📚 Technical Reference
+## 10. Technical Reference
 
-### Key Constants & Configurations
+### 10.1 Key Constants & Configurations
 ```python
 SHIFT_MAPPINGS = {
     "1": "06:00",  # Morning shift
@@ -517,7 +543,7 @@ OUTPUT_FIELDS = [
 ]
 ```
 
-### Data Type Specifications
+### 10.2 Data Type Specifications
 - **Datetime Fields**: Converted to 'YYYY-MM-DD' string format
 - **Quantity Fields**: Int64 with null handling
 - **Mapping Fields**: Object type storing Python dictionaries

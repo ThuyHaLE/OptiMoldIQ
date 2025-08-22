@@ -1,6 +1,6 @@
 # MoldMachineFeatureWeightCalculator
 
-## Agent Info
+## 1. Agent Info
 
 - **Name**: MoldMachineFeatureWeightCalculator
 - **Purpose**:
@@ -13,7 +13,7 @@
 
 ---
 
-## What it does
+## 2. What it does
 
 The `MoldMachineFeatureWeightCalculator` processes **production history records** and **mold-machine performance data** against **efficiency thresholds** to generate confidence-weighted feature importance scores. It analyzes good vs bad production performance patterns using statistical methods to determine optimal weights for production planning priority matrices.
 
@@ -46,14 +46,10 @@ The calculator integrates bootstrap sampling, statistical significance testing, 
   - Minimum sample size requirements (default: 10)
   - Bootstrap confidence interval estimation
   - Statistical significance testing integration
-  
-### Optional
-
-`generate_confidence_report` creates detailed text reports with confidence metrics and weight recommendations for operational review and validation.
 
 ---
 
-## Architecture Overview
+## 3. Architecture Overview
 
 ```
                     ┌─────────────────────────────┐
@@ -103,7 +99,7 @@ The calculator integrates bootstrap sampling, statistical significance testing, 
 
 ---
 
-## Pre-requisites Checklist
+## 4. Pre-requisites Checklist
 
 Before running the calculator, ensure:
 
@@ -119,7 +115,7 @@ Before running the calculator, ensure:
 
 ---
 
-## Error Handling Scenarios
+## 5. Error Handling Scenarios
 
 | Scenario | Data Load | Performance Classification | Confidence Calculation | Weight Generation | Final Status | Action Required |
 |----------|-----------|---------------------------|------------------------|-------------------|--------------|-----------------|
@@ -132,9 +128,7 @@ Before running the calculator, ensure:
 
 ---
 
-## Processing Pipeline
-
-### Step-by-Step Workflow
+## 6. Processing Pipeline
 
 ```
 Data Loading → Capacity Optimization → Performance Classification → 
@@ -182,7 +176,7 @@ Bootstrap Sampling → Confidence Calculation → Weight Enhancement → Report 
 
 ---
 
-## Input & Output
+## 7. Input & Output
 
 - **Input**: 
   - Production records (productRecords_df)
@@ -204,9 +198,9 @@ Bootstrap Sampling → Confidence Calculation → Weight Enhancement → Report 
 
 ---
 
-## Configuration Parameters
+## 8. Configuration Parameters
 
-### Performance Thresholds
+### 8.1 Performance Thresholds
 
 ```python
 efficiency = 0.85      # 85% expected efficiency rate
@@ -214,7 +208,7 @@ loss = 0.03           # 3% allowable production loss
 net_efficiency = 0.82  # Combined efficiency threshold
 ```
 
-### Statistical Parameters
+### 8.2 Statistical Parameters
 
 ```python
 n_bootstrap = 500         # Bootstrap sampling iterations
@@ -223,7 +217,7 @@ min_sample_size = 10      # Minimum samples for reliability
 confidence_weight = 0.3   # Weight of confidence in final calculation
 ```
 
-### Feature Targets Configuration
+### 8.3 Feature Targets Configuration
 
 ```python
 targets = {
@@ -236,9 +230,9 @@ targets = {
 
 ---
 
-## Statistical Engine
+## 9. Statistical Engine
 
-### Performance Classification Logic
+### 9.1 Performance Classification Logic
 
 ```python
 # Calculate theoretical requirements
@@ -257,7 +251,7 @@ else:
     classification = 'GOOD'
 ```
 
-### Confidence Score Composition
+### 9.2 Confidence Score Composition
 
 | Component | Weight | Description |
 |-----------|--------|-------------|
@@ -266,7 +260,7 @@ else:
 | **Statistical Significance** | 20% | Mann-Whitney U test p-value significance |
 | **Distance from Ideal** | 10% | Proximity to theoretical optimal performance |
 
-### Bootstrap Sampling Methodology
+### 9.3 Bootstrap Sampling Methodology
 
 1. **Sample Generation**: Random sampling with replacement from good/bad groups
 2. **Mean Estimation**: Calculate bootstrap mean for each iteration
@@ -275,7 +269,7 @@ else:
 
 ---
 
-## Directory Structure
+## 10. Directory Structure
 
 ```
 agents/shared_db                                              
@@ -289,9 +283,9 @@ agents/shared_db
 
 ---
 
-## Data Schema & Output Structure
+## 11. Data Schema & Output Structure
 
-### Confidence Scores Output
+### 11.1 Confidence Scores Output
 
 ```python
 confidence_scores = {
@@ -313,7 +307,7 @@ confidence_scores = {
 }
 ```
 
-### Overall Confidence Metrics
+### 11.2 Overall Confidence Metrics
 
 ```python
 overall_confidence = {
@@ -327,7 +321,7 @@ overall_confidence = {
 }
 ```
 
-### Enhanced Weights Output
+### 11.3 Enhanced Weights Output
 
 ```python
 enhanced_weights = {
@@ -340,7 +334,7 @@ enhanced_weights = {
 
 ---
 
-## Dependencies
+## 12. Dependencies
 
 - **DataLoaderAgent**: Provides processed production and machine data
 - **OrderProgressTracker**: Supplies production status logs
@@ -351,9 +345,9 @@ enhanced_weights = {
 
 ---
 
-## How to Run
+## 13. How to Run
 
-### Basic Usage
+### 13.1 Basic Usage
 
 ```python
 # Initialize calculator
@@ -366,7 +360,7 @@ confidence_scores, overall_confidence, enhanced_weights = calculator.calculate()
 calculator.calculate_and_save_report()
 ```
 
-### Custom Configuration
+### 13.2 Custom Configuration
 
 ```python
 # Custom parameters
@@ -382,7 +376,7 @@ calculator = MoldMachineFeatureWeightCalculator(
 result = calculator.calculate()
 ```
 
-### Advanced Configuration
+### 13.3 Advanced Configuration
 
 ```python
 # Custom targets and feature weights
@@ -402,7 +396,7 @@ calculator = MoldMachineFeatureWeightCalculator(
 
 ---
 
-## Result Structure
+## 14. Result Structure
 
 ```python
 {
@@ -434,7 +428,7 @@ calculator = MoldMachineFeatureWeightCalculator(
 
 ---
 
-## Configuration Paths
+## 15. Configuration Paths
 
 - **source_path**: `agents/shared_db/DataLoaderAgent/newest` (processed parquet files)
 - **annotation_name**: `path_annotations.json` (file path mappings)
@@ -447,9 +441,9 @@ calculator = MoldMachineFeatureWeightCalculator(
 
 ---
 
-## Monitoring & Alerts
+## 16. Monitoring & Alerts
 
-### Key Performance Indicators
+### 16.1 Key Performance Indicators
 
 - **Model Reliability**: Overall confidence in feature weight calculations
 - **Statistical Separation**: Strength of good vs bad group differentiation
@@ -457,7 +451,7 @@ calculator = MoldMachineFeatureWeightCalculator(
 - **Confidence Consistency**: Stability of confidence scores across bootstrap iterations
 - **Weight Distribution**: Balance and reasonableness of final feature weights
 
-### Statistical Quality Metrics
+### 16.2 Statistical Quality Metrics
 
 - **Bootstrap Convergence**: Stability of bootstrap sampling results
 - **P-Value Distribution**: Statistical significance across feature tests  
@@ -465,9 +459,9 @@ calculator = MoldMachineFeatureWeightCalculator(
 - **Feature Correlation**: Independence assumptions for weight calculations
 - **Historical Stability**: Consistency of weight calculations over time
 
-### Operational Monitoring
+### 16.3 Operational Monitoring
 
-- **Daily Weight Updates**: Automated recalculation with new production data
+- **Monthly Weight Updates**: Automated recalculation with new production data
 - **Exception Handling**: Structured logging for statistical edge cases
 - **Data Quality Integration**: Validation warnings impact on confidence scores
 - **Performance Tracking**: Feature weight effectiveness in downstream applications

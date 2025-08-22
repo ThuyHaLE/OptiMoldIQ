@@ -1,6 +1,6 @@
 # MoldStabilityIndexCalculator
 
-## Agent Info
+## 1. Agent Info
 
 - **Name**: MoldStabilityIndexCalculator
 - **Purpose**:
@@ -14,7 +14,7 @@
 
 ---
 
-## What it does
+## 2. What it does
 
 The `MoldStabilityIndexCalculator` processes **historical production records** and **mold specification data** to generate comprehensive stability assessments for manufacturing molds. It evaluates mold reliability through multi-dimensional analysis of cavity utilization and cycle time performance, providing critical input for production capacity planning and mold maintenance optimization.
 
@@ -57,13 +57,9 @@ The calculator integrates statistical scoring methods, weighted performance metr
   - Efficiency and loss factor integration
   - Comprehensive measurement statistics and date ranges
 
-### Optional
-
-`process_and_save_result` generates versioned Excel reports with detailed stability analysis and capacity metrics for operational review and production planning integration.
-
 ---
 
-## Architecture Overview
+## 3. Architecture Overview
 
 ```
                     ┌─────────────────────────────┐
@@ -113,7 +109,7 @@ The calculator integrates statistical scoring methods, weighted performance metr
 
 ---
 
-## Pre-requisites Checklist
+## 4. Pre-requisites Checklist
 
 Before running the calculator, ensure:
 
@@ -129,7 +125,7 @@ Before running the calculator, ensure:
 
 ---
 
-## Error Handling Scenarios
+## 5. Error Handling Scenarios
 
 | Scenario | Data Load | Preprocessing | Stability Calculation | Capacity Generation | Final Status | Action Required |
 |----------|-----------|---------------|----------------------|-------------------|--------------|-----------------|
@@ -142,9 +138,7 @@ Before running the calculator, ensure:
 
 ---
 
-## Processing Pipeline
-
-### Step-by-Step Workflow
+## 6. Processing Pipeline
 
 ```
 Data Loading → Schema Validation → Data Preprocessing → 
@@ -200,7 +194,7 @@ Stability Calculation → Capacity Analysis → Trust Weighting → Report Gener
 
 ---
 
-## Input & Output
+## 7. Input & Output
 
 - **Input**: 
   - Production records with moldShot, cavity, and timing data (productRecords_df)
@@ -223,9 +217,9 @@ Stability Calculation → Capacity Analysis → Trust Weighting → Report Gener
 
 ---
 
-## Configuration Parameters
+## 8. Configuration Parameters
 
-### Stability Calculation Constants
+### 8.1 Stability Calculation Constants
 
 ```python
 SECONDS_PER_HOUR = 3600           # Time conversion factor
@@ -233,7 +227,7 @@ CYCLE_TIME_TOLERANCE = 0.2        # ±20% acceptable cycle deviation
 EXTREME_DEVIATION_THRESHOLD = 1.0  # 100% outlier threshold
 ```
 
-### Performance & Efficiency Parameters
+### 8.2 Performance & Efficiency Parameters
 
 ```python
 efficiency = 0.85                 # 85% expected efficiency rate
@@ -241,7 +235,7 @@ loss = 0.03                      # 3% allowable production loss
 total_records_threshold = 30      # Minimum records for reliability
 ```
 
-### Cavity Stability Weight Distribution
+### 8.3 Cavity Stability Weight Distribution
 
 ```python
 CAVITY_STABILITY_WEIGHTS = {
@@ -252,7 +246,7 @@ CAVITY_STABILITY_WEIGHTS = {
 }
 ```
 
-### Cycle Stability Weight Distribution
+### 8.4 Cycle Stability Weight Distribution
 
 ```python
 CYCLE_STABILITY_WEIGHTS = {
@@ -264,7 +258,7 @@ CYCLE_STABILITY_WEIGHTS = {
 }
 ```
 
-### Threshold Configuration
+### 8.5 Threshold Configuration
 
 ```python
 cavity_stability_threshold = 0.6     # Cavity weight in overall stability
@@ -274,9 +268,9 @@ total_records_threshold = 30         # Minimum records for full confidence
 
 ---
 
-## Statistical Engine
+## 9. Statistical Engine
 
-### Cavity Stability Logic
+### 9.1 Cavity Stability Logic
 
 ```python
 # Accuracy: Exact match percentage
@@ -295,7 +289,7 @@ utilization_rate = min(1.0, avg_active_cavity / standard_cavity)
 data_completeness = min(1.0, total_records / threshold)
 ```
 
-### Cycle Stability Logic
+### 9.2 Cycle Stability Logic
 
 ```python
 # Accuracy: Mean relative deviation
@@ -313,7 +307,7 @@ extreme_outliers = sum(1 for val in cycle_values
 outlier_penalty = max(0, 1 - (extreme_outliers / len(cycle_values)))
 ```
 
-### Capacity Balancing Algorithm
+### 9.3 Capacity Balancing Algorithm
 
 ```python
 # Trust coefficient based on data volume
@@ -335,7 +329,7 @@ balanced_capacity = alpha * effective_capacity + (1 - alpha) * estimated_capacit
 
 ---
 
-## Directory Structure
+## 10. Directory Structure
 
 ```
 agents/shared_db                                              
@@ -348,9 +342,9 @@ agents/shared_db
 
 ---
 
-## Data Schema & Output Structure
+## 11. Data Schema & Output Structure
 
-### Input Schema Requirements
+### 11.1 Input Schema Requirements
 
 ```python
 # productRecords_df required columns
@@ -372,7 +366,7 @@ moldInfo_schema = {
 }
 ```
 
-### Output DataFrame Structure
+### 11.2 Output DataFrame Structure
 
 ```python
 stability_results = {
@@ -401,7 +395,7 @@ stability_results = {
 
 ---
 
-## Dependencies
+## 12. Dependencies
 
 - **DataLoaderAgent**: Provides processed production and mold specification data
 - **Database Schemas**: Ensures data type consistency and validation compliance
@@ -411,9 +405,9 @@ stability_results = {
 
 ---
 
-## How to Run
+## 13. How to Run
 
-### Basic Usage
+### 13.1 Basic Usage
 
 ```python
 # Initialize calculator with default parameters
@@ -426,7 +420,7 @@ stability_results = calculator.process()
 calculator.process_and_save_result()
 ```
 
-### Custom Configuration
+### 13.2 Custom Configuration
 
 ```python
 # Custom efficiency and threshold parameters
@@ -445,7 +439,7 @@ results = calculator.process(
 )
 ```
 
-### Advanced Configuration
+### 13.3 Advanced Configuration
 
 ```python
 # Initialize with custom paths and parameters
@@ -473,7 +467,7 @@ calculator.process_and_save_result(
 
 ---
 
-## Result Structure
+## 14. Result Structure
 
 ```python
 {
@@ -496,7 +490,7 @@ calculator.process_and_save_result(
 
 ---
 
-## Configuration Paths
+## 15. Configuration Paths
 
 - **source_path**: `agents/shared_db/DataLoaderAgent/newest` (processed parquet files)
 - **annotation_name**: `path_annotations.json` (file path mappings)
@@ -507,9 +501,9 @@ calculator.process_and_save_result(
 
 ---
 
-## Monitoring & Alerts
+## 16. Monitoring & Alerts
 
-### Key Performance Indicators
+### 16.1 Key Performance Indicators
 
 - **Stability Distribution**: Range and distribution of cavity/cycle stability indices
 - **Data Coverage**: Percentage of molds with sufficient historical data
@@ -517,7 +511,7 @@ calculator.process_and_save_result(
 - **Historical Trends**: Stability index changes over time for individual molds
 - **Outlier Detection**: Identification of molds with unusual performance patterns
 
-### Data Quality Metrics
+### 16.2 Data Quality Metrics
 
 - **Record Volume**: Distribution of historical record counts per mold
 - **Measurement Completeness**: Availability of cavity and cycle data
@@ -525,9 +519,9 @@ calculator.process_and_save_result(
 - **Temporal Coverage**: Time span and recency of historical data
 - **Missing Data Impact**: Effect of data gaps on stability calculations
 
-### Operational Monitoring
+### 16.3 Operational Monitoring
 
-- **Daily Recalculation**: Automated updates with new production data
+- **Monthly Recalculation**: Automated updates with new production data
 - **Threshold Alerts**: Notifications for molds below stability thresholds
 - **Capacity Validation**: Cross-verification with actual production performance
 - **Maintenance Correlation**: Stability trends vs maintenance schedules

@@ -33,8 +33,6 @@ checker = StaticCrossDataChecker(
 -   `databaseSchemas_path`: Database schema definition file.
 -   `default_dir`: Directory for storing validation outputs.
 
----
-
 ### 2.2 Main Method
 
 `run_validations() -> Dict[str, pd.DataFrame]`
@@ -63,8 +61,6 @@ checker = StaticCrossDataChecker(
 -   Uses filename prefix `static_cross_checker`.
 -   Logs summary statistics for each validation type.
 
----
-
 ### 2.3 Processing Steps
 
 #### `_process_checking_data(df_name)`
@@ -87,8 +83,6 @@ checker = StaticCrossDataChecker(
 #### `_check_composition_matches(df_name, checking_df)`
 -   Validates complete composition against `itemCompositionSummary_df`.
 -   Produces `composition_warnings`.
-
----
 
 ### 2.4 Helper Methods
 

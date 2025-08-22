@@ -1,4 +1,4 @@
-# Overview
+# 1. Overview
 The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main sheets**, providing a comprehensive view of injection molding operations:
 | Sheet Name              | Description                            |
 | ----------------------- | -------------------------------------- |
@@ -14,13 +14,13 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
   
 **Demo**: [🔗View orderProgressTracker Dashboard (Live Demo - CodeSandbox.io)](https://z86fl6.csb.app/)
 
-# Output Format:
+# 2. Output Format:
 
-## 1. Raw Reports Format:
+## 2.1. Raw Reports Format:
 
 - See overview: [orderProgressTracker Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_orderProgressTracker_overview.md)
 
-### 1. productionStatus
+### 2.1.1. productionStatus
 **Purpose**: Tracks PO production status, materials, machines, molds, and shift/day-level outputs.
 
 🧪 **Sample**:
@@ -31,7 +31,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |1|2018-10-20|IM1811008|24720318M|CT-CAX-UPPER-CASE-BLUE|2018-11-05|30000|0|2018-11-01|2018-11-02|MOLDED|ONTIME|\['NO\.08\_MD130S-000'\]|CT-CAX-UPPER-CASE|10100CBR-M-001|\['10100CBR-M-001'\]|\[4\]|7666\.0|2\.0|6\.0|\['10048'\]|\['10115'\]|\[\]|\{'10100CBR-M-001': 7666\}|\{'NO\.08\_MD130S-000': 30000\}|\{'2018-11-01': 16180, '2018-11-02': 13820\}|\{'2018-11-01\_shift\_1': 5608, '2018-11-01\_shift\_2': 5068, '2018-11-01\_shift\_3': 5504, '2018-11-02\_shift\_1': 5652, '2018-11-02\_shift\_2': 5068, '2018-11-02\_shift\_3': 3100\}|\[\{'plasticResinCode': '10048', 'colorMasterbatchCode': '10115', 'additiveMasterbatchCode': None\}\]|2018-11-02 22:00:00|NO\.08|10100CBR-M-001|NaN|
 |2|2018-10-20|IM1811015|24720325M|CT-CAX-LOCK-BUTTON-GRAY|2018-11-05|15000|0|2018-11-01|2018-11-02|MOLDED|ONTIME|\['NO\.02\_MD50S-001'\]|CT-CAX-LOCK-BUTTON|16500CBR-M-001|\['16500CBR-M-001'\]|\[7\]|2185\.0|2\.0|2\.0|\['9915740199'\]|\['10106'\]|\[\]|\{'16500CBR-M-001': 2185\}|\{'NO\.02\_MD50S-001': 15000\}|\{'2018-11-01': 11080, '2018-11-02': 3920\}|\{'2018-11-01\_shift\_3': 11080, '2018-11-02\_shift\_1': 3920\}|\[\{'plasticResinCode': '9915740199', 'colorMasterbatchCode': '10106', 'additiveMasterbatchCode': None\}\]|2018-11-02 06:00:00|NO\.02|16500CBR-M-001|NaN|
 
-### 2. materialComponentMap
+### 2.1.2. materialComponentMap
 **Purpose**: Maps materials (resin, color, additive) used in production.
 
 🧪 **Sample**:
@@ -42,7 +42,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |1|2018-10-20|IM1811008|24720318M|CT-CAX-UPPER-CASE-BLUE|2018-11-05|30000|0|2018-11-01|2018-11-02|10048|10115|NaN|1|
 |2|2018-10-20|IM1811015|24720325M|CT-CAX-LOCK-BUTTON-GRAY|2018-11-05|15000|0|2018-11-01|2018-11-02|9915740199|10106|NaN|1|
 
-### 3. moldShotMap
+### 2.1.3. moldShotMap
 **Purpose**: Logs number of shots taken by each mold.
 
 🧪 **Sample**:
@@ -53,7 +53,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |1|2018-10-20|IM1811008|24720318M|CT-CAX-UPPER-CASE-BLUE|2018-11-05|30000|0|2018-11-01|2018-11-02|10100CBR-M-001|7666|1|
 |2|2018-10-20|IM1811015|24720325M|CT-CAX-LOCK-BUTTON-GRAY|2018-11-05|15000|0|2018-11-01|2018-11-02|16500CBR-M-001|2185|1|
 
-### 4. machineQuantityMap
+### 2.1.4. machineQuantityMap
 **Purpose**: Maps molded quantity produced by each machine.
 
 🧪 **Sample**:
@@ -64,7 +64,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |1|2018-10-20|IM1811008|24720318M|CT-CAX-UPPER-CASE-BLUE|2018-11-05|30000|0|2018-11-01|2018-11-02|NO\.08\_MD130S-000|30000|1|
 |2|2018-10-20|IM1811015|24720325M|CT-CAX-LOCK-BUTTON-GRAY|2018-11-05|15000|0|2018-11-01|2018-11-02|NO\.02\_MD50S-001|15000|1|
 
-### 5. dayQuantityMap
+### 2.1.5. dayQuantityMap
 **Purpose**: Tracks total molded quantity per working day.
 
 🧪 **Sample**:
@@ -75,7 +75,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |1|2018-10-20|IM1811001|26001122M|CT-CA-BASE-T\.SMOKE\(NO-PRINT\)|2018-11-05|280000|0|2018-11-01|2018-12-19|2018-11-02|27932|11|
 |2|2018-10-20|IM1811001|26001122M|CT-CA-BASE-T\.SMOKE\(NO-PRINT\)|2018-11-05|280000|0|2018-11-01|2018-12-19|2018-11-03|29368|11|
 
-### 6. notWorkingStatus
+### 2.1.6. notWorkingStatus
 **Purpose**: Captures downtime and NG conditions per shift.
 
 🧪 **Sample**:
@@ -86,7 +86,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |1|2018-11-01|1|NO\.09|MD130S-001|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|NaN|
 |2|2018-11-01|2|NO\.02|MD50S-001|24720325M|CT-CAX-LOCK-BUTTON-GRAY|NaN|NaN|NaN|IM1811015|16500CBR-M-001|0\.0|NaN|0\.0|0\.0|NaN|NaN|NaN|NaN|NaN|
 
-### 7. item_invalid_warnings
+### 2.1.7. item_invalid_warnings
 **Purpose**: Highlights items missing in reference tables.
 
 🧪 **Sample**:
@@ -95,7 +95,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |---|---|---|---|---|---|
 |0|10242M, AB-TP-LARGE-CAP-055-YW|item\_invalid\_in\_itemCompositionSummary|item\_does\_not\_exist\_in\_itemCompositionSummary|update\_itemCompositionSummary\_or\_double\_check\_related\_databases|\(10242M, AB-TP-LARGE-CAP-055-YW\) - Mismatch: 10242M\_and\_AB-TP-LARGE-CAP-055-YW\_does\_not\_exist\_in\_itemCompositionSummary\. Please update\_itemCompositionSummary\_or\_double\_check\_related\_databases|
 
-### 8. po_mismatch_warnings
+### 2.1.8. po_mismatch_warnings
 **Purpose**: Flags PO-related inconsistencies across multiple data sources.
 
 🧪 **Sample**:
@@ -106,11 +106,11 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 |1|IM1901044|item\_mold\_warnings|item\_and\_mold\_not\_matched|update\_moldInfo\_or\_double\_check\_productRecords|\(IM1901044, 2019-01-31, 3, NO\.11, 260501M1, CT-PXN-HEAD-COVER-4\.2MM, PXNHC4-M-002\) - Mismatch: PXNHC4-M-002\_and\_\(260501M1,CT-PXN-HEAD-COVER-4\.2MM\)\_not\_matched\. Please update\_moldInfo\_or\_double\_check\_productRecords|
 |2|IM1901044|mold\_machine\_tonnage\_warnings|mold\_and\_machine\_tonnage\_not\_matched|update\_moldSpecificationSummary\_or\_double\_check\_productRecords|\(IM1901044, 2019-01-31, 3, NO\.11, 260501M1, CT-PXN-HEAD-COVER-4\.2MM, PXNHC4-M-002, 50\) - Mismatch: 50\_and\_PXNHC4-M-002\_not\_matched\. Please update\_moldSpecificationSummary\_or\_double\_check\_productRecords|
 
-## 2. Dashboard Report Format: 
+## 2.2. Dashboard Report Format: 
 
 - See overview: [processDashboardReports Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_processDashboardReports.overview.md)
 
-### 1. `productionStatus`
+### 2.2.1. `productionStatus`
 **Purpose**: Track the overall status of each Purchase Order (PO)
 
 **Main Columns**:
@@ -133,7 +133,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 
 **Demo**: [🔗View productionStatus Dashboard (Live Demo - CodeSandbox.io)](https://qvcrm8.csb.app/)
 
-### 2. `machineQuantityMap`
+### 2.2.2. `machineQuantityMap`
 **Purpose**: Track output by machine
 
 **Structure**:
@@ -154,7 +154,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 
 **Demo**: [🔗View machineQuantityMap Dashboard (Live Demo - CodeSandbox.io)](https://ncwkvl.csb.app/)
 
-### 3. `moldShotMap`
+### 2.2.3. `moldShotMap`
 **Purpose**: Track shot counts per mold
 
 **Structure**:
@@ -175,7 +175,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 
 **Demo**: [🔗View moldShotMap Dashboard (Live Demo - CodeSandbox.io)](https://yjdwkl.csb.app)
 
-### 4. `dayQuantityMap`
+### 2.2.4. `dayQuantityMap`
 **Purpose**: Track daily production output
 
 **Structure**:
@@ -195,7 +195,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 
 **Demo**: [🔗View dayQuantityMap Dashboard (Live Demo - CodeSandbox.io)](https://kvjlkk.csb.app/)
 
-### 5. `materialComponentMap`
+### 2.2.5. `materialComponentMap`
 **Purpose**: Map materials to products
 **Structure**:
 ```json
@@ -215,7 +215,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 
 **Demo**: [🔗View moldShotMap Dashboard (Live Demo - CodeSandbox.io)](https://3mmsy9.csb.app)
 
-### 6. `notWorkingStatus`
+### 2.2.6. `notWorkingStatus`
 **Purpose**: Log shifts without production
 
 **Main Columns**:
@@ -229,7 +229,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 
 **Demo**: Updating...
 
-### 7. `item_invalid_warnings`
+### 2.2.7. `item_invalid_warnings`
 **Purpose**: Warnings for invalid product data
 
 **Structure**:
@@ -247,7 +247,7 @@ The `orderProgressTracker` generates an Excel file (.xlsx) with **eight main she
 
 **Demo**: Updating...
 
-### 8. `po_mismatch_warnings`
+### 2.2.8. `po_mismatch_warnings`
 **Purpose**: Warnings for mismatched PO data
 
 **Types**:

@@ -1,6 +1,6 @@
 # OptiMoldIQ System Documentation
 
-## Overview
+## 1. Overview
 
 The OptiMoldIQ System is an intelligent orchestration platform designed for manufacturing operations management. It automates daily data pipeline processing, validation, progress tracking, and production planning for mold manufacturing environments.
 
@@ -12,7 +12,9 @@ The OptiMoldIQ System is an intelligent orchestration platform designed for manu
 - **Configurable Parameters**: Flexible configuration for different manufacturing environments
 - **Error Resilience**: Robust error handling and recovery mechanisms
 
-## System Architecture
+---
+
+## 2. System Architecture
 
 The OptiMoldIQ System implements a **conditional three-phase architecture** optimized for efficiency:
 
@@ -23,9 +25,11 @@ The OptiMoldIQ System implements a **conditional three-phase architecture** opti
 - **📋 Phase 3 - Initial Planning**: Only executes when purchase order changes are detected, optimizing production planning cycles.
 - **📈 Comprehensive Reporting**: Generates detailed reports with complete workflow execution summaries and audit trails.
 
-## Configuration
+---
 
-### WorkflowConfig Class
+## 3. Configuration
+
+### 3.1 WorkflowConfig Class
 
 The `WorkflowConfig` dataclass provides centralized configuration management:
 
@@ -68,7 +72,7 @@ class WorkflowConfig:
     })
 ```
 
-### Configuration Parameters
+### 3.2 Configuration Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -98,9 +102,11 @@ class WorkflowConfig:
 | `feature_weights` | Dict[str, float] | None | Custom feature weights (optional) |
 | `targets` | dict | See code | Target metrics for optimization |
 
-## Utility Classes
+--- 
 
-### PathManager
+## 4. Utility Classes
+
+### 4.1 PathManager
 
 **Purpose**: Centralized path management for all workflow components.
 
@@ -120,7 +126,7 @@ def __init__(self, config: WorkflowConfig)
 - `get_mold_stability_index_path()`: Returns MoldStabilityIndexCalculator directory
 - `get_mold_machine_weights_path()`: Returns machine weights file path
 
-### ReportManager
+### 4.2 ReportManager
 
 **Purpose**: Manages report generation, formatting, and file operations.
 
@@ -147,7 +153,7 @@ def __init__(self, output_dir: str, filename_prefix: str)
 - UTF-8 encoding for Vietnamese content
 - Change log tracking
 
-### WorkflowConstants
+### 4.3 WorkflowConstants
 
 **Purpose**: Centralized constants for consistent formatting and file naming.
 
@@ -173,7 +179,7 @@ def __init__(self, output_dir: str, filename_prefix: str)
 - `INITIAL_PLANNER_HEADER`: "Starting InitialPlanner"
 - Various progress report headers
 
-### WorkflowError
+### 4.4 WorkflowError
 
 **Purpose**: Custom exception class for workflow-specific errors.
 
@@ -187,9 +193,11 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
 - Maintains error chain with `from e`
 - Used consistently across all workflow operations
 
-## Agent Components
+---
 
-### DataPipelineOrchestrator
+## 5. Agent Components
+
+### 5.1 DataPipelineOrchestrator
 - **Purpose**: Primary data collection agent
 - **Input**: Database schemas and annotations
 - **Output**: Comprehensive data pipeline report
@@ -197,7 +205,7 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
   
 → See details: [DataPipelineOrchestrator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataPipelineOrchestrator_overview.md)
 
-### ValidationOrchestrator
+### 5.2 ValidationOrchestrator
 - **Purpose**: Data validation and quality assurance
 - **Input**: Collected data and validation schemas
 - **Output**: Validation results and mismatch reports
@@ -205,7 +213,7 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
   
 → See details: [ValidationOrchestrator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/OptiMoldIQ_validationOrchestrator_overview.md)
 
-### OrderProgressTracker
+### 5.3 OrderProgressTracker
 - **Purpose**: Manufacturing order progress monitoring
 - **Input**: Order data and change logs
 - **Output**: Progress reports and status updates
@@ -213,7 +221,7 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
   
 → See details: [OrderProgressTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_orderProgressTracker_overview.md)
 
-### ProducingProcessor
+### 5.4 ProducingProcessor
 - **Purpose**: Production data analysis and processing
 - **Input**: Production data, stability indices, machine weights
 - **Output**: Production analysis reports
@@ -221,7 +229,7 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
   
 → See details: [ProducingProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/OptiMoldIQ_producingProcessor_review.md)
 
-### PendingProcessor
+### 5.5 PendingProcessor
 - **Purpose**: Pending order processing and optimization
 - **Input**: Pending orders, configuration parameters
 - **Output**: Optimized processing schedules
@@ -229,7 +237,7 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
   
 → See details: [PendingProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/OptiMoldIQ_pendingProcessor_review.md)
 
-### MoldStabilityIndexCalculator
+### 5.6 MoldStabilityIndexCalculator
 
 **Purpose**: Analyzes historical production data to calculate stability indices for molds.
 
@@ -247,7 +255,7 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
 
 → See details: [MoldStabilityIndexCalculator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/historyBasedProcessor/OptiMoldIQ_moldStabilityIndexCalculator_review.md)
 
-### MoldMachineFeatureWeightCalculator
+### 5.7 MoldMachineFeatureWeightCalculator
 
 **Purpose**: Calculates feature importance weights for mold-machine combinations using statistical analysis.
 
@@ -275,19 +283,19 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
 
 → See details: [MoldMachineFeatureWeightCalculator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/historyBasedProcessor/OptiMoldIQ_moldMachineFeatureWeightCalculator_review.md)
 
-## API Reference
+---
 
-### OptiMoldIQWorkflow Class
+## 6. `OptiMoldIQWorkflow` Class
 
-#### Constructor
+### 6.1 Constructor
 ```python
 def __init__(self, config: WorkflowConfig)
 ```
 Initializes the workflow with specified configuration.
 
-#### Methods
+### 6.2 Methods
 
-##### detect_updates(data_pipeline_report) -> Tuple[bool, List[str], bool]
+#### `detect_updates(data_pipeline_report) -> Tuple[bool, List[str], bool]`
 Detects updates in the data pipeline report. Returns: trigger, updated_db_details, historical_insight_request
 
 **Parameters**:
@@ -303,7 +311,7 @@ Detects updates in the data pipeline report. Returns: trigger, updated_db_detail
 - Evaluates if productRecords has sufficient historical data
 - Historical insights triggered when records % historical_insight_threshold == 0
 
-##### run_workflow() -> Dict[str, Any]
+#### `run_workflow() -> Dict[str, Any]`
 Executes the complete daily workflow.
 
 **Returns**:
@@ -312,9 +320,11 @@ Executes the complete daily workflow.
 **Raises**:
 - `Exception`: Critical errors during workflow execution
 
-## Usage Examples
+---
 
-### Basic Usage
+## 7. Usage Examples
+
+### 7.1 Basic Usage
 
 ```python
 from optimoldiq_workflow import OptiMoldIQWorkflow, WorkflowConfig
@@ -338,7 +348,7 @@ except Exception as e:
     print(f"Workflow failed: {e}")
 ```
 
-### Custom Configuration
+### 7.2 Custom Configuration
 
 ```python
 # High-performance configuration
@@ -353,7 +363,7 @@ config = WorkflowConfig(
 workflow = OptiMoldIQWorkflow(config)
 ```
 
-### Testing Mode
+### 7.3 Testing Mode
 
 ```python
 # Testing configuration with sample data
@@ -366,9 +376,11 @@ test_config = WorkflowConfig(
 test_workflow = OptiMoldIQWorkflow(test_config)
 ```
 
-## Error Handling
+---
 
-### _safe_execute Method
+## 8. Error Handling
+
+### 8.1 `_safe_execute` Method
 The workflow implements a centralized error handling mechanism through the `_safe_execute` method:
 
 ```python
@@ -386,7 +398,7 @@ def _safe_execute(self, operation_name: str, operation_func, *args, **kwargs) ->
 return self._safe_execute("OperationName", _execute_operation_function)
 ```
 
-### Exception Hierarchy
+### 8.2 Exception Hierarchy
 - **WorkflowError**: Base workflow exception
   - Wraps all operation-specific errors
   - Provides clear error context
@@ -396,15 +408,17 @@ return self._safe_execute("OperationName", _execute_operation_function)
 - **Processing Errors**: Agent execution failures
 - **File System Errors**: File access or storage issues
 
-### Error Recovery Strategy
+### 8.3 Error Recovery Strategy
 1. **Phase-level isolation**: Errors in one phase don't affect others
 2. **Detailed logging**: All errors logged with full context
 3. **Graceful degradation**: Workflow continues where possible
 4. **Comprehensive reporting**: Error details included in final reports
 
-## Monitoring and Reporting
+---
 
-### Report Generation
+## 9. Monitoring and Reporting
+
+### 9.1 Report Generation
 The system generates comprehensive reports including:
 - Data collection summaries
 - Validation results
@@ -412,7 +426,7 @@ The system generates comprehensive reports including:
 - Production analysis
 - Order processing status
 
-### Report Format
+### 9.2 Report Format
 Reports are generated for operational staff and include:
 - Timestamped headers
 - Detailed section breakdowns
@@ -420,20 +434,22 @@ Reports are generated for operational staff and include:
 - Processing results
 - System attribution footer
 
-### Log Management
+### 9.3 Log Management
 - Uses `loguru` library for structured logging
 - Configurable log levels (INFO, DEBUG, ERROR)
 - Automatic log rotation and archival
 - Integration with monitoring systems
 
-### File Outputs
+### 9.4 File Outputs
 - Reports saved as timestamped text files
-- Format: `OptiMoldIQWorkflow_report_YYYYMMDD_HHMMSS.txt`
+- Format: `YYYYMMDD_HHMM_OptiMoldIQWorkflow_report.txt`
 - UTF-8 encoding for Vietnamese language support
 
-## Deployment Guide
+---
 
-### Installation Steps
+## 10. Deployment Guide
+
+### 10.1 Installation Steps
 
 1. **Environment Setup**
 ```bash
@@ -443,13 +459,12 @@ pip install loguru
 
 2. **Directory Structure**
 ```
-project/
-├── database/
-│   ├── dynamicDatabase/
-│   └── databaseSchemas.json
-├── agents/
-│   └── shared_db/
-└── OptiMoldIQWorkflow/
+agents/shared_db/
+└── OptiMoldIQWorkflow
+    ├── historical_reports/                                                              
+    ├── latest/                                                                             
+    |    └── YYYYMMDD_HHMM_OptiMoldIQWorkflow_report.txt 
+    └── change_log.txt         
 ```
 
 3. **Configuration**
@@ -462,7 +477,7 @@ project/
 - Verify database connections
 - Check report generation functionality
 
-### Production Deployment
+### 10.2 Production Deployment
 
 1. **Scheduling**
    - Set up daily cron jobs or task scheduler
@@ -479,9 +494,11 @@ project/
    - Maintain configuration version control
    - Document recovery procedures
 
-## Troubleshooting
+---
 
-### Common Issues
+## 11. Troubleshooting
+
+### 11.1 Common Issues
 
 **Issue**: Workflow fails to start
 - **Cause**: Missing configuration or database access
@@ -499,7 +516,7 @@ project/
 - **Cause**: Change detection not triggering
 - **Solution**: Review database update mechanisms and timestamps
 
-### Debug Mode
+### 11.2 Debug Mode
 Enable verbose logging and sample data mode for troubleshooting:
 
 ```python
@@ -509,13 +526,13 @@ debug_config = WorkflowConfig(
 )
 ```
 
-### Performance Optimization
+### 11.3 Performance Optimization
 - Monitor execution times for each phase
 - Optimize database queries and indexing
 - Implement caching for frequently accessed data
 - Consider parallel processing for independent agents
 
-### Support and Maintenance
+### 11.4 Support and Maintenance
 - Regular system health checks
 - Performance monitoring and optimization
 - Database maintenance and cleanup procedures

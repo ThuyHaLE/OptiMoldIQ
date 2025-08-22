@@ -1,6 +1,6 @@
 # OptiMoldIQ
 
-## Workflow Architecture Overview
+## 1. Workflow Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -55,9 +55,11 @@
         └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Detailed Workflow Phases
+---
 
-### Phase 1: Data Collection
+## 2. Detailed Workflow Phases
+
+### 2.1 Phase 1: Data Collection
 
 **Purpose**: Collects and processes manufacturing data from various sources.
 
@@ -107,7 +109,7 @@ agents/shared_db
 
 **Data Flow**: `Raw Data` → `DataPipelineOrchestrator` → `Processed Parquet Files` → `Change Detection`
 
-### Phase 2: Shared Database Building
+### 2.2 Phase 2: Shared Database Building
 
 **Purpose**: Validates collected data and builds shared databases for operational use.
 
@@ -126,47 +128,46 @@ agents/shared_db
 
 **Directory Structure**:
 ```
-agents                                 # Source directory
+agents                              # Source directory
 ├── database
-|    ├── databaseSchemas.json          # Schema definitions (ValidationOrchestrator, OrderProgressTracker, ProducingProcessor)
-|    └── sharedDatabaseSchemas.json    # Shared schema definitions (ProducingProcessor)
+|    ├── databaseSchemas.json       # Schema definitions (ValidationOrchestrator, OrderProgressTracker, ProducingProcessor, MoldStabilityIndexCalculator)
+|    └── sharedDatabaseSchemas.json # Shared schema definitions (ProducingProcessor)
 └── shared_db                  
     ├── dynamicDatabase/                                         
-    |    └── ...                                                       
-    └── DataLoaderAgent/                                      
-        ├── historical_db/                                      
+    |   └── ...                                                       
+    └── DataLoaderAgent/                                                                       
         ├── newest/                                             
         |   ├── ...          
-        |   └── path_annotations.json  # File path annotations (ValidationOrchestrator, OrderProgressTracker, ProducingProcessor)                     
+        |   └── path_annotations.json # File path annotations (ValidationOrchestrator, OrderProgressTracker, ProducingProcessor, MoldStabilityIndexCalculator)                     
         └── change_log.txt                          
           
-agents/shared_db                                              # Output directory
+agents/shared_db                                       # Output directory
 ├── ValidationOrchestrator
-|     ├── historical_db/                                      # Historical validation results                                   
-|     ├── newest/                                             # Latest validation results                                          
+|     ├── historical_db/                               # Historical validation results                                   
+|     ├── newest/                                      # Latest validation results                                         
 |     |    └──  YYYYMMDD_HHMM_validation_orchestrator.xlsx    # Validation report (ValidationOrchestrator)
-|     └── change_log.txt                                      # Validation changes (OrderProgressTracker source) 
+|     └── change_log.txt                               # Validation changes (OrderProgressTracker source) 
 ├── OrderProgressTracker
-|     ├── historical_db/                                      # Historical progress data                                   
-|     ├── newest/                                             # Latest progress data                                          
-|     |    └──  YYYYMMDD_HHMM_auto_status.xlsx                # Progress status report (OrderProgressTracker)
-|     └── change_log.txt                                      # Progress changes (ProducingProcessor source)  
+|     ├── historical_db/                               # Historical progress data                                   
+|     ├── newest/                                      # Latest progress data                                          
+|     |    └──  YYYYMMDD_HHMM_auto_status.xlsx         # Progress status report (OrderProgressTracker)
+|     └── change_log.txt                               # Progress changes (ProducingProcessor source)  
 ├── MoldStabilityIndexCalculator/ 
 |    ├── historical_db/                                      
 |    ├── newest/ 
 |    |   └── YYYYMMDD_HHMM_mold_stability_index.xlsx
-|    └── change_log.txt                                       # Stability index changes (ProducingProcessor, MoldMachineFeatureWeightCalculator source)  
+|    └── change_log.txt        # Stability index changes (ProducingProcessor, MoldMachineFeatureWeightCalculator source)  
 ├── MoldMachineFeatureWeightCalculator/ 
 |   ├── historical_db/                                      
 |   ├── newest/ 
 |   |   └── YYYYMMDD_HHMM_confidence_report.txt
 |   ├── change_log.txt      
-|   └── weights_hist.xlsx                                     # Machine weight history (ProducingProcessor source)   
+|   └── weights_hist.xlsx                               # Machine weight history (ProducingProcessor source)   
 └── ProducingProcessor
-      ├── historical_db/                                      # Historical production data                                   
-      ├── newest/                                             # Latest production data                                          
-      |    └──  YYYYMMDD_HHMM_producing_processor.xlsx        # Production analysis report (ProducingProcessor)
-      └── change_log.txt                                      # Production changes
+      ├── historical_db/                                # Historical production data                                   
+      ├── newest/                                       # Latest production data                                          
+      |    └──  YYYYMMDD_HHMM_producing_processor.xlsx  # Production analysis report (ProducingProcessor)
+      └── change_log.txt                                # Production changes
 ```
 
 **Key Methods**:
@@ -177,7 +178,7 @@ agents/shared_db                                              # Output directory
 
 **Data Flow**: `Processed Data` → `Validation/Progress/Production Agents` → `Analysis Reports` → `Change Logs`
 
-### Phase 2.5: Historical Insights Generation (Conditional)
+### 2.3 Phase 2.5: Historical Insights Generation (Conditional)
 
 **Purpose**: Generates historical insights and analytical data when sufficient historical records are available.
 
@@ -200,13 +201,40 @@ Run Weight Calculator
 Update Historical Database
 ```
 
+**Directory Structure**:
+```
+agents                                                # Source directory                            
+├── database
+|    └── databaseSchemas.json                         # Schema definitions
+└── shared_db                  
+    ├── dynamicDatabase/                                         
+    |   └── ...                                                       
+    └── DataLoaderAgent/                                                                       
+        ├── newest/                                                     
+        |   └── path_annotations.json                  # File path annotations                      
+        └── change_log.txt          
+
+agents/shared_db                                       # Output directory
+├── MoldStabilityIndexCalculator/                     
+|    ├── historical_db/                                      
+|    ├── newest/ 
+|    |   └── YYYYMMDD_HHMM_mold_stability_index.xlsx   
+|    └── change_log.txt                               
+└── MoldMachineFeatureWeightCalculator/               
+    ├── historical_db/                                      
+    ├── newest/ 
+    |   └── YYYYMMDD_HHMM_confidence_report.txt
+    ├── change_log.txt      
+    └── weights_hist.xlsx                              
+```
+
 **Benefits**:
 - Provides data-driven insights for production optimization
 - Enables predictive maintenance scheduling
 - Improves mold-machine matching efficiency
 - Supports long-term capacity planning
 
-### Phase 3: Initial Planning
+### 2.4 Phase 3: Initial Planning
 
 **Purpose**: Performs production planning and optimization based on current data state.
 
@@ -221,18 +249,16 @@ Update Historical Database
 3. Generate planning reports
 
 **Directory Structure**:
-```
+``` 
 agents                                                    # Source directory
 ├── database
 |    ├── databaseSchemas.json                             # Schema definitions (PendingProcessor)              
 |    └── sharedDatabaseSchemas.json                       # Shared schema definitions (PendingProcessor)
 └── shared_db                  
-    ├── dynamicDatabase/                                  # Dynamic data source                                                       
+    ├── dynamicDatabase/                                  # Dynamic data source                
     |   └── ...                           
-    ├── DataLoaderAgent/                                  # Loaded data source                              
-    |   ├── historical_db/                                      
-    |   ├── newest/                                              
-    |   |   ├── ...          
+    ├── DataLoaderAgent/                                  # Loaded data source                                
+    |   ├── newest/                                                    
     |   |   └── path_annotations.json                     # File path annotations (PendingProcessor source)                  
     |   └── change_log.txt             
     ├── ValidationOrchestrator/                           # Validation results
@@ -252,7 +278,7 @@ agents                                                    # Source directory
 agents/shared_db/PendingProcessor                         # Output directory
     ├── historical_db/                                    # Historical planning data                               
     ├── newest/                                           # Latest planning data                                        
-    |    └──  YYYYMMDD_HHMM_PendingProcessor.xlsx         # Planning optimization report (PendingProcessor)
+    |    └──  YYYYMMDD_HHMM_pending_processor.xlsx        # Planning optimization report (PendingProcessor)
     └── change_log.txt                                    # Planning changes
 ```
 
@@ -262,24 +288,29 @@ agents/shared_db/PendingProcessor                         # Output directory
 
 **Data Flow**: `Analysis Results` → `PendingProcessor` → `Optimized Planning` → `Final Reports`
 
-## Comprehensive Reporting System
+---
+
+## 3. Comprehensive Reporting System
 
 **Purpose**: Generates detailed reports with complete workflow execution summaries and audit trails.
 
 **Directory Structure**:
 ```
-agents/shared_db/OptiMoldIQWorkflow
+agents/shared_db/
+└── OptiMoldIQWorkflow
     ├── historical_reports/                               # Historical workflow reports                                   
-    ├── latest/                                           # Latest workflow reports                                          
+    ├── latest/                                           # Latest workflow reports          
     |    └── YYYYMMDD_HHMM_OptiMoldIQWorkflow_report.txt  # Workflow execution summary (OptiMoldIQWorkflow)
     └── change_log.txt                                    # Workflow execution log
 ```
 
 **Data Flow**: `All Phases` → `Comprehensive Report Generation` → `Timestamped Vietnamese Reports`
 
-## Workflow Execution Logic
+---
 
-### Main Workflow Method
+## 4. Workflow Execution Logic
+
+### 4.1 Main Workflow Method
 
 ```python
 def run_workflow() -> Dict[str, Any]:
@@ -319,7 +350,7 @@ def run_workflow() -> Dict[str, Any]:
     return workflow_report
 ```
 
-### Change Detection Logic
+### 4.2 Change Detection Logic
 
 ```python
 def detect_updates(self, data_pipeline_report) -> Tuple[bool, List[str], bool]:
@@ -354,7 +385,7 @@ def detect_updates(self, data_pipeline_report) -> Tuple[bool, List[str], bool]:
     return trigger, updated_db_details, historical_insight_request
 ```
 
-### Historical Insights Trigger Logic
+### 4.3 Historical Insights Trigger Logic
 
 ```python
 def _should_generate_historical_insights(self) -> bool:
@@ -380,7 +411,7 @@ def _should_generate_historical_insights(self) -> bool:
     return False
 ```
 
-### Purchase Order Change Detection
+### 4.4 Purchase Order Change Detection
 
 ```python
 def _should_run_initial_planner(self, updated_db_details: List[str]) -> bool:
@@ -405,9 +436,11 @@ def _should_run_initial_planner(self, updated_db_details: List[str]) -> bool:
     return False
 ```
 
-## Phase Execution Details
+---
 
-### Phase 1: Data Collection Execution
+## 5. Phase Execution Details
+
+### 5.1 Phase 1: Data Collection Execution
 
 ```python
 def run_data_collection(self) -> Dict[str, Any]:
@@ -432,7 +465,7 @@ def run_data_collection(self) -> Dict[str, Any]:
     return self._safe_execute("DataCollection", _execute_data_collection)
 ```
 
-### Phase 2: Shared Database Building Execution
+### 5.2 Phase 2: Shared Database Building Execution
 
 ```python
 def run_shared_db_building(self, historical_insight_request: bool = False) -> Dict[str, Any]:
@@ -459,7 +492,7 @@ def run_shared_db_building(self, historical_insight_request: bool = False) -> Di
     return self._safe_execute("SharedDBBuilding", _execute_shared_db_building)
 ```
 
-### Phase 2.5: Historical Insights Execution
+### 5.3 Phase 2.5: Historical Insights Execution
 
 ```python
 def _run_historical_insights(self) -> Dict[str, Any]:
@@ -492,7 +525,7 @@ def _run_historical_insights(self) -> Dict[str, Any]:
     return self._safe_execute("HistoricalInsights", _execute_historical_insights)
 ```
 
-### Phase 3: Initial Planning Execution
+### 5.4 Phase 3: Initial Planning Execution
 
 ```python
 def run_initial_planner(self) -> Dict[str, Any]:
@@ -521,9 +554,11 @@ def run_initial_planner(self) -> Dict[str, Any]:
     return self._safe_execute("InitialPlanner", _execute_initial_planner)
 ```
 
-## Error Handling and Recovery
+---
 
-### Safe Execution Framework
+## 6. Error Handling and Recovery
+
+### 6.1 Safe Execution Framework
 
 ```python
 def _safe_execute(self, operation_name: str, operation_func, *args, **kwargs) -> Any:
@@ -557,14 +592,14 @@ def _safe_execute(self, operation_name: str, operation_func, *args, **kwargs) ->
         raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
 ```
 
-### Error Recovery Strategies
+### 6.2 Error Recovery Strategies
 
 1. **Phase Isolation**: Each phase is independent and can continue even if previous phases fail
 2. **Graceful Degradation**: System continues with available data when components fail
 3. **Comprehensive Logging**: All errors are logged with full context and stack traces
 4. **Report Integration**: Error details are included in final workflow reports
 
-### Monitoring and Alerting
+### 6.3 Monitoring and Alerting
 
 ```python
 def _monitor_workflow_health(self) -> Dict[str, Any]:
@@ -600,16 +635,18 @@ def _monitor_workflow_health(self) -> Dict[str, Any]:
     return health_status
 ```
 
-## Performance Optimization
+---
 
-### Conditional Processing Benefits
+## 7. Performance Optimization
+
+### 7.1 Conditional Processing Benefits
 
 - **Resource Efficiency**: Only processes when changes are detected
 - **Time Optimization**: Skips unnecessary operations when no updates exist
 - **Cost Reduction**: Minimizes computational overhead for routine checks
 - **Scalability**: Maintains performance as data volume grows
 
-### Execution Time Monitoring
+### 7.2 Execution Time Monitoring
 
 ```python
 def _track_execution_metrics(self, phase_name: str, execution_time: float, success: bool):
@@ -635,7 +672,7 @@ def _track_execution_metrics(self, phase_name: str, execution_time: float, succe
     self._store_performance_metrics(metrics)
 ```
 
-### Optimization Recommendations
+### 7.3 Optimization Recommendations
 
 1. **Database Indexing**: Ensure proper indexing on frequently queried columns
 2. **Parallel Processing**: Consider parallel execution for independent agents

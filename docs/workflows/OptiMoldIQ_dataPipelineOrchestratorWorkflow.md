@@ -40,33 +40,23 @@ The **DataPipelineOrchestrator** is the main coordinator agent responsible for m
 
 ### 2.3 Detailed Phase Breakdown
 
-#### 🔄 Phase 1: DataCollector (Dynamic Database Processing)
+#### Phase 1: DataCollector (Dynamic Database Processing)
 
-  ------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------------
   Step         Process                                  Details
-  ------------ ---------------------------------------- ------------------
-  1            Read Source Files                        Process
-                                                        `.xlsb`/`.xlsx`
-                                                        from history
-                                                        folders
+  ------------ ---------------------------------------- -----------------------------------------------
+  1            Read Source Files                        Process `.xlsb`/`.xlsx` from history folders
 
-  2            Data Normalization                       Normalize dates,
-                                                        resin codes,
-                                                        missing columns
+  2            Data Normalization                       Normalize dates, resin codes, missing columns
 
-  3            Data Cleaning                            Remove duplicates,
-                                                        validate integrity
+  3            Data Cleaning                            Remove duplicates, validate integrity
 
-  4            Change Detection                         Hash comparison
-                                                        against existing
-                                                        parquet
+  4            Change Detection                         Hash comparison against existing parquet
 
-  5            File Generation                          Save `.parquet`
-                                                        with snappy
-                                                        compression
-  ------------------------------------------------------------------------
+  5            File Generation                          Save `.parquet` with snappy compression
+  -----------------------------------------------------------------------------------------------------
 
-**Success Criteria:** Hash detects new data, `.parquet` saved.\
+**Success Criteria:** Hash detects new data, `.parquet` saved.
 **Failure Modes:** File not found, corrupted Excel, schema mismatch.
 
 **Input Sources:**
@@ -77,30 +67,23 @@ The **DataPipelineOrchestrator** is the main coordinator agent responsible for m
 - `productRecords.parquet`
 - `purchaseOrders.parquet`
 
-#### 📋 Phase 2: DataLoaderAgent (All Database Loading)
+#### Phase 2: DataLoaderAgent (All Database Loading)
 
-  --------------------------------------------------------------------------------
+  --------------------------------------------------------------------------------------------------------------
   Step        Process                                    Details
-  ----------- ------------------------------------------ -------------------------
-  1           Schema Loading                             Load
-                                                         `databaseSchemas.json`
+  ----------- ------------------------------------------ -------------------------------------------------------
+  1           Schema Loading                             Load `databaseSchemas.json`
 
-  2           Annotations Loading                        Load
-                                                         `path_annotations.json`
+  2           Annotations Loading                        Load `path_annotations.json`
 
-  3           Data Processing                            Load parquet (dynamic) +
-                                                         xlsx (static)
+  3           Data Processing                            Load parquet (dynamic) + xlsx (static)
 
-  4           Change Detection                           Hash comparison new vs
-                                                         old
+  4           Change Detection                           Hash comparison new vs old
 
-  5           Version Management                         Save new to `newest/`,
-                                                         archive old →
-                                                         `historical_db/`
-  --------------------------------------------------------------------------------
+  5           Version Management                         Save new to `newest/`, archive old → `historical_db/`
+  --------------------------------------------------------------------------------------------------------------
 
-**Failure Modes:** Schema mismatch, corrupted `.xlsx`, rollback
-detection failure.
+**Failure Modes:** Schema mismatch, corrupted `.xlsx`, rollback detection failure.
 
 **Input Sources:**
 - Dynamic: `.parquet` files from Phase 1
@@ -219,14 +202,14 @@ Error Handling Strategy: The orchestrator implements a comprehensive error handl
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### Multi-Layer Error Handling
+### 4.1 Multi-Layer Error Handling
 1. **Try-Catch Blocks**: Wrap each phase execution with exception handling
 2. **Status Validation**: Check phase results before proceeding  
 3. **Rollback Detection**: Automatic detection of successful recovery actions
 4. **Notification System**: Alert administrators for manual intervention
 5. **Pipeline Continuation Logic**: Smart decision-making for Phase 2 execution
 
-### Pipeline Continuation Decision Matrix
+### 4.2 Pipeline Continuation Decision Matrix
 
 | Phase 1 Status | Rollback Status | Phase 2 Action | Reasoning |
 |----------------|-----------------|-----------------|-----------|
@@ -235,7 +218,7 @@ Error Handling Strategy: The orchestrator implements a comprehensive error handl
 | ❌ **Failed** | ❌ **Failed** | ⏹️ **Skip** | Cannot recover - stop pipeline |
 | ❌ **Failed** | ❓ **None** | ⏹️ **Skip** | No recovery attempted - stop pipeline |
 
-### Rollback Mechanism
+### 4.3 Rollback Mechanism
 The system automatically detects successful `ROLLBACK_TO_BACKUP` actions in:
 - **Healing Actions**: Primary recovery actions from execution info
 - **Recovery Actions**: Detailed recovery attempts within error records
