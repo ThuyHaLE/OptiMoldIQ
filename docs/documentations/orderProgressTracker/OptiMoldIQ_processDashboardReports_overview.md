@@ -4,6 +4,8 @@
 
 The `ProcessDashboardReports` is designed for manufacturing production tracking and reporting. It extracts, processes, and structures production data from Excel files containing multiple sheets with different aspects of manufacturing operations.
 
+→ See [Dashboard Demo](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
+
 ---
 
 ## Key Features
@@ -87,9 +89,7 @@ The class expects an Excel file with the following sheets:
 
 ## Core Methods
 
-### get_sheet_summary()
-
-Returns an overview of all available sheets in the Excel file.
+1. `get_sheet_summary()` → Returns an overview of all available sheets in the Excel file.
 
 **Returns**: `Dict[str, Any]`
 ```python
@@ -105,9 +105,7 @@ Returns an overview of all available sheets in the Excel file.
 }
 ```
 
-### generate_all_reports()
-
-Generates all available reports in a single call.
+2. `generate_all_reports()` → Generates all available reports in a single call.
 
 **Returns**: `Dict[str, Any]`
 ```python
@@ -121,31 +119,13 @@ Generates all available reports in a single call.
 }
 ```
 
-### get_related_details_to_display_on_dashboard
-
-#### 1. process_machine_quantity_map()
-
-Groups production data by machine code and extracts machine details.
-
-#### 2. process_mold_shot_map()
-
-Tracks shot counts by mold number with mold detail separation.
-
-#### 3. process_day_quantity_map()
-
-Groups production quantities by working day.
-
-#### 4. process_production_status()
-
-Extracts comprehensive production status with tracking information.
-
-#### 5. process_material_component_map()
-
-Groups material components by production order and item.
-
-#### Dashboard Demo:
-
-- See details: [Dashboard Demo](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
+3. `get_related_details_to_display_on_dashboard`
+   
+   - `process_machine_quantity_map()` → Groups production data by machine code and extracts machine details.
+   - `process_mold_shot_map()`  → Tracks shot counts by mold number with mold detail separation.
+   - `process_day_quantity_map()` → Groups production quantities by working day.
+   - `process_production_status()` → Extracts comprehensive production status with tracking information.
+   - `process_material_component_map()` → Groups material components by production order and item.
 
 ---
 

@@ -1,4 +1,4 @@
-# DataPipelineOrchestrator Workflow Documentation
+# DataPipelineOrchestrator
 
 ## 1. Overview
 

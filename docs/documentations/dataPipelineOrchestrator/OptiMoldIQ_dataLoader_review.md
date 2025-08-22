@@ -2,7 +2,9 @@
 
 ## 1. Overview
 
-The `DataLoader` is responsible for loading, processing, and managing database files within the data pipeline. It supports:
+The `DataLoader` is responsible for **loading**, **processing**, and **managing** database files within the data pipeline. 
+
+It supports:
 - Static databases (Excel files)
 - Dynamic databases (Parquet files)
 - Change detection between versions

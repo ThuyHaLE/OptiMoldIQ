@@ -12,7 +12,7 @@
 ---
 
 ## What it does
-The `DataPipelineOrchestrator` manages a complete data pipeline consisting of two sequential phases: collecting raw data from various sources ([DataCollector](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataCollector_review.md)), then processing and loading it into target systems ([DataLoader](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataLoader_review.md)). It includes intelligent rollback mechanisms and notification systems for comprehensive error handling.
+The `DataPipelineOrchestrator` manages a complete data pipeline consisting of two sequential phases: (1) collecting raw data from various sources ([DataCollector](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataCollector_review.md)), then (2) processing and loading it into target systems ([DataLoader](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataLoader_review.md)). It includes intelligent rollback mechanisms and notification systems for comprehensive error handling.
 
 ---
 
@@ -69,7 +69,7 @@ Before running the pipeline, ensure:
 ```
 Config Validation → Phase 1 (DataCollector) → Error Check & Recovery → Phase 2 (DataLoaderAgent) → Results + Notifications + Reports
 ```
-- See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_dataPipelineOrchestratorWorkflow.md)
+→ See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_dataPipelineOrchestratorWorkflow.md)
 
 **Detailed Steps:**
 1. **Initialization**: Load configuration and validate all paths

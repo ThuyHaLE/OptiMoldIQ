@@ -1,4 +1,4 @@
-# ValidationOrchestrator Workflow Documentation
+# ValidationOrchestrator
 
 ## High-Level Architecture
 
@@ -13,7 +13,6 @@
                             ▼              ▼              ▼
                 ┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
                 │ StaticValidator  │ │ POValidator  │ │ DynamicValidator │
-                │   (Agent 1)      │ │  (Agent 2)   │ │   (Agent 3)      │
                 └──────────────────┘ └──────────────┘ └──────────────────┘
                             │              │              │
                             └──────────────┼──────────────┘

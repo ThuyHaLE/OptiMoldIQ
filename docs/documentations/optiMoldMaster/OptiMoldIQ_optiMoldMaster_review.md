@@ -194,30 +194,40 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
 - **Input**: Database schemas and annotations
 - **Output**: Comprehensive data pipeline report
 - **Configuration**: Dynamic database directory, schema paths
+  
+→ See details: [DataPipelineOrchestrator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataPipelineOrchestrator_overview.md)
 
 ### ValidationOrchestrator
 - **Purpose**: Data validation and quality assurance
 - **Input**: Collected data and validation schemas
 - **Output**: Validation results and mismatch reports
 - **Features**: Automated data quality checks, anomaly detection
+  
+→ See details: [ValidationOrchestrator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/OptiMoldIQ_validationOrchestrator_overview.md)
 
 ### OrderProgressTracker
 - **Purpose**: Manufacturing order progress monitoring
 - **Input**: Order data and change logs
 - **Output**: Progress reports and status updates
 - **Features**: Real-time progress tracking, milestone monitoring
+  
+→ See details: [OrderProgressTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_orderProgressTracker_overview.md)
 
 ### ProducingProcessor
 - **Purpose**: Production data analysis and processing
 - **Input**: Production data, stability indices, machine weights
 - **Output**: Production analysis reports
 - **Features**: Efficiency calculations, loss analysis
+  
+→ See details: [ProducingProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/OptiMoldIQ_producingProcessor_review.md)
 
 ### PendingProcessor
 - **Purpose**: Pending order processing and optimization
 - **Input**: Pending orders, configuration parameters
 - **Output**: Optimized processing schedules
 - **Features**: Priority-based processing, load balancing
+  
+→ See details: [PendingProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/OptiMoldIQ_pendingProcessor_review.md)
 
 ### MoldStabilityIndexCalculator
 
@@ -234,6 +244,8 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
 - `total_records_threshold`: Minimum records required for calculation (default: 30)
 
 **Output**: Excel report with mold stability indices and recommendations
+
+→ See details: [MoldStabilityIndexCalculator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/historyBasedProcessor/OptiMoldIQ_moldStabilityIndexCalculator_review.md)
 
 ### MoldMachineFeatureWeightCalculator
 
@@ -260,6 +272,8 @@ raise WorkflowError(f"Failed to execute {operation_name}: {e}") from e
 **Output**: 
 - Confidence report with statistical analysis
 - Historical weights file (`weights_hist.xlsx`)
+
+→ See details: [MoldMachineFeatureWeightCalculator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner/historyBasedProcessor/OptiMoldIQ_moldMachineFeatureWeightCalculator_review.md)
 
 ## API Reference
 
@@ -399,7 +413,7 @@ The system generates comprehensive reports including:
 - Order processing status
 
 ### Report Format
-Reports are generated in Vietnamese for operational staff and include:
+Reports are generated for operational staff and include:
 - Timestamped headers
 - Detailed section breakdowns
 - Change detection summaries

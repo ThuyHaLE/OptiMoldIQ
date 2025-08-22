@@ -109,7 +109,7 @@ Before running the pipeline, ensure:
 ```
 Config Validation → StaticCrossDataChecker → PORequiredCriticalValidator → DynamicCrossDataValidator → Results + Reports
 ```
-- See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_validationOrchestratorWorkflow.md)
+→ See details: [Workflow](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/workflows/OptiMoldIQ_validationOrchestratorWorkflow.md)
 
 **Detailed Steps**:
 1. **Initialization**: Load schema + configuration paths
@@ -212,7 +212,7 @@ result = orchestrator.run_validation()
 ---
 
 ## Configuration Paths
-- **dynamic_db_source_dir**: database/dynamicDatabase (raw dynamic datasets)
-- **schema_path**: database/validationSchemas.json (database schema definitions)
-- **default_dir**: agents/shared_db (base output directory)
-- **output_dir**: agents/shared_db/ValidationOrchestrator (validation reports & logs)
+- **dynamic_db_source_dir**: `database/dynamicDatabase` (raw dynamic datasets)
+- **schema_path**: `database/validationSchemas.json` (database schema definitions)
+- **default_dir**: `agents/shared_db` (base output directory)
+- **output_dir**: `agents/shared_db/ValidationOrchestrator` (validation reports & logs)

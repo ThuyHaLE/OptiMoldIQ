@@ -1,4 +1,4 @@
-# OptiMoldIQ Workflow Process
+# OptiMoldIQ
 
 ## Workflow Architecture Overview
 

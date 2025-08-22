@@ -2,11 +2,12 @@
 
 ## 1. Overview
 `DynamicCrossDataValidator` is an agent in the data pipeline orchestrator, responsible for validating production records against reference datasets (mold specifications, machine info, item compositions).
+
 It ensures:
-- Consistency of item – mold – machine – composition mappings.
-- Detection of mismatches and missing (invalid) reference data.
-- Generation of structured warnings for downstream quality control.
-- Export of results as Excel reports with versioning.
+- Consistency of `item – mold – machine – composition mappings`.
+- Detection of `mismatches and missing (invalid) reference data`.
+- Generation of `structured warnings` for downstream quality control.
+- Export of results as `Excel reports` with versioning.
 
 ---
 
