@@ -1,7 +1,7 @@
 from agents.decorators import validate_init_dataframes
 from pathlib import Path
 from loguru import logger
-from agents.utils import load_annotation_path, save_output_with_versioning
+from agents.utils import load_annotation_path, save_output_with_versioning, read_change_log
 import pandas as pd
 from pandas.api.types import is_object_dtype
 from datetime import datetime, timedelta
@@ -637,40 +637,6 @@ class OrderProgressTracker:
         return None
 
     @staticmethod
-    def _read_change_log(folder_path, target_name):
-
-        """
-        Read a log file in the given folder and extract the path to the latest saved Excel file.
-        """
-
-        # Check if folder exists
-        if not os.path.isdir(folder_path):
-            logger.warning("Directory does not exist: {}", folder_path)
-            return None
-
-        file_path = os.path.join(folder_path, target_name)
-
-        # Check if file exists
-        if not os.path.isfile(file_path):
-            logger.warning("Could not find '{}' in folder {}", target_name, folder_path)
-            return None
-
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                log_text = f.read()
-                newest_file_name = OrderProgressTracker._extract_latest_saved_file(log_text)
-
-                if newest_file_name:
-                    return os.path.join(folder_path, newest_file_name)
-                else:
-                    logger.warning("No file information found saved in '{}'", target_name)
-                    return None
-
-        except Exception as e:
-            logger.error("Error reading file '{}': {}", target_name, str(e))
-            raise
-
-    @staticmethod
     def _get_change(folder_path, target_name):
 
         """
@@ -682,7 +648,7 @@ class OrderProgressTracker:
         """
 
         try:
-            excel_file = OrderProgressTracker._read_change_log(folder_path, target_name)
+            excel_file = read_change_log(folder_path, target_name)
 
             if excel_file is None:
                 logger.info("No change log file found, returning empty warnings")
