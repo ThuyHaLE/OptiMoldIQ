@@ -55,8 +55,8 @@ def save_output_with_versioning(
         with pd.ExcelWriter(new_path, engine='openpyxl') as writer:
             for sheet_name, df in data.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
-        log_entries.append(f"  ⤷ Saved new file: newest/{new_filename}\n")
-        logger.info("Saved new file: newest/{}", new_filename)
+        log_entries.append(f"  ⤷ Saved new file: {newest_dir}/{new_filename}\n")
+        logger.info("Saved new file: {}/{}", newest_dir, new_filename)
     except Exception as e:
         logger.error("Failed to save file {}: {}", new_filename, e)
         raise OSError(f"Failed to save file {new_filename}: {e}")
@@ -192,8 +192,8 @@ def save_text_report_with_versioning(
     try:
         with open(new_path, "w", encoding="utf-8") as file:
             file.write(text)
-        log_entries.append(f"  ⤷ Saved new file: newest/{new_filename}\n")
-        logger.info("Saved new report: newest/{}", new_filename)
+        log_entries.append(f"  ⤷ Saved new file: {newest_dir}/{new_filename}\n")
+        logger.info("Saved new report: {}/{}", newest_dir, new_filename)
     except Exception as e:
         logger.error("Failed to save report {}: {}", new_filename, e)
         raise OSError(f"Failed to save report {new_filename}: {e}")

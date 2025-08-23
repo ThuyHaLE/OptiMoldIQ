@@ -7,6 +7,7 @@ import shutil
 from agents.dataPipelineOrchestrator.data_collector import DataCollector
 from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
 from agents.dataPipelineOrchestrator.data_pipeline_orchestrator_healing_rules import ManualReviewNotifier
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 class MockNotificationHandler:
     
@@ -125,8 +126,10 @@ class DataPipelineOrchestrator:
                     if isinstance(message, str):
                         content = message
                     else:
-                        # Handle AgentExecutionInfo or other objects
-                        content = self._generate_success_report(message)
+                        reporter = DictBasedReportGenerator(use_colors=False)
+                        content = "\n".join(reporter.export_report(
+                            message, 
+                            title = f"{agent_id} - {prefix_name} Report"))
                     
                     with open(output_path, 'w', encoding='utf-8') as f:
                         f.write(content)
@@ -462,65 +465,3 @@ class DataPipelineOrchestrator:
         """
         
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    def _generate_success_report(self, content: Any, indent=0):
-        """
-        Generate human-readable report from nested dataclass/dict/list/enum.
-        Supports both success and error content.
-        """
-        from dataclasses import asdict, is_dataclass
-
-        def _normalize_content(obj: Any) -> Any:
-            """
-            Recursively convert dataclasses, enums, and other non-serializable objects into JSON-friendly structures.
-            """
-            if is_dataclass(obj):
-                return _normalize_content(asdict(obj))  # dataclass -> dict
-            elif hasattr(obj, "value"):  # Enum
-                return obj.value
-            elif isinstance(obj, dict):
-                return {k: _normalize_content(v) for k, v in obj.items()}
-            elif isinstance(obj, (list, tuple, set)):
-                if all(not isinstance(v, (dict, list, tuple, set)) for v in obj):
-                    return ", ".join(str(_normalize_content(v)) for v in obj)
-                else:
-                    return [_normalize_content(v) for v in obj]
-            else:
-                return obj
-
-        def _normalize_content(obj: Any) -> Any:
-            """
-            Recursively convert dataclasses, enums, and other non-serializable objects into JSON-friendly structures.
-            """
-            if is_dataclass(obj):
-                return _normalize_content(asdict(obj))  # convert dataclass -> dict
-            elif hasattr(obj, "value"):  # Enum
-                return obj.value
-            elif isinstance(obj, dict):
-                return {k: _normalize_content(v) for k, v in obj.items()}
-            elif isinstance(obj, (list, tuple, set)):
-                return [_normalize_content(v) for v in obj]
-            else:
-                return obj
-            
-        data = _normalize_content(content)
-    
-        lines = []
-        prefix = "  " * indent
-
-        if isinstance(data, dict):
-            for k, v in data.items():
-                if isinstance(v, (dict, list)):
-                    lines.append(f"{prefix}• {k.upper()}:")
-                    lines.append(self._generate_success_report(v, indent + 1))
-                else:
-                    lines.append(f"{prefix}• {k.upper()}: {v}")
-        elif isinstance(data, list):
-            for idx, item in enumerate(data, start=1):
-                if isinstance(item, dict):
-                    lines.append(self._generate_success_report(item, indent + 1))
-                else:
-                    lines.append(f"{prefix}- {item}")
-        else:
-            lines.append(f"{prefix}{data}")
-        return "\n".join(lines)
