@@ -133,8 +133,8 @@ class DataPipelineOrchestrator:
                     
                     with open(output_path, 'w', encoding='utf-8') as f:
                         f.write(content)
-                    log_entries.append(f"  ⤷ Saved new file: newest/{filename}\n")
-                    self.logger.info("Saved new file: newest/{}", filename)
+                    log_entries.append(f"  ⤷ Saved new file: {newest_dir}/{filename}\n")
+                    self.logger.info("Saved new file: {}/{}", newest_dir, filename)
                 except Exception as e:
                     self.logger.error("Failed to save file {}: {}", filename, e)
                     raise OSError(f"Failed to save file {filename}: {e}")
