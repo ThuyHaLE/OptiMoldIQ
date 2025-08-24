@@ -277,7 +277,7 @@ Hoàn thành tháng 8/2025 — Bao gồm:
 
 ➤ [Xem thêm](docs/milestones/OptiMoldIQ-milestone_02.md) 
 
-➤ [Xem optiMoldIQWorkflow Live Demo](docs/agents_output_overviews/optiMoldIQWorkflow_output_overview.md)
+➤ [Xem optiMoldIQWorkflow Live Demo](docs/agents_output_overviews/optiMoldIQWorkflow_output_overviews.md)
 
 ### 🔄 **Sắp tới**: AnalyticsOrchestrator + DashBoardBuilder
 
