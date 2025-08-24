@@ -1,7 +1,10 @@
 from agents.autoPlanner.initialPlanner.historyBasedProcessor.mold_machine_feature_weight_calculator import MoldMachineFeatureWeightCalculator
 from agents.autoPlanner.initialPlanner.historyBasedProcessor.mold_stability_index_calculator import MoldStabilityIndexCalculator
+from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
+from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
 
 def test_historical_insights_generator():
+    # MoldStabilityIndexCalculator
     stability_index_calculator = MoldStabilityIndexCalculator(
         source_path = 'tests/shared_db/DataLoaderAgent/newest',
         annotation_name = "path_annotations.json",
@@ -15,6 +18,25 @@ def test_historical_insights_generator():
         cycle_stability_threshold = 0.4,
         total_records_threshold = 30)
     
+    # ValidationOrchestrator
+    validation_orchestrator = ValidationOrchestrator(source_path = 'tests/shared_db/DataLoaderAgent/newest',
+                                                    annotation_name = "path_annotations.json",
+                                                    databaseSchemas_path = 'tests/mock_database/databaseSchemas.json',
+                                                    default_dir = "tests/shared_db")
+
+    results = validation_orchestrator.run_validations_and_save_results()
+
+    # OrderProgressTracker
+    order_progress_tracker = OrderProgressTracker(source_path = 'tests/shared_db/DataLoaderAgent/newest',
+                                                  annotation_name = "path_annotations.json",
+                                                  databaseSchemas_path = 'tests/mock_database/databaseSchemas.json',
+                                                  folder_path = "tests/shared_db/ValidationOrchestrator",
+                                                  target_name = "change_log.txt",
+                                                  default_dir = "tests/shared_db")
+
+    results = order_progress_tracker.pro_status()
+    
+    # MoldMachineFeatureWeightCalculator
     feature_weight_calculator = MoldMachineFeatureWeightCalculator(
         source_path = 'tests/shared_db/DataLoaderAgent/newest',
         annotation_name = "path_annotations.json",
