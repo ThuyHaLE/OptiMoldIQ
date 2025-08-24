@@ -7,20 +7,33 @@ OptiMoldIQ is a smart production system designed to streamline and optimize the 
 ---
 
 ## Table of Contents
-- [Current Phase](#current-phase)
-- [Business Problem](#business-problem)
-- [Key Goals](#key-goals)
-- [Planned Solution](#planned-solution)
-- [Dataset Overview](#dataset-overview)
-- [Data Overview](#data-overview)
-- [Folder Structure](#folder-structure)
-- [Roadmap](#roadmap)
-- [Current Status Summary](#current-status-summary)
-- [Milestones](#milestones)
-- [Quickstart](#quickstart-coming-soon)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
+- [OptiMoldIQ: Intelligent Plastic Molding Planner](#optimoldiq-intelligent-plastic-molding-planner)
+  - [Table of Contents](#table-of-contents)
+  - [Current Phase](#current-phase)
+  - [Business Problem](#business-problem)
+    - [Background](#background)
+    - [Challenges](#challenges)
+    - [Problem Statement](#problem-statement)
+  - [Key Goals](#key-goals)
+  - [Planned Solution](#planned-solution)
+  - [System Architecture Diagram](#system-architecture-diagram)
+  - [Dataset Overview](#dataset-overview)
+    - [Key Entities](#key-entities)
+  - [Data Overview](#data-overview)
+    - [Dynamic Datasets](#dynamic-datasets)
+    - [Static Datasets](#static-datasets)
+  - [Folder Structure](#folder-structure)
+  - [Roadmap](#roadmap)
+  - [Current Status Summary](#current-status-summary)
+  - [🚀 Interactive System Dashboard](#-interactive-system-dashboard)
+  - [Milestones](#milestones)
+    - [✅ **Milestone 01**: Core Data Pipeline Agents](#-milestone-01-core-data-pipeline-agents)
+    - [✅ **Milestone 02**: Initial Production Planning System](#-milestone-02-initial-production-planning-system)
+    - [🔄 **In Progress**: AnalyticsOrchestrator + DashBoardBuilder](#-in-progress-analyticsorchestrator--dashboardbuilder)
+  - [Quickstart](#quickstart)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Contact](#contact)
 
 ---
 
@@ -66,7 +79,7 @@ The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges
 | **DataPipelineOrchestrator** | **Collector**: Collects distributed monthly data → consolidates → **Loader**: loads into shared DB. Handles both dynamic & static data.|
 | **ValidationOrchestrator**   | Performs cross-checks: <br>1. **PORequiredCriticalValidator**: `productRecords` ↔ `purchaseOrders` <br>2. **StaticCrossDataChecker**: Both ↔ static fields <br>3. **DynamicCrossDataValidator**: Both ↔ dynamic fields |
 | **OrderProgressTracker**     | Aggregates production per machine/shift → Maps back to PO → Flags any mismatches via validation results.                   |
-| **AutoPlanner** | Generates and refines production schedules: <br>• `InitialPlanner`: Creates the first plan based on static info. <br>• `PlanRefiner`: Refines plans based on tracking and validation. |
+| **AutoPlanner** | Generates and refines production schedules: <br>• `InitialPlanner`: Creates the first plan based on **historical insights** when sufficient data records are available for trend analysis, and **compatibility specifications** using technical specifications to maximize machine utilization. <br>• `Plan Refinery`: Refines plans based on tracking and validation from related sources, including real-time plastic storage, historical usage, and maintenance status of the machines and molds. |
 | **AnalyticsOrchestrator**     | Performs:<br>1. **DataChangeAnalyzer**: Tracks and updates historical changes (e.g., machine layout, mold usage)<br>2. **MultiLevelDataAnalytics**: Analyzes product-related information across multiple levels (year, month, day, shift) for deeper insights.|
 | **TaskOrchestrator**     | Performs: <br>1. **ResinCoordinator**: Monitors resin stock and consumption. <br>2. **MoldCoordinator**: Tracks mold usage, maintenance. <br>3. **MachineCoordinator**: Tracks machine usage, machine availability and lead times. <br>4. **ProductQualityCoordinator**: Tracks yield and NG rates. <br>5. **MaintenanceCoordinator**: Predictive maintenance scheduling to reduce downtime for mold and machine. <br>6. **YieldOptimizator**: Tracks the relationship between cycle time, yield, and NG rates to optimize overall production yield. It also analyzes resin usage patterns to recommend more efficient material requirements.|
 | **DashBoardBuilder** |Creates an interactive dashboard for real-time monitoring and decision support. |
@@ -84,37 +97,58 @@ The following diagram shows how the data flows from external sources into the sy
 <details> <summary> Or click to expand system architecture diagram</summary>
 
 ```plaintext
-                   ┌────────────────────────────────┐
-                   │       External Inputs          │
-                   │ DynamicDB (purchaseOrders,     │
-                   │    productRecords) + StaticDB  │
-                   └────────────┬───────────────────┘
-                                │
-                                ▼                                                          ┌────────────────────────────┐ 
-                 ┌────────────────────────────┐                                            │    ValidationOrchestrator  │ 
-                 │  DataPipelineOrchestrator  │                   ┌──────────────────────► │(Check consistency between  │ 
-                 └────────────┬───────────────┘                   │                        │  Static & Dynamic Data)    │
-                              │                                   │                        └────────────┬───────────────┘ 
-        ┌────────────────────┴────────────────────┐               │         ┌───────────────────────┬───┴────────────────────┐                     
-        ▼                                         ▼               │         ▼                       ▼                        ▼
-┌────────────────────┐                 ┌─────────────────────┐    │    ┌────────────┐  ┌─────────────────────────┐ ┌────────────────────┐  
-│    DataCollector   │                 │   DataLoaderAgent   │    │    │StaticCross │  │DynamicCrossDataValidator│ │ PORequiredCritical │       
-│ (monthly dynamic DB│                 │ (load & unify static│    │    │DataChecker │  └────────────┬────────────┘ │ Validator          │
-│   .xlsx → .parquet)│                 │   data → .parquet)  │    │    └─────┬──────┘               │              └───────────┬────────┘
-└─────────┬──────────┘                 └─────────┬───────────┘    │          ▼                      ▼                          ▼
-          ▼                                      ▼                │     ┌────────────────────────────────────────────────────────┐
-    ┌──────────────────────────────────────────────────┐          │     │                    PO Mistmatch information            │
-    │           ✅ Shared Database (.parquet)         │          │     └────────────────────────────────────────────────────────┘
-    │     (static + dynamic for all other agents)      │──────────┘                                │
-    └──────────────────────────────────────────────────┘                                           │
-                          │                                                                        │
-                          ▼                                                                        ▼
-                   ┌──────────────────────────────────────────────────────────────────────────────────────┐
-                   │                                  OrderProgressTracker                                │
-                   │ (Group product records by PO, flag mismatch note from Validation agent (if any))     │
-                   └──────────────────────────────────────────┬───────────────────────────────────────────┘
-                                                              ▼
-                                                    🛠️  To Be Continued...
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                               [ OptiMoldIQWorkflow ]                                            │
+│                    Main orchestrator coordinating all manufacturing workflow phases              │
+└──────────────┬──────────────────────────────────────────────────────────────────────────────────┘
+               ▼ PHASE 1: DATA COLLECTION                                           
+        ┌──────────────────────┐                                            ┌──────────────────────┐
+        │ DataPipelineOrch.    │                                            │   Update Detection   │
+        │ (Collect & Process)  │────── Process Pipeline ──────────────────⯈│ (Analyze Changes)    │
+        └──────────────────────┘                                            └──────────────────────┘
+               │                                                                        │
+               ▼                                                                        ▼
+    📊 Execute Data Collection                                             🔍 Detect Database Updates
+    • Run DataPipelineOrchestrator                                         • Check collector results
+    • Process dynamic databases                                            • Check loader results  
+    • Generate pipeline report                                             • Identify changed databases
+    • Handle collection errors                                             • Return trigger flag & details
+
+               ▼ PHASE 2: SHARED DB BUILDING (Conditional)
+        ┌──────────────────────┐      ┌──────────────────────┐      ┌──────────────────────┐      ┌──────────────────────┐
+        │ ValidationOrch.      │      │ OrderProgressTracker │      │ Historical insight   │      │ ProducingProcessor   │
+        │ (Data Validation)    │────⯈│ (Progress Monitoring)│────⯈ │ adding phase         │────⯈│ (Production Analysis)│
+        └──────────────────────┘      └──────────────────────┘      └──────────────────────┘      └──────────────────────┘
+               │                              │                              │                                │
+               ▼                              ▼                              ▼                                ▼
+    ✅ Validate Data Quality          📈 Track Order Status       📈 Generate Historical Insights   🏭 Process Production Data
+    • Run validation checks            • Monitor order progress     • Calculate:                      • Analyze production metrics
+    • Generate mismatch reports        • Track milestones           1. mold stability index           • Calculate efficiency & loss
+    • Ensure data integrity            • Update progress logs       2. mold machine feature weight    • Generate production reports
+    • Save validation results          • Generate progress reports                                    • Process stability indices
+
+               ▼ PHASE 3: INITIAL PLANNING (Conditional)
+        ┌──────────────────────┐                                             ┌──────────────────────┐
+        │   Purchase Order     │                                             │   PendingProcessor   │
+        │   Change Detection   │────── If PO Changes Detected ─────────────⯈│ (Order Processing)   │
+        └──────────────────────┘                                             └──────────────────────┘
+               │                                                                        │
+               ▼                                                                        ▼
+    🛒 Check Purchase Orders                                            ⚡ Process Pending Orders
+    • Analyze updated databases                                          • Apply priority ordering
+    • Look for 'purchaseOrders' changes                                  • Respect load thresholds
+    • Determine if planning needed                                       • Optimize processing schedule
+    • Trigger or skip processing                                         • Generate planning reports
+
+        ┌─────────────────────────────────────────────────────────────────────────────────────┐
+        │                                📋 REPORTING SYSTEM                                  │
+        │  • Generate comprehensive workflow reports                                          │
+        │  • Include data collection, validation, progress, and planning results              │
+        │  • Save timestamped reports with UTF-8 encoding                                     │
+        │  • Provide audit trails and operational summaries                                   │
+        └──────────────────────────────────────┬──────────────────────────────────────────────┘
+                                               ▼
+                                      🛠️  To Be Continued...
 ```
 </details>
 
@@ -198,20 +232,134 @@ OptiMoldIQ uses a shared database with both dynamic and static datasets:
 
 ---
 
-## Milestones
-- ✅ **Milestone 01**: Core Data Pipeline Agents  
-  Completed July 2025 — Includes `dataPipelineOrchestrator`, `validationOrchestrator`, and `orderProgressTracker`.  
-  ➤ [View Details](docs/milestones/OptiMoldIQ-milestone_01.md)
-  ➤ [View orderProgressTracker Demo](docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
-  
-- 🔄 **Upcoming**: AnalyticsOrchestrator + DashBoardBuilder
+## 🚀 Interactive System Dashboard
+
+Experience OptiMoldIQ's architecture through our interactive dashboard:
+
+➤ [🔗 View Live Dashboard](https://thuyhale.github.io/OptiMoldIQ/)
 
 ---
 
-## Quickstart (Coming Soon)
-- Set up the Python environment
-- Run initial agents on sample data
-- Visualize results via the dashboard
+## Milestones
+
+### ✅ **Milestone 01**: Core Data Pipeline Agents  
+  
+Completed July 2025 — Includes:
+
+- `dataPipelineOrchestrator`
+- `validationOrchestrator`
+- `orderProgressTracker` 
+
+➤ [View Details](docs/milestones/OptiMoldIQ-milestone_01.md) 
+
+➤ [View orderProgressTracker Live Demo](docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
+
+### ✅ **Milestone 02**: Initial Production Planning System
+  
+Completed August 2025 — Includes:
+
+- Upgrated `dataPipelineOrchestrator`, `validationOrchestrator`, and `orderProgressTracker`
+  
+- `initialPlanner` includes:
+
+  - 1. Generated **historical insights** from historical production records: 
+
+    - `MoldStabilityIndexCalculator` generate **comprehensive stability assessments** for manufacturing molds. It evaluates mold reliability through multi-dimensional analysis of cavity utilization and cycle time performance, providing critical input for production capacity planning and mold maintenance optimization.
+
+    - `MoldMachineFeatureWeightCalculator` against **efficiency thresholds** to generate confidence-weighted feature importance scores. It analyzes good vs bad production performance patterns using statistical methods to determine optimal weights for production planning priority matrices.
+
+  - 2. Tracked and created comprehensive manufacturing/producing plans using `ProducingProcessor` integrates production status data with optimization results from `HybridSuggestOptimizer`. 
+  
+    - `HybridSuggestOptimizer` combines multiple optimization strategies to suggest optimal production configurations based on historical records. It integrates: 
+      - `ItemMoldCapacityOptimizer` to estimate mold capacity used `MoldStabilityIndexCalculator` results
+        
+      - `MoldMachinePriorityMatrixCalculator` calculate mold-machine priority matrix used `MoldMachineFeatureWeightCalculator` results.
+
+    The system helps manufacturing operations make intelligent decisions about mold selection, machine allocation, and production scheduling.
+
+  - 3. Optimizated and generated comprehensive pending assignments using `PendingProcessor` with two-tier optimization system using two-phase greedy algorithms:
+    - `HistBasedMoldMachineOptimizer` based on `priority matrices` and `estimated capacity based lead time` constraints.
+    - `CompatibilityBasedMoldMachineOptimizer` based on `technical compatibility matrices` and `estimated capacity based lead time` constraints.
+
+➤ [View Details](docs/milestones/OptiMoldIQ-milestone_02.md) 
+
+➤ [View optiMoldIQWorkflow Live Demo](docs/agents_output_overviews/optiMoldIQWorkflow_output_overview.md)
+  
+### 🔄 **In Progress**: AnalyticsOrchestrator + DashBoardBuilder
+
+---
+
+## Quickstart
+
+Clone repo and run this python script to run initial agents on sample data
+
+```python
+
+!git clone https://github.com/ThuyHaLE/OptiMoldIQ.git
+%cd ./OptiMoldIQ
+%pwd
+!pip -q install -r requirements.txt
+
+# sample data
+mock_db_dir = 'tests/mock_database'
+mock_dynamic_db_dir = 'tests/mock_database/dynamicDatabase'
+shared_db_dir = 'tests/shared_db'
+
+#!rm -rf {shared_db_dir} 
+
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+from agents.autoPlanner.initialPlanner.compatibility_based_mold_machine_optimizer import PriorityOrder
+from agents.optiMoldMaster.optimold_master import WorkflowConfig, OptiMoldIQWorkflow
+
+def daily_workflow():
+    """
+    Configure a scheduler to automatically execute the task daily at 8:00 AM.
+    """
+
+    # Configuration - these should be moved to a config file or environment variables
+
+    config = WorkflowConfig(
+        db_dir = mock_db_dir,
+        dynamic_db_dir = mock_dynamic_db_dir,
+        shared_db_dir = shared_db_dir,
+        efficiency = 0.85,
+        loss = 0.03,
+
+        historical_insight_threshold = 30, #15
+
+        # PendingProcessor
+        max_load_threshold = 30,
+        priority_order = PriorityOrder.PRIORITY_1,
+        verbose=True,
+        use_sample_data=False,
+
+        # MoldStabilityIndexCalculator
+        cavity_stability_threshold = 0.6,
+        cycle_stability_threshold = 0.4,
+        total_records_threshold = 30,
+
+        # MoldMachineFeatureWeightCalculator
+        scaling = 'absolute',
+        confidence_weight = 0.3,
+        n_bootstrap = 500,
+        confidence_level = 0.95,
+        min_sample_size = 10,
+        feature_weights = None,
+        targets = {'shiftNGRate': 'minimize',
+                   'shiftCavityRate': 1.0,
+                   'shiftCycleTimeRate': 1.0,
+                   'shiftCapacityRate': 1.0}
+        )
+
+    workflow = OptiMoldIQWorkflow(config)
+    return workflow.run_workflow()
+
+if __name__ == "__main__":
+    # Example usage
+    results = daily_workflow()
+    colored_reporter = DictBasedReportGenerator(use_colors=True)
+    print("\n".join(colored_reporter.export_report(results)))
+```
 
 --- 
 

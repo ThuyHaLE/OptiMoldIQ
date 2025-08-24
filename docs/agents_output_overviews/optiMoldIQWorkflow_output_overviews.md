@@ -1,5 +1,84 @@
+# OptiMoldIQWorkflow output overview
 
-**Demo**: [🔗View OptiMoldIQ Dashboard (Live Demo - CodeSandbox.io)](https://4w5jm3.csb.app/)
+## Directory Structure:
+
+```
+agents/database                                              # Raw databases
+├── databaseSchemas.json                                     
+├── sharedDatabaseSchemas.json       
+├── staticDatabase/       
+|   ├── itemCompositionSummary.xlsx     
+|   ├── itemInfo.xlsx  
+|   ├── machineInfo.xlsx  
+|   ├── moldInfo.xlsx  
+|   ├── moldSpecificationSummary.xlsx  
+|   └── resineInfo.xlsx                     
+└── dynamicDatabase/                                         
+    ├── monthlyReports_history/                              
+    │   └── monthlyReports_YYYYMM.xlsb
+    └── purchaseOrders_history/                              
+        └── purchaseOrder_YYYYMM.xlsx
+
+agents/shared_db                                             # Shared databases
+├── dynamicDatabase/                                         # Output directory (Data Collection)
+|    ├── productRecords.parquet                              
+|    └── purchaseOrders.parquet                              
+├── DataLoaderAgent/                                         # Output directory (DataLoaderAgent)
+|    ├── historical_db/                                      
+|    ├── newest/                                            
+|    |    ├── YYYYMMDD_HHMM_itemCompositionSummary.parquet   
+|    |    ├── YYYYMMDD_HHMM_itemInfo.parquet                 
+|    |    ├── YYYYMMDD_HHMM_machineInfo.parquet              
+|    |    ├── YYYYMMDD_HHMM_moldInfo.parquet                 
+|    |    ├── YYYYMMDD_HHMM_moldSpecificationSummary.parquet 
+|    |    ├── YYYYMMDD_HHMM_productRecords.parquet           
+|    |    ├── YYYYMMDD_HHMM_purchaseOrders.parquet           
+|    |    ├── YYYYMMDD_HHMM_resinInfo.parquet                
+|    |    └── path_annotations.json                          
+|    └── change_log.txt                                                                    
+├── ValidationOrchestrator                                    # Output directory (ValidationOrchestrator)
+|     ├── historical_db/                                          
+|     ├── newest/                                                         
+|     |    └──  YYYYMMDD_HHMM_validation_orchestrator.xlsx    
+|     └── change_log.txt                                      
+├── OrderProgressTracker                                      # Output directory (OrderProgressTracker)
+|     ├── historical_db/                                                                 
+|     ├── newest/                                                                              
+|     |    └──  YYYYMMDD_HHMM_auto_status.xlsx         
+|     └── change_log.txt                               
+├── MoldStabilityIndexCalculator/                             # Output directory (MoldStabilityIndexCalculator) 
+|    ├── historical_db/                                      
+|    ├── newest/ 
+|    |   └── YYYYMMDD_HHMM_mold_stability_index.xlsx
+|    └── change_log.txt  
+├── MoldMachineFeatureWeightCalculator/                       # Output directory (MoldMachineFeatureWeightCalculator)
+|   ├── historical_db/                                      
+|   ├── newest/ 
+|   |   └── YYYYMMDD_HHMM_confidence_report.txt
+|   ├── change_log.txt      
+|   └── weights_hist.xlsx                                 
+├──  ProducingProcessor/                                        # Output directory (ProducingProcessor)
+|     ├── historical_db/                                                             
+|     ├── newest/                                                                             
+|     |    └──  YYYYMMDD_HHMM_producing_processor.xlsx  
+|     └── change_log.txt                                
+├── PendingProcessor/                                           # Output directory(PendingProcessor)
+|   ├── historical_db/                                                                
+|   ├── newest/                                                                                 
+|   |    └──  YYYYMMDD_HHMM_pending_processor.xlsx        
+|   └── change_log.txt
+└── OptiMoldIQWorkflow/
+    ├── historical_db/                                          # Output directory(OptiMoldIQWorkflow)
+    ├── newest/                                                   
+    |    └── YYYYMMDD_HHMM_OptiMoldIQWorkflow_report.txt  
+    └── change_log.txt                                                                    
+```
+
+## Dashboard Demo: 
+
+[🔗View OptiMoldIQ Dashboard (Live Demo - CodeSandbox.io)](https://4w5jm3.csb.app/)
+
+## Report format Demo
 
 ```
 ================================================================================
