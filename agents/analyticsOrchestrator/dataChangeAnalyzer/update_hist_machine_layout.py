@@ -1,6 +1,4 @@
-from agents.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
-from agents.utils import load_annotation_path
 from datetime import datetime
 from loguru import logger
 import pandas as pd
@@ -10,44 +8,72 @@ import shutil
 import math
 import os
 
-@validate_init_dataframes(lambda self: {
-    "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
-})
-
 class UpdateHistMachineLayout():
     def __init__(self, 
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
-                 annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str ="agents/shared_db"):
+                 productRecords_df: pd.DataFrame,
+                 output_dir: str ="agents/shared_db/UpdateHistMachineLayout"):
 
         self.logger = logger.bind(class_="UpdateHistMachineLayout")
 
-        # Load database schema and database paths annotation
-        self.databaseSchemas_data = load_annotation_path(Path(databaseSchemas_path).parent, 
-                                                         Path(databaseSchemas_path).name)
-        self.path_annotation = load_annotation_path(source_path, 
-                                                    annotation_name)
-
-        # Extract productRecords DataFrame
-        productRecords_path = self.path_annotation.get('productRecords')
-        if not productRecords_path or not os.path.exists(productRecords_path):
-            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
-            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
-        self.productRecords_df = pd.read_parquet(productRecords_path)
+        self.productRecords_df = productRecords_df
 
         # Setup output directory and file prefix
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "UpdateHistMachineLayout"
+        self.output_dir = Path(output_dir)
         self.filename_prefix = "update_hist_machine_layout_record"
 
     def update_and_plot(self, **kwargs):
-          # Detect layout changes over time
-          self.layout_changes = self._record_hist_layout_changes(self.productRecords_df)
-          logger.debug("Layout changes updated: {}", self.layout_changes)
-          # Start update process
-          self.hist_machine_layout_record = self.update_layout_changes()
-          self.plot_all()
+        # Detect layout changes over time
+        self.layout_changes = self._record_hist_layout_changes(self.productRecords_df)
+        self.logger.debug("Layout changes updated: {}", self.layout_changes)
+        # Start update process
+        self.hist_machine_layout_record = self.update_layout_changes()
+        self.plot_all()
+
+    @staticmethod
+    def _record_hist_layout_changes(df):
+
+        # Convert dates and extract machineName from machineCode
+        df['machineName'] = df['machineCode'].str.extract(r'([A-Z]+[0-9]*)')
+
+        # Keep relevant columns, drop duplicates
+        df = df[['recordDate', 'workingShift', 'machineNo', 'machineName', 'machineCode']].drop_duplicates()
+
+        # Create a unique shift key like 'YYYY-MM-DD-S1'
+        df['date_str'] = df['recordDate'].dt.strftime('%Y-%m-%d')
+
+        df['shift_key'] = df['date_str'] + '-S' + df['workingShift'].astype(str)
+
+        layout_dict = {}       # Stores layout string per shift
+        layout_changes = {}    # Stores shifts where layout changes happened
+
+        # Generate layout strings per shift
+        for shift_key in sorted(df['shift_key'].unique()):
+            shift_df = df[df['shift_key'] == shift_key]
+
+            layout_string = '|'.join(
+                shift_df[['machineCode', 'machineNo', 'machineName']]
+                .drop_duplicates()
+                .sort_values(by='machineCode')
+                .apply(lambda row: f"{row['machineCode']}-{row['machineNo']}-{row['machineName']}", axis=1)
+                .tolist()
+            )
+
+            layout_dict[shift_key] = layout_string
+
+        # Detect changes between shifts by comparing layout strings
+        prev_layout = None
+        change_index = 1
+
+        for shift_key, current_layout in layout_dict.items():
+            if current_layout != prev_layout:
+                layout_changes[f'layout_change_{change_index}'] = {
+                    'recordDate': shift_key.split("-S")[0],
+                    'workingShift': shift_key.split("-S")[1]
+                }
+                change_index += 1
+            prev_layout = current_layout
+
+        return layout_changes
 
     def update_layout_changes(self, **kwargs):
         hist_machine_layout_record = pd.DataFrame()
@@ -59,14 +85,14 @@ class UpdateHistMachineLayout():
                                                            change_info['workingShift'])
             if hist_machine_layout_record.empty:
                 hist_machine_layout_record = layout_change_df.copy()
-                logger.debug("This is the first updated layout")
+                self.logger.debug("This is the first updated layout")
             else:
-                logger.debug("Historical machine layouts updating...")
+                self.logger.debug("Historical machine layouts updating...")
                 hist_machine_layout_record = self._update_hist_machine_layout_record(
                     hist_machine_layout_record, layout_change_df
                 )
 
-        logger.debug("Hitorical Machine Layouts Updated: {} - {}",
+        self.logger.debug("Hitorical Machine Layouts Updated: {} - {}",
                      hist_machine_layout_record.shape, hist_machine_layout_record.columns)
 
         return hist_machine_layout_record
@@ -134,56 +160,10 @@ class UpdateHistMachineLayout():
 
         return final
 
-    @staticmethod
-    def _record_hist_layout_changes(df):
-
-        # Convert dates and extract machineName from machineCode
-        df['machineName'] = df['machineCode'].str.extract(r'([A-Z]+[0-9]*)')
-
-        # Keep relevant columns, drop duplicates
-        df = df[['recordDate', 'workingShift', 'machineNo', 'machineName', 'machineCode']].drop_duplicates()
-
-        # Create a unique shift key like 'YYYY-MM-DD-S1'
-        df['date_str'] = df['recordDate'].dt.strftime('%Y-%m-%d')
-
-        df['shift_key'] = df['date_str'] + '-S' + df['workingShift'].astype(str)
-
-        layout_dict = {}       # Stores layout string per shift
-        layout_changes = {}    # Stores shifts where layout changes happened
-
-        # Generate layout strings per shift
-        for shift_key in sorted(df['shift_key'].unique()):
-            shift_df = df[df['shift_key'] == shift_key]
-
-            layout_string = '|'.join(
-                shift_df[['machineCode', 'machineNo', 'machineName']]
-                .drop_duplicates()
-                .sort_values(by='machineCode')
-                .apply(lambda row: f"{row['machineCode']}-{row['machineNo']}-{row['machineName']}", axis=1)
-                .tolist()
-            )
-
-            layout_dict[shift_key] = layout_string
-
-        # Detect changes between shifts by comparing layout strings
-        prev_layout = None
-        change_index = 1
-
-        for shift_key, current_layout in layout_dict.items():
-            if current_layout != prev_layout:
-                layout_changes[f'layout_change_{change_index}'] = {
-                    'recordDate': shift_key.split("-S")[0],
-                    'workingShift': shift_key.split("-S")[1]
-                }
-                change_index += 1
-            prev_layout = current_layout
-
-        return layout_changes
-
     def plot_all(self, **kwargs):
       # Preprocessing data
       date_columns = [col for col in self.hist_machine_layout_record.columns if col not in ['machineCode', 'machineName']]
-      logger.debug("Layout change dates: {}", date_columns)
+      self.logger.debug("Layout change dates: {}", date_columns)
 
       # Convert into long format
       df_melted = self.hist_machine_layout_record.melt(id_vars=['machineCode', 'machineName'],
@@ -197,11 +177,11 @@ class UpdateHistMachineLayout():
       # Calculate change_stats
       unique_machines = df_melted['machineCode'].unique()
       n_unique = len(unique_machines)
-      logger.debug("Total machines: {}", n_unique)
+      self.logger.debug("Total machines: {}", n_unique)
       colors = generate_color_palette(n_unique)
       machine_colors = dict(zip(unique_machines, colors))
 
-      logger.info("Start charting...")
+      self.logger.info("Start charting...")
       plots_args = [
           ((df_melted, unique_machines, n_unique, machine_colors), 
            "Machine_change_layout_timeline.png", self._plot_machine_timeline),
@@ -229,34 +209,34 @@ class UpdateHistMachineLayout():
                   dest = historical_dir / f.name
                   shutil.move(str(f), dest)
                   log_entries.append(f"  ⤷ Moved old file: {f.name} → historical_db/{f.name}\n")
-                  logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
+                  self.logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
               except Exception as e:
-                  logger.error("Failed to move file {}: {}", f.name, e)
+                  self.logger.error("Failed to move file {}: {}", f.name, e)
                   raise OSError(f"Failed to move file {f.name}: {e}")
   
       timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
       for data, name, func in plots_args:
           path = os.path.join(newest_dir, f'{timestamp_file}_{name}')
-          logger.debug('File path: {}', path)
+          self.logger.debug('File path: {}', path)
           try:
               if isinstance(data, tuple) and func != 'Excel':
                   func(*data, path)
               elif not isinstance(data, tuple) and func != 'Excel':
                   func(data, path)
               else:
-                  logger.info("Start excel file exporting...")
+                  self.logger.info("Start excel file exporting...")
                   self.hist_machine_layout_record.to_excel(path, index=False)      
               log_entries.append(f"  ⤷ Saved new file: newest/{path}\n")
-              logger.info("✅ Created plot: {}", path)
+              self.logger.info("✅ Created plot: {}", path)
           except Exception as e:
-              logger.error("❌ Failed to create file '{}'. Error: {}", name, str(e))
+              self.logger.error("❌ Failed to create file '{}'. Error: {}", name, str(e))
               raise RuntimeError(f"Failed to create file '{name}': {str(e)}")
       try:
           with open(log_path, "a", encoding="utf-8") as log_file:
               log_file.writelines(log_entries)
-          logger.info("Updated change log {}", log_path)
+          self.logger.info("Updated change log {}", log_path)
       except Exception as e:
-          logger.error("Failed to update change log {}: {}", log_path, e)
+          self.logger.error("Failed to update change log {}: {}", log_path, e)
           raise OSError(f"Failed to update change log {log_path}: {e}")
 
     @staticmethod

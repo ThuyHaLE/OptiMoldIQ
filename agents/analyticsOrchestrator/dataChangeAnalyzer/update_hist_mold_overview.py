@@ -1,6 +1,4 @@
-from agents.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
-from agents.utils import load_annotation_path
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,56 +8,35 @@ from datetime import datetime
 import shutil
 import os
 
-@validate_init_dataframes(lambda self: {
-    "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
-    "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
-    "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
-})
-
 class UpdateHistMoldOverview():
     def __init__(self, 
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
-                 annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db"):
+                 productRecords_df: pd.DataFrame,
+                 moldInfo_df: pd.DataFrame,
+                 machineInfo_df: pd.DataFrame,
+                 output_dir: str = "agents/shared_db/UpdateHistMoldOverview"):
 
         self.logger = logger.bind(class_="UpdateHistMoldOverview")
 
-        # Load database schema and database paths annotation
-        self.databaseSchemas_data = load_annotation_path(Path(databaseSchemas_path).parent, 
-                                                         Path(databaseSchemas_path).name)
-        self.path_annotation = load_annotation_path(source_path, 
-                                                    annotation_name)
-
-        # Extract productRecords DataFrame
-        productRecords_path = self.path_annotation.get('productRecords')
-        if not productRecords_path or not os.path.exists(productRecords_path):
-            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
-            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
-        self.productRecords_df = pd.read_parquet(productRecords_path)
-
-        
-        # Extract moldInfo DataFrame
-        moldInfo_path = self.path_annotation.get('moldInfo')
-        if not moldInfo_path or not os.path.exists(moldInfo_path):
-            self.logger.error("❌ Path to 'moldInfo' not found or does not exist.")
-            raise FileNotFoundError("Path to 'moldInfo' not found or does not exist.")
-        self.moldInfo_df = pd.read_parquet(moldInfo_path)
-
-
-        # Extract machineInfo DataFrame
-        machineInfo_path = self.path_annotation.get('machineInfo')
-        if not machineInfo_path or not os.path.exists(machineInfo_path):
-            self.logger.error("❌ Path to 'machineInfo' not found or does not exist.")
-            raise FileNotFoundError("Path to 'machineInfo' not found or does not exist.")
-        self.machineInfo_df = pd.read_parquet(machineInfo_path)
+        self.productRecords_df = productRecords_df
+        self.moldInfo_df = moldInfo_df
+        self.machineInfo_df = machineInfo_df
 
         # Setup output directory and file prefix
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "UpdateHistMoldOverview"
+        self.output_dir = Path(output_dir)
         self.filename_prefix = "update_hist_mold_overview"
 
+    def update_and_plot(self, **kwargs):
+        #Process data
+        (self.mold_machine_df, 
+        self.first_use_mold_df, self.paired_mold_machine_df, 
+        self. used_mold_machine_df, 
+        self.pivot_machine_mold, self.pivot_mold_machine) = self.process_data()
+        
+        #Save outputs
+        self.save_outputs()
+
     def process_data(self, **kwargs):
+        self.logger.info("Data processing...")
         mold_machine_df = pd.merge(pd.merge(self.productRecords_df[['recordDate', 'machineCode', 'moldNo']],
                                           self.moldInfo_df[['moldNo', 'machineTonnage',	'acquisitionDate']],
                                           on='moldNo'),
@@ -98,12 +75,12 @@ class UpdateHistMoldOverview():
             'Median Tonnage Types': used_mold_machine_df['usedTonnageCount'].median(),
             'Standard Deviation': used_mold_machine_df['usedTonnageCount'].std()
         }
-        logger.info("\n📈 Summary statistics:")
+        self.logger.info("\n📈 Summary statistics:")
         for key, value in used_mold_machine_stats.items():
             if isinstance(value, float):
-                logger.info(f"  • {key}: {value:.2f}")
+                self.logger.info(f"  • {key}: {value:.2f}")
             else:
-                logger.info(f"  • {key}: {value}")
+                self.logger.info(f"  • {key}: {value}")
         
         # Get first day of each moldNo
         first_use_mold_df = mold_machine_df.groupby(['moldNo', 'acquisitionDate'])['recordDate'].min().reset_index(name='firstDate')
@@ -117,17 +94,17 @@ class UpdateHistMoldOverview():
             'Min gap (days)': first_use_mold_df['daysDifference'].min(),
             'Max gap (days)': first_use_mold_df['daysDifference'].max()
             }
-        logger.info("\n📈 Summary statistics:")
+        self.logger.info("\n📈 Summary statistics:")
         for key, value in first_use_mold_stats.items():
             if isinstance(value, float):
-                logger.info(f"  • {key}: {value:.2f}")
+                self.logger.info(f"  • {key}: {value:.2f}")
             else:
-                logger.info(f"  • {key}: {value}")
+                self.logger.info(f"  • {key}: {value}")
 
         # Molds with negative gap (use before buy?)
         negative_gap = first_use_mold_df[first_use_mold_df['daysDifference'] < 0]
         if len(negative_gap) > 0:
-            logger.debug("\nWarning: {} molds have negative gap (used before acquisition). \nThese molds might have data quality issues:",
+            self.logger.debug("\nWarning: {} molds have negative gap (used before acquisition). \nThese molds might have data quality issues:",
                         len(negative_gap),
                         negative_gap[['moldNo', 'acquisitionDate', 'firstDate', 'daysDifference']].head())
     
@@ -147,17 +124,9 @@ class UpdateHistMoldOverview():
             
         return mold_machine_df, first_use_mold_df, paired_mold_machine_df, used_mold_machine_df, pivot_machine_mold, pivot_mold_machine
 
-    def update_and_plot(self, **kwargs):
-
-        #Process data
-        logger.info("Data processing...")
-        (self.mold_machine_df, 
-         self.first_use_mold_df, self.paired_mold_machine_df, 
-         self. used_mold_machine_df, 
-         self.pivot_machine_mold, self.pivot_mold_machine) = self.process_data()
-        
+    def save_outputs(self, **kwargs):
         #Plot data
-        logger.info("Start charting...")
+        self.logger.info("Start charting...")
         plots_args = [
             (self.mold_machine_df[self.mold_machine_df['tonnageMatched'] == False], "Tonage_machine_mold_not_matched.xlsx", "Excel"),
             (self.pivot_machine_mold, "Machine_mold_first_run_pair.xlsx", "Excel"),
@@ -192,34 +161,34 @@ class UpdateHistMoldOverview():
                     dest = historical_dir / f.name
                     shutil.move(str(f), dest)
                     log_entries.append(f"  ⤷ Moved old file: {f.name} → historical_db/{f.name}\n")
-                    logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
+                    self.logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
                 except Exception as e:
-                    logger.error("Failed to move file {}: {}", f.name, e)
+                    self.logger.error("Failed to move file {}: {}", f.name, e)
                     raise OSError(f"Failed to move file {f.name}: {e}")
 
         timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
         for data, name, func in plots_args:
             path = os.path.join(newest_dir, f'{timestamp_file}_{name}')
-            logger.debug('File path: {}', path)
+            self.logger.debug('File path: {}', path)
             try:
                 if isinstance(data, tuple) and func != 'Excel':
                     func(*data, path)
                 elif not isinstance(data, tuple) and func != 'Excel':
                     func(data, path)
                 else:
-                    logger.info("Start excel file exporting...")
+                    self.logger.info("Start excel file exporting...")
                     data.to_excel(path, index=False)      
                 log_entries.append(f"  ⤷ Saved new file: newest/{path}\n")
-                logger.info("✅ Created plot: {}", path)
+                self.logger.info("✅ Created plot: {}", path)
             except Exception as e:
-                logger.error("❌ Failed to create file '{}'. Error: {}", name, str(e))
+                self.logger.error("❌ Failed to create file '{}'. Error: {}", name, str(e))
                 raise OSError(f"Failed to create file '{name}': {str(e)}")
         try:
             with open(log_path, "a", encoding="utf-8") as log_file:
                 log_file.writelines(log_entries)
-            logger.info("Updated change log {}", log_path)
+            self.logger.info("Updated change log {}", log_path)
         except Exception as e:
-            logger.error("Failed to update change log {}: {}", log_path, e)
+            self.logger.error("Failed to update change log {}: {}", log_path, e)
             raise OSError(f"Failed to update change log {log_path}: {e}")
 
     #Plot the top N molds with the most machine tonnage types.
