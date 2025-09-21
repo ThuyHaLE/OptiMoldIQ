@@ -1,0 +1,24 @@
+{
+    "colors": {
+        "primary": "#3498DB",
+        "success": "#2ECC71",
+        "warning": "#F39C12",
+        "danger": "#E74C3C",
+        "info": "#9B59B6",
+        "secondary": "#95A5A6",
+        "accent": "#1ABC9C",
+        "dark": "#2C3E50",
+        "moldCount":  "#3498DB",
+        "itemCount": "#9B59B6",
+        "itemComponentCount": "#2ECC71"
+        }, 
+    "sns_style": "default",
+    "palette_name": "husl",
+    "figsize": null,
+    "gridspec_kw": null,
+    "text_colors": null,
+    "main_title_y": null,
+    "subtitle_y": null,
+    "enable_scatter": null,
+    "enable_trends": null
+}
