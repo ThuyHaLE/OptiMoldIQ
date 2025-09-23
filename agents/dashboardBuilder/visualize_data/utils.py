@@ -4,6 +4,33 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import seaborn as sns
 import matplotlib.colors as mcolors
+from typing import Optional, Dict
+import json
+
+def load_visualization_config(default_config, visualization_config_path: Optional[str] = None) -> Dict:
+    """Load visualization configuration with fallback to defaults."""
+
+    def deep_update(base: dict, updates: dict) -> Dict:
+        for k, v in updates.items():
+            if v is None or not v in updates.values():
+                continue
+            if isinstance(v, dict) and isinstance(base.get(k), Dict):
+                base[k] = deep_update(base.get(k, {}), v)
+            else:
+                base[k] = v
+        return base
+
+    config = default_config.copy()
+
+    if visualization_config_path:
+        try:
+            with open(visualization_config_path, "r") as f:
+                user_cfg = json.load(f)
+            config = deep_update(config, user_cfg)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.warning(f"Could not load config from {visualization_config_path}: {e}")
+
+    return config
 
 def show_all_png_images(folder_path, cols=1, scale=(16, 8)):
     """Display all .png images in a folder in a grid layout."""

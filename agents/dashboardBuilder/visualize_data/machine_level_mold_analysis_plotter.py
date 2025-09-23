@@ -1,5 +1,5 @@
 from agents.decorators import validate_init_dataframes
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette
+from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 import numpy as np
 from loguru import logger
@@ -7,7 +7,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from typing import Dict, Tuple, List, Optional
-import json
 import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
 
@@ -31,28 +30,6 @@ DEFAULT_CONFIG = {
     "subtitle_y": 0.90,
 }
 
-def deep_update(base: dict, updates: dict) -> Dict:
-    for k, v in updates.items():
-        if v is None:
-            continue
-        if isinstance(v, dict) and isinstance(base.get(k), Dict):
-            base[k] = deep_update(base.get(k, {}), v)
-        else:
-            base[k] = v
-    return base
-
-def load_config(visualization_config_path: Optional[str] = None) -> Dict:
-    """Load visualization configuration with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
-    if visualization_config_path:
-        try:
-            with open(visualization_config_path, "r") as f:
-                user_cfg = json.load(f)
-            config = deep_update(config, user_cfg)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {visualization_config_path}: {e}")
-    return config
-
 @validate_init_dataframes({"df": ['workingShift', 'machineNo', 'moldNo', 'moldShot', 'moldCount']})
 def machine_level_mold_analysis_plotter(df: pd.DataFrame,
                                         main_title: str = 'Manufacturing Performance Dashboard',
@@ -74,7 +51,7 @@ def machine_level_mold_analysis_plotter(df: pd.DataFrame,
         enable_trends (bool): Whether to show trend lines
     """
 
-    visualization_config = load_config(visualization_config_path)
+    visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
     logger.info("Creating machine level mold analysis chart with {} rows", len(df))
 

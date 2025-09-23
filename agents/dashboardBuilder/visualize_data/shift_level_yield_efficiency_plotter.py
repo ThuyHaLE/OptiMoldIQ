@@ -1,10 +1,9 @@
 from agents.decorators import validate_init_dataframes
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette
+from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 import numpy as np
 from loguru import logger
 import matplotlib.pyplot as plt
-import json
 from typing import Tuple, Optional, Dict
 
 DEFAULT_CONFIG = {
@@ -27,28 +26,6 @@ DEFAULT_CONFIG = {
     "subtitle_y": 0.95,
     "summary_y": 0.01
 }
-
-def deep_update(base: dict, updates: dict) -> Dict:
-    for k, v in updates.items():
-        if v is None:
-            continue
-        if isinstance(v, dict) and isinstance(base.get(k), Dict):
-            base[k] = deep_update(base.get(k, {}), v)
-        else:
-            base[k] = v
-    return base
-
-def load_config(visualization_config_path: Optional[str] = None) -> Dict:
-    """Load visualization configuration with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
-    if visualization_config_path:
-        try:
-            with open(visualization_config_path, "r") as f:
-                user_cfg = json.load(f)
-            config = deep_update(config, user_cfg)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {visualization_config_path}: {e}")
-    return config
 
 def determine_plot_settings(num_machines: int, 
                             figsize_config: Optional[dict]) -> Tuple[int, int]:
@@ -155,7 +132,7 @@ def shift_level_yield_efficiency_plotter(df: pd.DataFrame,
         logger.error("Required column 'workingShift' not found in dataframe")
         raise ValueError("Missing required column 'workingShift'")
 
-    visualization_config = load_config(visualization_config_path)
+    visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
     logger.debug("Processing dataframe with shape: {}", df.shape)
     

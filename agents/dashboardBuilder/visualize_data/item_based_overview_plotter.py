@@ -6,8 +6,7 @@ from typing import Optional, Dict
 import matplotlib.patches as mpatches
 from agents.decorators import validate_init_dataframes
 from loguru import logger
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette
-import json
+from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 
 # Optional import for text adjustment - gracefully handle if not available
 try:
@@ -44,28 +43,6 @@ DEFAULT_CONFIG = {
     "subtitle_y": 0.94,
 }
 
-def deep_update(base: dict, updates: dict) -> Dict:
-    for k, v in updates.items():
-        if v is None:
-            continue
-        if isinstance(v, dict) and isinstance(base.get(k), Dict):
-            base[k] = deep_update(base.get(k, {}), v)
-        else:
-            base[k] = v
-    return base
-
-def load_config(visualization_config_path: Optional[str] = None) -> Dict:
-    """Load visualization configuration with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
-    if visualization_config_path:
-        try:
-            with open(visualization_config_path, "r") as f:
-                user_cfg = json.load(f)
-            config = deep_update(config, user_cfg)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {visualization_config_path}: {e}")
-    return config
-
 def add_custom_colors(visualization_config: Dict, 
                       num_colors: int = 10):
     if 'color_list' not in visualization_config:
@@ -97,7 +74,9 @@ def item_based_overview_plotter(df: pd.DataFrame,
 
     df = _preprocess_data(df)
 
-    visualization_config = add_custom_colors(load_config(visualization_config_path))
+    visualization_config = add_custom_colors(
+        load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
+        )
 
     # Set style
     plt.style.use(visualization_config['sns_style'])

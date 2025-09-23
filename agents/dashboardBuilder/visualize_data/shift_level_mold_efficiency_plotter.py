@@ -1,12 +1,11 @@
 from agents.decorators import validate_init_dataframes
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, save_plot
+from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 import numpy as np
 from loguru import logger
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from typing import Tuple, Dict, Optional
-import json
+from typing import Optional
 
 DEFAULT_CONFIG = {
     "colors": {
@@ -27,28 +26,6 @@ DEFAULT_CONFIG = {
     "main_title_y": 0.96,
     "subtitle_y": 0.92,
 }
-
-def deep_update(base: dict, updates: dict) -> Dict:
-    for k, v in updates.items():
-        if v is None:
-            continue
-        if isinstance(v, dict) and isinstance(base.get(k), Dict):
-            base[k] = deep_update(base.get(k, {}), v)
-        else:
-            base[k] = v
-    return base
-
-def load_config(visualization_config_path: Optional[str] = None) -> Dict:
-    """Load visualization configuration with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
-    if visualization_config_path:
-        try:
-            with open(visualization_config_path, "r") as f:
-                user_cfg = json.load(f)
-            config = deep_update(config, user_cfg)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {visualization_config_path}: {e}")
-    return config
 
 def get_metric_value(df, mold, shift_num, column):
     try:
@@ -133,7 +110,7 @@ def shift_level_mold_efficiency_plotter(df: pd.DataFrame,
         legend_position (str): Legend position
     """
 
-    visualization_config = load_config(visualization_config_path)
+    visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
     df = data_processing(df, moldInfo_df)
 

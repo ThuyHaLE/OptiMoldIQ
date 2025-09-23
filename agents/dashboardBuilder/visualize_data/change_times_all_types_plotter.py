@@ -1,12 +1,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette
-from typing import Optional, Dict, Tuple
+from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
+from typing import Optional, Tuple
 from loguru import logger
 from agents.decorators import validate_init_dataframes
 import matplotlib.ticker as mticker
-import json
 
 DEFAULT_CONFIG = {
     "colors": {
@@ -31,28 +30,6 @@ DEFAULT_CONFIG = {
     "main_title_y": 0.96,
     "subtitle_y": 0.945,
 }
-
-def deep_update(base: dict, updates: dict) -> Dict:
-    for k, v in updates.items():
-        if v is None:
-            continue
-        if isinstance(v, dict) and isinstance(base.get(k), Dict):
-            base[k] = deep_update(base.get(k, {}), v)
-        else:
-            base[k] = v
-    return base
-
-def load_config(visualization_config_path: Optional[str] = None) -> Dict:
-    """Load visualization configuration with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
-    if visualization_config_path:
-        try:
-            with open(visualization_config_path, "r") as f:
-                user_cfg = json.load(f)
-            config = deep_update(config, user_cfg)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {visualization_config_path}: {e}")
-    return config
 
 def determine_plot_settings(num_machines: int, 
                             figsize_config: Optional[dict]) -> Tuple[int, int]:
@@ -85,7 +62,7 @@ def change_times_all_types_plotter(record_df: pd.DataFrame,
             matplotlib Figure object
         """
 
-        visualization_config = load_config(visualization_config_path)
+        visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
         # Get all unique machines
         machines = sorted(record_df['machineInfo'].unique())
@@ -206,4 +183,6 @@ def change_times_all_types_plotter(record_df: pd.DataFrame,
             fig.legend(handles, text_colors.keys(), loc='lower right',
                       bbox_to_anchor=(0.98, 0.02), fontsize=10)
           
+        plt.tight_layout()
+        
         return fig

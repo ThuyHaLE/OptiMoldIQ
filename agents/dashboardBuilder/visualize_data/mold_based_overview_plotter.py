@@ -4,9 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from typing import Dict, Optional
-import json
 from loguru import logger
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette
+from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 
 DEFAULT_CONFIG = {
     "colors": {
@@ -31,28 +30,6 @@ DEFAULT_CONFIG = {
     "main_title_y": 0.97,    
     "subtitle_y": 0.955,     
 }
-
-def deep_update(base: dict, updates: dict) -> Dict:
-    for k, v in updates.items():
-        if v is None:
-            continue
-        if isinstance(v, dict) and isinstance(base.get(k), Dict):
-            base[k] = deep_update(base.get(k, {}), v)
-        else:
-            base[k] = v
-    return base
-
-def load_config(visualization_config_path: Optional[str] = None) -> Dict:
-    """Load visualization configuration with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
-    if visualization_config_path:
-        try:
-            with open(visualization_config_path, "r") as f:
-                user_cfg = json.load(f)
-            config = deep_update(config, user_cfg)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {visualization_config_path}: {e}")
-    return config
 
 def add_custom_colors(visualization_config: Dict, 
                       num_colors: int = 10):
@@ -83,7 +60,9 @@ def mold_based_overview_plotter(df: pd.DataFrame,
         matplotlib.figure.Figure: The created figure
     """
 
-    visualization_config = add_custom_colors(load_config(visualization_config_path))
+    visualization_config = add_custom_colors(
+        load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
+    )
 
     # Set style
     plt.style.use(visualization_config['sns_style'])
@@ -125,6 +104,7 @@ def mold_based_overview_plotter(df: pd.DataFrame,
             logger.error(f"Error in {plot_func.__name__}: {e}")
 
     plt.tight_layout()
+    
     return fig
 
 def _plot_no_data(ax: plt.Axes, visualization_config:Dict, message: str, title: str) -> None:
@@ -271,7 +251,7 @@ def _plot_mold_based_shift_trend(df: pd.DataFrame, visualization_config:Dict, ax
         ax_twin.legend(loc='lower right')
         ax.grid(True, alpha=0.3)
     except Exception as e:
-        _plot_no_data(ax, f'Error: {str(e)}', 'Shift Trends')
+        _plot_no_data(ax, visualization_config, f'Error: {str(e)}', 'Shift Trends')
 
 def _plot_mold_based_cavities(df: pd.DataFrame, visualization_config:Dict, ax: plt.Axes) -> None:
     """Plot cavities by mold and shift."""

@@ -1,10 +1,9 @@
 from agents.decorators import validate_init_dataframes
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette
+from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 from loguru import logger
 import matplotlib.pyplot as plt
 from typing import Optional, Dict, Tuple
-import json
 
 DEFAULT_CONFIG = {
     "colors": {
@@ -25,28 +24,6 @@ DEFAULT_CONFIG = {
     "main_title_y": 0.96,    
     "subtitle_y": 0.945,     
 }
-
-def deep_update(base: dict, updates: dict) -> Dict:
-    for k, v in updates.items():
-        if v is None:
-            continue
-        if isinstance(v, dict) and isinstance(base.get(k), Dict):
-            base[k] = deep_update(base.get(k, {}), v)
-        else:
-            base[k] = v
-    return base
-
-def load_config(visualization_config_path: Optional[str] = None) -> Dict:
-    """Load visualization configuration with fallback to defaults."""
-    config = DEFAULT_CONFIG.copy()
-    if visualization_config_path:
-        try:
-            with open(visualization_config_path, "r") as f:
-                user_cfg = json.load(f)
-            config = deep_update(config, user_cfg)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.warning(f"Could not load config from {visualization_config_path}: {e}")
-    return config
 
 def determine_plot_settings(n_machines: int, 
                             figsize_config: Optional[dict]) -> Tuple[int, int]:
@@ -127,7 +104,7 @@ def shift_level_detailed_yield_efficiency_plotter(df: pd.DataFrame,
     Returns:
         matplotlib.figure.Figure: The created figure
     """
-    visualization_config = load_config(visualization_config_path)
+    visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
     # Set style
     plt.style.use(visualization_config['sns_style'])
