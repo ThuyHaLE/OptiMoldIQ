@@ -38,7 +38,7 @@ class DayLevelDataProcessor:
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
                  default_dir: str = "agents/shared_db"):
 
-        self.logger = logger.bind(class_="OrderProgressTracker")
+        self.logger = logger.bind(class_="DayLevelDataProcessor")
 
         self.record_date = record_date
 

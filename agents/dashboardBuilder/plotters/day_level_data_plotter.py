@@ -1,11 +1,11 @@
-from agents.dashboardBuilder.visualize_data.change_times_all_types_plotter import change_times_all_types_plotter
-from agents.dashboardBuilder.visualize_data.item_based_overview_plotter import item_based_overview_plotter 
-from agents.dashboardBuilder.visualize_data.machine_level_yield_efficiency_plotter import machine_level_yield_efficiency_plotter
-from agents.dashboardBuilder.visualize_data.machine_level_mold_analysis_plotter import machine_level_mold_analysis_plotter
-from agents.dashboardBuilder.visualize_data.shift_level_yield_efficiency_plotter import shift_level_yield_efficiency_plotter
-from agents.dashboardBuilder.visualize_data.shift_level_detailed_yield_efficiency_plotter import shift_level_detailed_yield_efficiency_plotter
-from agents.dashboardBuilder.visualize_data.mold_based_overview_plotter import mold_based_overview_plotter
-from agents.dashboardBuilder.visualize_data.shift_level_mold_efficiency_plotter import shift_level_mold_efficiency_plotter
+from agents.dashboardBuilder.visualize_data.day_level.change_times_all_types_plotter import change_times_all_types_plotter
+from agents.dashboardBuilder.visualize_data.day_level.item_based_overview_plotter import item_based_overview_plotter 
+from agents.dashboardBuilder.visualize_data.day_level.machine_level_yield_efficiency_plotter import machine_level_yield_efficiency_plotter
+from agents.dashboardBuilder.visualize_data.day_level.machine_level_mold_analysis_plotter import machine_level_mold_analysis_plotter
+from agents.dashboardBuilder.visualize_data.day_level.shift_level_yield_efficiency_plotter import shift_level_yield_efficiency_plotter
+from agents.dashboardBuilder.visualize_data.day_level.shift_level_detailed_yield_efficiency_plotter import shift_level_detailed_yield_efficiency_plotter
+from agents.dashboardBuilder.visualize_data.day_level.mold_based_overview_plotter import mold_based_overview_plotter
+from agents.dashboardBuilder.visualize_data.day_level.shift_level_mold_efficiency_plotter import shift_level_mold_efficiency_plotter
 from agents.analyticsOrchestrator.multiLevelDataAnalytics.day_level_data_processor import DayLevelDataProcessor
 from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path
@@ -45,7 +45,7 @@ class DayLevelDataPlotter:
 
         self.visualization_config_path = (
             visualization_config_path 
-            or "agents/dashboardBuilder/visualize_data/visualization_config.json"
+            or "agents/dashboardBuilder/visualize_data/day_level/visualization_config.json"
         )
     
         self.day_level_data_processor = DayLevelDataProcessor(selected_date,
