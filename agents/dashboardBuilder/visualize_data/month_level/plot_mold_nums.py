@@ -12,6 +12,21 @@ def plot_mold_nums(ax,
     """
     Plot used mold nums for finished POs
     """
+
+    subplot_title = 'Used Mold Nums (Finished POs)'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     moldHistNum_counts = df[df['proStatus'] == 'finished']['moldHistNum'].astype(int).astype('str').value_counts()
     
     mold_nums = df[df['proStatus'] == 'finished']['moldHistNum'].astype(int).astype('str').unique().tolist()
@@ -24,7 +39,7 @@ def plot_mold_nums(ax,
         color=[mold_nums_color_map[x] for x in moldHistNum_counts.index]
     )
     ax.set_title(
-        'Used Mold Nums (Finished POs)',
+        subplot_title,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold'

@@ -13,6 +13,21 @@ def plot_progress_bar(ax,
     """
     Plot production progress bar with gradient effect
     """
+
+    subplot_title = 'Progress Bar'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     ax.axis('off')
     ax.set_facecolor('#f8fafc')
 
@@ -175,7 +190,7 @@ def plot_progress_bar(ax,
 
     # Title
     ax.text(
-        50, 0.95, 'Progress Bar',
+        50, 0.95, subplot_title,
         ha='center', va='top',
         fontsize=sizes['title'],
         fontweight='bold',

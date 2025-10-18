@@ -16,6 +16,21 @@ def plot_top_items_bar(ax,
     """
     Plot top 10 items by remaining quantity (horizontal bar)
     """
+
+    subplot_title = 'Top 10 Items by Remaining Quantity'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     top_items = df.nlargest(10, 'itemRemainQuantity')[
         ['poStatus', 'completionProgress', 'itemCodeName', 'itemRemainQuantity']
     ]
@@ -50,7 +65,7 @@ def plot_top_items_bar(ax,
         fontweight='bold'
     )
     ax.set_title(
-        'Top 10 Items by Remaining Quantity',
+        subplot_title,
         fontsize=sizes['title'],
         fontweight='bold',
         pad=15,

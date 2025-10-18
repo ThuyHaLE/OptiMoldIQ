@@ -15,6 +15,21 @@ def plot_capacity_severity(ax,
     """
     Plot capacity severity distribution
     """
+    
+    subplot_title = 'Capacity Severity'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     severity_counts = df['capacitySeverity'].value_counts()
     bars = ax.bar(
         severity_counts.index,
@@ -23,7 +38,7 @@ def plot_capacity_severity(ax,
                for x in severity_counts.index]
     )
     ax.set_title(
-        'Capacity Severity',
+        subplot_title,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold'

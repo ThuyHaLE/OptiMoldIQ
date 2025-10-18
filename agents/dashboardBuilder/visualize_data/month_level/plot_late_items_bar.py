@@ -17,6 +17,20 @@ def plot_late_items_bar(ax,
     """
     Plot late status items by remaining quantity (horizontal bar)
     """
+
+    subplot_title = 'Late Status Items by Remaining Quantity'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
     
     late_items = df[df['etaStatus'] == 'late'].sort_values(
         ['completionProgress', 'itemRemainQuantity']
@@ -53,7 +67,7 @@ def plot_late_items_bar(ax,
             fontweight='bold'
         )
         ax.set_title(
-            'Late Status Items by Remaining Quantity',
+            subplot_title,
             fontsize=sizes['title'],
             fontweight='bold',
             pad=15,

@@ -17,6 +17,20 @@ def plot_backlog_analysis(ax,
     Plot backlog analysis
     """
     
+    subplot_title = 'Backlog Status'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     backlog_counts = df['is_backlog'].value_counts()
     colors_backlog = list(colors['backlog'].values())
     bars = ax.bar(
@@ -25,7 +39,7 @@ def plot_backlog_analysis(ax,
         color=colors_backlog
     )
     ax.set_title(
-        'Backlog Status',
+        subplot_title,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold'

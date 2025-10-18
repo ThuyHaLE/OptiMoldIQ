@@ -13,6 +13,21 @@ def plot_kpi_cards(ax,
     """
     Plot KPI summary cards
     """
+
+    subplot_title = 'KPI summary cards'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     ax.axis('off')
 
     # Calculate KPIs
@@ -86,7 +101,7 @@ def plot_kpi_cards(ax,
         )
 
     ax.set_title(
-        'KPI cards',
+        subplot_title,
         fontsize=sizes['title'],
         fontweight='bold',
         color=colors['title'],

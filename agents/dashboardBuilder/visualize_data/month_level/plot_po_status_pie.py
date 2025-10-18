@@ -20,6 +20,19 @@ def plot_po_status_pie(ax,
     Args:
         po_status: 'in_progress', 'not_started', or 'finished'
     """
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     status_counts = df[df['poStatus'] == po_status]['etaStatus'].value_counts()
     ax.pie(
         status_counts.values,

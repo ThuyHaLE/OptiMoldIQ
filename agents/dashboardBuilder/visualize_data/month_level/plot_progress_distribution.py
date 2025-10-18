@@ -15,6 +15,21 @@ def plot_progress_distribution(ax,
     """
     Plot progress distribution (bar chart)
     """
+
+    subplot_title = 'Progress Distribution'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     progress_ranges = pd.cut(
         df['completionProgress'],
         bins=[0, 0.25, 0.5, 0.75, 1.0],
@@ -31,7 +46,7 @@ def plot_progress_distribution(ax,
     ax.set_xticklabels(progress_dist.index, rotation=0)
     ax.set_ylabel('Number of POs', fontsize=sizes['ylabel'])
     ax.set_title(
-        'Progress Distribution',
+        subplot_title,
         fontsize=sizes['title'],
         fontweight='bold',
         color=colors['title'],

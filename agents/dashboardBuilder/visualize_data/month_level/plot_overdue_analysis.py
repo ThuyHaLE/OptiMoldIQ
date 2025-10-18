@@ -17,20 +17,41 @@ def plot_overdue_analysis(ax,
     Plot overdue vs on-time analysis
     """
 
+    subplot_title = 'Overdue Status by PO Status'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+
+    # Auto detect xtick lables
+    bool_to_status = dict(zip([True, False], ['On Time', 'Overdue']))
+    overdue_values = df['is_overdue'].unique().tolist()
+    xtick_lables = [bool_to_status[x] for x in overdue_values]
+
     overdue_data = pd.crosstab(df['is_overdue'], df['poStatus'])
     overdue_data.plot(
         kind='bar',
         ax=ax,
-        color=colors['general'][:3],
+        color=colors['general'],
         stacked=True
     )
+
     ax.set_title(
-        'Overdue Status by PO Status',
+        subplot_title,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold'
     )
+
     ax.set_xlabel('Is Overdue', fontsize=sizes['xlabel'])
     ax.set_ylabel('Number of POs', fontsize=sizes['ylabel'])
-    ax.set_xticklabels(['On Time', 'Overdue'], rotation=0)
+    ax.set_xticklabels(xtick_lables, rotation=0)
     ax.legend(title='PO Status', loc='upper right')

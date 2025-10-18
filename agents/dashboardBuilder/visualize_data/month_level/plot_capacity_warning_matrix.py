@@ -16,6 +16,21 @@ def plot_capacity_warning_matrix(ax,
     """
     Plot capacity warning matrix heatmap
     """
+    
+    subplot_title = 'Capacity Warning Matrix'
+
+    if df.empty:
+        ax.text(0.5, 0.5, 'No data available', 
+                ha='center', va='center', 
+                fontsize=sizes.get('title', 14),
+                color=colors.get('title', 'black'))
+        ax.set_title(subplot_title,
+                    fontsize=sizes['title'],
+                    color=colors['title'],
+                    fontweight='bold')
+        ax.axis('off')
+        return
+    
     warning_data = df.copy()
     warning_matrix = warning_data.groupby(
         ['capacityWarning', 'capacitySeverity']
@@ -32,7 +47,7 @@ def plot_capacity_warning_matrix(ax,
         linecolor='white'
     )
     ax.set_title(
-        'Capacity Warning Matrix',
+        subplot_title,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold'
