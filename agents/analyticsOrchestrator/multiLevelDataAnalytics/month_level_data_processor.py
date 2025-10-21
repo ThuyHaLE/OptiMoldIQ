@@ -157,22 +157,22 @@ class MonthLevelDataProcessor:
         unfinished_df = MonthLevelDataProcessor._analyze_unfinished_pos(combined_df, analysis_timestamp)
 
         # Logging analysis summary and diagnostic information
-        logger.info("=" * 60)
-        logger.info("Analysis Results for {}", adjusted_record_month)
-        logger.info("Analysis date: {}", analysis_timestamp.strftime('%Y-%m-%d'))
-        logger.info("Total Orders: {}", len(po_based_df))
-        logger.info("Completed Orders Rate: {}/{}", len(finished_df), len(po_based_df))
-        logger.info("Remaining Orders Rate: {}/{}", len(unfinished_df), len(po_based_df))
-        logger.info("Orders with Capacity Warning: {}", unfinished_df['capacityWarning'].sum())
-        logger.info("Capacity Severity Distribution: {}", unfinished_df['capacitySeverity'].value_counts().to_dict())
-        logger.info("Backlog Orders: {}-({})",
+        self.logger.info("=" * 60)
+        self.logger.info("Analysis Results for {}", adjusted_record_month)
+        self.logger.info("Analysis date: {}", analysis_timestamp.strftime('%Y-%m-%d'))
+        self.logger.info("Total Orders: {}", len(po_based_df))
+        self.logger.info("Completed Orders Rate: {}/{}", len(finished_df), len(po_based_df))
+        self.logger.info("Remaining Orders Rate: {}/{}", len(unfinished_df), len(po_based_df))
+        self.logger.info("Orders with Capacity Warning: {}", unfinished_df['capacityWarning'].sum())
+        self.logger.info("Capacity Severity Distribution: {}", unfinished_df['capacitySeverity'].value_counts().to_dict())
+        self.logger.info("Backlog Orders: {}-({})",
                     len(po_based_df[po_based_df['is_backlog'] == True]),
                     po_based_df[po_based_df['is_backlog'] == True]['poNo'].tolist())
-        logger.info("=" * 60)
+        self.logger.info("=" * 60)
 
         return analysis_timestamp, adjusted_record_month, finished_df, unfinished_df
 
-    def _validate_analysis_parameters(self) -> Tuple[pd.Timestamp, str, pd.DataFrame, pd.DataFrame]:
+    def _validate_analysis_parameters(self) -> Tuple[pd.Timestamp, str]:
 
         """
         Validate and adjust analysis parameters based on available historical production data
@@ -219,7 +219,7 @@ class MonthLevelDataProcessor:
 
         # Validate existence of historical data
         if self.productRecords_df.empty:
-            logger.error("No historical production data available for analysis!")
+            self.logger.error("No historical production data available for analysis!")
             raise ValueError("No historical production data available for analysis!")
 
         # Find the latest record date in historical production data
@@ -227,11 +227,11 @@ class MonthLevelDataProcessor:
 
         # If all recordDate are NaN → cannot analyze anything
         if pd.isna(max_record_date):
-            logger.error("All recordDate values are null. Cannot proceed with analysis!")
+            self.logger.error("All recordDate values are null. Cannot proceed with analysis!")
             raise ValueError("All recordDate values are null. Cannot proceed with analysis!")
 
         # Log historical data range for traceability
-        logger.info(
+        self.logger.info(
             "Historical data available from {} to {}",
             self.productRecords_df['recordDate'].min().date(),
             max_record_date.date()
@@ -242,7 +242,7 @@ class MonthLevelDataProcessor:
             # Convert record_month string ('YYYY-MM') → pandas.Period
             requested_period = pd.Period(self.record_month, freq="M")
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 "Invalid record_month format '{}'. Expected 'YYYY-MM'. Error: {}",
                 self.record_month, e
             )
@@ -254,7 +254,7 @@ class MonthLevelDataProcessor:
         if self.analysis_date is None:
             # If not specified → use end of the record month as default
             analysis_timestamp = requested_period.to_timestamp(how="end").normalize()
-            logger.info(
+            self.logger.info(
                 "No analysis_date provided. Using the end of record_month as analysis date: {}",
                 analysis_timestamp.date()
             )
@@ -262,9 +262,9 @@ class MonthLevelDataProcessor:
             try:
                 # Try converting user input string to pandas.Timestamp
                 analysis_timestamp = pd.Timestamp(self.analysis_date).normalize()
-                logger.info("Analysis date set to: {}", analysis_timestamp.date())
+                self.logger.info("Analysis date set to: {}", analysis_timestamp.date())
             except Exception as e:
-                logger.error(
+                self.logger.error(
                     "Invalid analysis_date format '{}'. Expected 'YYYY-MM-DD'. Error: {}",
                     self.analysis_date, e
                 )
@@ -277,7 +277,7 @@ class MonthLevelDataProcessor:
 
         # If analysis_date points to a *future* month → reject
         if analysis_period < requested_period:
-            logger.error(
+            self.logger.error(
                 "Invalid: Analysis date ({}) is before record_month ({}). "
                 "Cannot analyze a future month from a past date!",
                 analysis_timestamp.date(), requested_period
@@ -293,7 +293,7 @@ class MonthLevelDataProcessor:
 
         if analysis_timestamp > max_record_date:
             # Warn user if analysis_date goes beyond available records
-            logger.warning(
+            self.logger.warning(
                 "Analysis date ({}) is beyond available data (max record date {})",
                 analysis_timestamp.date(), max_record_date.date()
             )
@@ -305,22 +305,22 @@ class MonthLevelDataProcessor:
             adjusted_period = analysis_timestamp.to_period("M")
             adjusted_record_month = adjusted_period.strftime("%Y-%m")
 
-            logger.warning(
+            self.logger.warning(
                 "Adjusting analysis date to max record date ({}) and record month from {} to {}",
                 analysis_timestamp.date(), requested_period, adjusted_period
             )
 
         # Log summary of validation results
-        logger.info("=" * 60)
-        logger.info("VALIDATION SUMMARY")
-        logger.info("=" * 60)
-        logger.info("Record month (requested): {}", requested_period)
+        self.logger.info("=" * 60)
+        self.logger.info("VALIDATION SUMMARY")
+        self.logger.info("=" * 60)
+        self.logger.info("Record month (requested): {}", requested_period)
         if adjusted_record_month != self.record_month:
-            logger.info("Record month (adjusted): {}", adjusted_record_month)
-        logger.info("Analysis date (validated): {}", analysis_timestamp.date())
+            self.logger.info("Record month (adjusted): {}", adjusted_record_month)
+        self.logger.info("Analysis date (validated): {}", analysis_timestamp.date())
         if original_analysis_date != analysis_timestamp:
-            logger.info("  └─ Adjusted from: {}", original_analysis_date.date())
-        logger.info("=" * 60)
+            self.logger.info("  └─ Adjusted from: {}", original_analysis_date.date())
+        self.logger.info("=" * 60)
 
         # Return validated values
         return analysis_timestamp, adjusted_record_month
@@ -373,13 +373,13 @@ class MonthLevelDataProcessor:
                 f"Invalid record_month format '{record_month}'. Expected 'YYYY-MM'"
             ) from e
 
-        logger.info("Record month (requested): {}", record_period)
+        self.logger.info("Record month (requested): {}", record_period)
 
         # Determine the cutoff date for backlog detection
         # Cutoff = last day of previous month (before the record_month starts)
         analysis_timestamp = record_period.to_timestamp(how="start")
         cutoff_date = analysis_timestamp - pd.Timedelta(days=1)
-        logger.info("Cut-off date: {}", cutoff_date.date())
+        self.logger.info("Cut-off date: {}", cutoff_date.date())
 
         # Validate presence of required purchase order columns
         required_po_cols = ['poReceivedDate', 'poNo', 'poETA', 'itemCode', 'itemName', 'itemQuantity']
@@ -399,10 +399,10 @@ class MonthLevelDataProcessor:
 
         if filtered_po.empty:
             # No orders expected before cutoff → no backlog possible
-            logger.info("No orders found with ETA <= cutoff date")
+            self.logger.info("No orders found with ETA <= cutoff date")
             return pd.DataFrame()
 
-        logger.info("Total orders with ETA <= cutoff: {}", len(filtered_po))
+        self.logger.info("Total orders with ETA <= cutoff: {}", len(filtered_po))
 
         # Merge with production status to determine completion
         merged_df = MonthLevelDataProcessor._merge_purchase_status(filtered_po, product_records)
@@ -419,11 +419,11 @@ class MonthLevelDataProcessor:
 
         # Log summary and return results
         if backlog_df.empty:
-            logger.info("No backlog orders found")
+            self.logger.info("No backlog orders found")
         else:
             backlog_orders = backlog_df["poNo"].unique()
-            logger.info("Backlog orders count: {}", len(backlog_orders))
-            logger.debug("Backlog order numbers: {}", backlog_orders.tolist())
+            self.logger.info("Backlog orders count: {}", len(backlog_orders))
+            self.logger.debug("Backlog order numbers: {}", backlog_orders.tolist())
 
         return backlog_df
 
@@ -493,10 +493,10 @@ class MonthLevelDataProcessor:
         # Convert ETA → monthly period for filtering
         available_months = purchase_orders_df["poETA"].dt.to_period("M").dropna().unique()
         available_months_sorted = sorted(available_months)
-        logger.info("Available months in data: {}", available_months_sorted)
+        self.logger.info("Available months in data: {}", available_months_sorted)
 
         if record_period not in available_months:
-            logger.error(
+            self.logger.error(
                 "Requested month {} not found. Available months: {}",
                 record_period,
                 available_months_sorted
@@ -511,7 +511,7 @@ class MonthLevelDataProcessor:
             purchase_orders_df["poETA"].dt.to_period("M") == record_period
         ].copy()
 
-        logger.info(
+        self.logger.info(
             "Filtered {} purchase orders for month: {}",
             len(filtered_purchase_orders),
             record_period
@@ -523,7 +523,7 @@ class MonthLevelDataProcessor:
 
         if filtered_product_records.empty:
             # No production data available for the target analysis window
-            logger.error(
+            self.logger.error(
                 "No historical data available for the target month ({}). "
                 "Earliest record date is {}.",
                 record_month, filtered_product_records['recordDate'].min().date()
@@ -533,8 +533,8 @@ class MonthLevelDataProcessor:
                 f"Earliest record date is {filtered_product_records['recordDate'].min().date()}."
             )
 
-        logger.info("Filtered records count: {}", len(filtered_product_records))
-        logger.info(
+        self.logger.info("Filtered records count: {}", len(filtered_product_records))
+        self.logger.info(
             "Date range: {} to {}",
             filtered_product_records['recordDate'].min().date(),
             filtered_product_records['recordDate'].max().date()
@@ -550,7 +550,7 @@ class MonthLevelDataProcessor:
         # Detect backlog POs (unfinished from earlier months)
         backlog_df = self._detect_backlog(record_month, filtered_product_records)
 
-        logger.info(
+        self.logger.info(
             "Found {} backlog orders and {} current orders",
             len(backlog_df),
             len(purchase_status_df)
@@ -559,15 +559,18 @@ class MonthLevelDataProcessor:
         # Combine backlog and current-month datasets
         combined_df = pd.concat([backlog_df, purchase_status_df], ignore_index=True)
 
-        logger.info("Combined dataset size: {} orders", len(combined_df))
+        self.logger.info("Combined dataset size: {} orders", len(combined_df))
 
         # Return consolidated results
 
         return combined_df
 
-    def _calculate_mold_capacity(self,
-                                 in_progress_df: pd.DataFrame) -> pd.DataFrame:
+    def _compute_mold_capacity(self, 
+                               df: pd.DataFrame, 
+                               mold_col: str, 
+                               mold_num_col: str) -> pd.DataFrame:
         """
+
         Estimate item production capacity based on mold technical specifications.
 
         This function estimates the theoretical production capacity for each item
@@ -580,46 +583,27 @@ class MonthLevelDataProcessor:
         3. Calculate per-mold hourly capacity
         4. Aggregate total and average capacity per item
 
-        Args:
-            in_progress_df: DataFrame containing ongoing production records,
-                            including `itemCodeName`, `moldHist`, and `moldHistNum`
+        Steps:
+        1. Expand mold history/ mold list (`mold_col`) to individual mold records
+        2. Merge with mold technical data (cavity & cycle time)
+        3. Calculate per-mold hourly capacity
+        4. Aggregate total and average capacity per item (`mold_num_col`)
 
-        Returns:
-            DataFrame with the following columns:
-                - itemCodeName: Combined item code and name identifier
-                - moldNum: Total number of molds used for the item
-                - moldList: String list of molds used
-                - totalItemCapacity: Sum of all molds’ maximum hourly capacity
-                - avgItemCapacity: Average hourly capacity per mold
         """
 
-        # Make a copy to avoid modifying the input DataFrame
-        df = in_progress_df.copy()
-
-        # Expand (explode) the mold history
-        # Each item may have multiple molds separated by "/".
-        # We split moldHist and create a new row for each mold number.
         exploded_df = (
-            df
-            .assign(moldNo=df["moldHist"].str.split("/"))
+            df.assign(moldNo=df[mold_col].str.split("/"))
             .explode("moldNo")
             .reset_index(drop=True)
         )
-
-        # Remove whitespace in case mold numbers contain spaces
         exploded_df["moldNo"] = exploded_df["moldNo"].str.strip()
-
-        # Merge with mold specification data
-        # Add columns: moldName, cavity count, and cycle time
+        
         merged_df = exploded_df.merge(
             self.moldInfo_df[['moldNo', 'moldName', 'moldCavityStandard', 'moldSettingCycle']],
             how='left',
             on='moldNo'
         )
-
-        # Calculate hourly capacity per mold
-        # Formula: (3600 seconds/hour ÷ cycle_time) × number_of_cavities
-        # Only compute if both fields are valid (>0)
+        
         merged_df["moldMaxHourCapacity"] = np.where(
             (merged_df["moldSettingCycle"].notna()) &
             (merged_df["moldSettingCycle"] > 0) &
@@ -628,126 +612,34 @@ class MonthLevelDataProcessor:
             (3600 / merged_df["moldSettingCycle"]) * merged_df["moldCavityStandard"],
             0
         )
-
-        # Aggregate total capacity per item
+        
         grouped_df = merged_df.groupby("itemCodeName", as_index=False).agg(
-            moldNum=("moldHistNum", "first"),
-            moldList=("moldHist", "first"),
+            moldNum=(mold_num_col, "first"),
+            moldList=(mold_col, "first"),
             totalItemCapacity=("moldMaxHourCapacity", "sum")
         )
-
-        # Calculate average capacity per mold
+        
         grouped_df["avgItemCapacity"] = np.where(
             (grouped_df["moldNum"].notna()) & (grouped_df["moldNum"] > 0),
             grouped_df["totalItemCapacity"] / grouped_df["moldNum"],
             0
         )
-
-        # Round capacity values for readability
-        grouped_df["totalItemCapacity"] = grouped_df["totalItemCapacity"].round(2)
-        grouped_df["avgItemCapacity"] = grouped_df["avgItemCapacity"].round(2)
-
-        # Return relevant columns only
+        
         return grouped_df[["itemCodeName", 'moldNum', 'moldList', 'totalItemCapacity', "avgItemCapacity"]]
 
     def _estimate_item_capacity(self) -> pd.DataFrame:
-        """
-        Estimate item production capacity based on mold technical specifications.
-
-        This method computes the theoretical production capacity of each item
-        using mold specifications such as cavity count and cycle time.
-        Each item's mold list is expanded, merged with mold info, and then
-        aggregated to calculate total and average hourly production capacity.
-
-        Steps:
-            1. Validate input and prepare item-mold mapping
-            2. Expand (explode) mold list to separate molds
-            3. Merge with mold information (technical specs)
-            4. Calculate per-mold hourly capacity
-            5. Aggregate total & average capacity by item
-
-        Returns:
-            pd.DataFrame with columns:
-                - itemCodeName: Combined item code and name identifier
-                - moldNum: Number of molds for this item
-                - moldList: Slash-separated list of molds
-                - totalItemCapacity: Sum of hourly capacities of all molds
-                - avgItemCapacity: Average hourly capacity per mold
-        """
-
-        # Validate input data
-        # If the mold specification summary is empty, return an empty DataFrame
+        # Estimate item production capacity based on mold technical specifications for each item (its available mold list).
         if self.moldSpecificationSummary_df.empty:
-            return pd.DataFrame(columns=[
-                'itemCodeName', 'moldNum', 'moldList',
-                'totalItemCapacity', 'avgItemCapacity'
-            ])
+            return pd.DataFrame(columns=['itemCodeName', 'moldNum', 'moldList', 'totalItemCapacity', 'avgItemCapacity'])
+        
+        df = self.moldSpecificationSummary_df.copy()
+        df["itemCodeName"] = self._create_item_code_name(df)
+        return self._compute_mold_capacity(df, "moldList", "moldNum")
 
-        # Create a copy to avoid modifying the original data
-        moldSpecificationSummary_df = self.moldSpecificationSummary_df.copy()
-
-        # Add combined item identifier
-        moldSpecificationSummary_df["itemCodeName"] = MonthLevelDataProcessor._create_item_code_name(
-            moldSpecificationSummary_df)
-
-        # Expand (explode) mold list
-        # Each item may be linked to multiple molds separated by "/".
-    # We split them into individual records (1 row per mold).
-        exploded_df = (
-            moldSpecificationSummary_df
-            .assign(moldNo=moldSpecificationSummary_df["moldList"].str.split("/"))
-            .explode("moldNo")
-            .reset_index(drop=True)
-        )
-
-        # Clean mold number strings (remove extra spaces)
-        exploded_df["moldNo"] = exploded_df["moldNo"].str.strip()
-
-        # Merge with mold information
-        # Combine exploded data with technical mold data to bring in:
-        #   - moldCavityStandard (number of cavities)
-        #   - moldSettingCycle (cycle time in seconds)
-        merged_df = exploded_df.merge(
-            self.moldInfo_df[['moldNo', 'moldName', 'moldCavityStandard', 'moldSettingCycle']],
-            how='left',
-            on='moldNo'
-        )
-
-        # Calculate mold-level hourly capacity
-        # Formula: (3600 seconds/hour ÷ cycle time) × number of cavities
-        # Apply only when both values are valid and positive
-        merged_df["moldMaxHourCapacity"] = np.where(
-            (merged_df["moldSettingCycle"].notna()) &
-            (merged_df["moldSettingCycle"] > 0) &
-            (merged_df["moldCavityStandard"].notna()) &
-            (merged_df["moldCavityStandard"] > 0),
-            (3600 / merged_df["moldSettingCycle"]) * merged_df["moldCavityStandard"],
-            0
-        )
-
-        # Aggregate per item
-        # Group all molds by item and sum their capacities
-        grouped_df = (merged_df
-                      .groupby("itemCodeName", as_index=False).agg(
-                          moldNum=("moldNum", "first"),
-                          moldList=("moldList", "first"),
-                          totalItemCapacity=("moldMaxHourCapacity", "sum")
-                      ))
-
-        # Compute average capacity per mold
-        grouped_df["avgItemCapacity"] = np.where(
-            (grouped_df["moldNum"].notna()) & (grouped_df["moldNum"] > 0),
-            grouped_df["totalItemCapacity"] / grouped_df["moldNum"],
-            0
-        )
-
-        # Round numerical results
-        # Improves readability and consistency
-        grouped_df["totalItemCapacity"] = grouped_df["totalItemCapacity"].round(2)
-        grouped_df["avgItemCapacity"] = grouped_df["avgItemCapacity"].round(2)
-
-        # Return only relevant result columns
-        return grouped_df[["itemCodeName", 'moldNum', 'moldList', 'totalItemCapacity', "avgItemCapacity"]]
+    def _calculate_mold_capacity(self, in_progress_df: pd.DataFrame) -> pd.DataFrame:
+        # Estimate item production capacity based on mold technical specifications for used mold historical records.
+        df = in_progress_df.copy()
+        return self._compute_mold_capacity(df, "moldHist", "moldHistNum")
 
     @staticmethod
     def _create_item_code_name(df):
@@ -921,9 +813,12 @@ class MonthLevelDataProcessor:
 
         # Compute remained quantity per PO
         merged_df['completionProgress'] = (1 - merged_df['itemRemainQuantity']/merged_df['itemQuantity']).round(2)
+        
+        # Group by 'moldList'
+        grouped = merged_df.groupby('moldList')
 
         # Compute total remaining quantity per mold
-        merged_df['totalRemainByMold'] = merged_df.groupby('moldList')['itemRemainQuantity'].transform('sum')
+        merged_df['totalRemainByMold'] = grouped['itemRemainQuantity'].transform('sum')
 
         #Compute accumulated rate (progress ratio of each PO in mold group)
         merged_df['accumulatedRate'] = np.where(
@@ -954,8 +849,8 @@ class MonthLevelDataProcessor:
 
         # Calculate cumulative estimated lead time per mold
         # → Shows how total required production time builds up sequentially for each mold group
-        merged_df['avgCumsumLT'] = merged_df.groupby('moldList')['avgEstimatedLeadtime'].transform('cumsum')
-        merged_df['totalCumsumLT'] = merged_df.groupby('moldList')['totalEstimatedLeadtime'].transform('cumsum')
+        merged_df['avgCumsumLT'] = grouped['avgEstimatedLeadtime'].transform('cumsum')
+        merged_df['totalCumsumLT'] = grouped['totalEstimatedLeadtime'].transform('cumsum')
 
         # Determine whether mold capacity is exceeded
         merged_df['overTotalCapacity'] = np.where(
