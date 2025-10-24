@@ -187,34 +187,34 @@ class DayLevelDataPlotter:
         """Prepare plotting tasks for parallel execution."""
         plots_args = [
             (self.processed_df, self.visualization_config_path, 
-             f"{self.selected_date}_change_times_all_types_fig", change_times_all_types_plotter),
+             f"change_times_all_types_fig", change_times_all_types_plotter),
 
             (self.item_based_record_df, self.visualization_config_path, 
-             f"{self.selected_date}_item_based_overview_dashboard", item_based_overview_plotter),
+             f"item_based_overview_dashboard", item_based_overview_plotter),
 
             (self.processed_df, self.visualization_config_path, 
-             f"{self.selected_date}_machine_level_yield_efficiency_chart", machine_level_yield_efficiency_plotter),
+             f"machine_level_yield_efficiency_chart", machine_level_yield_efficiency_plotter),
 
             (self.processed_df, self.visualization_config_path, 
-             f"{self.selected_date}_machine_level_mold_analysis_chart", machine_level_mold_analysis_plotter),
+             f"machine_level_mold_analysis_chart", machine_level_mold_analysis_plotter),
 
             (self.processed_df, self.visualization_config_path, 
-             f"{self.selected_date}_shift_level_yield_efficiency_chart", shift_level_yield_efficiency_plotter),
+             f"shift_level_yield_efficiency_chart", shift_level_yield_efficiency_plotter),
 
             (self.processed_df, self.visualization_config_path, 
-             f"{self.selected_date}_shift_level_detailed_yield_efficiency_chart", shift_level_detailed_yield_efficiency_plotter),
+             f"shift_level_detailed_yield_efficiency_chart", shift_level_detailed_yield_efficiency_plotter),
             
             (self.mold_based_record_df, self.visualization_config_path, 
-             f"{self.selected_date}_mold_based_overview_dashboard", mold_based_overview_plotter),
+             f"mold_based_overview_dashboard", mold_based_overview_plotter),
 
             ((self.processed_df, self.moldInfo_df), 
              self.visualization_config_path, 
-             f"{self.selected_date}_shift_level_mold_efficiency_chart", shift_level_mold_efficiency_plotter),
+             f"shift_level_mold_efficiency_chart", shift_level_mold_efficiency_plotter),
         ]
 
         tasks = []
         for data, config_path, name, func in plots_args:
-            path = newest_dir / f'{timestamp_file}_{self.selected_date}_{name}.png'
+            path = newest_dir / f'{timestamp_file}_{name}_{self.selected_date}.png'
             tasks.append((data, config_path, name, func, str(path), timestamp_file))
             
         return tasks
