@@ -4,7 +4,7 @@ from typing import Tuple
 from loguru import logger
 from pathlib import Path
 import os
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import load_annotation_path
 
 # Decorator to validate DataFrames are initialized with the correct schema
@@ -550,20 +550,84 @@ class MonthLevelDataProcessor:
         # Detect backlog POs (unfinished from earlier months)
         backlog_df = self._detect_backlog(record_month, filtered_product_records)
 
+        # Revise backlog POs (remain quantity)
+        new_backlog_df = self._calculate_backlog_quantity(
+            backlog_df, filtered_product_records, analysis_timestamp)
+        
         self.logger.info(
             "Found {} backlog orders and {} current orders",
-            len(backlog_df),
+            len(new_backlog_df),
             len(purchase_status_df)
         )
 
         # Combine backlog and current-month datasets
-        combined_df = pd.concat([backlog_df, purchase_status_df], ignore_index=True)
+        combined_df = pd.concat([new_backlog_df, purchase_status_df], ignore_index=True)
 
         self.logger.info("Combined dataset size: {} orders", len(combined_df))
 
         # Return consolidated results
 
         return combined_df
+    
+    def _calculate_backlog_quantity(self, 
+                                    backlog_df: pd.DataFrame, 
+                                    product_records_df: pd.DataFrame, 
+                                    analysis_timestamp: str) -> pd.DataFrame:
+        """
+        Recalculate backlog item quantities using the latest production data.
+        It updates backlog orders with recalculated remaining quantities based on the most recent progress.
+
+        Args:
+            backlog_df (pd.DataFrame): Backlog data containing columns
+                ['poNo', 'itemQuantity', 'itemGoodQuantity', 'is_backlog'].
+            product_records_df (pd.DataFrame): Product records data containing columns
+                ['recordDate', 'poNote', 'itemGoodQuantity']
+
+        Returns:
+            pd.DataFrame: Updated backlog dataframe with recalculated fields:
+                - itemQuantity: updated backlog quantity
+                - itemGoodQuantity: matched quantity from current data
+                - itemRemainQuantity: remaining quantity after deduction
+        """
+        
+        # Validate dataframe
+        validate_dataframe(backlog_df, ['poNo', 'itemQuantity', 'itemGoodQuantity', 'is_backlog'])
+        validate_dataframe(product_records_df, ['recordDate', 'poNote', 'itemGoodQuantity'])
+        
+        # Process product records
+        now_df = product_records_df[
+            product_records_df['recordDate'].dt.strftime('%Y-%m') == analysis_timestamp.strftime('%Y-%m')]
+
+        # Keep only backlog records
+        backlog_df = backlog_df[backlog_df['is_backlog'] == True].copy()
+
+        # Compute remaining quantity from backlog
+        backlog_df['remaining_backlog_qty'] = (
+            backlog_df['itemQuantity'] - backlog_df['itemGoodQuantity']
+        )
+
+        # Summarize latest production quantity by PO (from now_df)
+        now_summary = (
+            now_df.groupby('poNote', as_index=False)['itemGoodQuantity']
+            .sum()
+            .rename(columns={'poNote': 'poNo', 'itemGoodQuantity': 'current_good_qty'})
+        )
+
+        # Merge backlog with current production info
+        merged = backlog_df.merge(now_summary, on='poNo', how='left')
+
+        # Fill missing current_good_qty (for PO not found in now_df)
+        merged['current_good_qty'] = merged['current_good_qty'].fillna(0)
+
+        # Recalculate fields
+        merged['itemQuantity'] = merged['remaining_backlog_qty']                                     # backlog quantity
+        merged['itemGoodQuantity'] = merged['current_good_qty']                                      # quantity produced now
+        merged['itemRemainQuantity'] = merged['remaining_backlog_qty'] - merged['current_good_qty']  # remaining quantity
+
+        # Drop temporary column
+        merged = merged.drop(columns=['remaining_backlog_qty'])
+
+        return merged
 
     def _compute_mold_capacity(self, 
                                df: pd.DataFrame, 
