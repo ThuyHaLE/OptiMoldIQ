@@ -550,24 +550,30 @@ class MonthLevelDataProcessor:
         # Detect backlog POs (unfinished from earlier months)
         backlog_df = self._detect_backlog(record_month, filtered_product_records)
 
-        # Revise backlog POs (remain quantity)
-        new_backlog_df = self._calculate_backlog_quantity(
-            backlog_df, filtered_product_records, analysis_timestamp)
-        
-        self.logger.info(
-            "Found {} backlog orders and {} current orders",
-            len(new_backlog_df),
-            len(purchase_status_df)
-        )
+        if not backlog_df.empty:
+            # Revise backlog POs (remain quantity)
+            new_backlog_df = self._calculate_backlog_quantity(
+                backlog_df, filtered_product_records, analysis_timestamp)
+            
+            self.logger.info(
+                "Found {} backlog orders and {} current orders",
+                len(new_backlog_df),
+                len(purchase_status_df)
+            )
 
-        # Combine backlog and current-month datasets
-        combined_df = pd.concat([new_backlog_df, purchase_status_df], ignore_index=True)
+            # Combine backlog and current-month datasets
+            combined_df = pd.concat([new_backlog_df, purchase_status_df], ignore_index=True)
 
-        self.logger.info("Combined dataset size: {} orders", len(combined_df))
+            self.logger.info("Combined dataset size: {} orders", len(combined_df))
+            
+            # Return consolidated results
+            return combined_df
 
-        # Return consolidated results
-
-        return combined_df
+        else:
+            self.logger.info("Found 0 backlog orders and {} current orders", len(purchase_status_df))
+            self.logger.info("Dataset size: {} orders", len(purchase_status_df))
+            
+            return purchase_status_df
     
     def _calculate_backlog_quantity(self, 
                                     backlog_df: pd.DataFrame, 
