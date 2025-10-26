@@ -49,11 +49,10 @@ def plot_overdue_analysis(ax,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold',
-        pad=15
+        pad=15,
     )
 
     ax.set_xlabel('Is Overdue', fontsize=sizes['xlabel'])
     ax.set_ylabel('Number of POs', fontsize=sizes['ylabel'])
     ax.set_xticklabels(xtick_lables, rotation=0)
-    ax.legend(bbox_to_anchor=(1.02, 1),
-              loc='upper left',)
+    ax.legend(title='PO Status', loc='upper right')

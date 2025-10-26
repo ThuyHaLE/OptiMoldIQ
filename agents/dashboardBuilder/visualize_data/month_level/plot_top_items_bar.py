@@ -94,7 +94,6 @@ def plot_top_items_bar(ax,
     ]
     ax.legend(
         handles=legend_handles,
-        title="PO Status",
         bbox_to_anchor=(1.02, 1),
         loc='upper left',
         fontsize=sizes['legend'],
