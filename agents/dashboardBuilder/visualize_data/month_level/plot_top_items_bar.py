@@ -22,8 +22,8 @@ def plot_top_items_bar(ax,
     if df.empty:
         ax.text(0.5, 0.5, 'No data available', 
                 ha='center', va='center', 
-                fontsize=sizes.get('title', 14),
-                color=colors.get('title', 'black'))
+                fontsize=sizes['title'],
+                color=sizes['title'])
         ax.set_title(subplot_title,
                     fontsize=sizes['title'],
                     color=colors['title'],
@@ -61,14 +61,13 @@ def plot_top_items_bar(ax,
     )
     ax.set_xlabel(
         'Remaining Quantity',
-        fontsize=sizes['xlabel'],
-        fontweight='bold'
+        fontsize=sizes['xlabel']
     )
     ax.set_title(
         subplot_title,
         fontsize=sizes['title'],
         fontweight='bold',
-        pad=15,
+        pad=10,
         color=colors['title']
     )
     ax.invert_yaxis()
@@ -85,8 +84,7 @@ def plot_top_items_bar(ax,
             bar.get_y() + bar.get_height()/2.,
             f'  {progress*100:.1f}% | {int(width):,}',
             ha='left', va='center',
-            fontsize=sizes['text'],
-            fontweight='bold'
+            fontsize=sizes['text']
         )
 
     # Legend
@@ -97,7 +95,8 @@ def plot_top_items_bar(ax,
     ax.legend(
         handles=legend_handles,
         title="PO Status",
-        loc="lower right",
+        bbox_to_anchor=(1.02, 1),
+        loc='upper left',
         fontsize=sizes['legend'],
         framealpha=0.95
     )

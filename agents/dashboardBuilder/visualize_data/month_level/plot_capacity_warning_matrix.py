@@ -50,7 +50,8 @@ def plot_capacity_warning_matrix(ax,
         subplot_title,
         fontsize=sizes['title'],
         color=colors['title'],
-        fontweight='bold'
+        fontweight='bold',
+        pad=15
     )
     ax.set_xlabel('Capacity Severity', fontsize=sizes['xlabel'])
     ax.set_ylabel('Capacity Warning', fontsize=sizes['ylabel'])

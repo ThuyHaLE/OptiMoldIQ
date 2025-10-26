@@ -21,8 +21,8 @@ def plot_capacity_severity(ax,
     if df.empty:
         ax.text(0.5, 0.5, 'No data available', 
                 ha='center', va='center', 
-                fontsize=sizes.get('title', 14),
-                color=colors.get('title', 'black'))
+                fontsize=sizes['title'],
+                color=sizes['title'])
         ax.set_title(subplot_title,
                     fontsize=sizes['title'],
                     color=colors['title'],
@@ -41,7 +41,8 @@ def plot_capacity_severity(ax,
         subplot_title,
         fontsize=sizes['title'],
         color=colors['title'],
-        fontweight='bold'
+        fontweight='bold',
+        pad=15
     )
     ax.set_ylabel('Number of POs', fontsize=sizes['ylabel'])
     
@@ -51,6 +52,5 @@ def plot_capacity_severity(ax,
             bar.get_x() + bar.get_width()/2.,
             height,
             f'{int(height)}',
-            ha='center', va='bottom',
-            fontweight='bold'
+            ha='center', va='bottom'
         )

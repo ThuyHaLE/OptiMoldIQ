@@ -22,8 +22,8 @@ def plot_overdue_analysis(ax,
     if df.empty:
         ax.text(0.5, 0.5, 'No data available', 
                 ha='center', va='center', 
-                fontsize=sizes.get('title', 14),
-                color=colors.get('title', 'black'))
+                fontsize=sizes['title'],
+                color=sizes['title'])
         ax.set_title(subplot_title,
                     fontsize=sizes['title'],
                     color=colors['title'],
@@ -48,10 +48,12 @@ def plot_overdue_analysis(ax,
         subplot_title,
         fontsize=sizes['title'],
         color=colors['title'],
-        fontweight='bold'
+        fontweight='bold',
+        pad=15
     )
 
     ax.set_xlabel('Is Overdue', fontsize=sizes['xlabel'])
     ax.set_ylabel('Number of POs', fontsize=sizes['ylabel'])
     ax.set_xticklabels(xtick_lables, rotation=0)
-    ax.legend(title='PO Status', loc='upper right')
+    ax.legend(bbox_to_anchor=(1.02, 1),
+              loc='upper left',)

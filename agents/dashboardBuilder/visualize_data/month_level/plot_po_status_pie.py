@@ -24,8 +24,8 @@ def plot_po_status_pie(ax,
     if df.empty:
         ax.text(0.5, 0.5, 'No data available', 
                 ha='center', va='center', 
-                fontsize=sizes.get('title', 14),
-                color=colors.get('title', 'black'))
+                fontsize=sizes['title'],
+                color=sizes['title'])
         ax.set_title(title,
                     fontsize=sizes['title'],
                     color=colors['title'],
@@ -45,5 +45,6 @@ def plot_po_status_pie(ax,
         title,
         fontsize=sizes['title'],
         color=colors['title'],
-        fontweight='bold'
+        fontweight='bold',
+        pad=15
     )
