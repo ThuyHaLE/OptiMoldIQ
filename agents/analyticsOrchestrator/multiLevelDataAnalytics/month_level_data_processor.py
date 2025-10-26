@@ -327,6 +327,7 @@ class MonthLevelDataProcessor:
 
     def _detect_backlog(self,
                         record_month: str,
+                        analysis_timestamp: str,
                         product_records: pd.DataFrame) -> pd.DataFrame:
         """
         Detect backlog purchase orders for a given month based on ETA and production status.
@@ -377,8 +378,8 @@ class MonthLevelDataProcessor:
 
         # Determine the cutoff date for backlog detection
         # Cutoff = last day of previous month (before the record_month starts)
-        analysis_timestamp = record_period.to_timestamp(how="start")
-        cutoff_date = analysis_timestamp - pd.Timedelta(days=1)
+        period_timestamp = record_period.to_timestamp(how="start")
+        cutoff_date = period_timestamp - pd.Timedelta(days=1)
         self.logger.info("Cut-off date: {}", cutoff_date.date())
 
         # Validate presence of required purchase order columns
@@ -396,6 +397,7 @@ class MonthLevelDataProcessor:
 
         # Filter purchase orders that should have arrived before record_month
         filtered_po = po_df[po_df["poETA"] <= cutoff_date].copy()
+        filtered_records = product_records[product_records['recordDate'] <= cutoff_date].copy()
 
         if filtered_po.empty:
             # No orders expected before cutoff → no backlog possible
@@ -405,7 +407,7 @@ class MonthLevelDataProcessor:
         self.logger.info("Total orders with ETA <= cutoff: {}", len(filtered_po))
 
         # Merge with production status to determine completion
-        merged_df = MonthLevelDataProcessor._merge_purchase_status(filtered_po, product_records)
+        merged_df = MonthLevelDataProcessor._merge_purchase_status(filtered_po, filtered_records)
 
         # Ensure merged dataset includes production status info
         if 'proStatus' not in merged_df.columns:
@@ -417,15 +419,93 @@ class MonthLevelDataProcessor:
         # Add explicit backlog flag for easier downstream filtering
         backlog_df['is_backlog'] = True
 
+        # Reset NG quantity if any
+        backlog_df['itemNGQuantity'] = 0
+
         # Log summary and return results
         if backlog_df.empty:
             self.logger.info("No backlog orders found")
         else:
-            backlog_orders = backlog_df["poNo"].unique()
+            # Revise backlog POs (remain quantity)
+            new_backlog_df = self._calculate_backlog_quantity(
+                backlog_df, product_records, cutoff_date, analysis_timestamp)
+            backlog_orders = new_backlog_df["poNo"].unique()
             self.logger.info("Backlog orders count: {}", len(backlog_orders))
             self.logger.debug("Backlog order numbers: {}", backlog_orders.tolist())
 
-        return backlog_df
+        return new_backlog_df
+    
+    def _calculate_backlog_quantity(self, 
+                                    backlog_df: pd.DataFrame, 
+                                    product_records_df: pd.DataFrame, 
+                                    cutoff_timestamp: str,
+                                    analysis_timestamp: str) -> pd.DataFrame:
+        """
+        Recalculate backlog item quantities using the latest production data.
+        It updates backlog orders with recalculated remaining quantities based on the most recent progress.
+
+        Args:
+            backlog_df (pd.DataFrame): Backlog data containing columns
+                ['poNo', 'itemQuantity', 'itemGoodQuantity', 'is_backlog'].
+            product_records_df (pd.DataFrame): Product records data containing columns
+                ['recordDate', 'poNote', 'itemGoodQuantity']
+
+        Returns:
+            pd.DataFrame: Updated backlog dataframe with recalculated fields:
+                - itemQuantity: updated backlog quantity
+                - itemGoodQuantity: matched quantity from current data
+                - itemRemainQuantity: remaining quantity after deduction
+        """
+        # Validate dataframe
+        validate_dataframe(backlog_df, ['poNo', 'itemQuantity', 'itemGoodQuantity', 'is_backlog'])
+        validate_dataframe(product_records_df, ['recordDate', 'poNote', 'itemGoodQuantity'])
+        
+        # Records must be larger than cut-off date and smaller than analysis timestamp
+        filter_mask = (
+            (product_records_df['recordDate'] > cutoff_timestamp) & 
+            (product_records_df['recordDate'] <= analysis_timestamp)
+            )
+        
+        # Process product records
+        now_df = product_records_df[filter_mask].copy()
+
+        # Compute current ng quantity
+        now_df['current_ng_qty'] = now_df['itemTotalQuantity'] - now_df['itemGoodQuantity']
+
+        # Compute remaining quantity from backlog
+        backlog_df['remaining_backlog_qty'] = (
+            backlog_df['itemQuantity'] - backlog_df['itemGoodQuantity']
+        )
+
+        # Summarize latest production quantities (Good & NG) by PO
+        now_summary = (
+            now_df.groupby('poNote', as_index=False)
+            .agg(
+                current_good_qty=('itemGoodQuantity', 'sum'),
+                current_ng_qty=('current_ng_qty', 'sum')
+            )
+            .rename(columns={'poNote': 'poNo'})
+        )
+
+        # Merge backlog with current production info
+        merged = backlog_df.merge(now_summary, on='poNo', how='left')
+
+        # Recalculate fields
+        merged['itemQuantity'] = merged['remaining_backlog_qty']                                     # backlog quantity
+        merged['itemGoodQuantity'] = merged['current_good_qty']                                      # quantity produced now
+        merged['itemNGQuantity'] = merged['current_ng_qty']                                          # NG quantity produced now
+        merged['itemRemainQuantity'] = merged['remaining_backlog_qty'] - merged['current_good_qty']  # remaining quantity
+        merged["proStatus"] = np.where(                                                              # production status
+            (merged['itemGoodQuantity'].notna()) &
+            (merged["itemGoodQuantity"] >= merged["itemQuantity"]),
+            "finished",
+            "unfinished"
+        )
+
+        # Drop temporary column
+        merged = merged.drop(columns=['remaining_backlog_qty', 'current_good_qty', 'current_ng_qty'])
+
+        return merged
 
     def _filter_data(self,
                     record_month: str,
@@ -517,9 +597,18 @@ class MonthLevelDataProcessor:
             record_period
         )
 
+        # Create a working copy of product records to avoid modifying the original DataFrame
+        productRecords_df = self.productRecords_df.copy()
+
+        # Calculate defective item quantity (ensure non-negative values)
+        productRecords_df['itemNGQuantity'] = np.maximum(
+            0, 
+            productRecords_df['itemTotalQuantity'] - 
+            productRecords_df['itemGoodQuantity'])
+        
         # Filter production records up to the analysis timestamp
-        filtered_product_records = self.productRecords_df[
-            self.productRecords_df["recordDate"] <= analysis_timestamp].copy()
+        filtered_product_records = productRecords_df[
+            productRecords_df["recordDate"] <= analysis_timestamp].copy()
 
         if filtered_product_records.empty:
             # No production data available for the target analysis window
@@ -548,21 +637,17 @@ class MonthLevelDataProcessor:
         purchase_status_df['is_backlog'] = False
 
         # Detect backlog POs (unfinished from earlier months)
-        backlog_df = self._detect_backlog(record_month, filtered_product_records)
+        backlog_df = self._detect_backlog(record_month, analysis_timestamp, filtered_product_records)
 
         if not backlog_df.empty:
-            # Revise backlog POs (remain quantity)
-            new_backlog_df = self._calculate_backlog_quantity(
-                backlog_df, filtered_product_records, analysis_timestamp)
-            
             self.logger.info(
                 "Found {} backlog orders and {} current orders",
-                len(new_backlog_df),
+                len(backlog_df),
                 len(purchase_status_df)
             )
 
             # Combine backlog and current-month datasets
-            combined_df = pd.concat([new_backlog_df, purchase_status_df], ignore_index=True)
+            combined_df = pd.concat([backlog_df, purchase_status_df], ignore_index=True)
 
             self.logger.info("Combined dataset size: {} orders", len(combined_df))
             
@@ -574,66 +659,6 @@ class MonthLevelDataProcessor:
             self.logger.info("Dataset size: {} orders", len(purchase_status_df))
             
             return purchase_status_df
-    
-    def _calculate_backlog_quantity(self, 
-                                    backlog_df: pd.DataFrame, 
-                                    product_records_df: pd.DataFrame, 
-                                    analysis_timestamp: str) -> pd.DataFrame:
-        """
-        Recalculate backlog item quantities using the latest production data.
-        It updates backlog orders with recalculated remaining quantities based on the most recent progress.
-
-        Args:
-            backlog_df (pd.DataFrame): Backlog data containing columns
-                ['poNo', 'itemQuantity', 'itemGoodQuantity', 'is_backlog'].
-            product_records_df (pd.DataFrame): Product records data containing columns
-                ['recordDate', 'poNote', 'itemGoodQuantity']
-
-        Returns:
-            pd.DataFrame: Updated backlog dataframe with recalculated fields:
-                - itemQuantity: updated backlog quantity
-                - itemGoodQuantity: matched quantity from current data
-                - itemRemainQuantity: remaining quantity after deduction
-        """
-        
-        # Validate dataframe
-        validate_dataframe(backlog_df, ['poNo', 'itemQuantity', 'itemGoodQuantity', 'is_backlog'])
-        validate_dataframe(product_records_df, ['recordDate', 'poNote', 'itemGoodQuantity'])
-        
-        # Process product records
-        now_df = product_records_df[
-            product_records_df['recordDate'].dt.strftime('%Y-%m') == analysis_timestamp.strftime('%Y-%m')]
-
-        # Keep only backlog records
-        backlog_df = backlog_df[backlog_df['is_backlog'] == True].copy()
-
-        # Compute remaining quantity from backlog
-        backlog_df['remaining_backlog_qty'] = (
-            backlog_df['itemQuantity'] - backlog_df['itemGoodQuantity']
-        )
-
-        # Summarize latest production quantity by PO (from now_df)
-        now_summary = (
-            now_df.groupby('poNote', as_index=False)['itemGoodQuantity']
-            .sum()
-            .rename(columns={'poNote': 'poNo', 'itemGoodQuantity': 'current_good_qty'})
-        )
-
-        # Merge backlog with current production info
-        merged = backlog_df.merge(now_summary, on='poNo', how='left')
-
-        # Fill missing current_good_qty (for PO not found in now_df)
-        merged['current_good_qty'] = merged['current_good_qty'].fillna(0)
-
-        # Recalculate fields
-        merged['itemQuantity'] = merged['remaining_backlog_qty']                                     # backlog quantity
-        merged['itemGoodQuantity'] = merged['current_good_qty']                                      # quantity produced now
-        merged['itemRemainQuantity'] = merged['remaining_backlog_qty'] - merged['current_good_qty']  # remaining quantity
-
-        # Drop temporary column
-        merged = merged.drop(columns=['remaining_backlog_qty'])
-
-        return merged
 
     def _compute_mold_capacity(self, 
                                df: pd.DataFrame, 
