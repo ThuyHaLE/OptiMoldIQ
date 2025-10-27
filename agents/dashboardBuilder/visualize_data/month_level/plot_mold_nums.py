@@ -2,8 +2,9 @@ from agents.decorators import validate_init_dataframes
 from typing import Dict
 import pandas as pd
 
-@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'itemQuantity',
-                                  'itemGoodQuantity', 'etaStatus', 'proStatus', 'moldHistNum']})
+@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+                                  'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+                                  'proStatus', 'moldHistNum', 'itemNGRate']})
     
 def plot_mold_nums(ax, 
                    df: pd.DataFrame, 
@@ -43,7 +44,7 @@ def plot_mold_nums(ax,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold',
-        pad=15
+        pad=10
     )
     ax.set_ylabel('Number of POs', fontsize=sizes['ylabel'])
     

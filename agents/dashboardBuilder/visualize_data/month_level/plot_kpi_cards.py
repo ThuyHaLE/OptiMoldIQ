@@ -3,8 +3,9 @@ import matplotlib.patches as mpatches
 from typing import Dict
 import pandas as pd
 
-@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'itemQuantity',
-                                  'itemGoodQuantity', 'etaStatus', 'proStatus', 'moldHistNum']})
+@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+                                  'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+                                  'proStatus', 'moldHistNum', 'itemNGRate']})
     
 def plot_kpi_cards(ax, 
                    df: pd.DataFrame, 

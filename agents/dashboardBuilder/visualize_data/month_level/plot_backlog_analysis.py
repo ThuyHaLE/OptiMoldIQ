@@ -2,11 +2,9 @@ from agents.decorators import validate_init_dataframes
 from typing import Dict
 import pandas as pd
 
-@validate_init_dataframes({"df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'is_backlog',
-                                  'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
-                                  'itemRemainQuantity', 'completionProgress', 'etaStatus',
-                                  'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
-                                  'capacitySeverity', 'capacityExplanation']})
+@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+                                  'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+                                  'proStatus', 'moldHistNum', 'itemNGRate']})
     
 def plot_backlog_analysis(ax, 
                           df: pd.DataFrame, 
@@ -43,7 +41,7 @@ def plot_backlog_analysis(ax,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold',
-        pad=15
+        pad=10
     )
     ax.set_ylabel('Number of POs', fontsize=sizes['ylabel'])
     

@@ -3,8 +3,8 @@ from agents.decorators import validate_init_dataframes
 from typing import Dict
 import pandas as pd
 
-@validate_init_dataframes({"df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'is_backlog',
-                                  'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
+@validate_init_dataframes({"df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
+                                  'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
                                   'itemRemainQuantity', 'completionProgress', 'etaStatus',
                                   'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
                                   'capacitySeverity', 'capacityExplanation']})
@@ -51,7 +51,7 @@ def plot_capacity_warning_matrix(ax,
         fontsize=sizes['title'],
         color=colors['title'],
         fontweight='bold',
-        pad=15
+        pad=10
     )
     ax.set_xlabel('Capacity Severity', fontsize=sizes['xlabel'])
     ax.set_ylabel('Capacity Warning', fontsize=sizes['ylabel'])

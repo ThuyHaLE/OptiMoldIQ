@@ -3,8 +3,11 @@ from agents.decorators import validate_init_dataframes
 from typing import Dict
 import pandas as pd
 
-@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'itemQuantity',
-                                  'itemGoodQuantity', 'etaStatus', 'proStatus', 'moldHistNum']})
+@validate_init_dataframes({"df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
+                                  'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
+                                  'itemRemainQuantity', 'completionProgress', 'etaStatus',
+                                  'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
+                                  'capacitySeverity', 'capacityExplanation']})
 
 def plot_progress_bar(ax, 
                       df: pd.DataFrame, 
@@ -152,7 +155,7 @@ def plot_progress_bar(ax,
             progress_percentage/2 + 0.3, 0.43,
             f'{progress_percentage:.1f}%',
             ha='center', va='center',
-            fontsize=sizes['progress_text'],
+            fontsize=sizes['progress_text']* 0.7,
             fontweight='bold',
             color='#1e293b',
             alpha=0.2,
@@ -163,7 +166,7 @@ def plot_progress_bar(ax,
             progress_percentage/2, 0.45,
             f'{progress_percentage:.1f}%',
             ha='center', va='center',
-            fontsize=sizes['progress_text'],
+            fontsize=sizes['progress_text']* 0.7,
             fontweight='bold',
             color='white',
             zorder=9
@@ -173,7 +176,7 @@ def plot_progress_bar(ax,
             progress_percentage + 6, 0.45,
             f'{progress_percentage:.1f}%',
             ha='left', va='center',
-            fontsize=sizes['progress_text'],
+            fontsize=sizes['progress_text']* 0.7,
             fontweight='bold',
             color=bar_colors[1],
             zorder=9
@@ -181,7 +184,7 @@ def plot_progress_bar(ax,
 
     # Bottom text
     ax.text(
-        50, 0.01,
+        50, -0.15,
         f'Completed: {int(total_good_quantity):,} / {int(total_quantity):,} | Remaining: {int(total_quantity - total_good_quantity):,}',
         ha='center', va='bottom',
         fontsize=sizes['title'],
@@ -190,7 +193,7 @@ def plot_progress_bar(ax,
 
     # Title
     ax.text(
-        50, 0.95, subplot_title,
+        50, 1.2, subplot_title,
         ha='center', va='top',
         fontsize=sizes['title'],
         fontweight='bold',

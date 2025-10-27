@@ -2,22 +2,21 @@ from agents.decorators import validate_init_dataframes
 import matplotlib.patches as mpatches
 from typing import Dict
 import pandas as pd
+import numpy as np
 
-@validate_init_dataframes({"df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
-                                  'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
-                                  'itemRemainQuantity', 'completionProgress', 'etaStatus',
-                                  'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
-                                  'capacitySeverity', 'capacityExplanation']})
-    
-def plot_top_items_bar(ax, 
+@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+                                  'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+                                  'proStatus', 'moldHistNum', 'itemNGRate']})
+
+def plot_top_ng_items_bar(ax, 
                        df: pd.DataFrame, 
                        colors: Dict, 
                        sizes: Dict):
     """
-    Plot top 10 items by remaining quantity (horizontal bar)
+    Plot top 10 items by NG rate (horizontal bar)
     """
 
-    subplot_title = 'Top 10 Items by Remaining Quantity'
+    subplot_title = 'Top 10 Items by NG Rate'
 
     if df.empty:
         ax.text(0.5, 0.5, 'No data available', 
@@ -31,8 +30,13 @@ def plot_top_items_bar(ax,
         ax.axis('off')
         return
     
-    top_items = df.nlargest(10, 'itemRemainQuantity')[
-        ['poStatus', 'completionProgress', 'itemCodeName', 'itemRemainQuantity']
+    df['itemNGRate'] = df['itemNGQuantity']/df['itemQuantity']
+
+    # Lọc bỏ các dòng có itemNGRate là NaN hoặc inf
+    df_filtered = df[df['itemNGRate'].notna() & np.isfinite(df['itemNGRate'])].copy()
+    
+    top_items = df_filtered.nlargest(10, 'itemNGRate')[
+        ['poStatus', 'itemCodeName', 'itemNGRate', 'itemQuantity']
     ]
 
     top_items_statuses = top_items['poStatus'].unique().tolist()
@@ -46,12 +50,14 @@ def plot_top_items_bar(ax,
 
     bars = ax.barh(
         range(len(top_items)),
-        top_items['itemRemainQuantity'],
+        top_items['itemNGRate'],
         color=top_items_colors_bar,
         edgecolor='white',
         linewidth=2.5,
         alpha=0.85
     )
+
+    ax.set_xticklabels([])
 
     ax.set_yticks(range(len(top_items)))
     ax.set_yticklabels(
@@ -59,10 +65,7 @@ def plot_top_items_bar(ax,
          for name in top_items['itemCodeName']],
         fontsize=9
     )
-    ax.set_xlabel(
-        'Remaining Quantity',
-        fontsize=sizes['xlabel']
-    )
+
     ax.set_title(
         subplot_title,
         fontsize=sizes['title'],
@@ -78,11 +81,11 @@ def plot_top_items_bar(ax,
     # Value labels
     for i, bar in enumerate(bars):
         width = bar.get_width()
-        progress = top_items.iloc[i]['completionProgress']
+        ng_qty = top_items.iloc[i]['itemQuantity']
         ax.text(
             width,
             bar.get_y() + bar.get_height()/2.,
-            f'  {progress*100:.1f}% | {int(width):,}',
+            f'  {width*100:.2f}% | Total: {int(ng_qty):,}',
             ha='left', va='center',
             fontsize=sizes['text']
         )
@@ -95,7 +98,7 @@ def plot_top_items_bar(ax,
     ax.legend(
         handles=legend_handles,
         bbox_to_anchor=(1.02, 1),
-        loc='upper left',
+        loc='center left',
         fontsize=sizes['legend'],
         framealpha=0.95
     )

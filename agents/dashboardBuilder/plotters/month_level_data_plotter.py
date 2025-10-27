@@ -50,7 +50,7 @@ DEFAULT_CONFIG = {
         "left": 0.06,
         "right": 0.97
     },
-    "row_nums": 7,
+    "row_nums": 8,
     "column_nums": 3,
     "palette_name": "muted",
     "color_nums": 30,
@@ -428,15 +428,19 @@ class MonthLevelDataPlotter:
             'Finished PO Status Distribution', colors, sizes
         )
         
-        plot_late_items_bar(fig.add_subplot(gs[2, :]), self.df, colors, sizes)
-        plot_overdue_analysis(fig.add_subplot(gs[3, 0]), self.df, colors, sizes)
-        plot_backlog_analysis(fig.add_subplot(gs[3, 1]), self.df, colors, sizes)
-        plot_capacity_warning_matrix(fig.add_subplot(gs[3, 2]), self.df, colors, sizes)
-        plot_top_items_bar(fig.add_subplot(gs[4, :]), self.df, colors, sizes)
+        plot_backlog_analysis(fig.add_subplot(gs[2, 0]), self.all_progress_df, colors, sizes)
+
+        plot_overdue_analysis(fig.add_subplot(gs[2, 1]), self.df, colors, sizes)
+        plot_capacity_warning_matrix(fig.add_subplot(gs[2, 2]), self.df, colors, sizes)
+
+        plot_top_items_bar(fig.add_subplot(gs[3:5, :]), self.df, colors, sizes)
+
         plot_capacity_severity(fig.add_subplot(gs[5, 0]), self.df, colors, sizes)
         plot_progress_distribution(fig.add_subplot(gs[5, 1]), self.df, colors, sizes)
         plot_mold_nums(fig.add_subplot(gs[5, 2]), self.all_progress_df, colors, sizes)
-        plot_kpi_cards(fig.add_subplot(gs[6, :]), self.all_progress_df, colors, sizes)
+
+        plot_late_items_bar(fig.add_subplot(gs[6, :]), self.df, colors, sizes)
+        plot_kpi_cards(fig.add_subplot(gs[7, :]), self.all_progress_df, colors, sizes)
         
         # Add main title
         fig.suptitle(
