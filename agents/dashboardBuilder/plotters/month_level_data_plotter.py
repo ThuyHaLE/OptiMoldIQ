@@ -21,6 +21,8 @@ from agents.dashboardBuilder.visualize_data.month_level.plot_po_status_pie impor
 from agents.dashboardBuilder.visualize_data.month_level.plot_progress_bar import plot_progress_bar
 from agents.dashboardBuilder.visualize_data.month_level.plot_progress_distribution import plot_progress_distribution
 from agents.dashboardBuilder.visualize_data.month_level.plot_top_items_bar import plot_top_items_bar
+from agents.dashboardBuilder.visualize_data.month_level.plot_top_ng_items_bar import plot_top_ng_items_bar
+from agents.dashboardBuilder.visualize_data.month_level.plot_ng_rate import plot_ng_rate
 from agents.analyticsOrchestrator.multiLevelDataAnalytics.month_level_data_processor import MonthLevelDataProcessor
 from agents.dashboardBuilder.reportFormatters.generate_early_warning_report import generate_early_warning_report
 
@@ -43,14 +45,14 @@ DEFAULT_CONFIG = {
         "font.size": 10
     },
     "layout_params": {
-        "hspace": 0.55,
+        "hspace": 0.95,
         "wspace": 0.3,
         "top": 0.96,
         "bottom": 0.06,
         "left": 0.06,
         "right": 0.97
     },
-    "row_nums": 8,
+    "row_nums": 10,
     "column_nums": 3,
     "palette_name": "muted",
     "color_nums": 30,
@@ -90,18 +92,17 @@ DEFAULT_CONFIG = {
 
 # Required columns for dataframes
 REQUIRED_UNFINISHED_COLUMNS = [
-    'poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity',
-    'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum', 
-    'itemRemainQuantity', 'completionProgress', 'etaStatus', 'overAvgCapacity', 
-    'overTotalCapacity', 'is_overdue', 'capacityWarning', 'capacitySeverity', 
-    'capacityExplanation'
-]
+    'poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
+    'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
+    'itemRemainQuantity', 'completionProgress', 'etaStatus',
+    'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
+    'capacitySeverity', 'capacityExplanation']
 
 REQUIRED_PROGRESS_COLUMNS = [
-    'poNo', 'itemCodeName', 'is_backlog', 'poStatus', 
-    'itemQuantity', 'itemGoodQuantity', 'etaStatus', 'proStatus', 'moldHistNum'
-]
-
+    'poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+    'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+    'proStatus', 'moldHistNum'
+    ]
 
 class MonthLevelDataPlotter:
     """
@@ -391,7 +392,7 @@ class MonthLevelDataPlotter:
         sns.set_palette(visualization_config['sns_palette']) 
         plt.rcParams.update(visualization_config['plt_rcParams_update']) 
         sns.set_style(visualization_config['sns_set_style']) 
-        plt.rcParams['figure.figsize'] = (16, 12)
+        plt.rcParams['figure.figsize'] = (16, 28)
         
         # Load colors and sizes
         colors = visualization_config['colors']
@@ -407,7 +408,7 @@ class MonthLevelDataPlotter:
         column_nums = visualization_config['column_nums']
         
         # Create figure with GridSpec
-        fig = plt.figure(figsize=(16, 16))
+        fig = plt.figure()
         gs = GridSpec(row_nums, column_nums, fig, **layout_params)
         
         # Plot all subplots
@@ -440,7 +441,11 @@ class MonthLevelDataPlotter:
         plot_mold_nums(fig.add_subplot(gs[5, 2]), self.all_progress_df, colors, sizes)
 
         plot_late_items_bar(fig.add_subplot(gs[6, :]), self.df, colors, sizes)
-        plot_kpi_cards(fig.add_subplot(gs[7, :]), self.all_progress_df, colors, sizes)
+
+        plot_ng_rate(fig.add_subplot(gs[7:9, 2]), self.all_progress_df, colors, sizes)
+        plot_top_ng_items_bar(fig.add_subplot(gs[7:9, :2]), self.all_progress_df, colors, sizes)
+
+        plot_kpi_cards(fig.add_subplot(gs[9, :]), self.all_progress_df, colors, sizes)
         
         # Add main title
         fig.suptitle(

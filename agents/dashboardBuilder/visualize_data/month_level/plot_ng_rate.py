@@ -59,6 +59,7 @@ def plot_ng_rate(ax,
 
     # ---- Calculate NG rate (%) ----
     df_work['NG_rate'] = df_work['itemNGQuantity'] / (df_work['itemGoodQuantity'] + df_work['itemNGQuantity']) * 100
+    df_work['NG_rate'] = df_work['NG_rate'].fillna(0)
 
     # ---- Define 6 bins ----
     bins = [0, 20, 40, 60, 80, 100]

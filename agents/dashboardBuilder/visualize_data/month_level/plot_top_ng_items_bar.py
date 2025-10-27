@@ -30,10 +30,11 @@ def plot_top_ng_items_bar(ax,
         ax.axis('off')
         return
     
-    df['itemNGRate'] = df['itemNGQuantity']/df['itemQuantity']
+    df['itemNGRate'] = df['itemNGQuantity'] / (df['itemGoodQuantity'] + df['itemNGQuantity']) * 100
+    df['itemNGRate'] = df['itemNGRate'].fillna(0)
 
     # Lọc bỏ các dòng có itemNGRate là NaN hoặc inf
-    df_filtered = df[df['itemNGRate'].notna() & np.isfinite(df['itemNGRate'])].copy()
+    df_filtered = df[df['itemNGRate']>0].copy()
     
     top_items = df_filtered.nlargest(10, 'itemNGRate')[
         ['poStatus', 'itemCodeName', 'itemNGRate', 'itemQuantity']
