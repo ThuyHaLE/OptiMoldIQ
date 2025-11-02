@@ -1,4 +1,4 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 import numpy as np
@@ -30,7 +30,6 @@ DEFAULT_CONFIG = {
     "subtitle_y": 0.90,
 }
 
-@validate_init_dataframes({"df": ['workingShift', 'machineNo', 'moldNo', 'moldShot', 'moldCount']})
 def machine_level_mold_analysis_plotter(df: pd.DataFrame,
                                         main_title: str = 'Manufacturing Performance Dashboard',
                                         subtitle: str = 'Mold Analysis by Machine & Shift',
@@ -51,6 +50,11 @@ def machine_level_mold_analysis_plotter(df: pd.DataFrame,
         enable_trends (bool): Whether to show trend lines
     """
 
+    # Valid data frame
+    required_columns = ['workingShift', 'machineNo', 'moldNo', 'moldShot', 'moldCount']
+    validate_dataframe(df, required_columns)
+
+    # Load visualization config
     visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
     logger.info("Creating machine level mold analysis chart with {} rows", len(df))

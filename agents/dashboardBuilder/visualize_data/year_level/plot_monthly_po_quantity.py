@@ -1,13 +1,7 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from typing import Dict
 import pandas as pd
 import matplotlib.pyplot as plt
-
-@validate_init_dataframes({"df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
-                                  'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
-                                  'itemRemainQuantity', 'completionProgress', 'etaStatus',
-                                  'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
-                                  'capacitySeverity', 'capacityExplanation']})
 
 def plot_monthly_po_quantity(ax,
                              df: pd.DataFrame,
@@ -32,6 +26,14 @@ def plot_monthly_po_quantity(ax,
     """
 
     subplot_title = 'Number of POs & Total Item Quantity'
+
+    # Valid data frame
+    required_columns = ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
+                        'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
+                        'itemRemainQuantity', 'completionProgress', 'etaStatus',
+                        'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
+                        'capacitySeverity', 'capacityExplanation']
+    validate_dataframe(df, required_columns)
 
     if df.empty:
         ax.text(0.5, 0.5, 'No data available',

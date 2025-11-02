@@ -4,7 +4,7 @@ import numpy as np
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 from typing import Optional, Tuple
 from loguru import logger
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 import matplotlib.ticker as mticker
 
 DEFAULT_CONFIG = {
@@ -43,8 +43,7 @@ def determine_plot_settings(num_machines: int,
     else:
         return (n_cols, n_rows, figsize_config[0], figsize_config[1] )  # Use provided figsize
 
-@validate_init_dataframes({"df": ['machineInfo', 'moldCount', 'itemCount', 'itemComponentCount', 'workingShift', 'changeType']})
-def change_times_all_types_plotter(record_df: pd.DataFrame,
+def change_times_all_types_plotter(df: pd.DataFrame,
                                    main_title = 'Manufacturing Performance Dashboard',
                                    subtitle = 'Change Analysis: All Types by Machine and Shift',
                                    visualization_config_path: Optional[str] = None) -> plt.Figure:
@@ -62,10 +61,15 @@ def change_times_all_types_plotter(record_df: pd.DataFrame,
             matplotlib Figure object
         """
 
+        # Valid data frame
+        required_columns = ['machineInfo', 'moldCount', 'itemCount', 'itemComponentCount', 'workingShift', 'changeType']
+        validate_dataframe(df, required_columns)
+        
+        # Load visualization config
         visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
         # Get all unique machines
-        machines = sorted(record_df['machineInfo'].unique())
+        machines = sorted(df['machineInfo'].unique())
         n_machines = len(machines)
         n_cols, n_rows, weight, height = determine_plot_settings(n_machines, visualization_config['figsize'])
 
@@ -75,7 +79,7 @@ def change_times_all_types_plotter(record_df: pd.DataFrame,
 
         # Generate colors for changeType if not provided
         if visualization_config['text_colors'] is None:
-            all_change_types = record_df['changeType'].unique()
+            all_change_types = df['changeType'].unique()
             colors = generate_color_palette(len(all_change_types), palette_name=visualization_config['palette_name'])
             text_colors = dict(zip(all_change_types, colors))
         else:
@@ -99,7 +103,7 @@ def change_times_all_types_plotter(record_df: pd.DataFrame,
                 axes = axes.reshape(n_rows, n_cols)
 
         # Get all unique shifts
-        shifts = sorted(record_df['workingShift'].unique())
+        shifts = sorted(df['workingShift'].unique())
 
         # Plot configurations
         plot_configs = [
@@ -129,7 +133,7 @@ def change_times_all_types_plotter(record_df: pd.DataFrame,
                 ax = axes[row][col] if n_machines > 1 else axes[col]
 
                 # Filter data for this machine
-                machine_data = record_df[record_df['machineInfo'] == machine].sort_values('workingShift')
+                machine_data = df[df['machineInfo'] == machine].sort_values('workingShift')
 
                 # Plot line
                 ax.plot(machine_data['workingShift'], machine_data[config['count_column']],

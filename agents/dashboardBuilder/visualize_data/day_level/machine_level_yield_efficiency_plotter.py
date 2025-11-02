@@ -1,4 +1,4 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 from loguru import logger
@@ -73,7 +73,6 @@ def determine_plot_settings(num_machines: int, figsize_config: dict) -> tuple:
     
     return figsize, bar_width, marker_size, font_size, annotation_spacing
 
-@validate_init_dataframes({"df": ['machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity']})
 def machine_level_yield_efficiency_plotter(df: pd.DataFrame,
                                            main_title: str = 'Manufacturing Performance Dashboard',
                                            subtitle: str = 'Yield Efficiency by Machine',
@@ -92,6 +91,11 @@ def machine_level_yield_efficiency_plotter(df: pd.DataFrame,
         matplotlib Figure object
     """
     
+    # Valid data frame
+    required_columns = ['machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity']
+    validate_dataframe(df, required_columns)
+
+    # Load visualization config
     visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
     
     logger.debug("Processing dataframe with shape: {}", df.shape)

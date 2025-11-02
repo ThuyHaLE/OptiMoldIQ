@@ -1,4 +1,4 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 import numpy as np
@@ -104,7 +104,6 @@ def calculate_performance_metrics(shift_summary)-> dict:
           "worst_eff": worst_eff
       }
 
-@validate_init_dataframes({"df": ['machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity']})
 def shift_level_yield_efficiency_plotter(df: pd.DataFrame,
                                          main_title: str = 'Manufacturing Performance Dashboard',
                                          subtitle: str = 'Yield Efficiency by Machine & Shift',
@@ -121,7 +120,10 @@ def shift_level_yield_efficiency_plotter(df: pd.DataFrame,
     Returns:
         matplotlib Figure object
     """
-    
+    # Valid data frame
+    required_columns = ['machineNo', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity']
+    validate_dataframe(df, required_columns)
+
     # Input validation
     if df.empty:
         logger.warning("Empty dataframe provided")
@@ -132,6 +134,7 @@ def shift_level_yield_efficiency_plotter(df: pd.DataFrame,
         logger.error("Required column 'workingShift' not found in dataframe")
         raise ValueError("Missing required column 'workingShift'")
 
+    # Load visualization config
     visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
     logger.debug("Processing dataframe with shape: {}", df.shape)

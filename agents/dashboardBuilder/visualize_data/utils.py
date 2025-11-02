@@ -6,8 +6,11 @@ import seaborn as sns
 import matplotlib.colors as mcolors
 from typing import Optional, Dict
 import json
+from matplotlib.colors import to_rgba, to_hex
 
-def load_visualization_config(default_config, visualization_config_path: Optional[str] = None) -> Dict:
+def load_visualization_config(default_config, 
+                              visualization_config_path: Optional[str] = None
+                              ) -> Dict:
     """Load visualization configuration with fallback to defaults."""
 
     def deep_update(base: dict, updates: dict) -> Dict:
@@ -32,7 +35,9 @@ def load_visualization_config(default_config, visualization_config_path: Optiona
 
     return config
 
-def show_all_png_images(folder_path, cols=1, scale=(16, 8)):
+def show_all_png_images(folder_path, 
+                        cols=1, 
+                        scale=(16, 8)):
     """Display all .png images in a folder in a grid layout."""
     png_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
 
@@ -59,7 +64,9 @@ def show_all_png_images(folder_path, cols=1, scale=(16, 8)):
     plt.close()
 
 
-def save_plot(fig, file_path, dpi=300):
+def save_plot(fig, 
+              file_path, 
+              dpi=300):
     """Helper function to save a matplotlib figure."""
     try:
         fig.savefig(
@@ -76,7 +83,8 @@ def save_plot(fig, file_path, dpi=300):
         plt.close(fig)
 
 
-def generate_color_palette(n_colors, palette_name="muted"):
+def generate_color_palette(n_colors, 
+                           palette_name="muted"):
     """Generate a color palette with the specified number of colors."""
     base_colors_dict = {
         "Set1": 9, "Set2": 8, "Set3": 12,
@@ -128,3 +136,63 @@ def generate_color_palette(n_colors, palette_name="muted"):
     show_colors(hex_colors)
 
     return hex_colors
+
+def lighten_color(color,
+                  amount=0.3):
+    """
+    Lighten a given color by mixing it with white.
+    """
+    c = to_rgba(color)
+    white = (1, 1, 1, 1)
+    new_color = tuple((1 - amount) * x + amount * y for x, y in zip(c, white))
+    return to_hex(new_color)
+
+
+def format_value_short(val, 
+                       decimal=2):
+    """
+    Convert a large numeric value into a short human-readable format.
+    """
+    abs_val = abs(val)
+    if abs_val >= 1_000_000_000:
+        return f"{val/1_000_000_000:.{decimal}f}B"
+    elif abs_val >= 1_000_000:
+        return f"{val/1_000_000:.{decimal}f}M"
+    elif abs_val >= 1_000:
+        return f"{val/1_000:.{decimal}f}K"
+    else:
+        # Show as integer if no decimal part, otherwise use specified decimal
+        return f"{int(val)}" if val == int(val) else f"{val:.{decimal}f}"
+
+def add_value_labels(ax,
+                     orientation='h',
+                     float_type=False,
+                     short_format=False):
+    """
+    Add value labels to each bar in a bar chart.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes containing the bars to annotate.
+    orientation : {'h', 'v'}, default='h'
+        Orientation of the bars ('h' for horizontal, 'v' for vertical).
+    float_type : bool, default=False
+        If True, display values as floats with two decimal places;
+        otherwise, display as integers with thousand separators.
+    short_format : bool, default=False
+        If True, display values in short format (K, M, B).
+    """
+
+    for container in ax.containers:
+        if short_format:
+            labels = [format_value_short(v) if v > 0 else '' for v in container.datavalues]
+        elif float_type:
+            labels = [f'{v:.2f}' if v > 0 else '' for v in container.datavalues]
+        else:
+            labels = [f'{int(v):,}' if v > 0 else '' for v in container.datavalues]
+
+        ax.bar_label(container,
+                     labels=labels,
+                     padding=3,
+                     fontsize=8)

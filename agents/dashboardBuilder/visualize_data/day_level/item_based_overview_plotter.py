@@ -4,7 +4,7 @@ import numpy as np
 import warnings
 from typing import Optional, Dict
 import matplotlib.patches as mpatches
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from loguru import logger
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 
@@ -50,10 +50,6 @@ def add_custom_colors(visualization_config: Dict,
                                         palette_name=visualization_config['palette_name'])
         visualization_config['color_list'] = colors
         return visualization_config
-    
-@validate_init_dataframes({"df": ['itemInfo', 'itemTotalQuantity', 'itemGoodQuantity', 'defectRate',
-                                  'usedMachineNums', 'usedComponentNums', 'usedMoldNums',
-                                  'moldTotalShots', 'avgCavity', 'itemNameShort']})
 
 def item_based_overview_plotter(df: pd.DataFrame,
                                 main_title = 'Manufacturing Performance Dashboard',
@@ -72,8 +68,16 @@ def item_based_overview_plotter(df: pd.DataFrame,
         matplotlib.figure.Figure: The created figure
     """
 
+    # Valid data frame
+    required_columns = ['itemInfo', 'itemTotalQuantity', 'itemGoodQuantity', 'defectRate',
+                        'usedMachineNums', 'usedComponentNums', 'usedMoldNums',
+                        'moldTotalShots', 'avgCavity', 'itemNameShort']
+    validate_dataframe(df, required_columns)
+        
+    # Process data
     df = _preprocess_data(df)
 
+    # Load visualization config
     visualization_config = add_custom_colors(
         load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
         )

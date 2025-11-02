@@ -9,6 +9,7 @@ from datetime import datetime
 from matplotlib.gridspec import GridSpec
 from typing import Tuple
 
+from agents.decorators import validate_init_dataframes
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 from agents.dashboardBuilder.visualize_data.month_level.plot_backlog_analysis import plot_backlog_analysis
 from agents.dashboardBuilder.visualize_data.month_level.plot_capacity_severity import plot_capacity_severity
@@ -104,6 +105,9 @@ REQUIRED_PROGRESS_COLUMNS = [
     'proStatus', 'moldHistNum'
     ]
 
+@validate_init_dataframes({"df": REQUIRED_UNFINISHED_COLUMNS,
+                           "all_progress_df": REQUIRED_PROGRESS_COLUMNS})
+
 class MonthLevelDataPlotter:
     """
     Plotter for month-level PO dashboard with visualization and reporting.
@@ -152,9 +156,11 @@ class MonthLevelDataPlotter:
             
             # Unfinished POs and Total POs
             self.df, self.all_progress_df = self.prepare_data()
-            
-            # Validate prepared data
-            self._validate_prepared_data()
+
+            self.logger.info(
+                "Data prepared: {} unfinished records, {} total records",
+                len(self.df), len(self.all_progress_df)
+                )
             
         except Exception as e:
             self.logger.error("Failed to process data: {}", e)
@@ -170,28 +176,6 @@ class MonthLevelDataPlotter:
             raise ValueError(
                 f"Invalid record_month format: '{record_month}'. Expected format: YYYY-MM"
             )
-    
-    def _validate_prepared_data(self) -> None:
-        """Validate that required columns exist in dataframes."""
-        # Check unfinished_df columns
-        missing_unfinished = set(REQUIRED_UNFINISHED_COLUMNS) - set(self.df.columns)
-        if missing_unfinished:
-            raise ValueError(
-                f"Missing required columns in unfinished_df: {missing_unfinished}"
-            )
-        
-        # Check progress_df columns
-        missing_progress = set(REQUIRED_PROGRESS_COLUMNS) - set(self.all_progress_df.columns)
-        if missing_progress:
-            raise ValueError(
-                f"Missing required columns in progress_df: {missing_progress}"
-            )
-        
-        # Log data statistics
-        self.logger.info(
-            "Data prepared: {} unfinished records, {} total records",
-            len(self.df), len(self.all_progress_df)
-        )
     
     def prepare_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """

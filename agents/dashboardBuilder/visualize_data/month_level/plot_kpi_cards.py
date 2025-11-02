@@ -1,11 +1,7 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 import matplotlib.patches as mpatches
 from typing import Dict
 import pandas as pd
-
-@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
-                                  'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
-                                  'proStatus', 'moldHistNum', 'itemNGRate']})
     
 def plot_kpi_cards(ax, 
                    df: pd.DataFrame, 
@@ -16,6 +12,12 @@ def plot_kpi_cards(ax,
     """
 
     subplot_title = 'KPI summary cards'
+
+    # Valid data frame
+    required_columns = ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+                        'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+                        'proStatus', 'moldHistNum', 'itemNGRate']
+    validate_dataframe(df, required_columns)
 
     if df.empty:
         ax.text(0.5, 0.5, 'No data available', 

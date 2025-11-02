@@ -1,4 +1,4 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -39,9 +39,6 @@ def add_custom_colors(visualization_config: Dict,
         visualization_config['color_list'] = colors
         return visualization_config
     
-@validate_init_dataframes({"df": ['workingShift', 'moldNo', 'moldShot', 'moldCavity', 'itemTotalQuantity',
-                                  'itemGoodQuantity', 'changeType', 'defectQuantity', 'defectRate']})
-
 def mold_based_overview_plotter(df: pd.DataFrame,
                                 main_title = 'Manufacturing Performance Dashboard',
                                 subtitle = 'Comprehensive Analysis for Mold-based Records',
@@ -59,7 +56,12 @@ def mold_based_overview_plotter(df: pd.DataFrame,
     Returns:
         matplotlib.figure.Figure: The created figure
     """
+    # Valid data frame
+    required_columns = ['workingShift', 'moldNo', 'moldShot', 'moldCavity', 'itemTotalQuantity',
+                        'itemGoodQuantity', 'changeType', 'defectQuantity', 'defectRate']
+    validate_dataframe(df, required_columns)
 
+    # Load visualization config
     visualization_config = add_custom_colors(
         load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
     )

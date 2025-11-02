@@ -3,11 +3,7 @@ import numpy as np
 from matplotlib.patches import Rectangle
 from matplotlib.colors import to_rgba, to_hex
 from typing import Dict
-from agents.decorators import validate_init_dataframes
-
-@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
-                                  'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
-                                  'proStatus', 'moldHistNum', 'itemNGRate']})
+from agents.decorators import validate_dataframe
 
 def lighten_color(color, amount=0.5):
     """
@@ -40,6 +36,13 @@ def plot_ng_rate(ax,
     """
 
     subplot_title = 'Distribution of NG Rate (Number of POs)'
+
+    # Valid data frame
+    required_columns = ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+                        'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+                        'proStatus', 'moldHistNum', 'itemNGRate']
+    validate_dataframe(df, required_columns)
+
 
     if df.empty:
         ax.text(0.5, 0.5, 'No data available',

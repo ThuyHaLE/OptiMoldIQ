@@ -3,13 +3,7 @@ import numpy as np
 from matplotlib.patches import Rectangle
 from matplotlib.colors import to_rgba, to_hex
 from typing import Dict
-from agents.decorators import validate_init_dataframes
-
-@validate_init_dataframes({"df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
-                                  'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
-                                  'itemRemainQuantity', 'completionProgress', 'etaStatus',
-                                  'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
-                                  'capacitySeverity', 'capacityExplanation']})
+from agents.decorators import validate_dataframe
 
 def lighten_color(color, amount=0.5):
     """
@@ -44,6 +38,14 @@ def plot_ng_rate_distribution(ax,
     """
 
     subplot_title = 'Distribution of NG Rate Bins (Number of POs)'
+
+    # Valid data frame
+    required_columns = ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
+                        'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
+                        'itemRemainQuantity', 'completionProgress', 'etaStatus',
+                        'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
+                        'capacitySeverity', 'capacityExplanation']
+    validate_dataframe(df, required_columns)
 
     if df.empty:
         ax.text(0.5, 0.5, 'No data available',

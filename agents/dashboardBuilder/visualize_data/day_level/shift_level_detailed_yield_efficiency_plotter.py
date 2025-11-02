@@ -1,4 +1,4 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 from loguru import logger
@@ -85,7 +85,6 @@ def preprocess_machine_data(df: pd.DataFrame, machines: list) -> Dict:
     
     return machine_data_dict
 
-@validate_init_dataframes({"df": ['machineNo', 'workingShift', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity']})
 def shift_level_detailed_yield_efficiency_plotter(df: pd.DataFrame,
                                                   main_title: str = 'Manufacturing Performance Dashboard',
                                                   subtitle: str = 'Detailed Yield Efficiency by Machine & Shift',
@@ -104,6 +103,12 @@ def shift_level_detailed_yield_efficiency_plotter(df: pd.DataFrame,
     Returns:
         matplotlib.figure.Figure: The created figure
     """
+
+    # Valid data frame
+    required_columns = ['machineNo', 'workingShift', 'itemName', 'itemTotalQuantity', 'itemGoodQuantity']
+    validate_dataframe(df, required_columns)
+
+    # Load visualization config
     visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
     # Set style

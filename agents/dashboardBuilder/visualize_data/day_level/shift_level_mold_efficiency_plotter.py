@@ -1,4 +1,4 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 import numpy as np
@@ -82,14 +82,6 @@ def data_processing(df, moldInfo_df):
 
     return new_df
 
-
-@validate_init_dataframes({"df": ['workingShift', 'machineNo', 'itemName', 'itemTotalQuantity',
-                                  'itemGoodQuantity', 'moldNo', 'moldShot', 'moldCavity', 'moldCount',
-                                  'moldCavityStandard', 'moldSettingCycle', 'moldCycle',
-                                  'moldCavityUtilizationRate', 'moldCavityGap', 'moldCycleEfficiency',
-                                  'moldCycleDeviation', 'overallProductionEfficiency',
-                                  'expected_total_quantity', 'expectedYieldEfficiency']})
-
 def shift_level_mold_efficiency_plotter(df: pd.DataFrame,
                                         moldInfo_df: pd.DataFrame,
                                         main_title: str = 'Manufacturing Performance Dashboard',
@@ -110,8 +102,19 @@ def shift_level_mold_efficiency_plotter(df: pd.DataFrame,
         legend_position (str): Legend position
     """
 
+    # Valid data frame
+    required_columns = ['workingShift', 'machineNo', 'itemName', 'itemTotalQuantity',
+                        'itemGoodQuantity', 'moldNo', 'moldShot', 'moldCavity', 'moldCount',
+                        'moldCavityStandard', 'moldSettingCycle', 'moldCycle',
+                        'moldCavityUtilizationRate', 'moldCavityGap', 'moldCycleEfficiency',
+                        'moldCycleDeviation', 'overallProductionEfficiency',
+                        'expected_total_quantity', 'expectedYieldEfficiency']
+    validate_dataframe(df, required_columns)
+
+    # Load visualization config
     visualization_config = load_visualization_config(DEFAULT_CONFIG, visualization_config_path)
 
+    # Process data
     df = data_processing(df, moldInfo_df)
 
     logger.debug("Configs setting...")

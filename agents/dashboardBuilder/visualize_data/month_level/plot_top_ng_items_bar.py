@@ -1,12 +1,7 @@
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 import matplotlib.patches as mpatches
 from typing import Dict
 import pandas as pd
-import numpy as np
-
-@validate_init_dataframes({"df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
-                                  'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
-                                  'proStatus', 'moldHistNum', 'itemNGRate']})
 
 def plot_top_ng_items_bar(ax, 
                        df: pd.DataFrame, 
@@ -17,6 +12,12 @@ def plot_top_ng_items_bar(ax,
     """
 
     subplot_title = 'Top 10 Items by NG Rate'
+
+    # Valid data frame
+    required_columns = ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+                        'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+                        'proStatus', 'moldHistNum', 'itemNGRate']
+    validate_dataframe(df, required_columns)
 
     if df.empty:
         ax.text(0.5, 0.5, 'No data available', 
