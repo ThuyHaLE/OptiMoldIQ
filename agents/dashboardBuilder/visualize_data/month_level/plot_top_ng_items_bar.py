@@ -16,7 +16,7 @@ def plot_top_ng_items_bar(ax,
     # Valid data frame
     required_columns = ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
                         'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
-                        'proStatus', 'moldHistNum', 'itemNGRate']
+                        'proStatus', 'moldHistNum']
     validate_dataframe(df, required_columns)
 
     if df.empty:
