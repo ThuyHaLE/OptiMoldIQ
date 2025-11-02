@@ -57,8 +57,8 @@ def mold_based_overview_plotter(df: pd.DataFrame,
         matplotlib.figure.Figure: The created figure
     """
     # Valid data frame
-    required_columns = ['workingShift', 'moldNo', 'moldShot', 'moldCavity', 'itemTotalQuantity',
-                        'itemGoodQuantity', 'changeType', 'defectQuantity', 'defectRate']
+    required_columns = ['machineInfo', 'workingShift', 'moldNo', 'moldShot', 'moldCavity',
+                        'itemTotalQuantity', 'itemGoodQuantity', 'changeType', 'defectQuantity', 'defectRate']
     validate_dataframe(df, required_columns)
 
     # Load visualization config

@@ -69,9 +69,9 @@ def item_based_overview_plotter(df: pd.DataFrame,
     """
 
     # Valid data frame
-    required_columns = ['itemInfo', 'itemTotalQuantity', 'itemGoodQuantity', 'defectRate',
-                        'usedMachineNums', 'usedComponentNums', 'usedMoldNums',
-                        'moldTotalShots', 'avgCavity', 'itemNameShort']
+    required_columns = ['itemInfo', 'itemTotalQuantity', 'itemGoodQuantity', 'usedMachineNums',
+                        'totalShifts', 'usedMoldNums', 'moldTotalShots', 'avgCavity',
+                        'usedComponentNums', 'defectQuantity', 'defectRate']
     validate_dataframe(df, required_columns)
         
     # Process data

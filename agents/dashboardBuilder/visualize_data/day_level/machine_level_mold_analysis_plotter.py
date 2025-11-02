@@ -51,7 +51,17 @@ def machine_level_mold_analysis_plotter(df: pd.DataFrame,
     """
 
     # Valid data frame
-    required_columns = ['workingShift', 'machineNo', 'moldNo', 'moldShot', 'moldCount']
+    required_columns = ['recordDate', 'workingShift', 'machineNo', 'machineCode', 'itemCode',
+                        'itemName', 'colorChanged', 'moldChanged', 'machineChanged', 'poNo',
+                        'moldNo', 'moldShot', 'moldCavity', 'itemTotalQuantity',
+                        'itemGoodQuantity', 'itemBlackSpot', 'itemOilDeposit', 'itemScratch',
+                        'itemCrack', 'itemSinkMark', 'itemShort', 'itemBurst', 'itemBend',
+                        'itemStain', 'otherNG', 'plasticResin', 'plasticResinCode',
+                        'plasticResinLot', 'colorMasterbatch', 'colorMasterbatchCode',
+                        'additiveMasterbatch', 'additiveMasterbatchCode', 'itemQuantity',
+                        'poETA', 'machineInfo', 'itemInfo', 'itemComponent', 'itemCount',
+                        'moldCount', 'itemComponentCount', 'jobCount', 'lateStatus',
+                        'changeType']
     validate_dataframe(df, required_columns)
 
     # Load visualization config
