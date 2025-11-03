@@ -92,7 +92,25 @@ DEFAULT_CONFIG = {
 }
 
 # Required columns for dataframes
-REQUIRED_UNFINISHED_COLUMNS = [
+REQUIRED_FINISHED_COLUMNS = ['poReceivedDate', 'poNo', 'poETA', 'itemCode', 'itemName',
+                             'itemQuantity', 'itemCodeName', 'firstRecord', 'lastRecord',
+                             'itemGoodQuantity', 'moldHistNum', 'moldHist', 'proStatus',
+                             'is_backlog', 'itemNGQuantity', 'itemRemainQuantity', 'poStatus',
+                             'overproduction_quantity', 'etaStatus']
+
+REQUIRED_UNFINISHED_COLUMNS = ['poReceivedDate', 'poNo', 'poETA', 'itemCode', 'itemName',
+                               'itemQuantity', 'itemCodeName', 'firstRecord', 'lastRecord',
+                               'itemGoodQuantity', 'moldHistNum', 'moldHist', 'proStatus',
+                               'is_backlog', 'itemNGQuantity', 'itemRemainQuantity', 'poStatus',
+                               'overproduction_quantity', 'moldNum', 'moldList', 'totalItemCapacity',
+                               'avgItemCapacity', 'accumulatedQuantity', 'completionProgress',
+                               'totalRemainByMold', 'accumulatedRate', 'totalEstimatedLeadtime',
+                               'avgEstimatedLeadtime', 'poOTD', 'poRLT', 'avgCumsumLT',
+                               'totalCumsumLT', 'overTotalCapacity', 'overAvgCapacity', 'is_overdue',
+                               'etaStatus', 'capacityWarning', 'capacitySeverity',
+                               'capacityExplanation']
+
+REQUIRED_UNFINISHED_SHORT_COLUMNS = [
     'poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
     'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
     'itemRemainQuantity', 'completionProgress', 'etaStatus',
@@ -105,8 +123,11 @@ REQUIRED_PROGRESS_COLUMNS = [
     'proStatus', 'moldHistNum'
     ]
 
-@validate_init_dataframes({"df": REQUIRED_UNFINISHED_COLUMNS,
-                           "all_progress_df": REQUIRED_PROGRESS_COLUMNS})
+@validate_init_dataframes({
+    "finished_df": REQUIRED_FINISHED_COLUMNS, 
+    "unfinished_df": REQUIRED_UNFINISHED_COLUMNS,
+    "df": REQUIRED_UNFINISHED_SHORT_COLUMNS,
+    "all_progress_df": REQUIRED_PROGRESS_COLUMNS})
 
 class MonthLevelDataPlotter:
     """

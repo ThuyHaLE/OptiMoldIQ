@@ -31,11 +31,9 @@ def plot_monthly_eta_status(ax: plt.Axes,
     subplot_title = 'ETA Status'
 
     # Valid data frame
-    required_columns = ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
-                        'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
-                        'itemRemainQuantity', 'completionProgress', 'etaStatus',
-                        'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
-                        'capacitySeverity', 'capacityExplanation']
+    required_columns = ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+                        'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+                        'proStatus', 'moldHistNum']
     validate_dataframe(df, required_columns)
 
     if df.empty:
