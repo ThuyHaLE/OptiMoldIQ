@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Optional
 from loguru import logger
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from matplotlib.gridspec import GridSpec
 
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
@@ -25,7 +25,7 @@ from agents.dashboardBuilder.visualize_data.month_level.plot_ng_rate import plot
 # Default config for visualization
 DEFAULT_CONFIG = {
     "sns_style": "seaborn-v0_8-darkgrid",
-    "sns_palette": "husl",
+    "sns_palette": "Set2",
     "sns_set_style": "whitegrid",
     "plt_rcParams_update": {
         "figure.facecolor": "#f8f9fa",
@@ -57,14 +57,6 @@ DEFAULT_CONFIG = {
         "title": "#2c3e50",
         "text": "#718096",
         "subtitle": "#3c4a5b",
-        "colors_severity": {
-            "normal": "#95E1D3",
-            "critical": "#F38181"
-        },
-        "backlog": {
-            "Active": "#95E1D3",
-            "Backlog": "#F38181"
-        },
         "kpi": {
             "Total POs": "#667eea",
             "Backlog": "#feca57",
@@ -74,12 +66,20 @@ DEFAULT_CONFIG = {
             "Late POs": "#e17055",
             "Avg progress": "#00b894",
             "Total progress": "#ffc107"
-        }
+        },
+        "backlog": {
+            "Active": "#95E1D3", 
+            "Backlog": "#F38181"
+        },
+        "colors_severity": {
+            "normal": "#95E1D3", 
+            "critical": "#F38181"
+        },
     },
     "sizes": {
-        "suptitle": 18,
+        "title": 18,
+        "suptitle": 12,
         "progress_text": 30,
-        "title": 12,
         "ylabel": 9,
         "xlabel": 9,
         "legend": 8,
@@ -89,24 +89,27 @@ DEFAULT_CONFIG = {
     "subtitle_y": 0.99
     }
 
-@validate_init_dataframes({
-    "unfinished_df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
-                      'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
-                      'itemRemainQuantity', 'completionProgress', 'etaStatus',
-                      'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
-                      'capacitySeverity', 'capacityExplanation'],
-    "all_progress_df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
-                        'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
-                        'proStatus', 'moldHistNum']
-                        })
+REQUIRED_UNFINISHED_COLUMNS = [
+    'poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
+    'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
+    'itemRemainQuantity', 'completionProgress', 'etaStatus',
+    'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
+    'capacitySeverity', 'capacityExplanation']
+
+REQUIRED_PROGRESS_COLUMNS = [
+    'poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
+    'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
+    'proStatus', 'moldHistNum']
 
 def year_performance_plotter(unfinished_df: pd.DataFrame,
                              all_progress_df: pd.DataFrame,
                              record_year: str,
                              analysis_timestamp: str,
-                             main_title = 'Manufacturing Performance Dashboard',
-                             subtitle = 'Year Performance Dashboard',
                              visualization_config_path: Optional[str] = None) -> plt.Figure:
+        
+        # Valid data frame
+        validate_dataframe(unfinished_df, REQUIRED_UNFINISHED_COLUMNS)
+        validate_dataframe(all_progress_df, REQUIRED_PROGRESS_COLUMNS)
 
         if unfinished_df.empty or all_progress_df.empty:
             logger.error("Cannot create dashboard with empty dataframes")
@@ -161,18 +164,29 @@ def year_performance_plotter(unfinished_df: pd.DataFrame,
                 )
 
             plot_po_status_pie(
-                fig.add_subplot(gs[1, 0]), unfinished_df, 'in_progress',
-                'In-progress PO Status Distribution', colors, sizes
+                fig.add_subplot(gs[1, 0]), 
+                unfinished_df, 
+                'in_progress',
+                'In-progress PO Status Distribution', 
+                colors, 
+                sizes
             )
             
             plot_po_status_pie(
-                fig.add_subplot(gs[1, 1]), unfinished_df, 'not_started',
-                'Not-started PO Status Distribution', colors, sizes
+                fig.add_subplot(gs[1, 1]), 
+                unfinished_df, 
+                'not_started',
+                'Not-started PO Status Distribution', 
+                colors, 
+                sizes
             )
             
             plot_po_status_pie(
-                fig.add_subplot(gs[1, 2]), all_progress_df, 'finished',
-                'Finished PO Status Distribution', colors, sizes
+                fig.add_subplot(gs[1, 2]), 
+                all_progress_df, 'finished',
+                'Finished PO Status Distribution', 
+                colors, 
+                sizes
             )
             
             plot_backlog_analysis(fig.add_subplot(gs[2, 0]), all_progress_df, colors, sizes)
@@ -186,23 +200,13 @@ def year_performance_plotter(unfinished_df: pd.DataFrame,
             plot_ng_rate(fig.add_subplot(gs[7:9, 2]), all_progress_df, colors, sizes)
             plot_top_ng_items_bar(fig.add_subplot(gs[7:9, :2]), all_progress_df, colors, sizes)
             plot_kpi_cards(fig.add_subplot(gs[9, :]), all_progress_df, colors, sizes)
-            
 
             # Add main title
-            fig.suptitle(f'{main_title}', 
-                        fontsize=sizes['suptitle'], 
+            fig.suptitle(f'Year Performance Dashboard for {record_year} | Analysis Date: {analysis_timestamp.strftime("%Y-%m-%d")}',
+                        fontsize=sizes['title'], 
                         fontweight='bold', 
-                        y=visualization_config['main_title_y'], 
+                        y=visualization_config['subtitle_y'], 
                         color=colors['title'])
-
-            # Add subtitle
-            fig.text(0.5, 
-                    visualization_config['subtitle_y'], 
-                    f'{subtitle} for {record_year} | Analysis Date: {analysis_timestamp.strftime("%Y-%m-%d")}',
-                    ha='center', 
-                    fontsize=sizes['title'],
-                    style='italic', 
-                    color=colors['subtitle'])
 
             plt.tight_layout()
             return fig

@@ -63,10 +63,7 @@ def plot_late_items_bar(ax,
              for name in late_items['itemCodeName']],
             fontsize=9
         )
-        ax.set_xlabel(
-            'Remaining Quantity',
-            fontsize=sizes['xlabel'],
-        )
+        ax.set_xticklabels([])
         ax.set_title(
             subplot_title,
             fontsize=sizes['title'],

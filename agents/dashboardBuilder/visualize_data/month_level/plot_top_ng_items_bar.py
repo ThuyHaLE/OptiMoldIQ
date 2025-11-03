@@ -31,7 +31,7 @@ def plot_top_ng_items_bar(ax,
         ax.axis('off')
         return
     
-    df['itemNGRate'] = df['itemNGQuantity'] / (df['itemGoodQuantity'] + df['itemNGQuantity']) * 100
+    df['itemNGRate'] = df['itemNGQuantity'] / (df['itemGoodQuantity'] + df['itemNGQuantity'])
     df['itemNGRate'] = df['itemNGRate'].fillna(0)
 
     # Lọc bỏ các dòng có itemNGRate là NaN hoặc inf

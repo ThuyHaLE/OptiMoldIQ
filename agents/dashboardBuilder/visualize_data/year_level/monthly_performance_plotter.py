@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Optional
 from loguru import logger
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_dataframe
 from matplotlib.gridspec import GridSpec
 
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
@@ -18,7 +18,7 @@ from agents.dashboardBuilder.visualize_data.month_level.plot_late_items_bar impo
 # Default config for visualization
 DEFAULT_CONFIG = {
     "sns_style": "seaborn-v0_8-darkgrid",
-    "sns_palette": "husl",
+    "sns_palette": "Set2",
     "sns_set_style": "whitegrid",
     "plt_rcParams_update": {
         "figure.facecolor": "#f8f9fa",
@@ -42,7 +42,7 @@ DEFAULT_CONFIG = {
         "left": 0.06,
         "right": 0.97
     },
-    "row_nums": 9,
+    "row_nums": 10,
     "column_nums": 3,
     "palette_name": "muted",
     "color_nums": 30,
@@ -50,14 +50,6 @@ DEFAULT_CONFIG = {
         "title": "#2c3e50",
         "text": "#718096",
         "subtitle": "#3c4a5b",
-        "colors_severity": {
-            "normal": "#95E1D3",
-            "critical": "#F38181"
-        },
-        "backlog": {
-            "Active": "#95E1D3",
-            "Backlog": "#F38181"
-        },
         "kpi": {
             "Total POs": "#667eea",
             "Backlog": "#feca57",
@@ -67,12 +59,20 @@ DEFAULT_CONFIG = {
             "Late POs": "#e17055",
             "Avg progress": "#00b894",
             "Total progress": "#ffc107"
-        }
+        },
+        "backlog": {
+            "Active": "#95E1D3", 
+            "Backlog": "#F38181"
+        },
+        "colors_severity": {
+            "normal": "#95E1D3", 
+            "critical": "#F38181"
+        },
     },
     "sizes": {
-        "suptitle": 18,
+        "title": 18,
+        "suptitle": 12,
         "progress_text": 30,
-        "title": 12,
         "ylabel": 9,
         "xlabel": 9,
         "legend": 8,
@@ -82,24 +82,29 @@ DEFAULT_CONFIG = {
     "subtitle_y": 0.99
     }
 
-@validate_init_dataframes({
-    "unfinished_df": ['poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
-                      'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
-                      'itemRemainQuantity', 'completionProgress', 'etaStatus',
-                      'overAvgCapacity', 'overTotalCapacity', 'is_overdue', 'capacityWarning',
-                      'capacitySeverity', 'capacityExplanation'],
-    "all_progress_df": ['poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA',
-                        'itemNGQuantity', 'itemQuantity', 'itemGoodQuantity', 'etaStatus',
-                        'proStatus', 'moldHistNum']
-                        })
+# Required columns for dataframes
+REQUIRED_UNFINISHED_COLUMNS = [
+    'poNo', 'poETA', 'itemQuantity', 'itemGoodQuantity', 'itemNGQuantity',
+    'is_backlog', 'itemCodeName', 'proStatus', 'poStatus', 'moldHistNum',
+    'itemRemainQuantity', 'completionProgress', 'etaStatus', 'overAvgCapacity',
+    'overTotalCapacity', 'is_overdue', 'capacityWarning', 'capacitySeverity',
+    'capacityExplanation'
+]
+
+REQUIRED_PROGRESS_COLUMNS = [
+    'poNo', 'itemCodeName', 'is_backlog', 'poStatus', 'poETA', 'itemNGQuantity',
+    'itemQuantity', 'itemGoodQuantity', 'etaStatus', 'proStatus', 'moldHistNum'
+]
 
 def monthly_performance_plotter(unfinished_df: pd.DataFrame,
                                 all_progress_df: pd.DataFrame,
                                 record_year: str,
                                 analysis_timestamp: str,
-                                main_title = 'Manufacturing Performance Dashboard',
-                                subtitle = 'Monthly POs Dashboard',
                                 visualization_config_path: Optional[str] = None) -> plt.Figure:
+        
+        # Valid data frame
+        validate_dataframe(unfinished_df, REQUIRED_UNFINISHED_COLUMNS)
+        validate_dataframe(all_progress_df, REQUIRED_PROGRESS_COLUMNS)
 
         if unfinished_df.empty or all_progress_df.empty:
             logger.error("Cannot create dashboard with empty dataframes")
@@ -174,26 +179,24 @@ def monthly_performance_plotter(unfinished_df: pd.DataFrame,
                 record_year
                 )
 
-            plot_late_items_bar(fig.add_subplot(gs[7, :]), unfinished_df, colors, sizes)
-            plot_kpi_cards(fig.add_subplot(gs[8, :]), all_progress_df, colors, sizes)
+            plot_late_items_bar(fig.add_subplot(gs[7, :]), 
+                                unfinished_df, 
+                                colors, 
+                                sizes)
+            plot_kpi_cards(fig.add_subplot(gs[8, :]), 
+                           all_progress_df, 
+                           colors, 
+                           sizes)
 
             # Add main title
-            fig.suptitle(f'{main_title}', 
-                        fontsize=sizes['suptitle'], 
-                        fontweight='bold', 
-                        y=visualization_config['main_title_y'], 
-                        color=colors['title'])
-
-            # Add subtitle
-            fig.text(0.5, 
-                    visualization_config['subtitle_y'], 
-                    f'{subtitle} for {record_year} | Analysis Date: {analysis_timestamp.strftime("%Y-%m-%d")}',
-                    ha='center', 
-                    fontsize=sizes['title'],
-                    style='italic', 
-                    color=colors['subtitle'])
+            fig.suptitle(f'Monthly Performance Dashboard by PO for {record_year} | Analysis Date: {analysis_timestamp.strftime("%Y-%m-%d")}', 
+                         fontsize=sizes['title'], 
+                         fontweight='bold', 
+                         y=visualization_config['subtitle_y'], 
+                         color=colors['title'])
 
             plt.tight_layout()
+
             return fig
         
         except Exception as e:
