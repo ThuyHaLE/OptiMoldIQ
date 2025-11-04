@@ -1030,7 +1030,7 @@ class YearLevelDataProcessor:
         lines.append("=" * 60)
         lines.append("VALIDATION SUMMARY")
         lines.append("=" * 60)
-        lines.append(f"Record year (requested): {pd.Period(record_year, freq="Y")}")
+        lines.append(f"Record year (requested): {pd.Period(record_year, freq='Y')}")
         
         if adjusted_record_year != record_year:
             lines.append(f"Record year (adjusted): {adjusted_record_year}")
