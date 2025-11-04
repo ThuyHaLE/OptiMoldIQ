@@ -233,7 +233,7 @@ def field_based_month_view_dashboard_plotter(df: pd.DataFrame,
                     color=colors["title"])
         fig.text(0.5, 
                  visualization_config['subtitle_y'],
-                 f'Metrics: {metrics_str}\nPage {page_num + 1}/{total_pages} | {field_label}s {start_idx + 1}-{end_idx}',
+                 f'Metrics: {metrics_str} | Page: {page_num + 1}/{total_pages}',
                  fontsize=sizes["suptitle"],
                  color=colors["subtitle"],
                  style='italic', 

@@ -296,7 +296,4 @@ def plot_monthly_eta_status(ax: plt.Axes,
     ax.legend(handles=legend_elements,
               bbox_to_anchor=(1.02, 1),
               loc='upper left',
-              frameon=True,
-              fancybox=True,
-              shadow=True,
-              fontsize=sizes['legend'])
+              fontsize=sizes['legend']) 
