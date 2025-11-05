@@ -87,7 +87,8 @@ class MonthLevelDataProcessor:
 
         # Validate input parameters and set up analysis context
         (analysis_timestamp,
-         adjusted_record_month) = self._validate_analysis_parameters()
+         adjusted_record_month,
+         validation_summary) = self._validate_analysis_parameters()
 
         # Filter and prepare base data for PO-level analysis
         po_based_df = self._filter_data(adjusted_record_month, analysis_timestamp)
@@ -157,20 +158,20 @@ class MonthLevelDataProcessor:
         unfinished_df = MonthLevelDataProcessor._analyze_unfinished_pos(combined_df, analysis_timestamp)
 
         # Logging analysis summary and diagnostic information
-        self.logger.info("=" * 60)
-        self.logger.info("Analysis Results for {}", adjusted_record_month)
-        self.logger.info("Analysis date: {}", analysis_timestamp.strftime('%Y-%m-%d'))
-        self.logger.info("Total Orders: {}", len(po_based_df))
-        self.logger.info("Completed Orders Rate: {}/{}", len(finished_df), len(po_based_df))
-        self.logger.info("Remaining Orders Rate: {}/{}", len(unfinished_df), len(po_based_df))
-        self.logger.info("Orders with Capacity Warning: {}", unfinished_df['capacityWarning'].sum())
-        self.logger.info("Capacity Severity Distribution: {}", unfinished_df['capacitySeverity'].value_counts().to_dict())
-        self.logger.info("Backlog Orders: {}-({})",
-                    len(po_based_df[po_based_df['is_backlog'] == True]),
-                    po_based_df[po_based_df['is_backlog'] == True]['poNo'].tolist())
-        self.logger.info("=" * 60)
+        analysis_summary = MonthLevelDataProcessor._log_analysis_summary(
+            adjusted_record_month, 
+            analysis_timestamp, 
+            po_based_df, 
+            finished_df, 
+            unfinished_df)
+        
+        self.logger.info(analysis_summary)
 
-        return analysis_timestamp, adjusted_record_month, finished_df, unfinished_df
+        # Get final summary
+        final_summary = validation_summary + "\n\n" + analysis_summary
+
+        return analysis_timestamp, adjusted_record_month, finished_df, unfinished_df, final_summary
+    
 
     def _validate_analysis_parameters(self) -> Tuple[pd.Timestamp, str]:
 
@@ -311,19 +312,17 @@ class MonthLevelDataProcessor:
             )
 
         # Log summary of validation results
-        self.logger.info("=" * 60)
-        self.logger.info("VALIDATION SUMMARY")
-        self.logger.info("=" * 60)
-        self.logger.info("Record month (requested): {}", requested_period)
-        if adjusted_record_month != self.record_month:
-            self.logger.info("Record month (adjusted): {}", adjusted_record_month)
-        self.logger.info("Analysis date (validated): {}", analysis_timestamp.date())
-        if original_analysis_date != analysis_timestamp:
-            self.logger.info("  └─ Adjusted from: {}", original_analysis_date.date())
-        self.logger.info("=" * 60)
+        summary_text = MonthLevelDataProcessor._log_validation_summary(
+            self.record_month,
+            original_analysis_date,
+            adjusted_record_month, 
+            analysis_timestamp
+            )
+        
+        self.logger.info(summary_text)
 
         # Return validated values
-        return analysis_timestamp, adjusted_record_month
+        return analysis_timestamp, adjusted_record_month, summary_text
 
     def _detect_backlog(self,
                         record_month: str,
@@ -1027,3 +1026,52 @@ class MonthLevelDataProcessor:
 
 
         return merged_df
+    
+    @staticmethod
+    def _log_analysis_summary(record_month, 
+                              analysis_timestamp, 
+                              po_based_df, 
+                              finished_df, 
+                              unfinished_df):
+        lines = []
+        
+        lines.append("=" * 60)
+        lines.append(f"Analysis Results for {record_month}")
+        lines.append(f"Analysis date: {analysis_timestamp.strftime('%Y-%m-%d')}")
+        lines.append(f"Total Orders: {len(po_based_df)}")
+        lines.append(f"Completed Orders Rate: {len(finished_df)}/{len(po_based_df)}")
+        lines.append(f"Remaining Orders Rate: {len(unfinished_df)}/{len(po_based_df)}")
+        lines.append(f"Orders with Capacity Warning: {unfinished_df['capacityWarning'].sum()}")
+        lines.append(f"Capacity Severity Distribution: {unfinished_df['capacitySeverity'].value_counts().to_dict()}")
+        
+        backlog_df = po_based_df[po_based_df['is_backlog'] == True]
+        backlog_count = len(backlog_df)
+        backlog_pos = backlog_df['poNo'].tolist()
+        lines.append(f"Backlog Orders: {backlog_count}-({backlog_pos})")
+        
+        lines.append("=" * 60)
+        
+        return "\n".join(lines)
+    
+    @staticmethod
+    def _log_validation_summary(record_month,
+                                original_analysis_date,
+                                adjusted_record_month, 
+                                analysis_timestamp):
+        lines = []
+        lines.append("=" * 60)
+        lines.append("VALIDATION SUMMARY")
+        lines.append("=" * 60)
+        lines.append(f"Record month (requested): {pd.Period(record_month, freq='M')}")
+        
+        if adjusted_record_month != record_month:
+            lines.append(f"Record month (adjusted): {adjusted_record_month}")
+        
+        lines.append(f"Analysis date (validated): {analysis_timestamp.date()}")
+        
+        if original_analysis_date != analysis_timestamp:
+            lines.append(f"  └─ Adjusted from: {original_analysis_date.date()}")
+        
+        lines.append("=" * 60)
+        
+        return "\n".join(lines)

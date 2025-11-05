@@ -127,7 +127,7 @@ class YearLevelDataProcessor:
             adjusted_record_year, 
             po_based_df)
         
-        logger.info(analysis_summary)
+        self.logger.info(analysis_summary)
 
         # Get final summary
         final_summary = validation_summary + "\n\n" + analysis_summary
@@ -1022,6 +1022,7 @@ class YearLevelDataProcessor:
 
         return merged_df
 
+    @staticmethod
     def _log_validation_summary(record_year,
                                 original_analysis_date,
                                 adjusted_record_year, 
