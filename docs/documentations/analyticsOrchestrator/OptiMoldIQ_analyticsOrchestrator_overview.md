@@ -16,6 +16,7 @@ The AnalyticsOrchestrator module coordinates multiple analytics submodules for m
     - `dataChangeAnalyzer` – focuses on change detection and history tracking.
     - `multiLevelDataAnalytics` – handles time-level (day/month/year) data summarization and aggregation.
 - Integration Flow:
+```
 ┌──────────────────────────────────┐
 │ `dataChangeAnalyzer`             │
 │  ├─ `MachineLayoutTracker`       |
@@ -31,7 +32,7 @@ The AnalyticsOrchestrator module coordinates multiple analytics submodules for m
 │  ├─ `MonthLevelDataProcessor`    |
 │  └─ `YearLevelDataProcessor`     |
 └──────────────────────────────────┘
-
+```
 ---
 ## 3. Functional groups details
 - ([dataChangeAnalyzer](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/dataChangeAnalyzer/OptiMoldIQ_dataChangeAnalyzer_overview.md)):
