@@ -30,7 +30,7 @@
     - `enable_parallel` (optional): Enable parallel plotting (default: `True`).
     - `max_workers` (optional): Maximum parallel workers (default: auto-detected from system specs, capped at 10).
 
-- **Output**: ([→ see overviews](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/dashboardBuilder/YearLevelPlotter))
+- **Output**: ([→ see overviews](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/dashboardBuilder/YearLevelDataPlotter))
   
     - Excel file: Extracted records with 5 sheets (`finished POs`, `unfinished POs`, `short unfinished summary`, `all progress`, `filtered records`).
     - TXT report: `Final summary` statistics with annual performance KPIs.
