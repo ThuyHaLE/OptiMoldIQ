@@ -70,7 +70,7 @@ Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/
 ### 🚀 autoPlanner
 > production planning for mold manufacturing environments
 
-**Start here**: [autoPlanner Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner) 🚧
+**Start here**: [autoPlanner Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner) 🔄
 
 **Components**:
 - **[initialPlanner](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner)** ✅
