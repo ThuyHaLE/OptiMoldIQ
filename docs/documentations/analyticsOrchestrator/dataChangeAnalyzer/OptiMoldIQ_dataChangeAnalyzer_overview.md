@@ -37,7 +37,7 @@
     - `moldInfo_df`: Static mold information
     - `machineInfo_df`: Static machine information
 
-- **Output**:
+- **Output**: ([→ see overviews](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/dataChangeAnalyzer))
   
   - **Analysis artifacts**:
     - Layout change history JSON files (via MachineLayoutTracker)
