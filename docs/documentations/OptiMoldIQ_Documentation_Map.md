@@ -1,12 +1,12 @@
 # OptiMoldIQ Documentation Map
 
-Last Updated: [2025.11.09]
-Purpose: Quick guide to find the right documentation
+- Last Updated: [2025.11.09]
+- Purpose: Quick guide to find the right documentation
 
 ---
 
 ## **Where to Start**
-Legend: ✅ Complete | 🚧 In Progress | 📝 Planned
+Legend: ✅ Complete | 🔄  In Progress | 📝 Planned
 
 ### New to OptiMoldIQ?
 **Core Concepts** (30 min): 
@@ -36,11 +36,11 @@ Legend: ✅ Complete | 🚧 In Progress | 📝 Planned
 - **[orderProgressTracker Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/orderProgressTracker_output_overviews.md)** ✅
 
 ### Need to Modify Something?
-Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/)) below to find your component. 🚧
+Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/)) below to find your component. 🔄 
 
 ## **Module Map**
 
-### dataPipelineOrchestrator
+### 🚀 dataPipelineOrchestrator
 > Manage a comprehensive two-phase data pipeline process (collect → load). And provide robust error handling with automated recovery mechanisms and notification systems
 
 **Start here**: [dataPipelineOrchestrator Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataPipelineOrchestrator_overview.md) ✅
@@ -49,7 +49,7 @@ Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/
 - **[dataCollector](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataCollector_review.md)** ✅
 - **[dataLoader](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataLoader_review.md)** ✅
 
-### validationOrchestrator
+### 🚀 validationOrchestrator
 > (1) Coordinate multiple validation processes (static, dynamic, and required field validation). (2) Ensure manufacturing data quality and schema consistency across datasets. And (3) Provide consolidated reporting and version-controlled validation results
 
 **Start here**: [validationOrchestrator Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/OptiMoldIQ_validationOrchestrator_overview.md) ✅
@@ -59,15 +59,15 @@ Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/
 - **[poRequiredCriticalValidator](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/OptiMoldIQ_poRequiredCriticalValidator_overview.md)** ✅
 - **[staticCrossDataChecker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/validationOrchestrator/OptiMoldIQ_staticCrossDataChecker_overview.md)** ✅
 
-### orderProgressTracker
+### 🚀 orderProgressTracker
 > (1) Track and analyze production progress of manufacturing orders in real-time. (2) Monitor production status transitions and completion rates against delivery schedules. And (3) Provide comprehensive production analytics and consolidated reporting with validation integration.
 
 **Start here**: [orderProgressTracker Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_orderProgressTracker_overview.md) ✅
 
 **Components**:
-- **[dayLevelDataPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_processDashboardReports_overview.md)** ✅
+- **[processDashboardReports](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/orderProgressTracker/OptiMoldIQ_processDashboardReports_overview.md)** ✅
 
-### autoPlanner
+### 🚀 autoPlanner
 > production planning for mold manufacturing environments
 
 **Start here**: [autoPlanner Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner) 🚧
@@ -87,15 +87,15 @@ Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/
 
 - **[planRefiner](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations)** 📝
   
-### optiMoldMaster
+### 🚀 optiMoldMaster
 > manufacturing operations management. It automates daily data pipeline processing, validation, progress tracking, and production planning for mold manufacturing environments.
 
 **Start here**: [optiMoldMaster Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/optiMoldMaster/OptiMoldIQ_optiMoldMaster_review.md) ✅
 
-### analyticsOrchestrator
+### 🚀 analyticsOrchestrator
 > coordinates multiple analytics submodules for manufacturing data processing, tracking, and historical updates.
 
-**Start here**: [autoPlanner Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/OptiMoldIQ_analyticsOrchestrator_overview.md) ✅
+**Start here**: [analyticsOrchestrator Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/OptiMoldIQ_analyticsOrchestrator_overview.md) ✅
 
 **Components**:
 - **[dataChangeAnalyzer](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/dataChangeAnalyzer/OptiMoldIQ_dataChangeAnalyzer_overview.md)** ✅
@@ -109,7 +109,7 @@ Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/
   - **[monthLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelDataAnalytics/OptiMoldIQ_monthLevelDataProcessor_overview.md)** ✅
   - **[yearLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelDataAnalytics/OptiMoldIQ_yearLevelDataProcessor_overview.md)** ✅
 
-### dashboardBuilder
+### 🚀 dashboardBuilder
 > a multi-level analytics and visualization system designed to generate production intelligence dashboards at daily, monthly, and yearly resolutions. It provides a unified pipeline that extracts, validates, aggregates, and visualizes factory production records (machine, mold, item, and PO-based data) into structured analytical outputs.
 
 **Start here**: [dashboardBuilder Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/OptiMoldIQ_dashboardBuilder_overview.md) ✅
@@ -160,16 +160,19 @@ Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/
 
 ### Most Used Docs
 **Start Here** (New users):
+
 1. [System Diagram](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/OptiMoldIQ-systemDiagram-ASCII.md) ✅
 2. [Agents Breakdown](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/OptiMoldIQ-agentsBreakDown.md) ✅
 3. [Dashboard Examples](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/dashboardBuilder) ✅
 
 **Daily Work** (Active development):
+
 4. [optiMoldMaster](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/optiMoldMaster/OptiMoldIQ_optiMoldMaster_review.md) ✅
 5. [dashboardBuilder](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/OptiMoldIQ_dashboardBuilder_overview.md) ✅
 6. [initialPlanner](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/autoPlanner/initialPlanner) ✅
 
 **Technical Reference**:
+
 7. [DB Schema](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/OptiMoldIQ-dbSchema.md) ✅
 8. [Dataset Structure](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/OptiMoldIQ-dataset.md) ✅
 
@@ -200,7 +203,7 @@ Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/
 - 📊 **Start with workflows** to understand end-to-end processes
 - 🎯 **Check output examples** to see what each module produces
 - ✅ **Focus on Complete (✅) docs** when learning
-- 🚧 **In Progress (🚧) docs** may have incomplete sections
+- 🔄 **In Progress (🔄) docs** may have incomplete sections
 - 📝 **Planned (📝) features** are in the roadmap
 
 ---
@@ -208,7 +211,7 @@ Jump to the ([Module Map](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/
 ## Contributing to Documentation
 
 When updating docs, remember to:
-1. Update the status indicator (✅🚧📝)
+1. Update the status indicator (✅🔄📝)
 2. Update "Last Updated" date at the top
 3. Keep descriptions concise (1-2 sentences)
 4. Include practical examples where possible
