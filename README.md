@@ -14,46 +14,49 @@ Legend: ✅ Complete | 🔄  In Progress | 📝 Planned
 - [OptiMoldIQ: Intelligent Plastic Molding Planner](#optimoldiq-intelligent-plastic-molding-planner)
   - [Table of Contents](#table-of-contents)
   - [Current Phase](#current-phase)
-  - [Business Problem](#business-problem)
-    - [Background](#background)
-    - [Challenges](#challenges)
-    - [Problem Statement](#problem-statement)
-  - [Key Goals](#key-goals)
-  - [Planned Solution](#planned-solution)
-  - [System Architecture Diagram](#system-architecture-diagram)
-  - [Dataset Overview](#dataset-overview)
+  - [Business Problem](#-business-problem)
+    - [Background](#-background)
+    - [Challenges](#-challenges)
+    - [Problem Statement](#-problem-statement)
+  - [Key Goals](#-key-goals)
+  - [Planned Solution](#-planned-solution)
+  - [System Architecture Diagram](#-system-architecture-diagram)
+  - [Dataset Overview](#-dataset-overview)
     - [Key Entities](#key-entities)
-  - [Data Overview](#data-overview)
+  - [Data Overview](#-data-overview)
     - [Dynamic Datasets](#dynamic-datasets)
     - [Static Datasets](#static-datasets)
-  - [Folder Structure](#folder-structure)
-  - [Roadmap](#roadmap)
-  - [Current Status Summary](#current-status-summary)
+  - [Folder Structure](#-folder-structure)
+  - [Roadmap](#-roadmap)
+  - [Current Status Summary](#-current-status-summary)
   - [Interactive System Dashboard](#-interactive-system-dashboard)
-  - [Milestones](#milestones)
-    - [✅ **Milestone 01**: Core Data Pipeline Agents](#-milestone-01-core-data-pipeline-agents)
-    - [✅ **Milestone 02**: Initial Production Planning System](#-milestone-02-initial-production-planning-system)
-    - [🔄 **In Progress**: AnalyticsOrchestrator + DashBoardBuilder](#-in-progress-analyticsorchestrator--dashboardbuilder)
-  - [Quickstart](#quickstart)
-  - [Contributing](#contributing)
-  - [License](#license)
-  - [Contact](#contact)
+  - [Milestones](#-milestones)
+    - [Milestone 01: Core Data Pipeline Agents (Completed July 2025)](#-milestone-01-core-data-pipeline-agents-completed-july-2025)
+    - [Milestone 02: Initial Production Planning System (Completed August 2025)](#-milestone-02-initial-production-planning-system-completed-august-2025)
+    - [Milestone 03: Analytics Orchestration & Multi-Level Dashboard Agents (Completed November 2025)](#-milestone-03-analytics-orchestration--multi-level-dashboard-agents-completed-november-2025)
+    - [In Progress: AnalyticsOrchestrator & TaskOrchestrator](#-in-progress-analyticsorchestrator--taskorchestrator)
+  - [Quickstart](#-quickstart)
+  - [Contributing](#-contributing)
+  - [License](#-license)
+  - [Contact](#-contact)
 
 ---
 
 ## Current Phase
-OptiMoldIQ is in the **system design phase**, focusing on defining database structures, agent workflows, and system architecture.
+OptiMoldIQ is currently finalizing documentation for Milestone 03, covering analytics orchestration, dashboard building, multi-resolution dashboards, and change detection workflows.
 
 ---
 
-## Business Problem 📝
-### Background 📝
+## 📝 Business Problem 
+> 👉 [Full context](docs/OptiMoldIQ-business-problem.md)
+
+### 📝 Background
 In plastic molding production, achieving optimal efficiency while maintaining high product quality is challenging due to the complexity of interconnected factors like:
 - Mold utilization and machine maintenance.
 - Resin inventory management.
 - Production scheduling and yield optimization.
 
-### Challenges 📝
+### 📝 Challenges 
 Poor management or lack of integration between components can lead to:
 - Increased production downtime.
 - Material waste or stock shortages.
@@ -61,16 +64,14 @@ Poor management or lack of integration between components can lead to:
 - Inconsistent product quality or high NG (non-good) rates.
 - Reduced production yield and efficiency.
 
-### Problem Statement 📝
+### 📝 Problem Statement
 Current systems are:
 - Manual or static, lacking real-time insights.
 - Prone to inefficiencies in scheduling, resource tracking, and quality management.
 
-> 👉 [Full context](docs/OptiMoldIQ-business-problem.md)
-
 --- 
 
-## Key Goals 🔄
+## 🔄 Key Goals
 - **1. Data Operations Orchestration** 
   - Daily Data Ingestion Pipeline: Automated collection and loading of production and operational data. ✅
   - Multi-Layer Validation: Static, dynamic, and required-field checks to ensure data integrity. ✅
@@ -83,9 +84,12 @@ Current systems are:
   - *Analytics Orchestration*: 
     - Auto-detect mold/machine layout changes and generate static reports. ✅
     - Multi-level analytics with day, month, and year views for operational insights. ✅
+    - Support Operational Task Orchestration. 📝
+    - Support Production Planning Orchestration (Plan refinement phase). 📝
   - *Reporting Orchestration*: 
     - Centralized dashboard generation for actionable insights. ✅
     - Visualization across multiple time resolutions (day/month/year) for decision support. ✅
+    - Upgrade from static report to dynamic UI/UX 📝
   - *Operational Task Orchestration*:
     - Proactive maintenance of molds and machines; resin restocking to prevent downtime and material shortages. 📝
     - Quality and yield optimization: 📝
@@ -94,8 +98,10 @@ Current systems are:
 
 ---
 
-## Planned Solution 🔄
+## 🔄 Planned Solution
+
 The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges:
+
   ```
   agents
   ├─ dataPipelineOrchestrator (child)
@@ -113,7 +119,8 @@ The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges
       ├─ maintenanceCoordinator (predictive maintenance)
       └─ qualityOptimizer (yield + quality + cycle time)
   ```
-### 1. optiMoldMaster (Mother-Agent) 🔄
+
+### 🔄 1. optiMoldMaster (Mother-Agent) 
 The central coordinating agent responsible for manufacturing operations management.
 - It automates:
   - Daily data processing pipeline
@@ -128,7 +135,7 @@ The central coordinating agent responsible for manufacturing operations manageme
     - Generates multi-resolution dashboards (daily → monthly → yearly) via dashboardBuilder
     - Coordinates dependent operational tasks (taskOrchestrator)
 
-### 2. Core Components (Child Agents) 🔄
+### 🔄 2. Core Components (Child Agents)
 - 2.1 dataPipelineOrchestrator ✅
   - Manages a robust 2-phase ETL pipeline:
     - Collect → Load
@@ -185,7 +192,8 @@ The central coordinating agent responsible for manufacturing operations manageme
   - Machine maintenance scheduling
   - Escalation handling for related operational constraints
 
-### 3. Agent Descriptions 🔄
+### 🔄 3. Agent Descriptions
+> 👉 [Details](docs/OptiMoldIQ-agentsBreakDown.md)
 
 | Agent | Type | Summary |
 |-------|------|---------|
@@ -302,11 +310,9 @@ The central coordinating agent responsible for manufacturing operations manageme
 
 </details>
 
-> 👉 [Agent architecture](docs/OptiMoldIQ-agentsBreakDown.md)
-
 ---
 
-## System Architecture Diagram 🔄
+## 🔄 System Architecture Diagram
 
 The following diagram shows how the data flows from external sources into the system and how various agents interact in the pipeline.
 
@@ -374,7 +380,8 @@ The following diagram shows how the data flows from external sources into the sy
 
 ---
 
-## Dataset Overview ✅
+## ✅ Dataset Overview
+> 👉 [Details](docs/OptiMoldIQ-dataset.md)
 
 This project leverages a 27-month dataset collected from a plastic injection molding production facility. It consists of over **61,000 production records** and **6,200 internal orders**, reflecting the complexity of real-world manufacturing operations.
 
@@ -386,11 +393,10 @@ This project leverages a 27-month dataset collected from a plastic injection mol
 - **Orders** – 6,234 scheduled production orders
 - **Production Records** – 61,185 logs of manufacturing outcomes
 
-> 👉 [Full schema & stats](docs/OptiMoldIQ-dataset.md)
-
 ---
 
-## Data Overview ✅
+## ✅ Data Overview
+> 👉 [Details](docs/OptiMoldIQ-dbSchema.md)
 
 OptiMoldIQ uses a shared database with both dynamic and static datasets:
 
@@ -406,11 +412,9 @@ OptiMoldIQ uses a shared database with both dynamic and static datasets:
 - `moldSpecificationSummary`: Mold-to-item mapping and counts.
 - `resinInfo`: Resin codes, names, and classification.
 
-> 👉 [Database schema](docs/OptiMoldIQ-dbSchema.md)
-
 ---
 
-## Folder Structure ✅
+## ✅ Folder Structure
 
 ```bash
 .
@@ -423,7 +427,7 @@ OptiMoldIQ uses a shared database with both dynamic and static datasets:
 
 ---
 
-## Roadmap 🔄
+## 🔄 Roadmap
 
 | Phase / Key Goal                         | Task                                                     | Status         | Responsible Agent                                                                     |
 | ---------------------------------------- | -------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------- |
@@ -441,7 +445,7 @@ OptiMoldIQ uses a shared database with both dynamic and static datasets:
 
 ---
 
-## Current Status Summary 🔄
+## 🔄 Current Status Summary
 
 | Component                             | Status & Notes                                                                               |
 | ------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -465,56 +469,145 @@ Experience OptiMoldIQ's architecture through our interactive dashboard:
 
 ---
 
-## Milestones 🔄
+## 🔄 Milestones
 
-### ✅ **Milestone 01**: Core Data Pipeline Agents  
-  
-Completed July 2025 — Includes:
+### ✅ Milestone 01: Core Data Pipeline Agents (Completed July 2025)
+> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_01.md)
 
-- `dataPipelineOrchestrator`
-- `validationOrchestrator`
-- `orderProgressTracker` 
+#### Scope & Objectives
+- Establish the foundational data pipeline to:
+  - Collect and consolidate monthly dynamic data into the shared database.
+  - Enforce multi-layer data integrity validation across static and dynamic sources.
+  - Transform machine/shift production logs into PO-level progress and flag inconsistencies.
 
-> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_01.md) 
+#### Completed Agents
+| Agent                        | Core Responsibilities                                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **DataPipelineOrchestrator** | Coordinates the end-to-end pipeline for data collecting, cleaning, and loading into shared databases.                  |
+| **ValidationOrchestrator**   | Manages validation workflow using key validators (PO-required check, static cross-reference, dynamic logic validation). |
+| **OrderProgressTracker**     | Converts raw production logs into PO progress data and highlights mismatches for downstream review.                     |
 
-> 👉 [orderProgressTracker Live Demo](docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
+#### High-Level Workflow
+- `Data Collection` → `Data Loading` (via `DataCollector` & `DataLoaderAgent`).
+- Validation Layer executes core rule checks through the `validationOrchestrator`.
+- Production Progress Reconstruction outputs PO-level timelines and discrepancy flags through the `orderProgressTracker`.
+> 👉 [orderProgressTracker Output Overview](docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
 
-### ✅ **Milestone 02**: Initial Production Planning System
-  
-Completed August 2025 — Includes:
+#### Two-Tier Healing System
+- `Local Healing`: each sub-agent performs autonomous recovery (rollback, retry, schema validation).
+- `Global Healing`: orchestrator handles cross-agent failures, multi-stage rollback, or escalates for manual intervention.
 
-- Upgrated `dataPipelineOrchestrator`, `validationOrchestrator`, and `orderProgressTracker`
-  
-- `initialPlanner` includes:
+### ✅ Milestone 02: Initial Production Planning System (Completed August 2025)
+> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_02.md)
 
-  - Generated **historical insights** from historical production records: 
+- Depends on: Milestone 01 (Core Data Pipeline Agents)
 
-    - `MoldStabilityIndexCalculator` generate **comprehensive stability assessments** for manufacturing molds. It evaluates mold reliability through multi-dimensional analysis of cavity utilization and cycle time performance, providing critical input for production capacity planning and mold maintenance optimization.
+#### Scope & Objectives
+- Deliver an intelligent workflow-based production planning system that:
+  - Orchestrates daily operations through the OptiMoldIQWorkflow.
+  - Performs conditional, resource-efficient processing based on detected data changes.
+  - Generates historical insights when enough data is accumulated.
+  - Produces unified operational and planning reports with auditability.
 
-    - `MoldMachineFeatureWeightCalculator` against **efficiency thresholds** to generate confidence-weighted feature importance scores. It analyzes good vs bad production performance patterns using statistical methods to determine optimal weights for production planning priority matrices.
-
-  - Tracked and created comprehensive manufacturing/producing plans using `ProducingProcessor` integrates production status data with optimization results from `HybridSuggestOptimizer`. 
-  
-    - `HybridSuggestOptimizer` combines multiple optimization strategies to suggest optimal production configurations based on historical records. It integrates: 
-      - `ItemMoldCapacityOptimizer` to estimate mold capacity used `MoldStabilityIndexCalculator` results
-        
-      - `MoldMachinePriorityMatrixCalculator` calculate mold-machine priority matrix used `MoldMachineFeatureWeightCalculator` results.
-
-    The system helps manufacturing operations make intelligent decisions about mold selection, machine allocation, and production scheduling.
-
-  - Optimizated and generated comprehensive pending assignments using `PendingProcessor` with two-tier optimization system using two-phase greedy algorithms:
-    - `HistBasedMoldMachineOptimizer` based on `priority matrices` and `estimated capacity based lead time` constraints.
-    - `CompatibilityBasedMoldMachineOptimizer` based on `technical compatibility matrices` and `estimated capacity based lead time` constraints.
-
-> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_02.md) 
-
+#### Core System Components
+- **OptiMoldIQWorkflow (Main Orchestrator)**
 > 👉 [optiMoldIQWorkflow Live Demo](docs/agents_output_overviews/optiMoldIQWorkflow_output_overviews.md)
-  
-### 🔄 **In Progress**: AnalyticsOrchestrator + DashBoardBuilder
+
+- Manages the entire daily pipeline with:
+  - Smart change detection and phase-based execution.
+  - Automatic resource optimization (skip unnecessary phases).
+  - Central activity monitoring and reporting.
+  - Unified error-handling with safe isolated execution.  
+
+#### Three-Phase Conditional Architecture
+| Phase                               | Trigger             | What Runs                                                            | Purpose                                        |
+| ----------------------------------- | ------------------- | -------------------------------------------------------------------- | ---------------------------------------------- |
+| **1. Data Pipeline**                | Always              | `DataPipelineOrchestrator`                                           | Collect & detect changes in dynamic data.      |
+| **2. Shared DB Build & Validation** | When data changes   | `ValidationOrchestrator`, `OrderProgressTracker`                     | Refresh validated shared DB.                   |
+| **2.5. Historical Insights**        | When enough records | `MoldStabilityIndexCalculator`, `MoldMachineFeatureWeightCalculator` | Generate stability and machine–mold analytics. |
+| **3. Production Planning**          | When PO changes     | `ProducingProcessor`, `PendingProcessor`                             | Optimize schedules & resource allocation.      |
+
+- **Historical Insight Engines (Phase 2.5)**
+  - *MoldStabilityIndexCalculator*: cavity stability, cycle consistency, trend detection.
+  - *MoldMachineFeatureWeightCalculator*: bootstrap-based feature weights for mold–machine optimization.
+ 
+- **Production Planning Processors (Phase 3)**
+  - *ProducingProcessor*: analyzes active production, integrates stability metrics, generates performance reports.
+  - *PendingProcessor*: priority scheduling, load balancing, and assignment optimization using historical insights.
+
+#### Configuration Management
+- Centralized workflow settings (WorkflowConfig) controlling:
+  - Path management.
+  - Efficiency & loss targets.
+  - Historical insight thresholds.
+  - Load limits and priority orders.
+  - Stability/analytics thresholds and confidence parameters.
+ 
+#### Smart Processing & Change Detection
+- Conditional triggers ensure:
+  - Phase 2 → on dynamic data updates.
+  - Phase 2.5 → on historical thresholds.
+  - Phase 3 → on purchase order changes.
+- *Benefits*: reduced processing time, lower compute cost, scalable performance.
+
+#### Error Handling & Recovery
+- The workflow wraps each operation with:
+  - Safe isolated execution (_safe_execute).
+  - Contextual logging for each agent.
+  - Graceful degradation when individual components fail.
+
+#### Reporting System
+- Generates multi-level reports for:
+  - Data collection
+  - Validation
+  - Progress tracking
+  - Production planning
+  - Historical analysis
+- With automatic timestamping, archiving, and audit trail support.
+
+#### Impact & Performance Gains
+- 60–80% reduction in unnecessary processing via conditional execution.
+- High reliability through centralized error handling.
+- Improved planning accuracy and visibility across operations.
+- Consistent historical insights improving decision-making.
+
+### 🔄 Milestone 03: Analytics Orchestration + Multi-Level Dashboard Agents (Completed November 2025)
+> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_03.md) 🔄 
+
+- Depends on: Milestone 01 (Core Data Pipeline Agents)
+
+#### Scope & Objectives
+- Build a multi-tier analytics system capable of:
+  - Auto-detecting layout & machine–mold relationship changes.
+  - Running day/month/year-level analytical processing at scale.
+  - Generating 20+ dashboards with versioned historical archives.
+  - Producing centralized static reports for operational visibility.
+
+#### Completed Agents
+| Agent                       | Core Responsibilities                                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **AnalyticsOrchestrator**   | Coordinates multi-resolution analytics; manages change detection, data processing, and parallel execution. |
+| └─**DataChangeAnalyzer**      | Detects machine layout changes & new machine–mold pairings; logs historical evolution & summarizes diffs.  |
+| └─**MultiLevelDataAnalytics** | Performs day/month/year-level aggregations using processor + plotter pipelines.                            |
+| **DashboardBuilder**        | Generates production dashboards (PNG, Excel, JSON logs) across daily/monthly/yearly layers.                |
+
+#### High-Level Workflow
+- `DataChangeAnalyzer` detects layout or pairing changes → triggers corresponding analytical updates.
+> 👉 [dataChangeAnalyzer Output Overview](docs/agents_output_overviews/dataChangeAnalyzer)
+- `MultiLevelDataAnalytics` executes day → month → year processors (conditional on data availability) → `DashboardBuilder` generates structured dashboards, Excel summaries, and timestamped archives.
+> 👉 [dashboardBuilder Output Overview](docs/agents_output_overviews/dashboardBuilder)
+
+#### Performance & Reliability Features
+- Parallel Processing Engine: 40–60% faster execution via smart worker allocation.
+- Multi-Resolution Analytics: 8 day-level, 3 month-level, 9+ year-level dashboards.
+- Versioned Output System: Auto-archived historical PNG/Excel/TXT summaries.
+- Error Isolation Layer: Per-module fault isolation with fallback execution paths.
+
+### 📝 In Progress: AnalyticsOrchestrator + TaskOrchestrator
 
 ---
 
-## Quickstart 🔄
+## 🔄 Quickstart
 
 Clone repo and run this python script to run initial agents on sample data
 
@@ -588,7 +681,7 @@ if __name__ == "__main__":
 
 --- 
 
-## Contributing
+## 🔄 Contributing
 Contributions are welcome! To contribute:
 - Fork the repository.
 - Create a branch for your feature.
@@ -596,12 +689,12 @@ Contributions are welcome! To contribute:
 
 ---
 
-## License
+## 🔄 License
 This project is licensed under the MIT License. See [LICENSE](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/LICENSE) for details.
 
 ---
 
-## Contact
+## 🔄 Contact
 For questions or collaboration, reach out via:
 - [Email](mailto:thuyha.le0590@gmail.com)
 - [GitHub](https://github.com/ThuyHaLE)
