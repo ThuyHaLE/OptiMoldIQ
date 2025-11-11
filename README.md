@@ -317,66 +317,65 @@ The central coordinating agent responsible for manufacturing operations manageme
 The following diagram shows how the data flows from external sources into the system and how various agents interact in the pipeline.
 
 > 👉 [ASCII diagram](docs/OptiMoldIQ-systemDiagram-ASCII.md)
+> 👉 [Directory Tree Structure](docs/OptiMoldIQ-directoryTreeStructure.md)
 
-<details> <summary> Or click to expand system architecture diagram</summary>
+<details> <summary> Or click to expand system architecture diagram (simple version) </summary>
 
 ```plaintext
-┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                               [ OptiMoldIQWorkflow ]                                            │
-│                    Main orchestrator coordinating all manufacturing workflow phases              │
-└──────────────┬──────────────────────────────────────────────────────────────────────────────────┘
-               ▼ PHASE 1: DATA COLLECTION                                           
-        ┌──────────────────────┐                                            ┌──────────────────────┐
-        │ DataPipelineOrch.    │                                            │   Update Detection   │
-        │ (Collect & Process)  │────── Process Pipeline ──────────────────⯈│ (Analyze Changes)    │
-        └──────────────────────┘                                            └──────────────────────┘
-               │                                                                        │
-               ▼                                                                        ▼
-    📊 Execute Data Collection                                             🔍 Detect Database Updates
-    • Run DataPipelineOrchestrator                                         • Check collector results
-    • Process dynamic databases                                            • Check loader results  
-    • Generate pipeline report                                             • Identify changed databases
-    • Handle collection errors                                             • Return trigger flag & details
+┌───────────────────────────────────────────────────────────────────────┐
+│                         OptiMoldIQWorkflow                            │
+│         (Multi-Phase Manufacturing & Analytics Orchestrator)          │
+└───────────────────────────────────────────────────────────────────────┘
 
-               ▼ PHASE 2: SHARED DB BUILDING (Conditional)
-        ┌──────────────────────┐      ┌──────────────────────┐      ┌──────────────────────┐      ┌──────────────────────┐
-        │ ValidationOrch.      │      │ OrderProgressTracker │      │ Historical insight   │      │ ProducingProcessor   │
-        │ (Data Validation)    │────⯈│ (Progress Monitoring)│────⯈ │ adding phase         │────⯈│ (Production Analysis)│
-        └──────────────────────┘      └──────────────────────┘      └──────────────────────┘      └──────────────────────┘
-               │                              │                              │                                │
-               ▼                              ▼                              ▼                                ▼
-    ✅ Validate Data Quality          📈 Track Order Status       📈 Generate Historical Insights   🏭 Process Production Data
-    • Run validation checks            • Monitor order progress     • Calculate:                      • Analyze production metrics
-    • Generate mismatch reports        • Track milestones           1. mold stability index           • Calculate efficiency & loss
-    • Ensure data integrity            • Update progress logs       2. mold machine feature weight    • Generate production reports
-    • Save validation results          • Generate progress reports                                    • Process stability indices
+DATA SOURCES
+    • databaseSchemas.json
+    • dynamicDatabase/{monthlyReports_history, purchaseOrders_history}
 
-               ▼ PHASE 3: INITIAL PLANNING (Conditional)
-        ┌──────────────────────┐                                             ┌──────────────────────┐
-        │   Purchase Order     │                                             │   PendingProcessor   │
-        │   Change Detection   │────── If PO Changes Detected ─────────────⯈│ (Order Processing)   │
-        └──────────────────────┘                                             └──────────────────────┘
-               │                                                                        │
-               ▼                                                                        ▼
-    🛒 Check Purchase Orders                                            ⚡ Process Pending Orders
-    • Analyze updated databases                                          • Apply priority ordering
-    • Look for 'purchaseOrders' changes                                  • Respect load thresholds
-    • Determine if planning needed                                       • Optimize processing schedule
-    • Trigger or skip processing                                         • Generate planning reports
+──────────────────────────────────────────────────────────────────────────
+PHASE 1 — DATA COLLECTION
+    DataPipelineOrchestrator
+        ├─ DataCollector → *_collector_report.txt
+        ├─ DataLoaderAgent → *_loader_report.txt
+        └─ Final pipeline report
+    OUTPUT: shared_db/DataLoaderAgent/newest/*.parquet + annotations.json
+    TRIGGER OUT: updateDetectionFlag
 
-        ┌─────────────────────────────────────────────────────────────────────────────────────┐
-        │                                📋 REPORTING SYSTEM                                  │
-        │  • Generate comprehensive workflow reports                                          │
-        │  • Include data collection, validation, progress, and planning results              │
-        │  • Save timestamped reports with UTF-8 encoding                                     │
-        │  • Provide audit trails and operational summaries                                   │
-        └──────────────────────────────────────┬──────────────────────────────────────────────┘
-                                               ▼
-                                      🛠️  To Be Continued...
+──────────────────────────────────────────────────────────────────────────
+PHASE 2 — SHARED DB BUILDING (If updatesDetected)
+    • Validate Data: ValidationOrchestrator
+    • Track Order Status: OrderProgressTracker
+    • Generate Historical Insights:
+        - MoldStabilityIndexCalculator → mold stability index
+        - MoldMachineFeatureWeightCalculator → machine/mold feature weights
+    • Support Production & Material Coordination: ProducingProcessor
+
+──────────────────────────────────────────────────────────────────────────
+PHASE 3 — INITIAL PLANNING (If purchaseOrders changed)
+    • Detect Purchase Order Changes: PurchaseOrderChangeDetection
+    • Generate Planning for New Orders: PendingProcessor
+
+──────────────────────────────────────────────────────────────────────────
+PHASE 4 — ANALYTICS & VISUALIZATION
+    • TriggerDetection → checks for new or changed data
+    • Dashboard Builders
+        - DayLevelPlotter → daily dashboards
+        - MonthLevelPlotter → monthly dashboards
+        - YearLevelPlotter → yearly dashboards
+    • Historical Analysis Modules
+        - MoldOverview → first-run machine/mold pair history extraction
+        - MachineLayout → layout change history
+
+──────────────────────────────────────────────────────────────────────────
+CENTRALIZED REPORTING
+    agents/shared_db/{ModuleName}/
+        ├─ newest/
+        ├─ historical_db/
+        └─ change_log.txt
+
+WORKFLOW UPDATING...
+
 ```
 </details>
-
-
 
 ---
 
