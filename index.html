@@ -3,615 +3,439 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OptiMoldIQ - Intelligent Plastic Molding Planner</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .header h1 {
-            font-size: 3em;
-            font-weight: 700;
-            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
-            background-size: 300% 300%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: gradientShift 3s ease-in-out infinite;
-            margin-bottom: 10px;
-        }
-
-        @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        .subtitle {
-            font-size: 1.2em;
-            color: rgba(255, 255, 255, 0.9);
-            margin-bottom: 20px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .stat-number {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #4ecdc4;
-            display: block;
-            margin-bottom: 10px;
-        }
-
-        .stat-label {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9em;
-        }
-
-        .phases-container {
-            display: grid;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .phase {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.3s ease;
-        }
-
-        .phase:hover {
-            background: rgba(255, 255, 255, 0.15);
-            transform: translateX(5px);
-        }
-
-        .phase-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-            cursor: pointer;
-        }
-
-        .phase-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5em;
-            margin-right: 15px;
-            transition: all 0.3s ease;
-        }
-
-        .phase-title {
-            font-size: 1.4em;
-            font-weight: 600;
-            color: white;
-            flex-grow: 1;
-        }
-
-        .phase-status {
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.8em;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .status-completed {
-            background: #4ecdc4;
-            color: white;
-        }
-
-        .status-progress {
-            background: #ffd93d;
-            color: #333;
-        }
-
-        .status-planned {
-            background: rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .agents-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .agent-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 15px;
-            border-left: 4px solid #4ecdc4;
-            transition: all 0.3s ease;
-        }
-
-        .agent-card:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: scale(1.02);
-        }
-
-        .agent-name {
-            font-weight: 600;
-            color: #4ecdc4;
-            margin-bottom: 8px;
-        }
-
-        .agent-desc {
-            font-size: 0.85em;
-            color: rgba(255, 255, 255, 0.7);
-            line-height: 1.4;
-        }
-
-        .phase-content {
-            overflow: hidden;
-            transition: all 0.5s ease;
-            max-height: 0;
-        }
-
-        .phase-content.expanded {
-            max-height: 1000px;
-        }
-
-        .milestone-timeline {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            margin-top: 20px;
-        }
-
-        .milestone {
-            display: flex;
-            align-items: center;
-            padding: 15px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .milestone:last-child {
-            border-bottom: none;
-        }
-
-        .milestone:hover {
-            background: rgba(255, 255, 255, 0.05);
-            padding-left: 10px;
-        }
-
-        .milestone-marker {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8em;
-            font-weight: bold;
-        }
-
-        .milestone-completed {
-            background: #4ecdc4;
-            color: white;
-        }
-
-        .milestone-progress {
-            background: #ffd93d;
-            color: #333;
-        }
-
-        .milestone-text {
-            flex-grow: 1;
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        .milestone-date {
-            font-size: 0.8em;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .tech-stack {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .tech-tag {
-            background: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.9);
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8em;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.3s ease;
-        }
-
-        .tech-tag:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: scale(1.05);
-        }
-
-        .expandable {
-            cursor: pointer;
-        }
-
-        .phase-icon.active {
-            transform: rotate(180deg);
-        }
-
-        .data-flow {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .flow-step {
-            display: flex;
-            align-items: center;
-            margin: 10px 0;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-
-        .flow-step:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .flow-arrow {
-            color: #4ecdc4;
-            margin: 0 10px;
-            font-size: 1.2em;
-        }
-
-        .contact-section {
-            text-align: center;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            margin-top: 20px;
-        }
-
-        .contact-links {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 15px;
-        }
-
-        .contact-link {
-            display: inline-flex;
-            align-items: center;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            text-decoration: none;
-            border-radius: 25px;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .contact-link:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-    </style>
+    <title>OptiMoldIQ - Intelligent Manufacturing System</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔧 OptiMoldIQ</h1>
-            <div class="subtitle">Intelligent Plastic Molding Planner</div>
-            <p style="color: rgba(255, 255, 255, 0.8);">
-                Multi-agent architecture for streamlined plastic molding optimization
-            </p>
-            <div class="tech-stack">
-                <span class="tech-tag">🐍 Python</span>
-                <span class="tech-tag">🤖 Multi-Agent System</span>
-                <span class="tech-tag">📊 Data Analytics</span>
-                <span class="tech-tag">🏭 Manufacturing Optimization</span>
-                <span class="tech-tag">📈 Predictive Analysis</span>
-                <span class="tech-tag">⚡ Real-time Monitoring</span>
-            </div>
-        </div>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+        
+        // Lucide icons as inline SVG components
+        const Brain = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>;
+        
+        const Database = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>;
+        
+        const Network = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>;
+        
+        const BarChart3 = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>;
+        
+        const CheckCircle2 = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>;
+        
+        const Clock = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+        
+        const AlertCircle = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
+        
+        const ChevronDown = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
+        
+        const ChevronRight = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>;
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <span class="stat-number">61K+</span>
-                <div class="stat-label">Production Records</div>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">6.2K</span>
-                <div class="stat-label">Internal Orders</div>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">694</span>
-                <div class="stat-label">Plastic Products</div>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">251</span>
-                <div class="stat-label">Unique Molds</div>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">49</span>
-                <div class="stat-label">Molding Machines</div>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">27</span>
-                <div class="stat-label">Months of Data</div>
-            </div>
-        </div>
+        const OptiMoldIQExplorer = () => {
+          const [activeTab, setActiveTab] = useState('overview');
+          const [expandedAgent, setExpandedAgent] = useState(null);
 
-        <div class="phases-container">
-            <div class="phase">
-                <div class="phase-header expandable" onclick="togglePhase('phase1')">
-                    <div class="phase-icon" style="background: #4ecdc4;" id="icon1">📊</div>
-                    <div class="phase-title">Phase 1: Data Collection & Processing</div>
-                    <div class="phase-status status-completed">Completed</div>
-                </div>
-                <div class="phase-content" id="phase1">
-                    <div class="agents-grid">
-                        <div class="agent-card">
-                            <div class="agent-name">DataPipelineOrchestrator</div>
-                            <div class="agent-desc">Collects distributed monthly data, consolidates, and loads into shared database. Handles both dynamic and static data sources.</div>
-                        </div>
-                        <div class="agent-card">
-                            <div class="agent-name">ValidationOrchestrator</div>
-                            <div class="agent-desc">Performs cross-checks including PO validation, static data verification, and dynamic field validation.</div>
-                        </div>
-                        <div class="agent-card">
-                            <div class="agent-name">OrderProgressTracker</div>
-                            <div class="agent-desc">Aggregates production per machine/shift, maps back to purchase orders, and flags mismatches.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+          const statusIcon = (status) => {
+            if (status === '✅') return <CheckCircle2 />;
+            if (status === '🔄') return <Clock />;
+            return <AlertCircle />;
+          };
 
-            <div class="phase">
-                <div class="phase-header expandable" onclick="togglePhase('phase2')">
-                    <div class="phase-icon" style="background: #4ecdc4;" id="icon2">🎯</div>
-                    <div class="phase-title">Phase 2: Initial Production Planning</div>
-                    <div class="phase-status status-completed">Completed</div>
-                </div>
-                <div class="phase-content" id="phase2">
-                    <div class="agents-grid">
-                        <div class="agent-card">
-                            <div class="agent-name">MoldStabilityIndexCalculator</div>
-                            <div class="agent-desc">Generates comprehensive stability assessments for manufacturing molds through multi-dimensional analysis.</div>
-                        </div>
-                        <div class="agent-card">
-                            <div class="agent-name">MoldMachineFeatureWeightCalculator</div>
-                            <div class="agent-desc">Analyzes production patterns to determine optimal weights for planning priority matrices.</div>
-                        </div>
-                        <div class="agent-card">
-                            <div class="agent-name">HybridSuggestOptimizer</div>
-                            <div class="agent-desc">Combines multiple optimization strategies for optimal production configurations.</div>
-                        </div>
-                        <div class="agent-card">
-                            <div class="agent-name">PendingProcessor</div>
-                            <div class="agent-desc">Two-tier optimization system using greedy algorithms for pending order assignments.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="phase">
-                <div class="phase-header expandable" onclick="togglePhase('phase3')">
-                    <div class="phase-icon" style="background: #ffd93d; color: #333;" id="icon3">🧠</div>
-                    <div class="phase-title">Phase 3: RL-Based Optimization</div>
-                    <div class="phase-status status-progress">In Progress</div>
-                </div>
-                <div class="phase-content" id="phase3">
-                    <div class="agents-grid">
-                        <div class="agent-card">
-                            <div class="agent-name">AnalyticsOrchestrator</div>
-                            <div class="agent-desc">Tracks data changes and performs multi-level analytics across different time periods for deeper insights.</div>
-                        </div>
-                        <div class="agent-card">
-                            <div class="agent-name">TaskOrchestrator</div>
-                            <div class="agent-desc">Coordinates resin, mold, machine, quality, maintenance, and yield optimization tasks.</div>
-                        </div>
-                    </div>
-                    <div class="data-flow">
-                        <div class="flow-step">
-                            <span>🎯 Define Reward Function</span>
-                            <span class="flow-arrow">→</span>
-                            <span>📚 Train on Historical Data</span>
-                            <span class="flow-arrow">→</span>
-                            <span>⚡ Real-time Optimization</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="phase">
-                <div class="phase-header expandable" onclick="togglePhase('phase4')">
-                    <div class="phase-icon" style="background: rgba(255, 255, 255, 0.2);" id="icon4">📱</div>
-                    <div class="phase-title">Phase 4: Dashboard & Visualization</div>
-                    <div class="phase-status status-planned">Planned</div>
-                </div>
-                <div class="phase-content" id="phase4">
-                    <div class="agents-grid">
-                        <div class="agent-card">
-                            <div class="agent-name">DashBoardBuilder</div>
-                            <div class="agent-desc">Creates interactive dashboard for real-time monitoring and decision support with comprehensive visualization.</div>
-                        </div>
-                    </div>
-                    <div class="data-flow">
-                        <div class="flow-step">
-                            <span>🎨 UI Wireframes</span>
-                            <span class="flow-arrow">→</span>
-                            <span>🔗 API Integration</span>
-                            <span class="flow-arrow">→</span>
-                            <span>📊 Live Dashboard</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="milestone-timeline">
-            <h3 style="color: white; margin-bottom: 20px; text-align: center;">🏆 Project Milestones</h3>
-            <div class="milestone">
-                <div class="milestone-marker milestone-completed">✓</div>
-                <div class="milestone-text">
-                    <strong>Milestone 01: Core Data Pipeline Agents</strong><br>
-                    DataPipelineOrchestrator, ValidationOrchestrator, OrderProgressTracker
-                </div>
-                <div class="milestone-date">July 2025</div>
-            </div>
-            <div class="milestone">
-                <div class="milestone-marker milestone-completed">✓</div>
-                <div class="milestone-text">
-                    <strong>Milestone 02: Initial Production Planning System</strong><br>
-                    Historical insights, production optimization, and pending assignments
-                </div>
-                <div class="milestone-date">August 2025</div>
-            </div>
-            <div class="milestone">
-                <div class="milestone-marker milestone-progress">⏳</div>
-                <div class="milestone-text">
-                    <strong>In Progress: Analytics & Dashboard Development</strong><br>
-                    AnalyticsOrchestrator and DashBoardBuilder implementation
-                </div>
-                <div class="milestone-date">Q3 2025</div>
-            </div>
-        </div>
-
-        <div class="contact-section">
-            <h3 style="color: white; margin-bottom: 15px;">Get Involved</h3>
-            <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 20px;">
-                Interested in contributing to OptiMoldIQ or learning more about intelligent manufacturing optimization?
-            </p>
-            <div class="contact-links">
-                <a href="https://github.com/ThuyHaLE/OptiMoldIQ" class="contact-link">
-                    🔗 GitHub Repository
-                </a>
-                <a href="mailto:thuyha.le0590@gmail.com" class="contact-link">
-                    📧 Contact Developer
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function togglePhase(phaseId) {
-            const content = document.getElementById(phaseId);
-            const icon = document.getElementById('icon' + phaseId.slice(-1));
-            
-            if (content.classList.contains('expanded')) {
-                content.classList.remove('expanded');
-                icon.classList.remove('active');
-            } else {
-                // Close all other phases
-                document.querySelectorAll('.phase-content').forEach(el => {
-                    el.classList.remove('expanded');
-                });
-                document.querySelectorAll('.phase-icon').forEach(el => {
-                    el.classList.remove('active');
-                });
-                
-                // Open clicked phase
-                content.classList.add('expanded');
-                icon.classList.add('active');
+          const agents = [
+            {
+              id: 'optiMoldMaster',
+              name: 'OptiMoldMaster',
+              type: 'Mother Agent',
+              status: '✅',
+              description: 'Central coordinator managing all manufacturing operations',
+              icon: <Brain />,
+              color: 'purple'
+            },
+            {
+              id: 'dataPipeline',
+              name: 'DataPipelineOrchestrator',
+              type: 'Child Agent',
+              status: '✅',
+              description: '2-phase ETL pipeline for data collection and loading',
+              icon: <Database />,
+              color: 'blue',
+              subComponents: ['DataCollector', 'DataLoaderAgent']
+            },
+            {
+              id: 'validation',
+              name: 'ValidationOrchestrator',
+              type: 'Child Agent',
+              status: '✅',
+              description: 'Multi-layer data validation',
+              icon: <CheckCircle2 />,
+              color: 'green'
+            },
+            {
+              id: 'orderTracker',
+              name: 'OrderProgressTracker',
+              type: 'Child Agent',
+              status: '✅',
+              description: 'Real-time production tracking',
+              icon: <BarChart3 />,
+              color: 'orange'
+            },
+            {
+              id: 'autoPlanner',
+              name: 'AutoPlanner',
+              type: 'Child Agent',
+              status: '🔄',
+              description: 'Advanced production planning engine',
+              icon: <Network />,
+              color: 'indigo',
+              subComponents: ['InitialPlanner ✅', 'PlanRefiner 📝']
+            },
+            {
+              id: 'analytics',
+              name: 'AnalyticsOrchestrator',
+              type: 'Child Agent',
+              status: '🔄',
+              description: 'Central analytics hub for structured insights',
+              icon: <BarChart3 />,
+              color: 'cyan',
+              subComponents: ['DataChangeAnalyzer ✅', 'MultiLevelDataAnalytics 🔄']
+            },
+            {
+              id: 'dashboard',
+              name: 'DashboardBuilder',
+              type: 'Child Agent',
+              status: '✅',
+              description: 'Generates multi-level dashboards',
+              icon: <BarChart3 />,
+              color: 'teal'
+            },
+            {
+              id: 'taskOrch',
+              name: 'TaskOrchestrator',
+              type: 'Child Agent',
+              status: '📝',
+              description: 'Coordinates operational tasks',
+              icon: <Network />,
+              color: 'red',
+              subComponents: [
+                'ResinCoordinator 📝',
+                'MoldCoordinator 📝',
+                'MachineCoordinator 📝',
+                'MaintenanceCoordinator 📝',
+                'ProductQualityCoordinator 📝',
+                'YieldOptimizer 📝'
+              ]
             }
-        }
+          ];
 
-        // Add some interactive animations
-        document.addEventListener('DOMContentLoaded', function() {
-            // Animate stats on load
-            const statNumbers = document.querySelectorAll('.stat-number');
-            statNumbers.forEach((stat, index) => {
-                setTimeout(() => {
-                    stat.style.animation = 'bounceIn 0.6s ease-out';
-                }, index * 100);
-            });
-
-            // Add hover effects to agent cards
-            const agentCards = document.querySelectorAll('.agent-card');
-            agentCards.forEach(card => {
-                card.addEventListener('mouseenter', function() {
-                    this.style.borderLeftColor = '#ff6b6b';
-                });
-                card.addEventListener('mouseleave', function() {
-                    this.style.borderLeftColor = '#4ecdc4';
-                });
-            });
-        });
-
-        // Add bounceIn animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes bounceIn {
-                0% { transform: scale(0.3); opacity: 0; }
-                50% { transform: scale(1.05); opacity: 0.8; }
-                70% { transform: scale(0.9); opacity: 0.9; }
-                100% { transform: scale(1); opacity: 1; }
+          const milestones = [
+            {
+              number: '01',
+              title: 'Core Data Pipeline Agents',
+              status: '✅',
+              date: 'July 2025',
+              agents: ['DataPipelineOrchestrator', 'ValidationOrchestrator', 'OrderProgressTracker']
+            },
+            {
+              number: '02',
+              title: 'Initial Production Planning System',
+              status: '✅',
+              date: 'August 2025',
+              agents: ['OptiMoldIQWorkflow', 'ProducingProcessor', 'PendingProcessor']
+            },
+            {
+              number: '03',
+              title: 'Analytics Orchestration & Multi-Level Dashboards',
+              status: '✅',
+              date: 'November 2025',
+              agents: ['AnalyticsOrchestrator', 'DashboardBuilder']
+            },
+            {
+              number: '04',
+              title: 'Plan Refinement & Task Orchestration',
+              status: '🔄',
+              date: 'In Progress',
+              agents: ['PlanRefiner', 'TaskOrchestrator']
             }
-        `;
-        document.head.appendChild(style);
+          ];
+
+          const orchestrationLayers = [
+            {
+              name: 'Data Operations',
+              color: 'blue',
+              items: ['Daily Data Ingestion ✅', 'Multi-Layer Validation ✅', 'Real-Time Tracking ✅']
+            },
+            {
+              name: 'Production Planning',
+              color: 'indigo',
+              items: ['Initial Planning ✅', 'Plan Refinement 📝']
+            },
+            {
+              name: 'Analytics',
+              color: 'cyan',
+              items: ['Change Detection ✅', 'Multi-Level Analytics ✅', 'Shared Service Layer 🔄']
+            },
+            {
+              name: 'Reporting',
+              color: 'teal',
+              items: ['Dashboard Generation ✅', 'Multi-Resolution Views 📝']
+            },
+            {
+              name: 'Task Operations',
+              color: 'red',
+              items: ['Maintenance Scheduling 📝', 'Resource Management 📝', 'Quality Optimization 📝']
+            }
+          ];
+
+          const stats = {
+            records: '61,185',
+            orders: '6,234',
+            items: '694',
+            molds: '251',
+            machines: '49',
+            materials: '445'
+          };
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+              <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 mb-8 text-white shadow-xl">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div style={{width: '48px', height: '48px'}}><Brain /></div>
+                    <div>
+                      <h1 className="text-4xl font-bold">OptiMoldIQ</h1>
+                      <p className="text-indigo-100 text-lg">Intelligent Plastic Molding Planner</p>
+                    </div>
+                  </div>
+                  <p className="text-indigo-100 max-w-3xl">
+                    An AI-driven orchestration system for end-to-end manufacturing optimization, 
+                    coordinating data, machines, molds, and scheduling under a unified architecture.
+                  </p>
+                </div>
+
+                {/* Navigation Tabs */}
+                <div className="flex gap-2 mb-6 overflow-x-auto">
+                  {['overview', 'agents', 'milestones', 'layers', 'data'].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
+                        activeTab === tab
+                          ? 'bg-indigo-600 text-white shadow-lg'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Overview Tab */}
+                {activeTab === 'overview' && (
+                  <div className="space-y-6">
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                      {Object.entries(stats).map(([key, value]) => (
+                        <div key={key} className="bg-white rounded-xl p-4 shadow-md">
+                          <div className="text-2xl font-bold text-indigo-600">{value}</div>
+                          <div className="text-sm text-gray-600 capitalize">{key}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* System Status */}
+                    <div className="bg-white rounded-xl p-6 shadow-md">
+                      <h2 className="text-2xl font-bold mb-4">System Status</h2>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 text-green-500"><CheckCircle2 /></div>
+                            <span>Data Pipeline Operational</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 text-green-500"><CheckCircle2 /></div>
+                            <span>Validation System Active</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 text-green-500"><CheckCircle2 /></div>
+                            <span>Initial Planning Complete</span>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 text-blue-500"><Clock /></div>
+                            <span>Plan Refinement In Progress</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 text-blue-500"><Clock /></div>
+                            <span>Task Orchestrator Development</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 text-blue-500"><Clock /></div>
+                            <span>Dashboard UI Upgrade Planned</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Agents Tab */}
+                {activeTab === 'agents' && (
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {agents.map(agent => (
+                      <div
+                        key={agent.id}
+                        className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 bg-${agent.color}-100 rounded-lg w-12 h-12`}>
+                            {agent.icon}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-bold text-lg">{agent.name}</h3>
+                              <div className="w-4 h-4">{statusIcon(agent.status)}</div>
+                            </div>
+                            <p className="text-sm text-gray-500 mb-2">{agent.type}</p>
+                            <p className="text-gray-700 mb-3">{agent.description}</p>
+                            
+                            {agent.subComponents && (
+                              <div>
+                                <button
+                                  onClick={() => setExpandedAgent(expandedAgent === agent.id ? null : agent.id)}
+                                  className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700"
+                                >
+                                  <div className="w-4 h-4">
+                                    {expandedAgent === agent.id ? <ChevronDown /> : <ChevronRight />}
+                                  </div>
+                                  Sub-components ({agent.subComponents.length})
+                                </button>
+                                
+                                {expandedAgent === agent.id && (
+                                  <div className="mt-2 ml-6 space-y-1">
+                                    {agent.subComponents.map((sub, idx) => (
+                                      <div key={idx} className="text-sm text-gray-600">• {sub}</div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Milestones Tab */}
+                {activeTab === 'milestones' && (
+                  <div className="space-y-4">
+                    {milestones.map(milestone => (
+                      <div
+                        key={milestone.number}
+                        className="bg-white rounded-xl p-6 shadow-md"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
+                            milestone.status === '✅' ? 'bg-green-500' : 'bg-blue-500'
+                          }`}>
+                            {milestone.number}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-xl font-bold">{milestone.title}</h3>
+                              <div className="w-5 h-5">{statusIcon(milestone.status)}</div>
+                              <span className="text-sm text-gray-500">{milestone.date}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {milestone.agents.map(agent => (
+                                <span
+                                  key={agent}
+                                  className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm"
+                                >
+                                  {agent}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Orchestration Layers Tab */}
+                {activeTab === 'layers' && (
+                  <div className="space-y-4">
+                    {orchestrationLayers.map(layer => (
+                      <div
+                        key={layer.name}
+                        className="bg-white rounded-xl p-6 shadow-md"
+                      >
+                        <h3 className={`text-xl font-bold mb-4 text-${layer.color}-600`}>
+                          {layer.name} Orchestration
+                        </h3>
+                        <div className="space-y-2">
+                          {layer.items.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                              <div className="text-gray-700">{item}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Data Tab */}
+                {activeTab === 'data' && (
+                  <div className="bg-white rounded-xl p-6 shadow-md">
+                    <h2 className="text-2xl font-bold mb-6">Dataset Overview</h2>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">27-Month Production Dataset</h3>
+                        <p className="text-gray-700 mb-4">
+                          Real-world manufacturing data from a plastic injection molding facility, 
+                          providing empirical foundation for validation and optimization.
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Dynamic Datasets</h3>
+                        <div className="space-y-2">
+                          <div className="p-3 bg-blue-50 rounded-lg">
+                            <strong>productRecords:</strong> Real-time production logs per machine and shift
+                          </div>
+                          <div className="p-3 bg-blue-50 rounded-lg">
+                            <strong>purchaseOrders:</strong> Orders with resin and material requirements
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">Static Datasets</h3>
+                        <div className="grid md:grid-cols-2 gap-3">
+                          {['itemCompositionSummary', 'itemInfo', 'machineInfo', 'moldInfo', 'moldSpecificationSummary', 'resinInfo'].map(dataset => (
+                            <div key={dataset} className="p-3 bg-gray-50 rounded-lg">
+                              {dataset}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        ReactDOM.render(<OptiMoldIQExplorer />, document.getElementById('root'));
     </script>
 </body>
 </html>
- 
- 
