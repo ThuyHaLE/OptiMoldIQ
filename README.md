@@ -9,6 +9,23 @@ It centralizes operational intelligence by coordinating data, machines, molds, a
 
 ---
 
+<!-- 🌐 Interactive Lite Version Box -->
+<div align="center" style="border:2px solid #4CAF50; padding:20px; border-radius:12px; background:#f0fff0; margin-bottom:20px; max-width:600px;">
+  <h2 style="margin:0; color:#2E7D32;">🌐 Explore OptiMoldIQ Lite</h2>
+  <p style="margin:10px 0 15px 0; color:#333; font-size:16px;">
+    Visualize the injection molding workflow and dashboards interactively.
+  </p>
+  <a href="https://thuyhale.github.io/OptiMoldIQ/" target="_blank" 
+     style="text-decoration:none; background:#4CAF50; color:white; padding:10px 20px; border-radius:8px; font-weight:bold; font-size:16px;">
+    🚀 Open Lite Dashboard
+  </a>
+  <p style="margin-top:10px; font-size:14px; color:#555;">
+    Click the button above to explore without scrolling through the full README.
+  </p>
+</div>
+
+---
+
 ## Table of Contents
 - [Current Phase](#current-phase)
 - [Business Problem](#-business-problem)
