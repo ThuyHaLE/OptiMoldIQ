@@ -1,20 +1,18 @@
 🌐 [English](README.md) | [Tiếng Việt](README-vi.md)
 
 # OptiMoldIQ: Intelligent Plastic Molding Planner
+
+*An AI-driven orchestration system for end-to-end manufacturing optimization.*
+
 **OptiMoldIQ** is a multi-agent intelligent manufacturing system designed to optimize injection molding operations through automated data pipelines, validation, production planning, analytics, and real-time decision support.
 It centralizes operational intelligence by coordinating data, machines, molds, and scheduling under a unified architecture.  
-
----
-
-Legend: ✅ Complete | 🔄  In Progress | 📝 Planned
 
 ---
 
 ## Table of Contents
 - [Current Phase](#current-phase)
 - [Business Problem](#-business-problem)
-- [Key Goals](#-key-goals)
-- [Planned Solution](#-planned-solution)
+- [Goals & Planned Solution](#-goals--planned-solution)
 - [System Architecture Diagram](#-system-architecture-diagram)
 - [Dataset Overview](#-dataset-overview)
 - [Databases Overview](#-databases-overview)
@@ -36,6 +34,10 @@ Legend: ✅ Complete | 🔄  In Progress | 📝 Planned
 
 ## Current Phase
 OptiMoldIQ is currently finalizing documentation for Milestone 03, covering analytics orchestration, dashboard building, multi-resolution dashboards, and change detection workflows.
+
+---
+
+Legend: ✅ Complete | 🔄  In Progress | 📝 Planned
 
 ---
 
@@ -61,71 +63,91 @@ Current systems are:
 - Manual or static, lacking real-time insights.
 - Prone to inefficiencies in scheduling, resource tracking, and quality management.
 
+### 🔄 Problem–Goal Alignment
+OptiMoldIQ directly addresses each business challenge through a set of orchestrated, data-driven systems:
+
+| **Business Challenge**                                           | **Strategic Goal / Orchestration Focus**                                                                                   |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Lack of real-time data and fragmented sources                    | **Data Operations Orchestration** → Automate data ingestion, validation, and real-time production tracking.                |
+| Inefficient or manual production planning                        | **Production Planning Orchestration** → Optimize mold–machine assignments and refine plans using analytics insights.       |
+| Limited visibility into performance and trends                   | **High-Level Analytics Orchestration** → Enable multi-level reporting and auto-detection of layout or performance changes. |
+| Poor coordination between production, maintenance, and materials | **Operational Task Orchestration** → Predictive maintenance, resin restocking, and yield optimization to prevent downtime. |
+| Static and isolated reporting systems                            | **Reporting Orchestration** → Centralize dashboards and evolve from static reports to dynamic, interactive visualizations. |
+
 --- 
 
-## 🔄 Key Goals
+## 🔄 Goals + Planned Solution
+
+In response to the production challenges outlined above, the **OptiMoldIQ System** was built as a **multi-agent orchestration framework** that transforms fragmented manufacturing operations into a unified, data-driven ecosystem.
+
+--- 
+
+### 1. 🔄   Orchestration Layers Overview
+
+These orchestration layers collectively form the operational backbone of OptiMoldIQ, enabling synchronized workflows from raw data collection to intelligent decision-making.
+
 <details>
 <summary>Data Operations Orchestration</summary>
 
-- Daily Data Ingestion Pipeline: Automated collection and loading of production and operational data. ✅
+- **Daily Data Ingestion Pipeline**: Automated collection and loading of production and operational data. ✅
 
-- Multi-Layer Validation: Static, dynamic, and required-field checks to ensure data integrity. ✅
+- **Multi-Layer Validation**: Static, dynamic, and required-field checks to ensure data integrity. ✅
  
-- Real-Time Production Tracking: Monitor production progress and operational KPIs as they happen. ✅
+- **Real-Time Production Tracking**: Monitor production progress and operational KPIs as they happen. ✅
 
 </details>
 
 <details>
 <summary>Production Planning Orchestration</summary>
   
-*Multi-Stage Mold–Machine Planning*:
+- **Multi-Stage Mold–Machine Planning**:
   
-- Initial planning leveraging historical patterns and compatibility analysis. ✅
-  
-- Plan refinement using insights from analytics orchestration and operational task orchestration, including resin inventory and mold/machine maintenance. 📝 
+  - Initial planning leveraging historical patterns and compatibility analysis. ✅
+    
+  - Plan refinement using insights from analytics orchestration and operational task orchestration, including resin inventory and mold/machine maintenance. 📝 
 
 </details>
    
 <details>
 <summary>High-Level Orchestration</summary>
   
-*Analytics Orchestration*: 
+- **Analytics Orchestration**: 
   
-- Auto-detect mold/machine layout changes and generate static reports (dataChangeAnalyzer). ✅
+  - Auto-detect mold/machine layout changes and generate static reports (dataChangeAnalyzer). ✅
+    
+  - Multi-level analytics with day, month, and year views for operational insights (multiLevelDataAnalytics). ✅
   
-- Multi-level analytics with day, month, and year views for operational insights (multiLevelDataAnalytics). ✅
+  - Multi-level analytics currently serves dashboardBuilder. ✅
+  
+  - Support Operational Task Orchestration via shared analytics. 📝
+  
+  - Support Production Planning Orchestration (Plan refinement phase) via shared analytics. 📝
 
-- Multi-level analytics currently serves dashboardBuilder. ✅
+- **Reporting Orchestration**: 
 
-- Support Operational Task Orchestration via shared analytics. 📝
+  - Centralized dashboard generation for actionable insights. ✅
+  
+  - Visualization across multiple time resolutions (day/month/year) for decision support. ✅
+  
+  - Upgrade from static report to dynamic UI/UX 📝
 
-- Support Production Planning Orchestration (Plan refinement phase) via shared analytics. 📝
+- **Operational Task Orchestration**:
 
-*Reporting Orchestration*: 
-
-- Centralized dashboard generation for actionable insights. ✅
-
-- Visualization across multiple time resolutions (day/month/year) for decision support. ✅
-
-- Upgrade from static report to dynamic UI/UX 📝
-
-*Operational Task Orchestration*:
-
-- Proactive maintenance of molds and machines; resin restocking to prevent downtime and material shortages. 📝
-
-- Quality and yield optimization: 📝
-
-  - Improve cycle times while maintaining product quality.
-
-  - Enhance production yield through actionable insights.
+  - Proactive maintenance of molds and machines; resin restocking to prevent downtime and material shortages. 📝
+  
+  - Quality and yield optimization: 📝
+  
+    - Improve cycle times while maintaining product quality.
+  
+    - Enhance production yield through actionable insights.
 
 </details>
 
 ---
 
-## 🔄 Planned Solution
+### 2. 🔄 System Architecture Overview
 
-The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges:
+OptiMoldIQ uses a **multi-agent architecture** to operationalize these orchestration layers:
 
   ```
   agents
@@ -153,295 +175,213 @@ The OptiMoldIQ System uses a multi-agent architecture to tackle these challenges
       └─ qualityOptimizer (yield + quality + cycle time)
   ```
 
-### 🔄 1. optiMoldMaster (Mother-Agent) 
-The central coordinating agent responsible for manufacturing operations management.
-- It automates:
-  - Daily data processing pipeline
-    - Collection & loading (dataPipelineOrchestrator)
-    - Multi-layer validation (validationOrchestrator)
-    - Real-time production tracking (orderProgressTracker)
-  - Automated production planning
-    - Multi-stage mold–machine planning workflow (autoPlanner)
-  - Analytics orchestration
-    - Consolidates and triggers all analytics modules (analyticsOrchestrator)
-  - High-level orchestration
-    - Generates multi-resolution dashboards (daily → monthly → yearly) via dashboardBuilder
-    - Coordinates dependent operational tasks (taskOrchestrator)
+> *Note:*  `optiMoldMaster` functions as the **mother-agent**, orchestrating all child agents below. Each child agent operates autonomously but synchronizes through shared data and event channels.
 
-### 🔄 2. Core Components (Child Agents)
+### 3. 🔄 Agent Descriptions
+> 👉 [Details](docs/OptiMoldIQ-agentsBreakDown.md)
+
+| Agent | Type | Summary | Status |
+|-------|------|----------|--------|
+| optiMoldMaster | Mother Agent | Central coordinator managing all manufacturing operations | ✅ |
+| dataPipelineOrchestrator | Child Agent | 2-phase ETL pipeline for data collection and loading | ✅ |
+| validationOrchestrator | Child Agent | Multi-layer data validation | ✅ |
+| orderProgressTracker | Child Agent | Real-time production tracking | ✅ |
+| autoPlanner | Child Agent | Advanced production planning engine | 🔄 |
+| initialPlanner | Sub-component | Generates initial production plan | ✅ |
+| planRefiner | Sub-component | Refines and adjusts initial production plans | 📝 |
+| analyticsOrchestrator | Child Agent | Central analytics hub for structured insights | 🔄 |
+| dataChangeAnalyzer | Sub-component | Tracks mold/machine layout changes | ✅ |
+| multiLevelDataAnalytics | Sub-component | Multi-resolution analytics engine | 🔄 |
+| dashboardBuilder | Child Agent | Generates multi-level dashboards | ✅ |
+| taskOrchestrator | Child Agent | Coordinates operational tasks | 📝 |
+| resinCoordinator | Sub-component | Manages resin inventory and consumption | 📝 |
+| moldCoordinator | Sub-component | Tracks mold usage and maintenance | 📝 |
+| machineCoordinator | Sub-component | Monitors machine utilization | 📝 |
+| maintenanceCoordinator | Sub-component | Predictive maintenance scheduling | 📝 |
+| productQualityCoordinator | Sub-component | Tracks yield and defects | 📝 |
+| yieldOptimizer | Sub-component | Optimizes cycle time and yield | 📝 |
+
+#### 🔄 1. optiMoldMaster (Mother-Agent)
+
+`optiMoldMaster` acts as the **central coordinator**, managing the entire OptiMoldIQ manufacturing operations system.  
+It orchestrates all child agents to ensure seamless workflow across data processing, planning, analytics, reporting, and operational tasks.
+
+**Responsibilities**
+- End-to-end data processing:  
+  - `dataPipelineOrchestrator` (data ingestion)  
+  - `validationOrchestrator` (data integrity)  
+  - `orderProgressTracker` (production tracking)
+- Multi-stage production planning via `autoPlanner`
+- Centralized analytics and reporting via `analyticsOrchestrator` + `dashboardBuilder`
+- Task-level optimization and coordination via `analyticsOrchestrator` + `taskOrchestrator`
+
+---
+
+#### 🔄 2. Core Components (Child Agents)
 
 <details>
 <summary>2.1 dataPipelineOrchestrator ✅</summary>
 
-- Manages a robust 2-phase ETL pipeline:
+**Role:**  
+Manages the **two-phase ETL pipeline** for both static and dynamic manufacturing data.
 
-  - Collect → Load
+**Functions**
+- **Collect Phase:** Gathers distributed monthly data from multiple sources.  
+- **Load Phase:** Consolidates and loads into the shared manufacturing database.  
+- Supports both **static (master data)** and **dynamic (production records)**.  
+- Includes **error-recovery workflows** and **automated alerting** mechanisms.
 
-  - Full error–recovery workflow
-
-  - Automated alerts & self-healing mechanisms
-
-- Ensures stable, reproducible manufacturing data ingestion.
+**Purpose:**  
+Ensures stable, reproducible, and traceable manufacturing data ingestion.
 </details>
 
 <details>
 <summary>2.2 validationOrchestrator ✅</summary>
 
-- Coordinates and enforces multi-level data validation:
+**Role:**  
+Enforces multi-layer validation across all incoming manufacturing data streams.
 
-  - Static validation (schema, datatype, integrity)
+**Validation Layers**
+- **Static Validation:** Schema, datatype, integrity checks.  
+- **Dynamic Validation:** Anomaly detection, cross-table consistency validation.  
+- **Required-Field Validation:** Ensures critical data completeness.  
+- Maintains **version-controlled validation reports** for traceability and audits.
 
-  - Dynamic validation (anomaly detection, cross-table checks)
-
-  - Required-field validation
-
-  - Version-controlled validation reports
-
-- Maintains consistency across all manufacturing datasets.
+**Purpose:**  
+Guarantees high data integrity and reliability across all downstream processes.
 </details>
 
 <details>
 <summary>2.3 orderProgressTracker ✅</summary>
 
-- Real-time operational visibility:
-    
-  - Tracks production progress of all manufacturing orders
-  
-  - Monitors status transitions, cycle completion, and schedule adherence
-  
-  - Integrates validated data to produce consolidated production analytics
+**Role:**  
+Provides **real-time operational visibility** across production orders.
+
+**Functions**
+- Tracks production progress and order lifecycle.  
+- Monitors **status transitions**, **cycle completion**, and **schedule adherence**.  
+- Aggregates per-machine and per-shift data.  
+- Maps production records back to purchase orders and flags discrepancies.
+
+**Output:**  
+Consolidated production analytics and performance indicators.
 </details>
 
 <details>
 <summary>2.4 autoPlanner 🔄</summary>
 
-Advanced production planning tailored for mold manufacturing.
-  
-- 2.4.1 initialPlanner ✅
+**Role:**  
+Advanced production planning engine with two-stage optimization.
 
-  - Multi-stage pipeline for transforming raw data → optimized production plan
+**Subcomponents**
+1. **initialPlanner ✅**  
+   - Generates initial production plans using historical patterns and compatibility analysis.  
+   - Multi-stage pipeline transforming raw data → optimized mold–machine assignment plan.  
+   - Two-tier optimization criteria:  
+     - Historical machine performance  
+     - Technical compatibility  
+     - Load balancing  
+     - Quality & efficiency constraints  
+   - Includes plan-quality validation and error handling.
 
-  - Integrates production status analysis + advanced optimization algorithms
+2. **planRefiner 📝**  
+   - Refines initial plans using real-time analytics and operational data (e.g., resin stock, maintenance schedules).  
+   - Performs **capacity shift analysis**, **conflict detection**, and **plan adjustments** based on live updates.
 
-  - Robust error-handling and plan-quality validation
-
-  - Two-tier optimization for mold–machine assignment based on:
-
-    - Historical machine performance
-
-    - Technical compatibility
-
-    - Load balancing
-
-    - Quality and efficiency constraints
-
-- 2.4.2 planRefiner 📝
-
-  - Performs refinement & adjustment of initialPlanner’s output
-
-  - Adds secondary analysis layers (capacity shifts, conflicts, real-time updates)
+**Purpose:**  
+Provides adaptive and intelligent scheduling aligned with real factory conditions.
 </details>
 
 <details>
 <summary>2.5 analyticsOrchestrator 🔄</summary>
 
-- Central analytics hub coordinating two distinct analytics functions:
+**Role:**  
+Central analytics hub coordinating two independent yet complementary analytics functions.
 
-  - **dataChangeAnalyzer**: Standalone monitoring of mold/machine layout changes ✅
+#### Subcomponents
 
-  - **multiLevelDataAnalytics**: Shared analytics service providing multi-resolution insights 🔄
+1. **dataChangeAnalyzer ✅ (Standalone Function)**
+   - Monitors **machine and mold layout changes** over time.  
+   - Generates **static reports** capturing configuration deltas.  
+   - Operates independently — does **not** directly serve other agents.  
+   - **Output:** Historical change logs and configuration reports.
 
-- **multiLevelDataAnalytics as Shared Service**:
+2. **multiLevelDataAnalytics 🔄 (Shared Analytics Service)**
+   - Processes validated manufacturing data into structured insights at multiple resolutions:  
+     - `dayLevelDataProcessor`  
+     - `monthLevelDataProcessor`  
+     - `yearLevelDataProcessor`  
+   - Updates **historical analytics records** with derived KPIs and trend metrics.  
+   - **Current consumers:** `dashboardBuilder` ✅  
+   - **Planned consumers:** `planRefiner`, `taskOrchestrator` 📝  
+   - **Purpose:** Acts as a **shared service layer** ensuring consistent analytics results across all consuming agents.
 
-  - Processes manufacturing data into structured insights (day/month/year)
-
-  - Updates historical analytics records
-
-  - **Currently serves**: dashboardBuilder ✅
-
-  - **Planned to serve**: planRefiner, taskOrchestrator, and other agents 📝
-
-  - Ensures consistent data processing across consuming agents
+**Output:**  
+Structured KPIs, operational trends, and cross-period performance insights.
 </details>
 
 <details>
 <summary>2.6 dashboardBuilder ✅</summary>
-  
-- A multi-level analytics + visualization pipeline that produces production intelligence dashboards at:
-  
-  - Daily
 
-  - Monthly
+**Role:**  
+Centralized visualization engine producing structured, standardized reports.
 
-  - Yearly
+**Functions**
+- Generates dashboards at **daily**, **monthly**, and **yearly** resolutions.  
+- End-to-end workflow:  
+  - Data extraction → Validation → Aggregation → Visualization  
+- Provides **multi-perspective views**: by machine, mold, item, or purchase order.  
+- Feeds from `multiLevelDataAnalytics` to ensure consistency.  
+- Outputs **static or dynamic dashboards** for operational decision-making.
 
-- It performs:
-
-  - Data extraction
-
-  - Validation
-
-  - Aggregation
-
-  - Multi-perspective visualization (machine, mold, item, PO)
-
-- Outputs are fully structured and standardized for reporting.
+**Purpose:**  
+Transforms analytics outputs into actionable visual insights for managers and engineers.
 </details>
 
 <details>
 <summary>2.7 taskOrchestrator 📝</summary>
 
-- Coordinates cross-dependent operational tasks, including:
+**Role:**  
+Coordinates cross-dependent operational activities to prevent downtime and optimize production efficiency.
 
-- Resin inventory management
+**Functions**
+- Manages resource availability and production constraints.  
+- Feeds critical operational data to `planRefiner` for real-time plan optimization.  
+- Implements **proactive task management**, **maintenance scheduling**, and **escalation handling**.
 
-- Mold maintenance planning
+#### Subcomponents
+- **resinCoordinator:** Tracks resin stock, consumption, and forecasts material needs.  
+- **moldCoordinator:** Manages mold lifecycle, usage, and availability.  
+- **machineCoordinator:** Monitors machine utilization and performance.  
+- **maintenanceCoordinator:** Handles predictive maintenance and scheduling.  
+- **productQualityCoordinator:** Monitors yield, NG rates, and defect analysis.  
+- **yieldOptimizer:** Evaluates cycle times and resin efficiency; recommends performance improvements.
 
-- Machine maintenance scheduling
-
-- Escalation handling for related operational constraints
+**Purpose:**  
+Maintains stable, optimized operations across all production assets.
 </details>
 
-### 🔄 3. Agent Descriptions
-> 👉 [Details](docs/OptiMoldIQ-agentsBreakDown.md)
+### 3. 🔄 System Connectivity Summary
+- **Data Layer** → powers → `Planning`, `Analytics`, and `Task` orchestration layers.  
+- **Planning Layer** ↔ **Task Layer** → continuously refine and optimize schedules.  
+- **Analytics Layer** → feeds both `Reporting` and `Planning` systems.  
+- **Reporting Layer** → provides insights to human decision-makers.  
 
-| Agent | Type | Summary |
-|-------|------|---------|
-| optiMoldMaster | Mother Agent | Central coordinator managing the entire manufacturing operations system |
-| dataPipelineOrchestrator | Child Agent | 2-phase ETL pipeline for collecting and loading production data |
-| validationOrchestrator | Child Agent | Multi-layer data validation across all datasets |
-| orderProgressTracker | Child Agent | Real-time production progress tracking |
-| autoPlanner | Child Agent | Advanced production planning system |
-| initialPlanner | Sub-component | Generates initial production plan |
-| planRefiner | Sub-component | Refines and adjusts initial production plans |
-| analyticsOrchestrator | Child Agent | Central hub for analytics and structured insights |
-| dataChangeAnalyzer | Sub-component (Standalone) | Tracks mold/machine layout changes and history |
-| multiLevelDataAnalytics | Sub-component (Shared Service) | Multi-resolution analytics engine (day/month/year) |
-| dashboardBuilder | Child Agent | Generates multi-level dashboards (daily/monthly/yearly) |
-| taskOrchestrator | Child Agent | Coordinates operational tasks (resin, molds, machines, quality) |
-| resinCoordinator | Sub-component | Manages resin inventory and consumption |
-| moldCoordinator | Sub-component | Tracks mold usage, availability, and maintenance |
-| machineCoordinator | Sub-component | Monitors machine utilization and readiness |
-| maintenanceCoordinator | Sub-component | Predictive maintenance scheduling and tracking |
-| productQualityCoordinator | Sub-component | Tracks production yield, NG rates, and defects |
-| yieldOptimizer | Sub-component | Optimizes cycle time, yield, and resin usage |
-
----
-
-<details>
-<summary>optiMoldMaster Details</summary>
-
-- Central coordinator managing the entire manufacturing operations system  
-- Orchestrates all child agents  
-- Ensures seamless workflow across data processing, planning, analytics, and operational tasks
-
-</details>
-
-<details>
-<summary>dataPipelineOrchestrator Details</summary>
-
-- **Collect Phase**: Gathers distributed monthly data from multiple sources  
-- **Load Phase**: Consolidates and loads into shared database  
-- Handles both static (master data) and dynamic (production records) data  
-- Implements error-recovery workflow and automated alerts
-
-</details>
-
-<details>
-<summary>validationOrchestrator Details</summary>
-
-- **Static Validation**: Schema, datatype, integrity checks  
-- **Dynamic Validation**: Anomaly detection, cross-table validation  
-- **Required-Field Validation**: Ensures critical fields are populated  
-- Maintains version-controlled validation reports for audit trails
-
-</details>
-
-<details>
-<summary>orderProgressTracker Details</summary>
-
-- Tracks production progress of all manufacturing orders  
-- Monitors status transitions, cycle completion, and schedule adherence  
-- Aggregates production data per machine/shift  
-- Maps production back to purchase orders and flags discrepancies
-
-</details>
-
-<details>
-<summary>autoPlanner Details</summary>
-
-- Advanced production planning system with two-stage optimization:  
-  - **initialPlanner**: Generates initial production plan using historical patterns & compatibility analysis  
-  - **planRefiner**: Refines initial plan using analytics & operational tasks, including real-time updates
-
-</details>
-
-<details>
-<summary>analyticsOrchestrator Details</summary>
-
-*Role*: Central analytics hub coordinating two independent analytics functions
-
-*Sub-components*:
-
-1. **dataChangeAnalyzer** ✅ (Standalone Function)
-   - Monitors machine/mold layout changes over time
-   - Generates static reports on operational configuration changes
-   - Operates independently - does NOT serve other agents
-   - Output: Historical change logs and configuration reports
-
-2. **multiLevelDataAnalytics** 🔄 (Shared Analytics Service)
-   - Processes manufacturing data into structured insights at multiple resolutions:
-     - dayLevelDataProcessor
-     - monthLevelDataProcessor  
-     - yearLevelDataProcessor
-   - Updates historical analytics records
-   - **Current consumers**: dashboardBuilder ✅
-   - **Planned consumers**: planRefiner 📝, taskOrchestrator 📝
-   - **Design purpose**: Shared service layer ensuring consistent analytics across all consuming agents
-   - Output: Structured KPIs, trends, and operational metrics
-
-</details>
-
-<details>
-<summary>dashboardBuilder Details</summary>
-
-- Multi-level visualization and reporting pipeline:  
-  - Generates dashboards at daily, monthly, yearly resolutions  
-  - End-to-end processing: data extraction → validation → aggregation → visualization  
-  - Multi-perspective views: machine, mold, item, purchase order  
-  - Outputs structured and standardized reports for decision support
-
-</details>
-
-<details>
-<summary>taskOrchestrator Details</summary>
-
-- Coordinates cross-dependent operational tasks to prevent downtime and optimize production:  
-  - Resource availability & scheduling constraints  
-  - Feeds critical data to planRefiner for optimization  
-  - Implements proactive task management and escalation handling
-
-- **Sub-components**:  
-  - **resinCoordinator**: Monitors resin stock, consumption, and forecasts material needs  
-  - **moldCoordinator**: Tracks mold lifecycle, usage, maintenance, and availability  
-  - **machineCoordinator**: Tracks machine utilization and performance  
-  - **maintenanceCoordinator**: Predictive maintenance scheduling  
-  - **productQualityCoordinator**: Tracks production yield, NG rates, defects  
-  - **yieldOptimizer**: Analyzes cycle time, yield, and resin efficiency; recommends improvements
-
-</details>
+Together, these layers form a **closed feedback loop** where data → planning → execution → analytics → continuous improvement.
 
 ---
 
 ## 🔄 System Architecture Diagram
 
-The following diagram shows how the data flows from external sources into the system and how various agents interact in the pipeline.
+The following diagram illustrates how **OptiMoldIQWorkflow** orchestrates data flow and agent interactions across multiple phases — from raw data ingestion to analytics and visualization. It reflects the modular multi-phase execution of agents and how data flows between orchestration layers.
+
+For a more technical explanation, see
 
 > 👉 [ASCII diagram](docs/OptiMoldIQ-systemDiagram-ASCII.md)
 
 > 👉 [Directory Tree Structure](docs/OptiMoldIQ-directoryTreeStructure.md)
 
-<details> <summary> Or click to expand system architecture diagram (simple version) </summary>
+<details> <summary>Click to expand simplified workflow diagram</summary>
 
 ```plaintext
 ┌───────────────────────────────────────────────────────────────────────┐
@@ -504,7 +444,7 @@ WORKFLOW UPDATING...
 ## ✅ Dataset Overview
 > 👉 [Details](docs/OptiMoldIQ-dataset.md)
 
-This project leverages a 27-month dataset collected from a plastic injection molding production facility. It consists of over **61,000 production records** and **6,200 internal orders**, reflecting the complexity of real-world manufacturing operations.
+This project leverages a 27-month dataset collected from a plastic injection molding production facility. It consists of over **61,000 production records** and **6,200 internal orders**, reflecting the complexity of real-world manufacturing operations. This dataset provides the empirical foundation for validating orchestration efficiency and model-driven planning accuracy.
 
 ### Key Entities
 - **Items** – 694 plastic products
@@ -852,4 +792,4 @@ For questions or collaboration, reach out via:
 - [Email](mailto:thuyha.le0590@gmail.com)
 - [GitHub](https://github.com/ThuyHaLE)
 
-*This README will be updated regularly as the OptiMoldIQ system evolves through development.*
+*OptiMoldIQ is under continuous development — documentation and capabilities will expand with each milestone.*
