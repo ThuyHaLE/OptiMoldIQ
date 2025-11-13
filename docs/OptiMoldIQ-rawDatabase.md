@@ -1,4 +1,26 @@
-## 3. Dataset
+## 3. Raw Database
+
+Location: `agents/database/` 
+
+**Dataset Directory Structure:**
+
+```plaintext
+
+agents/database
+├── databaseSchemas.json                                     # Raw database schemas (all database paths included)
+├── staticDatabase/                                          # Raw source directory for Data Loader
+│       └── Static DB Collection (Raw version)
+└── dynamicDatabase/                                         # Raw source directory for Data Collection
+    ├── monthlyReports_history/                              # Production records (real-time production logs per machine and shift)
+    │   └── monthlyReports_YYYYMM.xlsb
+    └── purchaseOrders_history/                              # Purchase orders (orders to be fulfilled with resin and material requirements)
+        └── purchaseOrder_YYYYMM.xlsx
+
+*Raw Dataset Note*: 
+
+> **Static DB Colletion**: `itemCompositionSummary.xlsx`, `itemInfo.xlsx`, `machineInfo.xlsx`, `moldInfo.xlsx`, `moldSpecificationSummary.xlsx`, `productRecords.xlsx`, `purchaseOrders.xlsx`, `resinInfo.xlsx`
+
+```
 
 ### 3.1. Data Source and Collection
 This research utilizes a comprehensive dataset from a plastic injection molding production facility. The dataset encompasses the production workflow, from order receipt to production planning and execution. Data was collected from the facility's enterprise resource planning (ERP) system and production management database over a 27-month period (1/11/2018 - 30/1/2021), resulting in a dataset with over 61,185 production records and 6,234 orders. This dataset captures the complexities and challenges of plastic part manufacturing operations and supports the development of intelligent production planning systems.
@@ -44,7 +66,7 @@ The following ERD illustrates how key entities in the production system are conn
   - A designated color masterbatch
   - Optional additives based on product requirements
 
-These relationships form a complex network of constraints that must be accounted for during production planning and scheduling.
+These relationships form a complex network of constraints that must be accounted for during production planning and scheduling. A detailed schema are available in [DatabaseSchema](docs/OptiMoldIQ-dbSchema.md)
 
 ### 3.4. Temporal Characteristics
 The dataset exhibits several temporal patterns that reflect the operational behavior of the production facility:
