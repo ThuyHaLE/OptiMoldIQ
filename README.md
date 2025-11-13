@@ -1,4 +1,4 @@
-🌐 [English](README.md) | [Tiếng Việt](README-vi.md)
+  🌐 [English](README.md) | [Tiếng Việt](README-vi.md)
 
 # OptiMoldIQ: Intelligent Plastic Molding Planner
 
@@ -31,7 +31,6 @@ It centralizes operational intelligence by coordinating data, machines, molds, a
 - [Business Problem](#-business-problem)
 - [Goals & Planned Solution](#-goals--planned-solution)
 - [System Architecture Diagram](#-system-architecture-diagram)
-- [Dataset Overview](#-dataset-overview)
 - [Databases Overview](#-databases-overview)
 - [Folder Structure](#-folder-structure)
 - [Roadmap](#-roadmap)
@@ -167,30 +166,38 @@ These orchestration layers collectively form the operational backbone of OptiMol
 OptiMoldIQ uses a **multi-agent architecture** to operationalize these orchestration layers:
 
   ```
-  agents
-  ├─ dataPipelineOrchestrator (child)
-  ├─ validationOrchestrator (child)
-  ├─ orderProgressTracker (child)
-  ├─ optiMoldMaster (mother)
-  ├─ autoPlanner (child)
-  │   ├─ initialPlanner
-  │   └─ planRefiner
-  ├─ analyticsOrchestrator (child)
-  |   ├─ dataChangeAnalyzer         # Standalone: layout change tracking
-  |   └─ multiLevelDataAnalytics    # Shared Service: multi-agent analytics
-  |      ├─ dayLevelDataProcessor
-  |      ├─ monthLevelDataProcessor
-  |      └─ yearLevelDataProcessor
-  ├─ dashboardBuilder (child)
-  |   ├─ dayLevelDataPlotter
-  |   ├─ monthLevelDataPlotter
-  |   └─ yearLevelDataPlotter
-  └─ taskOrchestrator (child)
-      ├─ resourceCoordinator (resin, inventory)
-      ├─ assetCoordinator (mold + machine tracking)
-      ├─ maintenanceCoordinator (predictive maintenance)
-      └─ qualityOptimizer (yield + quality + cycle time)
+optiMoldMaster (Mother Agent)
+├─ Data Operations
+│  ├─ dataPipelineOrchestrator ✅     # ETL: collect & load data
+│  ├─ validationOrchestrator ✅       # Multi-layer data validation
+│  └─ orderProgressTracker ✅         # Real-time production tracking
+│
+├─ Production Planning
+│  └─ autoPlanner 🔄
+│     ├─ initialPlanner ✅            # Generate optimal plans
+│     └─ planRefiner 📝               # Refine with real-time data
+│
+├─ Analytics & Reporting
+│  ├─ analyticsOrchestrator 🔄
+│  │  ├─ dataChangeAnalyzer ✅        # Track layout changes
+│  │  └─ multiLevelDataAnalytics 🔄   # Day/month/year analytics
+│  └─ dashboardBuilder ✅             # Multi-level visualizations
+│
+└─ Operational Tasks
+   └─ taskOrchestrator 📝
+      ├─ resourceCoordinator          # Resin inventory
+      ├─ assetCoordinator             # Mold/machine tracking
+      ├─ maintenanceCoordinator       # Predictive maintenance
+      └─ qualityOptimizer             # Yield & quality optimization
+
   ```
+
+Execution Flow: 
+```
+RAW DATA → DATA OPERATIONS → PLANNING → ANALYTICS → DASHBOARDS
+                    ↓             ↓          ↓
+                VALIDATION → TRACKING → OPTIMIZATION
+```
 
 > *Note:*  `optiMoldMaster` functions as the **mother-agent**, orchestrating all child agents below. Each child agent operates autonomously but synchronizes through shared data and event channels.
 
@@ -458,37 +465,156 @@ WORKFLOW UPDATING...
 
 ---
 
-## ✅ Dataset Overview
-> 👉 [Details](docs/OptiMoldIQ-dataset.md)
-
-This project leverages a 27-month dataset collected from a plastic injection molding production facility. It consists of over **61,000 production records** and **6,200 internal orders**, reflecting the complexity of real-world manufacturing operations. This dataset provides the empirical foundation for validating orchestration efficiency and model-driven planning accuracy.
-
-### Key Entities
-- **Items** – 694 plastic products
-- **Molds** – 251 unique molds
-- **Machines** – 49 molding machines
-- **Materials** – 445 materials (resins, masterbatches, additives)
-- **Orders** – 6,234 scheduled production orders
-- **Production Records** – 61,185 logs of manufacturing outcomes
-
----
-
 ## ✅ Databases Overview
-> 👉 [Details](docs/OptiMoldIQ-dbSchema.md)
+OptiMoldIQ leverages a **27-month production dataset** from a plastic injection molding facility, containing over **61,000 production records** and **6,200 orders**. This dataset underpins the system's planning, validation, and analytics workflows. 
 
-OptiMoldIQ uses a shared database with both dynamic and static datasets:
+In OptiMoldIQ, the raw database is loaded, collected and processed into a shared database in multi-agents system.
 
-### Dynamic Datasets
-- `productRecords`: Real-time production log per machine and shift.
-- `purchaseOrders`: Orders to be fulfilled, with resin and material requirements.
+### Raw Database
 
-### Static Datasets
-- `itemCompositionSummary`: Material composition for each item.
-- `itemInfo`: Metadata about items.
-- `machineInfo`: Machine details and layout history.
-- `moldInfo`: Mold technical specs and lifecycle data.
-- `moldSpecificationSummary`: Mold-to-item mapping and counts.
-- `resinInfo`: Resin codes, names, and classification.
+**Location:** `agents/database/` 
+
+```plaintext
+agents/database/
+├── databaseSchemas.json              # Database schema definitions
+├── staticDatabase/                   # Static reference data (8 files)
+└── dynamicDatabase/                  # Time-series data
+    ├── monthlyReports_history/       # Monthly production reports
+    └── purchaseOrders_history/       # Monthly purchase orders
+```
+
+> Full raw database details: [Raw Database Details](docs/OptiMoldIQ-rawDatabase.md).
+
+#### Key Entities
+| Entity                 | Count | Key Info                                              |
+| ---------------------- | ------| ----------------------------------------------------- |
+| **Items**              | 694   | Plastic products with code, name, type                |
+| **Molds**              | 251   | Molds with cavities, cycle time, status               |
+| **Machines**           | 49    | Machine code (scaled from 9→49), tonnage, manufacturer|
+| **Materials**          | 445   | Base resin, color masterbatch, additives              |
+| **Production Orders**  | 6,234 | Order dates, item, quantity, ETA                      |
+| **Production Records** | 61,185| Daily production quantities, defects, cycle times     |
+
+####  Relationships
+- Items → Molds: 1 item ~ 1.33 molds (range: 1-3)
+- Molds → Machines: 1 mold ~ 1.83 machine types (range: 1-4)
+- Items → Materials: Base resin + color masterbatch + additives
+  
+> Full ERD and schema details: [Entity-Relationship Diagram](docs/images/OptiMoldIQ-entityRelationshipDiagram(ERD).png) & [DatabaseSchema](docs/OptiMoldIQ-dbSchema.md).
+
+#### Quality Metrics
+- 10 defect types: BlackSpot, Scratch, Crack, Short, Burst, etc.
+- Lead time: Average 9.25 days
+- Order cycles: Beginning and mid-month
+
+#### Limitations
+- 27-month timespan (insufficient for long-term seasonal trends)
+- Missing external factors (demand forecasts, material delays)
+- Single-facility data (may not generalize to other operations)
+
+### Shared Database (Processed for Multi-Agent System)
+
+The raw database is processed through **DataPipelineOrchestrator** (DataCollector → DataLoader) into a unified shared database that serves all agents in the OptiMoldIQ system.
+
+**Location:** `agents/shared_db/`
+
+```plaintext
+agents/shared_db/
+│
+# ═══════════════════════════════════════════════════════════
+# DATA PIPELINE & VALIDATION
+# ═══════════════════════════════════════════════════════════
+├── DataPipelineOrchestrator/newest/        # Pipeline execution logs (3 files)
+├── DataLoaderAgent/newest/                 # Main Shared Database (9 files)
+├── ValidationOrchestrator/newest/          # Data validation reports (1 file)
+├── OrderProgressTracker/newest/            # Production & order status tracking (1 file)
+# ═══════════════════════════════════════════════════════════
+# PRODUCTION OPTIMIZATION
+# ═══════════════════════════════════════════════════════════
+├── MoldMachineFeatureWeightCalculator/     # Mold-machine compatibility scoring
+├── MoldStabilityIndexCalculator/newest/    # Mold performance stability (1 file)
+├── ProducingProcessor/newest/              # Active production analysis (1 file)
+├── PendingProcessor/newest/                # Production planning suggestions (1 file)
+# ═══════════════════════════════════════════════════════════
+# HISTORICAL ANALYTICS
+# ═══════════════════════════════════════════════════════════
+├── UpdateHistMachineLayout/newest/         # Machine layout change analysis (4 files)
+├── UpdateHistMoldOverview/newest/          # Mold usage & performance history (11 files)
+# ═══════════════════════════════════════════════════════════
+# MULTI-LEVEL PERFORMANCE DASHBOARDS
+# ═══════════════════════════════════════════════════════════
+├── DayLevelDataProcessor/newest/           # Daily data preparation
+├── DayLevelDataPlotter/newest/             # Daily dashboards (9 files)
+├── MonthLevelDataProcessor/newest/         # Monthly data aggregation
+├── MonthLevelDataPlotter/newest/           # Monthly dashboards (6 files)
+├── YearLevelDataProcessor/newest/          # Annual data consolidation
+└── YearLevelPlotter/newest/                # Annual dashboards (11 files)
+```
+
+> Full shared database details: [Shared Database Details](docs/OptiMoldIQ-sharedDatabase.md).
+
+### Main Shared Database
+
+**Dynamic DB Collection** (2 files)
+
+- `*_productRecords.parquet` - Historical product records
+- `*_purchaseOrders.parquet` - Historical purchase orders
+
+**Static DB Collection** (6 files)
+
+- `*_itemCompositionSummary.parquet` - Item composition details
+- `*_itemInfo.parquet` - Product item specifications
+- `*_machineInfo.parquet` - Machine specifications
+- `*_moldInfo.parquet` - Mold specifications
+- `*_moldSpecificationSummary.parquet` - Mold specification summaries
+- `*_resinInfo.parquet` - Resin material information
+
+**Metadata File** (1 file)
+
+- `path_annotations.json` - Contains all paths of main shared database
+
+#### Key Features
+- **Timestamped versioning:** All files prefixed with `YYYYMMDD_HHMM_` format (e.g., `20241113_1430_itemInfo.parquet`)
+- **Centralized access:** Single source of truth for all agents
+- **Multi-level analytics:** Day/month/year aggregations with 50+ visualization outputs
+- **Automated tracking:** Pipeline reports, validation checks, and order status monitoring
+
+#### System Outputs by Module
+
+| Module | Output Files | Key Files |
+|--------|--------------|-----------|
+| DataPipelineOrchestrator | 12 total | DB (9) + Logs (3) |
+| ValidationOrchestrator | 1 | validation_orchestrator.xlsx |
+| OrderProgressTracker | 1 | auto_status.xlsx |
+| HybridSuggestOptimizer | 3 | confidence_report, weights_hist, stability_index |
+| ProducingProcessor | 1 | producing_processor.xlsx |
+| PendingProcessor | 1 | pending_processor.xlsx |
+| UpdateHistMachineLayout | 4 | 3 PNG + 1 XLSX |
+| UpdateHistMoldOverview | 11 | 10 PNG + 1 XLSX |
+| DayLevel (Processor + Plotter) | 9 | 8 PNG + 1 XLSX |
+| MonthLevel (Processor + Plotter) | 6 | 3 PNG + 3 TXT/XLSX |
+| YearLevel (Processor + Plotter) | 11 | 10 PNG + 1 XLSX |
+
+#### Data Flow
+```
+    Data Collection → Data Loader → Shared Database (9 files)
+                                            ↓
+        ┌───────────────────────────────────┼───────────────────────────┬─────────────────────────┐
+        |                                   |                           |                         |
+        ↓                                   ↓                           ↓                         ↓
+    ValidationOrch              HybridSuggestOptimizer       AnalyticsOrchestrator       DashboardBuilder
+        ↓                       ├─ MoldMachine               (Historical Analysis)      + MultiLevelDataAnalytics
+    Validation Report           └─ MoldStability             ├─ UpdateHistMachine              ↓
+        | (cross-ref                   |                     └─ UpdateHistMold          ├─ Day Level
+        |  if exists)                  |                             ↓                  ├─ Month Level
+        |                              ↓                      Change Detection          └─ Year Level
+        └──> OrderProgress ─────→ ProducingProc                      ↓                        ↓
+             (reads Shared DB)         ↓                      Change Analysis            Performance
+                    ↓            PendingProcessor            Change Visualization        Dashboards
+               Status Reports          ↓
+              (with validation   Production Plans
+                  flags)          (Initial Plan)
+```
 
 ---
 
