@@ -27,24 +27,63 @@ It centralizes operational intelligence by coordinating data, machines, molds, a
 ---
 
 ## Table of Contents
-- [Current Phase](#current-phase)
-- [Business Problem](#-business-problem)
-- [Goals & Planned Solution](#-goals--planned-solution)
-- [System Architecture Diagram](#-system-architecture-diagram)
-- [Databases Overview](#-databases-overview)
-- [Folder Structure](#-folder-structure)
-- [Roadmap](#-roadmap)
-- [Current Status Summary](#-current-status-summary)
-- [Interactive System Dashboard](#-interactive-system-dashboard)
-- [Milestones](#-milestones)
-  - [Milestone 01: Core Data Pipeline Agents (Completed July 2025)](#-milestone-01-core-data-pipeline-agents-completed-july-2025)
-  - [Milestone 02: Initial Production Planning System (Completed August 2025)](#-milestone-02-initial-production-planning-system-completed-august-2025)
-  - [Milestone 03: Analytics Orchestration & Multi-Level Dashboard Agents (Completed November 2025)](#-milestone-03-analytics-orchestration--multi-level-dashboard-agents-completed-november-2025)
-  - [In Progress: AnalyticsOrchestrator & TaskOrchestrator](#-in-progress-analyticsorchestrator--taskorchestrator)
-- [Quickstart](#-quickstart)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Contact](#-contact)
+- [OptiMoldIQ: Intelligent Plastic Molding Planner](#optimoldiq-intelligent-plastic-molding-planner)
+  - [Table of Contents](#table-of-contents)
+  - [Current Phase](#current-phase)
+  - [📝 Business Problem](#-business-problem)
+    - [📝 Background](#-background)
+    - [📝 Challenges](#-challenges)
+    - [📝 Problem Statement](#-problem-statement)
+    - [🔄 Problem–Goal Alignment](#-problemgoal-alignment)
+  - [🔄 Goals + Planned Solution](#-goals--planned-solution)
+    - [1. 🔄   Orchestration Layers Overview](#1----orchestration-layers-overview)
+    - [2. 🔄 System Architecture Overview](#2--system-architecture-overview)
+    - [3. 🔄 Agent Descriptions](#3--agent-descriptions)
+      - [🔄 1. optiMoldMaster (Mother-Agent)](#-1-optimoldmaster-mother-agent)
+      - [🔄 2. Core Components (Child Agents)](#-2-core-components-child-agents)
+      - [Subcomponents](#subcomponents)
+      - [Subcomponents](#subcomponents-1)
+    - [3. 🔄 System Connectivity Summary](#3--system-connectivity-summary)
+  - [🔄 System Architecture Diagram](#-system-architecture-diagram)
+  - [✅ Databases Overview](#-databases-overview)
+    - [Raw Database](#raw-database)
+      - [Key Entities](#key-entities)
+      - [Relationships](#relationships)
+      - [Quality Metrics](#quality-metrics)
+      - [Limitations](#limitations)
+    - [Shared Database (Processed for Multi-Agent System)](#shared-database-processed-for-multi-agent-system)
+    - [Main Shared Database](#main-shared-database)
+      - [Key Features](#key-features)
+      - [Data Flow Summary](#data-flow-summary)
+  - [✅ Folder Structure](#-folder-structure)
+  - [🔄 Roadmap](#-roadmap)
+  - [🔄 Current Status Summary](#-current-status-summary)
+  - [🚀 Interactive System Dashboard](#-interactive-system-dashboard)
+  - [🔄 Milestones](#-milestones)
+    - [✅ Milestone 01: Core Data Pipeline Agents (Completed July 2025)](#-milestone-01-core-data-pipeline-agents-completed-july-2025)
+      - [Scope \& Objectives](#scope--objectives)
+      - [Completed Agents](#completed-agents)
+      - [High-Level Workflow](#high-level-workflow)
+      - [Two-Tier Healing System](#two-tier-healing-system)
+    - [✅ Milestone 02: Initial Production Planning System (Completed August 2025)](#-milestone-02-initial-production-planning-system-completed-august-2025)
+      - [Scope \& Objectives](#scope--objectives-1)
+      - [Core System Components](#core-system-components)
+      - [Three-Phase Conditional Architecture](#three-phase-conditional-architecture)
+      - [Configuration Management](#configuration-management)
+      - [Smart Processing \& Change Detection](#smart-processing--change-detection)
+      - [Error Handling \& Recovery](#error-handling--recovery)
+      - [Reporting System](#reporting-system)
+      - [Impact \& Performance Gains](#impact--performance-gains)
+    - [🔄 Milestone 03: Analytics Orchestration + Multi-Level Dashboard Agents (Completed November 2025)](#-milestone-03-analytics-orchestration--multi-level-dashboard-agents-completed-november-2025)
+      - [Scope \& Objectives](#scope--objectives-2)
+      - [Completed Agents](#completed-agents-1)
+      - [High-Level Workflow](#high-level-workflow-1)
+      - [Performance \& Reliability Features](#performance--reliability-features)
+    - [📝 In Progress: AnalyticsOrchestrator + TaskOrchestrator](#-in-progress-analyticsorchestrator--taskorchestrator)
+  - [🔄 Quickstart](#-quickstart)
+  - [🔄 Contributing](#-contributing)
+  - [🔄 License](#-license)
+  - [🔄 Contact](#-contact)
 
 ---
 
@@ -521,33 +560,66 @@ The raw database is processed through **DataPipelineOrchestrator** (DataCollecto
 ```plaintext
 agents/shared_db/
 │
-# ═══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
 # DATA PIPELINE & VALIDATION
-# ═══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
 ├── DataPipelineOrchestrator/newest/        # Pipeline execution logs (3 files)
-├── DataLoaderAgent/newest/                 # Main Shared Database (9 files)
+│   ├── *_DataCollector_[success/failed]_report.txt
+│   ├── *_DataLoaderAgent_[success/failed]_report.txt
+│   └── *_DataPipelineOrchestrator_final_report.txt
+│
+├── DataLoaderAgent/newest/                 # Main Shared Database including Dynamic (2) + Static (6) + Metadata (1) = 9 files.
+│   ├── [Dynamic DB] (2 files)              # *_productRecords.parquet, *_purchaseOrders.parquet
+│   ├── [Static DB] (6 files)               # *_itemInfo, *_machineInfo, *_moldInfo, etc.
+│   └── path_annotations.json               # Database path metadata
+│
 ├── ValidationOrchestrator/newest/          # Data validation reports (1 file)
+│   └── *_validation_orchestrator.xlsx
+│
+# ══════════════════════════════════════════════════════════════════
+# PRODUCTION PROGRESS TRACKER
+# ══════════════════════════════════════════════════════════════════
 ├── OrderProgressTracker/newest/            # Production & order status tracking (1 file)
-# ═══════════════════════════════════════════════════════════
-# PRODUCTION OPTIMIZATION
-# ═══════════════════════════════════════════════════════════
+│   └── *_auto_status.xlsx                  # Cross-references validation if available
+│
+# ══════════════════════════════════════════════════════════════════
+# DATA INSIGHTS GENERATOR
+# ══════════════════════════════════════════════════════════════════
 ├── MoldMachineFeatureWeightCalculator/     # Mold-machine compatibility scoring
+│   ├── newest/                             # *_confidence_report.txt
+│   └── weights_hist.xlsx                   # Historical calculations
+│
 ├── MoldStabilityIndexCalculator/newest/    # Mold performance stability (1 file)
+│   └── *_mold_stability_index.xlsx         # → Feeds ProducingProcessor
+|
+# ══════════════════════════════════════════════════════════════════
+# PRODUCTION OPTIMIZATION
+# ══════════════════════════════════════════════════════════════════
 ├── ProducingProcessor/newest/              # Active production analysis (1 file)
+│   └── *_producing_processor.xlsx          # Uses: OrderProgress + MoldMachineFeatureWeightCalculator +  MoldStabilityIndexCalculator outputs
+│
 ├── PendingProcessor/newest/                # Production planning suggestions (1 file)
-# ═══════════════════════════════════════════════════════════
+│   └── *_pending_processor.xlsx            # Builds on ProducingProcessor output
+│
+# ══════════════════════════════════════════════════════════════════
 # HISTORICAL ANALYTICS
-# ═══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
 ├── UpdateHistMachineLayout/newest/         # Machine layout change analysis (4 files)
+│   ├── *_Machine_change_layout_timeline.png
+│   ├── *_Machine_level_change_layout_details.png
+│   ├── *_Machine_level_change_layout_pivot.xlsx
+│   └── *_Top_machine_change_layout.png
+│
 ├── UpdateHistMoldOverview/newest/          # Mold usage & performance history (11 files)
-# ═══════════════════════════════════════════════════════════
+│   ├── *_Bottom_molds_tonnage.png
+│   ├── ... (9 more visualization files)
+│   └── *_Top_molds_tonnage.png
+│
+# ══════════════════════════════════════════════════════════════════
 # MULTI-LEVEL PERFORMANCE DASHBOARDS
-# ═══════════════════════════════════════════════════════════
-├── DayLevelDataProcessor/newest/           # Daily data preparation
+# ══════════════════════════════════════════════════════════════════
 ├── DayLevelDataPlotter/newest/             # Daily dashboards (9 files)
-├── MonthLevelDataProcessor/newest/         # Monthly data aggregation
 ├── MonthLevelDataPlotter/newest/           # Monthly dashboards (6 files)
-├── YearLevelDataProcessor/newest/          # Annual data consolidation
 └── YearLevelPlotter/newest/                # Annual dashboards (11 files)
 ```
 
@@ -579,41 +651,27 @@ agents/shared_db/
 - **Multi-level analytics:** Day/month/year aggregations with 50+ visualization outputs
 - **Automated tracking:** Pipeline reports, validation checks, and order status monitoring
 
-#### System Outputs by Module
+#### Data Flow Summary
 
-| Module | Output Files | Key Files |
-|--------|--------------|-----------|
-| DataPipelineOrchestrator | 12 total | DB (9) + Logs (3) |
-| ValidationOrchestrator | 1 | validation_orchestrator.xlsx |
-| OrderProgressTracker | 1 | auto_status.xlsx |
-| HybridSuggestOptimizer | 3 | confidence_report, weights_hist, stability_index |
-| ProducingProcessor | 1 | producing_processor.xlsx |
-| PendingProcessor | 1 | pending_processor.xlsx |
-| UpdateHistMachineLayout | 4 | 3 PNG + 1 XLSX |
-| UpdateHistMoldOverview | 11 | 10 PNG + 1 XLSX |
-| DayLevel (Processor + Plotter) | 9 | 8 PNG + 1 XLSX |
-| MonthLevel (Processor + Plotter) | 6 | 3 PNG + 3 TXT/XLSX |
-| YearLevel (Processor + Plotter) | 11 | 10 PNG + 1 XLSX |
-
-#### Data Flow
 ```
+
     Data Collection → Data Loader → Shared Database (9 files)
-                                            ↓
-        ┌───────────────────────────────────┼───────────────────────────┬─────────────────────────┐
-        |                                   |                           |                         |
-        ↓                                   ↓                           ↓                         ↓
-    ValidationOrch              HybridSuggestOptimizer       AnalyticsOrchestrator       DashboardBuilder
-        ↓                       ├─ MoldMachine               (Historical Analysis)      + MultiLevelDataAnalytics
-    Validation Report           └─ MoldStability             ├─ UpdateHistMachine              ↓
-        | (cross-ref                   |                     └─ UpdateHistMold          ├─ Day Level
-        |  if exists)                  |                             ↓                  ├─ Month Level
-        |                              ↓                      Change Detection          └─ Year Level
-        └──> OrderProgress ─────→ ProducingProc                      ↓                        ↓
-             (reads Shared DB)         ↓                      Change Analysis            Performance
-                    ↓            PendingProcessor            Change Visualization        Dashboards
-               Status Reports          ↓
-              (with validation   Production Plans
-                  flags)          (Initial Plan)
+                                          ↓
+        ┌─────────────────────────────────┼──────────────────────────────────┬───────────────────────────────────────────┐
+        |                                 |                                  |                                           |
+        ↓                                 ↓                                  ↓                                           ↓
+    ValidationOrch            MoldMachineFeatureWeightCalculator     DataChangeAnalyzer                  Multi-Level Performance Analysis
+        ↓                     + MoldStabilityIndexCalculator      (Change History Analysis)              ┌──────────────┼───────────────┐
+    Validation Report            (Data Insights Generator)         ├─ UpdateHistMachine                  ↓              ↓               ↓
+        | (cross-ref                      |                        └─ UpdateHistMold                 DayLevel       MonthLevel      YearLevel
+        |  if exists)                     ↓                                  ↓                       Plotter        Plotter         Plotter
+        └──> OrderProgress ─────→ ProducingProcessor                  Change Detection                                  ↓
+           (reads Shared DB)              ↓                                  ↓                           Multi-Level Performance Dashboards
+                   ↓               PendingProcessor                    Change Analysis                   
+             Status Reports               ↓                          Change Visualization          
+            (with validation      Production Plans                               
+             flags)                (Initial Plan)           
+
 ```
 
 ---
