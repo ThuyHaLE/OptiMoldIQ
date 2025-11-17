@@ -51,7 +51,7 @@ class MoldMachinePriorityMatrixCalculator:
                  annotation_name: str = "path_annotations.json",
                  folder_path: str = 'agents/shared_db/OrderProgressTracker',
                  target_name: str = "change_log.txt",
-                 default_dir: str = "agents/shared_db",
+                 default_dir: str = "agents/shared_db/HistoricalInsights",
                  efficiency: float = 0.85,
                  loss: float = 0.03
                  ):
@@ -219,41 +219,6 @@ class MoldMachinePriorityMatrixCalculator:
             self.mold_machine_feature_weights)
 
         return priority_matrix, invalid_molds
-
-    # Calculate the priority matrix for mold-machine assignments based on historical data
-    # optionally save the result as a report
-    def process_and_save_result(self):
-
-        """
-        Calculate the priority matrix and save it to an Excel file with versioning.
-
-        This method combines calculation and output functionality:
-        1. Calculates the priority matrix using historical data and weights
-        2. Formats the data for export
-        3. Saves to Excel file with automatic versioning
-
-        The output file will be saved in the configured output directory with
-        a timestamp-based version number to prevent overwrites.
-        """
-
-        # Calculate the priority matrix using the main calculation method
-        priority_matrix, invalid_molds = self.process()
-
-        # Prepare data for export by resetting index to include moldNo as a regular column
-        # This makes the Excel output more readable and easier to work with
-        self.data = {
-            "priorityMatrix": priority_matrix.reset_index(),
-            "invalidMolds": pd.DataFrame({"invalid_molds": invalid_molds})
-            }
-
-        # Export to Excel file with automatic versioning
-        # The versioning system prevents accidental overwrites of previous results
-        logger.info("Start excel file exporting...")
-        save_output_with_versioning(
-            self.data,          # Dictionary containing the data to save
-            self.output_dir/"priority_matrix",    # Directory where the file will be saved
-            self.prefix, # Prefix for the output filename
-        )
     
     def _check_mold_dataframe_columns(self, df: pd.DataFrame) -> bool:
 

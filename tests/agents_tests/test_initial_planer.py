@@ -34,10 +34,10 @@ def test_initial_planer():
         sharedDatabaseSchemas_path = 'tests/mock_database/sharedDatabaseSchemas.json',
         folder_path = 'tests/shared_db/OrderProgressTracker',
         target_name = 'change_log.txt',
-        mold_stability_index_folder='tests/shared_db/MoldStabilityIndexCalculator',
+        mold_stability_index_folder='tests/shared_db/HistoricalInsights/MoldStabilityIndexCalculator',
         mold_stability_index_target_name='change_log.txt',
-        mold_machine_weights_hist_path='tests/shared_db/MoldMachineFeatureWeightCalculator/weights_hist.xlsx',
-        default_dir = "tests/shared_db",
+        mold_machine_weights_hist_path='tests/shared_db/HistoricalInsights/MoldMachineFeatureWeightCalculator/weights_hist.xlsx',
+        default_dir = "tests/shared_db/AutoPlanner/InitialPlanner",
         efficiency = 0.85,
         loss = 0.03,
     )
@@ -60,8 +60,8 @@ def test_initial_planer():
         annotation_name = "path_annotations.json",
         databaseSchemas_path = 'tests/mock_database/databaseSchemas.json',
         sharedDatabaseSchemas_path = 'tests/mock_database/sharedDatabaseSchemas.json',
-        default_dir = "tests/shared_db",
-        producing_processor_folder_path='tests/shared_db/ProducingProcessor',
+        default_dir = "tests/shared_db/AutoPlanner/InitialPlanner",
+        producing_processor_folder_path='tests/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor',
         producing_processor_target_name="change_log.txt",
         config=config
     )

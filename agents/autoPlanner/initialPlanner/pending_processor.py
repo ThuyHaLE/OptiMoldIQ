@@ -90,8 +90,8 @@ class PendingProcessor:
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
                  sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
-                 default_dir: str = "agents/shared_db",
-                 producing_processor_folder_path: str = 'agents/shared_db/ProducingProcessor',
+                 default_dir: str = "agents/shared_db/AutoPlanner/InitialPlanner",
+                 producing_processor_folder_path: str = 'agents/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor',
                  producing_processor_target_name: str = "change_log.txt", 
                  config: ProcessingConfig = None,
                  sheet_mapping: ExcelSheetMapping = None):

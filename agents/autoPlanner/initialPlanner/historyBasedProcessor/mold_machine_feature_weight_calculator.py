@@ -62,7 +62,7 @@ class MoldMachineFeatureWeightCalculator:
                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                 folder_path: str = 'agents/shared_db/OrderProgressTracker',
                 target_name: str = "change_log.txt",
-                default_dir: str = "agents/shared_db",
+                default_dir: str = "agents/shared_db/HistoricalInsights",
                 efficiency: float = 0.85,
                 loss: float = 0.03,
                 scaling: Literal['absolute', 'relative'] = 'absolute',
@@ -222,7 +222,7 @@ class MoldMachineFeatureWeightCalculator:
         return confidence_scores, overall_confidence, enhanced_weights
 
     def calculate_and_save_report(self,
-                                  mold_stability_index_folder = 'agents/shared_db/MoldStabilityIndexCalculator/mold_stability_index',
+                                  mold_stability_index_folder = 'agents/shared_db/HistoricalInsights/MoldStabilityIndexCalculator/mold_stability_index',
                                   mold_stability_index_target_name = "change_log.txt"):
 
         """

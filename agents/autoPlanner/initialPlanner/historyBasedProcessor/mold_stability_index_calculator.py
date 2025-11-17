@@ -43,7 +43,7 @@ class MoldStabilityIndexCalculator:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db",
+                 default_dir: str = "agents/shared_db/HistoricalInsights",
                  efficiency: float = 0.85,
                  loss: float = 0.03,
                  ):

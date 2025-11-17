@@ -42,10 +42,10 @@ class ProducingProcessor:
                  sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
                  folder_path: str = 'agents/shared_db/OrderProgressTracker',
                  target_name: str = "change_log.txt",
-                 default_dir: str = "agents/shared_db",
-                 mold_stability_index_folder = "agents/shared_db/MoldStabilityIndexCalculator/mold_stability_index",
+                 default_dir: str = "agents/shared_db/AutoPlanner/InitialPlanner",
+                 mold_stability_index_folder = "agents/shared_db/HistoricalInsights/MoldStabilityIndexCalculator/mold_stability_index",
                  mold_stability_index_target_name = "change_log.txt",
-                 mold_machine_weights_hist_path = "agents/shared_db/MoldMachineFeatureWeightCalculator/weights_hist.xlsx",
+                 mold_machine_weights_hist_path = "agents/shared_db/HistoricalInsights/MoldMachineFeatureWeightCalculator/weights_hist.xlsx",
                  efficiency: float = 0.85,
                  loss: float = 0.03):
 

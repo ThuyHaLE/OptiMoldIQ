@@ -9,7 +9,7 @@ def test_historical_insights_generator():
         source_path = 'tests/shared_db/DataLoaderAgent/newest',
         annotation_name = "path_annotations.json",
         databaseSchemas_path = 'tests/mock_database/databaseSchemas.json',
-        default_dir = "tests/shared_db",
+        default_dir = "tests/shared_db/HistoricalInsights",
         efficiency = 0.85,
         loss = 0.03
     )
@@ -44,7 +44,7 @@ def test_historical_insights_generator():
         sharedDatabaseSchemas_path = 'tests/mock_database/sharedDatabaseSchemas.json',
         folder_path = 'tests/shared_db/OrderProgressTracker',
         target_name = 'change_log.txt',
-        default_dir = "tests/shared_db",
+        default_dir = "tests/shared_db/HistoricalInsights",
         efficiency = 0.85,
         loss = 0.03,
         scaling = 'absolute',
@@ -60,7 +60,7 @@ def test_historical_insights_generator():
                     )
 
     feature_weight_calculator.calculate_and_save_report(
-        mold_stability_index_folder='tests/shared_db/MoldStabilityIndexCalculator',
+        mold_stability_index_folder='tests/shared_db/HistoricalInsights/MoldStabilityIndexCalculator',
         mold_stability_index_target_name='change_log.txt'
         )
 
