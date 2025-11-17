@@ -2,7 +2,7 @@ from agents.autoPlanner.reportFormatters.dict_based_report_generator import Dict
 from agents.autoPlanner.initialPlanner.compatibility_based_mold_machine_optimizer import PriorityOrder
 from agents.optiMoldMaster.optimold_master import WorkflowConfig, OptiMoldIQWorkflow
 
-def daily_workflow():
+def test_daily_workflow():
     """
     Configure a scheduler to automatically execute the task daily at 8:00 AM.
     """
