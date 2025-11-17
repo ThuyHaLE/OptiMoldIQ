@@ -119,16 +119,16 @@ class PathManager:
         return str(self._base_paths['shared_db_dir'] / "OrderProgressTracker")
 
     def get_producing_processor_path(self) -> str:
-        return str(self._base_paths['shared_db_dir'] / "ProducingProcessor")
+        return str(self._base_paths['shared_db_dir'] / "AutoPlanner" / "InitialPlanner" / "ProducingProcessor")
 
     def get_pending_processor_path(self) -> str:
-        return str(self._base_paths['shared_db_dir'] / "PendingProcessor")
+        return str(self._base_paths['shared_db_dir'] / "AutoPlanner" / "InitialPlanner" / "PendingProcessor")
 
     def get_mold_stability_index_path(self) -> str:
-        return str(self._base_paths['shared_db_dir'] / "MoldStabilityIndexCalculator")
+        return str(self._base_paths['shared_db_dir'] / "HistoricalInsights" / "MoldStabilityIndexCalculator")
 
     def get_mold_machine_weights_path(self) -> str:
-        return str(self._base_paths['shared_db_dir'] / "MoldMachineFeatureWeightCalculator" / WorkflowConstants.WEIGHTS_HIST_FILE)
+        return str(self._base_paths['shared_db_dir'] / "HistoricalInsights" / "MoldMachineFeatureWeightCalculator" / WorkflowConstants.WEIGHTS_HIST_FILE)
 
 
 class ReportManager:
