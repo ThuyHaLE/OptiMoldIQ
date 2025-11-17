@@ -13,6 +13,9 @@ def daily_workflow():
         db_dir = 'tests/mock_database',
         dynamic_db_dir = 'tests/mock_database/dynamicDatabase',
         shared_db_dir = 'tests/shared_db',
+        initial_planner_dir = 'tests/shared_db/AutoPlanner/InitialPlanner',
+        historical_insights_dir = 'tests/shared_db/HistoricalInsights',
+
         efficiency = 0.85,
         loss = 0.03,
 

@@ -15,6 +15,9 @@ class WorkflowConfig:
     db_dir: str = 'database'
     dynamic_db_dir: str = 'database/dynamicDatabase'
     shared_db_dir: str = 'agents/shared_db'
+    initial_planner_dir: str = 'agents/shared_db/AutoPlanner/InitialPlanner'
+    historical_insights_dir: str = 'agents/shared_db/HistoricalInsights'
+
     efficiency: float = 0.85
     loss: float = 0.03
     historical_insight_threshold: int = 30
@@ -94,7 +97,10 @@ class PathManager:
         self._base_paths = {
             'db_dir': Path(config.db_dir),
             'dynamic_db_dir': Path(config.dynamic_db_dir),
-            'shared_db_dir': Path(config.shared_db_dir)
+            'shared_db_dir': Path(config.shared_db_dir),
+            'initial_planner_dir': Path(config.initial_planner_dir),
+            'historical_insights_dir': Path(config.historical_insights_dir),
+
         }
 
     def get_database_schemas_path(self) -> str:
@@ -117,19 +123,18 @@ class PathManager:
 
     def get_order_progress_tracker_path(self) -> str:
         return str(self._base_paths['shared_db_dir'] / "OrderProgressTracker")
-
+    
     def get_producing_processor_path(self) -> str:
-        return str(self._base_paths['shared_db_dir'] / "AutoPlanner" / "InitialPlanner" / "ProducingProcessor")
+        return str(self._base_paths['initial_planner_dir'] / "ProducingProcessor")
 
     def get_pending_processor_path(self) -> str:
-        return str(self._base_paths['shared_db_dir'] / "AutoPlanner" / "InitialPlanner" / "PendingProcessor")
+        return str(self._base_paths['initial_planner_dir'] / "PendingProcessor")
 
     def get_mold_stability_index_path(self) -> str:
-        return str(self._base_paths['shared_db_dir'] / "HistoricalInsights" / "MoldStabilityIndexCalculator")
+        return str(self._base_paths['historical_insights_dir'] / "MoldStabilityIndexCalculator")
 
     def get_mold_machine_weights_path(self) -> str:
-        return str(self._base_paths['shared_db_dir'] / "HistoricalInsights" / "MoldMachineFeatureWeightCalculator" / WorkflowConstants.WEIGHTS_HIST_FILE)
-
+        return str(self._base_paths['historical_insights_dir'] / "MoldMachineFeatureWeightCalculator" / WorkflowConstants.WEIGHTS_HIST_FILE)
 
 class ReportManager:
     """Manages report generation and formatting"""
@@ -391,7 +396,7 @@ class OptiMoldIQWorkflow:
                 source_path = self.path_manager.get_data_loader_path(),
                 annotation_name = WorkflowConstants.ANNOTATION_FILE,
                 databaseSchemas_path = self.path_manager.get_database_schemas_path(),
-                default_dir = self.config.shared_db_dir,
+                default_dir = self.config.historical_insights_dir,
                 efficiency = self.config.efficiency,
                 loss = self.config.loss
             )
@@ -420,7 +425,7 @@ class OptiMoldIQWorkflow:
                 sharedDatabaseSchemas_path = self.path_manager.get_shared_database_schemas_path(),
                 folder_path = self.path_manager.get_order_progress_tracker_path(),
                 target_name = WorkflowConstants.CHANGE_LOG_FILE,
-                default_dir = self.config.shared_db_dir,
+                default_dir = self.config.historical_insights_dir,
                 efficiency = self.config.efficiency,
                 loss = self.config.loss,
                 scaling = self.config.scaling,
@@ -460,7 +465,7 @@ class OptiMoldIQWorkflow:
                 mold_stability_index_folder=self.path_manager.get_mold_stability_index_path(),
                 mold_stability_index_target_name=WorkflowConstants.CHANGE_LOG_FILE,
                 mold_machine_weights_hist_path=self.path_manager.get_mold_machine_weights_path(),
-                default_dir=self.config.shared_db_dir,
+                default_dir=self.config.initial_planner_dir,
                 efficiency=self.config.efficiency,
                 loss=self.config.loss
             )
@@ -491,7 +496,7 @@ class OptiMoldIQWorkflow:
                 annotation_name=WorkflowConstants.ANNOTATION_FILE,
                 databaseSchemas_path=self.path_manager.get_database_schemas_path(),
                 sharedDatabaseSchemas_path=self.path_manager.get_shared_database_schemas_path(),
-                default_dir=self.config.shared_db_dir,
+                default_dir=self.config.initial_planner_dir,
                 producing_processor_folder_path=self.path_manager.get_producing_processor_path(),
                 producing_processor_target_name=WorkflowConstants.CHANGE_LOG_FILE,
                 config=config
