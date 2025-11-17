@@ -32,42 +32,47 @@ agents/shared_db/
 # ══════════════════════════════════════════════════════════════════
 # DATA INSIGHTS GENERATOR
 # ══════════════════════════════════════════════════════════════════
-├── MoldMachineFeatureWeightCalculator/     # Mold-machine compatibility scoring
-│   ├── newest/                             # *_confidence_report.txt
-│   └── weights_hist.xlsx                   # Historical calculations
-│
-├── MoldStabilityIndexCalculator/newest/    # Mold performance stability (1 file)
-│   └── *_mold_stability_index.xlsx         # → Feeds ProducingProcessor
+├── HistoricalInsights/
+|   ├── MoldMachineFeatureWeightCalculator/     # Mold-machine compatibility scoring
+|   │   ├── newest/                             # *_confidence_report.txt
+|   │   └── weights_hist.xlsx                   # Historical calculations
+|   │
+|   └── MoldStabilityIndexCalculator/newest/    # Mold performance stability (1 file)
+|       └── *_mold_stability_index.xlsx         # → Feeds ProducingProcessor
 |
 # ══════════════════════════════════════════════════════════════════
 # PRODUCTION OPTIMIZATION
 # ══════════════════════════════════════════════════════════════════
-├── ProducingProcessor/newest/              # Active production analysis (1 file)
-│   └── *_producing_processor.xlsx          # Uses: OrderProgress + MoldMachineFeatureWeightCalculator +  MoldStabilityIndexCalculator outputs
-│
-├── PendingProcessor/newest/                # Production planning suggestions (1 file)
-│   └── *_pending_processor.xlsx            # Builds on ProducingProcessor output
+├── AutoPlanner/InitialPlanner/
+|   |
+|   ├── ProducingProcessor/newest/       # Active production analysis (1 file)
+|   │   └── *_producing_processor.xlsx   # Uses: OrderProgress + MoldMachineFeatureWeightCalculator +  MoldStabilityIndexCalculator outputs
+|   │
+|   └── PendingProcessor/newest/         # Production planning suggestions (1 file)
+|        └── *_pending_processor.xlsx    # Builds on ProducingProcessor output
 │
 # ══════════════════════════════════════════════════════════════════
 # HISTORICAL ANALYTICS
 # ══════════════════════════════════════════════════════════════════
-├── UpdateHistMachineLayout/newest/         # Machine layout change analysis (4 files)
-│   ├── *_Machine_change_layout_timeline.png
-│   ├── *_Machine_level_change_layout_details.png
-│   ├── *_Machine_level_change_layout_pivot.xlsx
-│   └── *_Top_machine_change_layout.png
-│
-├── UpdateHistMoldOverview/newest/          # Mold usage & performance history (11 files)
-│   ├── *_Bottom_molds_tonnage.png
-│   ├── ... (9 more visualization files)
-│   └── *_Top_molds_tonnage.png
+├── DataChangeAnalyzer/
+|   ├── UpdateHistMachineLayout/newest/         # Machine layout change analysis (4 files)
+│   │   ├── *_Machine_change_layout_timeline.png
+│   │   ├── *_Machine_level_change_layout_details.png
+│   │   ├── *_Machine_level_change_layout_pivot.xlsx
+│   │   └── *_Top_machine_change_layout.png
+│   └── UpdateHistMoldOverview/newest/          # Mold usage & performance history (11 files)
+│       ├── *_Bottom_molds_tonnage.png
+│       ├── ... (9 more visualization files)
+│       └── *_Top_molds_tonnage.png
 │
 # ══════════════════════════════════════════════════════════════════
 # MULTI-LEVEL PERFORMANCE DASHBOARDS
 # ══════════════════════════════════════════════════════════════════
-├── DayLevelDataPlotter/newest/             # Daily dashboards (9 files)
-├── MonthLevelDataPlotter/newest/           # Monthly dashboards (6 files)
-└── YearLevelPlotter/newest/                # Annual dashboards (11 files)
+└── MultiLevelDataPlotter
+    ├── DayLevelDataPlotter/newest/             # Daily dashboards & reports (9 files)
+    ├── MonthLevelDataPlotter/newest/           # Monthly dashboards & reports (6 files)
+    └── YearLevelPlotter/newest/                # Annual dashboards & reports (11 files)
+
 ```
 
 ### Key Integration Points:
@@ -272,9 +277,9 @@ OrderProgressTracker (`production status`)────────────�
                                                                                                   ↓
                                                                                            PendingProcessor
                                                                                                   ↓ 
-                                                                                    (production plan suggestion)
+                                                                                        (production plan suggestion)
                                                                                                   ↓
-                                                                                    Initial production plan suggestion
+                                                                                     Initial production plan suggestion
 ```
 
 ### 3. Historical Machine Layout Change Reports & Machine-Mold First-Run History Reports
@@ -303,8 +308,14 @@ Coordinates and executes historical change analyses using `UpdateHistMachineLayo
 
 ### 4. Multi-Level Performance Reports and Static Dashboards
 
+#### MultiLevelDataPlotter (Pipeline Overview)
+
+The `MultiLevelDataPlotter` acts as a coordinating pipeline that can invoke one or all of the subordinate modules—`DayLevelDataPlotter`, `MonthLevelDataPlotter`, and `YearLevelDataPlotter`—depending on the analysis scope. It manages the end-to-end flow from data extraction through analytics to dashboard and report generation, ensuring consistency across daily, monthly, and yearly insights.
+- **Invocation flexibility**: Users can run only the daily, monthly, or yearly module, or all of them in sequence.
+- **Data orchestration**: Coordinates with `MultiLevelDataAnalytics` pipeline and the corresponding processors (`DayLevelDataProcessor`, `MonthLevelDataProcessor`, `YearLevelDataProcessor`) for structured extraction and visualization.
+
 #### **DayLevelDataPlotter** (9 files)
-Invokes `DayLevelDataProcessor` to analyze daily production data and extract operational insights, then visualizes key efficiency metrics through dashboards:
+Analyzes daily production data and visualizes key efficiency metrics. Internally, it configures and invokes `MultiLevelDataAnalytics`, which in turn runs the `DayLevelDataProcessor` for the selected date.
 
 **Data processing output:**
 - `*_extracted_records_YYYY-MM-DD.xlsx` → Daily data extract with processed insights (from DayLevelDataProcessor)
@@ -320,7 +331,7 @@ Invokes `DayLevelDataProcessor` to analyze daily production data and extract ope
 - `*_shift_level_yield_efficiency_chart_YYYY-MM-DD.png` → Shift-level yield efficiency
   
 #### **MonthLevelDataPlotter** (6 files)
-Invokes `MonthLevelDataProcessor` to analyze monthly production data, extract operational insights, and generate performance alerts and executive summaries alongside visualization dashboards:
+Analyzes monthly production data and generates performance alerts, executive summaries, and dashboards. It configures `MultiLevelDataAnalytics` to invoke the `MonthLevelDataProcessor` for the target month.
 
 **Data processing output:**
 - `*_extracted_records_YYYY-MM.xlsx` → Monthly data extract with processed insights (from MonthLevelDataProcessor)
@@ -335,7 +346,7 @@ Invokes `MonthLevelDataProcessor` to analyze monthly production data, extract op
 - `*_month_performance_dashboard_YYYY-MM.png` → Overall monthly performance
 
 #### **YearLevelDataPlotter** (11 files)
-Invokes `YearLevelDataProcessor` to analyze yearly production data and extract operational insights, then consolidate machine, mold, and monthly data into high-level visualizations and executive reports:
+Analyzes yearly production data and generates high-level visualizations and executive reports. Internally, it configures and invokes `MultiLevelDataAnalytics`, which automatically selects the `YearLevelDataProcessor` and consolidates machine, mold, and monthly insights into aggregated outputs.
 
 **Data processing output:**
 - `*_extracted_records_YYYY.xlsx` → Yearly data extract with processed insights (from YearLevelDataProcessor)
@@ -370,22 +381,20 @@ Invokes `YearLevelDataProcessor` to analyze yearly production data and extract o
 ## Data Flow Summary
 
 ```
-
     Data Collection → Data Loader → Shared Database (9 files)
                                           ↓
         ┌─────────────────────────────────┼──────────────────────────────────┬───────────────────────────────────────────┐
         |                                 |                                  |                                           |
         ↓                                 ↓                                  ↓                                           ↓
     ValidationOrch            MoldMachineFeatureWeightCalculator     DataChangeAnalyzer                  Multi-Level Performance Analysis
-        ↓                     + MoldStabilityIndexCalculator      (Change History Analysis)              ┌──────────────┼───────────────┐
-    Validation Report            (Data Insights Generator)         ├─ UpdateHistMachine                  ↓              ↓               ↓
-        | (cross-ref                      |                        └─ UpdateHistMold                 DayLevel       MonthLevel      YearLevel
-        |  if exists)                     ↓                                  ↓                       Plotter        Plotter         Plotter
-        └──> OrderProgress ─────→ ProducingProcessor                  Change Detection                                  ↓
-           (reads Shared DB)              ↓                                  ↓                           Multi-Level Performance Dashboards
-                   ↓               PendingProcessor                    Change Analysis                   
-             Status Reports               ↓                          Change Visualization          
-            (with validation      Production Plans                               
+        ↓                     + MoldStabilityIndexCalculator      (Change History Analysis)                              ↓
+    Validation Report            (Data Insights Generator)         ├─ UpdateHistMachine                         MultiLevelDataPlotter
+        | (cross-ref                      |                        └─ UpdateHistMold                      ┌──────────────┼───────────────┐
+        |  if exists)                     ↓                                  ↓                            ↓              ↓               ↓
+        └──> OrderProgress ─────→ ProducingProcessor                  Change Detection                DayLevel       MonthLevel      YearLevel
+           (reads Shared DB)              ↓                                  ↓                        Plotter        Plotter         Plotter
+                   ↓               PendingProcessor                    Change Analysis                                   ↓
+             Status Reports               ↓                          Change Visualization                 Multi-Level Performance Dashboards
+            (with validation       Production Plans                               
              flags)                (Initial Plan)           
-
 ```

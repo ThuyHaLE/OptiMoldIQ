@@ -11,26 +11,64 @@
   - [Table of Contents](#table-of-contents)
   - [Project Status](#project-status)
   - [Overview](#overview)
-  - [Business Problem](#-business-problem)
-  - [Problem–Driven Solution Overview](#-problemdriven-solution-overview)
+  - [📝 Business Problem](#-business-problem)
+    - [Background](#background)
+    - [Challenges](#challenges)
+    - [Problem Statement](#problem-statement)
+  - [🔄 Problem–Driven Solution Overview](#-problemdriven-solution-overview)
     - [Strategic Alignment](#strategic-alignment)
     - [Goals and Planned Solution](#goals-and-planned-solution)
+      - [Data Operations Orchestration](#data-operations-orchestration)
+      - [Production Planning Orchestration](#production-planning-orchestration)
+      - [High-Level Orchestrations](#high-level-orchestrations)
   - [System Architecture Overview](#system-architecture-overview)
   - [Agent Descriptions](#agent-descriptions)
-    - [OptiMoldMaster (Mother Agent)](#optimoldmaster-mother-agent-)
-    - [Core Components (Child Agents)](#core-components-child-agents-)
+    - [OptiMoldMaster (Mother Agent) ✅](#optimoldmaster-mother-agent-)
+    - [Core Components (Child Agents) 🔄](#core-components-child-agents-)
+      - [2.1 dataPipelineOrchestrator ✅](#21-datapipelineorchestrator-)
+      - [2.2 validationOrchestrator ✅](#22-validationorchestrator-)
+      - [2.3 orderProgressTracker ✅](#23-orderprogresstracker-)
+      - [2.4 autoPlanner 📝](#24-autoplanner-)
+      - [2.5 analyticsOrchestrator 📝](#25-analyticsorchestrator-)
+      - [2.6 dashboardBuilder  📝](#26-dashboardbuilder--)
+      - [2.7 taskOrchestrator 📝](#27-taskorchestrator-)
     - [System Connectivity Summary](#system-connectivity-summary)
     - [Execution Flow](#execution-flow)
   - [System Architecture Diagram](#system-architecture-diagram)
   - [Databases Overview](#databases-overview)
     - [Raw Database](#raw-database)
+      - [Key Entities](#key-entities)
+      - [Relationships](#relationships)
+      - [Quality Metrics](#quality-metrics)
+      - [Limitations](#limitations)
     - [Shared Database (Processed for Multi-Agent System)](#shared-database-processed-for-multi-agent-system)
+      - [Main Shared Database](#main-shared-database)
+      - [Key Features](#key-features)
+      - [Data Flow Summary](#data-flow-summary)
   - [Folder Structure](#folder-structure)
   - [Milestones](#milestones)
     - [Milestone 01: Core Data Pipeline Agents (Completed July 2025)](#milestone-01-core-data-pipeline-agents-completed-july-2025)
+      - [Scope \& Objectives](#scope--objectives)
+      - [Completed Agents](#completed-agents)
+      - [High-Level Workflow](#high-level-workflow)
+      - [Two-Tier Healing System](#two-tier-healing-system)
     - [Milestone 02: Initial Production Planning System (Completed August 2025)](#milestone-02-initial-production-planning-system-completed-august-2025)
-    - [Milestone 03: Analytics Orchestration & Multi-Level Dashboard Agents (Completed November 2025)](#milestone-03-analytics-orchestration--multi-level-dashboard-agents-completed-november-2025)
-    - [In Progress: AnalyticsOrchestrator & TaskOrchestrator](#in-progress-analyticsorchestrator--taskorchestrator)
+      - [Scope \& Objectives](#scope--objectives-1)
+      - [Core System Components](#core-system-components)
+      - [Three-Phase Conditional Architecture](#three-phase-conditional-architecture)
+      - [Configuration Management](#configuration-management)
+      - [Smart Processing \& Change Detection](#smart-processing--change-detection)
+      - [Error Handling \& Recovery](#error-handling--recovery)
+      - [Reporting System](#reporting-system)
+      - [Impact \& Performance Gains](#impact--performance-gains)
+    - [Milestone 03: Enhanced Production Planning with Analytics and Dashboard System (Completed November 2025)](#milestone-03-enhanced-production-planning-with-analytics-and-dashboard-system-completed-november-2025)
+      - [Overview](#overview-1)
+      - [What’s Preserved from Milestone 02](#whats-preserved-from-milestone-02)
+      - [What’s Added in Milestone 03 (Upgrade)](#whats-added-in-milestone-03-upgrade)
+      - [Enhanced Workflow Architecture (After Upgrade)](#enhanced-workflow-architecture-after-upgrade)
+      - [Key Point](#key-point)
+      - [New Components Introduced in Phase 4](#new-components-introduced-in-phase-4)
+    - [Milestone 04: Enhanced Production Planning with Analytics and Task Orchestrator System (In Progress)](#milestone-04-enhanced-production-planning-with-analytics-and-task-orchestrator-system-in-progress)
   - [Quickstart](#quickstart)
   - [Contributing](#contributing)
   - [License](#license)
@@ -126,25 +164,36 @@ In response to the production challenges outlined above, the **OptiMoldIQ System
 
 #### High-Level Orchestrations
 
-- **Data Insight Analytics**: 
-  - Historical Analytics (**dataChangeAnalyzer**) ✅ : coordinates and executes historical change analyses for both machines and molds. Visualize and generate analytical reports through two modules:
+1. **Data Insight Analytics**: 
+
+- Analytics Orchestrator (**analyticsOrchestrator**) 📝: Central analytics hub coordinating multiple complementary analytics functions to provide comprehensive data insights for decision-making and downstream system components: 
+  - Historical Analytics (**dataChangeAnalyzer**) ✅ : Coordinates and executes historical change analyses for both machines and molds. Visualize and generate analytical reports through two modules:
     - *UpdateHistMachineLayout*: Analyzes machine layout evolution over time to identify layout changes and activity patterns
     - *UpdateHistMoldOverview*: Analyzes mold-machine relationships, first-run history, and mold utilization to identify operational trends
-  - Multi-level insight analytics ✅ : currently process and extract data insights by multi-level (including **DayLevelDataProcessor**, **MonthLevelDataProcessor**, and **YearLevelDataProcessor** for day, month, and year views) to serve in the multi-level dashboard building phase.
-  - Data insight analytics support **Operational Task Orchestration**. 📝
-  - Data insight analytics support **Production Planning Orchestration** (Plan refinement phase). 📝
+  - Multi-Level Analytics (**multiLevelDataAnalytics**) ✅ : Orchestrates and executes comprehensive data processing pipeline across multiple time granularities. Processes production records and generates structured analytics through three hierarchical modules:
+    - *DayLevelDataProcessor*: Processes daily production data with mold-based and item-based aggregations, generating real-time operational metrics and summary statistics
+    - *MonthLevelDataProcessor*: Analyzes monthly production patterns, distinguishing finished and unfinished orders to track completion rates and identify trends
+    - *YearLevelDataProcessor*: Performs annual production analysis, providing long-term insights into finished/unfinished orders and yearly performance summaries
+  - Advanced Analytics (**crossLevelDataAnalytics**) 📝: Provides advanced data analytics capabilities supporting **operational task orchestration** and **production planning refinement** with cross-functional insights for decision-making optimization
 
-- **Production Insight Reporting and Visualization**: 
-  - Multi-level performance reports and static dashboards generation ✅: including **DayLevelDataPlotter**, **MonthLevelDataPlotter** and **YearLevelDataPlotter** to support various requests, each plotter invokes **DayLevelDataProcessor**, **MonthLevelDataProcessor** and **YearLevelDataProcessor** corresponding to:
-    - Centralized dashboard generation for multi-level production data extract with processed insights (from **DayLevelDataProcessor**, **MonthLevelDataProcessor**, and **YearLevelDataProcessor** corresponding). ✅
-    - Visualization across multiple time resolutions (day/month/year) for decision support. And generate performance alerts and executive reports alongside visualization dashboards ✅
-    - Upgrade from static report to dynamic UI/UX 📝
+2. **Visualization & Report Generating Layer**:
 
-- **Operational Task Coordination**:
-  - Proactive maintenance of molds and machines; resin restocking to prevent downtime and material shortages. 📝
-  - Quality and yield optimization: 📝
-    - Improve cycle times while maintaining product quality.
-    - Enhance production yield through actionable insights.
+- Dashboard Builder (**dashboardBuilder**) 📝: Unified visualization agent providing both static reporting and interactive dashboard capabilities to transform analytics outputs into actionable visual insights:
+  - Static Report Generator (**multiLevelDataPlotter**) ✅: Generates static dashboards, plots, and reports (PNG, TXT, XLSX) through three hierarchical modules:
+    - *DayLevelDataPlotter*: Generates daily operational dashboards with real-time metrics visualization, production summaries, and mold performance reports
+    - *MonthLevelDataPlotter*: Creates monthly trend dashboards tracking completion rates, production patterns, and month-to-date performance analysis
+    - *YearLevelDataPlotter*: Produces annual strategic dashboards with long-term trends, yearly summaries, and performance comparisons
+  - Interactive Dashboard Platform (**dynamicDashboardUI**) 📝: Web-based interactive dashboard with real-time data updates, advanced filtering, drill-down capabilities, and responsive visualizations
+
+3. **Operational Task Coordinating Layer**:
+
+- Task Orchestrator (**taskOrchestrator**) 📝: The central coordination layer responsible for distributing, monitoring, and optimizing workflows across all operational coordinators:
+  - Resin Coordinator (**resinCoordinator**) 📝: Manages resin inventory, tracks consumption levels, forecasts material demand, and optimizes raw material supply.
+  - Maintenance Coordinator (**maintenanceCoordinator**) 📝: Oversees predictive maintenance for both molds and machines, automatically scheduling tasks to reduce downtime and extend equipment lifespan through 2 modules:
+    - *MoldTracker* 📝: Tracks mold status, lifecycle, production and maintenance history.
+    - *MachineTracker* 📝: Monitors machine conditions, performance metrics, activity schedules and maintenance history.
+  - Product Quality Coordinator (**productQualityCoordinator**) 📝: Optimizes product quality through defect data analysis, operational parameter adjustments, and real-time quality monitoring.
+  - Yield Optimizer (**yieldOptimizer**) 📝: Enhances production yield using performance analytics, scrap reduction strategies, and intelligent load balancing across resources.
 
 --- 
 
@@ -155,42 +204,38 @@ OptiMoldIQ uses a **multi-agent architecture** to operationalize these orchestra
 ```
 optiMoldMaster (Mother Agent)
 │
-├─ Data Operations
+├─ Data Operations Layer
 │  ├─ dataPipelineOrchestrator ✅        # ETL: collect & load data
 │  ├─ validationOrchestrator ✅          # Multi-layer data validation
 │  └─ orderProgressTracker ✅            # Real-time production tracking
 │
-├─ Production Planning
+├─ Production Planning Layer
 │  └─ autoPlanner 📝
 │     ├─ initialPlanner ✅               # Generate optimal plans
 │     └─ planRefiner 📝                  # Refine with real-time data
 │
-├─ Analytics & Reporting
-│  ├─ analyticsOrchestrator 📝
-│  │  ├─ dataChangeAnalyzer ✅           # Track layout changes
-│  │  ├─ Multi-level Analytics Service (multiLevelDataAnalytics namespace)
-│  │  │  ├─ dayLevelDataProcessor ✅     # Day insight analytics
-│  │  │  ├─ monthLevelDataProcessor ✅   # Month insight analytics
-│  │  │  └─ yearLevelDataProcessor ✅    # Year insight analytics
-│  │  └─ dataInsightAnalytics 📝         # Advanced data analytics
-│  │
-│  └─ Reporting & Visualization Layer (dashboardBuilder namespace)
-│     ├─ dayLevelDataPlotter ✅          # Day insight reports & visualizations  
-│     ├─ monthLevelDataPlotter ✅        # Month insight reports & visualizations
-│     └─ yearLevelDataPlotter ✅         # Year insight reports & visualizations
+├─ Insight Analytics Layer
+│  └─ analyticsOrchestrator 📝
+│     ├─ dataChangeAnalyzer ✅           # Analyze historical changes for both machines and molds
+│     ├─ multiLevelDataAnalytics ✅      # Generate structured analytics through three hierarchical (Day/Month/Year)
+│     └─ crossLevelDataAnalytics 📝      # Advanced data analytics
 │
-└─ taskOrchestrator 📝
-   ├─ resinCoordinator 📝                # Resin inventory
-   ├─ moldCoordinator 📝                 # Mold tracking and maintenance
-   ├─ machineCoordinator 📝              # Machine tracking and maintenance
-   ├─ maintenanceCoordinator 📝          # Predictive mold-machine maintenance scheduling
-   ├─ productQualityCoordinator 📝       # Quality optimization
-   └─ yieldOptimizer 📝                  # Yield optimization
+├─ Visualization & Report Generating Layer
+│  └─ dashboardBuilder 📝
+│     ├─ multiLevelDataPlotter ✅        # Generate reports & visualizations through three hierarchical (Day/Month/Year)
+│     └─ dynamicDashboardUI 📝           # Interactive ver. of multiLevelDataPlotter
+|
+└─ Operational Task Coordinating Layer
+    └─ taskOrchestrator 📝
+      ├─ resinCoordinator 📝             # Resin inventory
+      ├─ maintenanceCoordinator 📝       # Track and predictive mold-machine maintenance scheduling
+      ├─ productQualityCoordinator 📝    # Quality optimization
+      └─ yieldOptimizer 📝               # Yield optimization
 ```
 
 > *Note:* `optiMoldMaster` functions as the **mother-agent**, orchestrating all child agents below. Each child agent operates autonomously but synchronizes through shared data and event channels.
 
-> **Service-Consumer Architecture:** The `multiLevelDataAnalytics` namespace (Analytics Service Layer) provides processed insights to the `dashboardBuilder` namespace (Visualization Consumer Layer) through a 1-to-1 processor-to-plotter mapping: `dayLevelDataProcessor` → `dayLevelDataPlotter`, `monthLevelDataProcessor` → `monthLevelDataPlotter`, `yearLevelDataProcessor` → `yearLevelDataPlotter`.
+> **Service-Consumer Architecture:** The `multiLevelDataAnalytics` (Analytics Service Layer) provides processed insights to the `multiLevelDataPlotter` (Visualization Consumer Layer) through a 1-to-1 processor-to-plotter mapping: `[day/month/year]LevelDataProcessor` → `[day/month/year]dayLevelDataPlotter`.
 
 ---
 
@@ -208,17 +253,13 @@ optiMoldMaster (Mother Agent)
 | planRefiner | Sub-component | Refines and adjusts initial production plans | 📝 |
 | analyticsOrchestrator | Child Agent | Central analytics hub for structured insights | 📝 |
 | dataChangeAnalyzer | Sub-component | Tracks mold/machine layout changes | ✅ |
-| dayLevelDataProcessor | Sub-component | Daily insight analytics | ✅ |
-| monthLevelDataProcessor | Sub-component | Monthly insight analytics | ✅ |
-| yearLevelDataProcessor | Sub-component | Yearly insight analytics | ✅ |
-| dataInsightAnalytics | Sub-component | Advanced data analytics service | 📝 |
-| dayLevelDataPlotter | Child Agent | Daily dashboard visualization | ✅ |
-| monthLevelDataPlotter | Child Agent | Monthly dashboard visualization | ✅ |
-| yearLevelDataPlotter | Child Agent | Yearly dashboard visualization | ✅ |
+| multiLevelDataAnalytics | Sub-component | Generate structured analytics through three hierarchical| ✅ |
+| crossLevelDataAnalytics | Sub-component | Advanced data analytics service | 📝 |
+| dashboardBuilder | Child Agent | Generate insight dashboards | ✅ |
+| multiLevelDataPlotter | Sub-component | Generate insight reports & dashboard through three hierarchical | ✅ |
+| dynamicDashboardUI | Sub-component | Interactive ver. of multiLevelDataPlotter | 📝 |
 | taskOrchestrator | Child Agent | Coordinates operational tasks | 📝 |
 | resinCoordinator | Sub-component | Manages resin inventory and consumption | 📝 |
-| moldCoordinator | Sub-component | Tracks mold usage and maintenance requirements | 📝 |
-| machineCoordinator | Sub-component | Monitors machine utilization and maintenance requirements | 📝 |
 | maintenanceCoordinator | Sub-component | Predictive mold-machine maintenance scheduling | 📝 |
 | productQualityCoordinator | Sub-component | Tracks yield and defects | 📝 |
 | yieldOptimizer | Sub-component | Optimizes cycle time and yield | 📝 |
@@ -236,15 +277,14 @@ It orchestrates all child agents to ensure seamless workflow across data process
   - `validationOrchestrator` (data integrity)  
   - `orderProgressTracker` (production tracking)
 - Multi-stage production planning via `autoPlanner`
-- Centralized analytics and reporting via `analyticsOrchestrator` + visualization agents
+- Centralized analytics and reporting via `analyticsOrchestrator` + `dashboardBuilder`
 - Task-level optimization and coordination via `analyticsOrchestrator` + `taskOrchestrator`
 
 ---
 
 ### Core Components (Child Agents) 🔄
 
-<details>
-<summary>2.1 dataPipelineOrchestrator ✅</summary>
+#### 2.1 dataPipelineOrchestrator ✅
 
 **Role:**  
 Manages the **two-phase ETL pipeline** for both static and dynamic manufacturing data.
@@ -257,10 +297,8 @@ Manages the **two-phase ETL pipeline** for both static and dynamic manufacturing
 
 **Purpose:**  
 Ensures stable, reproducible, and traceable manufacturing data ingestion.
-</details>
 
-<details>
-<summary>2.2 validationOrchestrator ✅</summary>
+#### 2.2 validationOrchestrator ✅
 
 **Role:**  
 Enforces multi-layer validation across all incoming manufacturing data streams.
@@ -273,10 +311,8 @@ Enforces multi-layer validation across all incoming manufacturing data streams.
 
 **Purpose:**  
 Guarantees high data integrity and reliability across all downstream processes.
-</details>
 
-<details>
-<summary>2.3 orderProgressTracker ✅</summary>
+#### 2.3 orderProgressTracker ✅
 
 **Role:**  
 Provides **real-time operational visibility** across production orders.
@@ -289,10 +325,8 @@ Provides **real-time operational visibility** across production orders.
 
 **Output:**  
 Consolidated production analytics and performance indicators.
-</details>
 
-<details>
-<summary>2.4 autoPlanner 📝</summary>
+#### 2.4 autoPlanner 📝
 
 **Role:**  
 Advanced production planning engine with two-stage optimization.
@@ -315,13 +349,12 @@ Advanced production planning engine with two-stage optimization.
 
 **Purpose:**  
 Provides adaptive and intelligent scheduling aligned with real factory conditions.
-</details>
 
-<details>
-<summary>2.5 analyticsOrchestrator 📝</summary>
+
+#### 2.5 analyticsOrchestrator 📝
 
 **Role:**  
-Central analytics hub coordinating multiple complementary analytics functions.
+Central analytics hub orchestrating multiple complementary analytics functions to provide comprehensive, multi-faceted data insights that support visualization, operational task management, and production planning refinement across the entire system.
 
 **Subcomponents**
 
@@ -334,85 +367,78 @@ Central analytics hub coordinating multiple complementary analytics functions.
   - *UpdateHistMoldOverview*: Analyzes mold-machine relationships, first-run history, and mold utilization to identify operational trends
 - **Output:** Historical change logs and configuration reports.
 
-2. **multiLevelDataAnalytics 🔄 (Analytics Service Layer)**
-
-*Note:* `multiLevelDataAnalytics` is a logical namespace (folder structure) grouping multi-level analytics processors that serve as the **Analytics Service Layer**.
-
-- Processes validated manufacturing data into structured insights at multiple resolutions:  
-  - `dayLevelDataProcessor` ✅: Extracts daily-level KPIs and trends
-  - `monthLevelDataProcessor` ✅: Aggregates monthly performance metrics
-  - `yearLevelDataProcessor` ✅: Generates yearly operational insights
-- Updates **historical analytics records** with derived KPIs and trend metrics.  
+2. **multiLevelDataAnalytics 📝 (Analytics Service Layer)**
+- Processes **production records** across multiple time granularities (day/month/year).
+- Generates **structured analytics outputs** for consumption by dashboard builders and downstream agents (planRefiner, taskOrchestrator).
+- Operates as a **service layer** — provides processed data to other system components.
+- **Modules:**
+  - *DayLevelDataProcessor*: Processes daily production data with mold-based and item-based aggregations, generating real-time operational metrics and summary statistics
+  - *MonthLevelDataProcessor*: Analyzes monthly production patterns, distinguishing finished and unfinished orders to track completion rates and identify trends
+  - *YearLevelDataProcessor*: Performs annual production analysis, providing long-term insights into finished/unfinished orders and yearly performance summaries
+- **Output:** Multi-level processed DataFrames with aggregated records and statistical summaries, **bundled with consuming agent's own outputs** (e.g., dashboards, reports, refined plans).
 - **Service-Consumer Relationship:**
-  - `dayLevelDataProcessor` → `dayLevelDataPlotter` ✅
-  - `monthLevelDataProcessor` → `monthLevelDataPlotter` ✅
-  - `yearLevelDataProcessor` → `yearLevelDataPlotter` ✅
+  - `multiLevelDataProcessor` → `multiLevelDataPlotter` ✅
+  - `multiLevelDataProcessor` → `dynamicDashboardUI` 📝 (planned)
 - **Planned consumers:** `planRefiner`, `taskOrchestrator` 📝  
 - **Purpose:** Acts as a **shared service layer** ensuring consistent analytics results across all consuming agents.
 
-3. **dataInsightAnalytics 📝 (Advanced Analytics)**
-- Provides advanced data analytics capabilities for operational task orchestration and production planning refinement.
-- Supports cross-functional insights for decision-making optimization.
+3. **crossLevelDataAnalytics 📝 (Advanced Analytics)**
+- Provides **advanced data analytics capabilities** for operational decision-making and strategic planning. 📝
+- Generates **cross-functional insights** for decision-making optimization across operations and planning. 📝 
+- Operates as an **advanced service layer** — delivers predictive analytics and actionable insights to downstream orchestrators. 📝
 
-**Output:**  
-Structured KPIs, operational trends, and cross-period performance insights.
-</details>
+#### 2.6 dashboardBuilder  📝
+**Role:**
+Unified visualization agent providing dual-mode dashboard capabilities - static report generation for scheduled distribution and interactive web platform for real-time data exploration.
 
-<details>
-<summary>2.6 Visualization Agents (dashboardBuilder namespace) ✅</summary>
+**Subcomponents**
 
-**Note:** `dashboardBuilder` is a logical namespace (folder structure) grouping three independent visualization agents that form the **Visualization Consumer Layer**. Each plotter consumes processed insights from its corresponding processor in the Analytics Service Layer.
+1. **multiLevelDataPlotter ✅ (Static Report Generator)**
+- Coordinates **static dashboard generation** across multiple time resolutions (day/month/year).
+- Manages **execution flow** with flexible configuration and error isolation.
+- Operates as a **batch processing layer** — generates scheduled reports for distribution and archival.
+**Configuration (`PlotflowConfig`):**
+  - Time parameters: `record_date`, `record_month`, `record_year`
+  - Analysis dates: `month_analysis_date`, `year_analysis_date`
+  - Shared paths: `source_path`, `annotation_name`, `databaseSchemas_path`
+  - Performance: `enable_parallel`, `max_workers` (optional parallel processing)
+**Modules:**
+  - *DayLevelDataPlotter*: Generates daily operational dashboards with real-time metrics visualization, production summaries, and mold performance reports
+  - *MonthLevelDataPlotter*: Creates monthly trend dashboards tracking completion rates, production patterns, and month-to-date performance analysis
+  - *YearLevelDataPlotter*: Produces annual strategic dashboards with long-term trends, yearly summaries, and performance comparisons
+**Output:** 
+  - Static PNG images for visual dashboards
+  - TXT reports for quick summaries
+  - XLSX spreadsheets for detailed data tables
+  - Saved to configured directories for email distribution and archival
+**Service-Consumer Relationship:**
+  - Consumes: `multiLevelDataAnalytics` (DayLevelDataProcessor, MonthLevelDataProcessor, YearLevelDataProcessor) ✅
+  - Serves: Email recipients, file servers, archived documentation
 
-*Architecture Pattern: Processor → Plotter (1-to-1 mapping)*
+2. **dynamicDashboardUI 📝 (Interactive Dashboard Platform)**
+- Provides **web-based interactive dashboards** with real-time data exploration. 📝
+- Manages **live data streaming** and user interactions for dynamic analysis. 📝
+- Operates as a **real-time service layer** — enables on-demand data visualization and drill-down analysis. 📝
 
+*Service Layer Diagram:*
 ```
-Analytics Service Layer          Visualization Consumer Layer
-(multiLevelDataAnalytics)        (dashboardBuilder)
-        ↓                                  ↓
-dayLevelDataProcessor      →    dayLevelDataPlotter
-monthLevelDataProcessor    →    monthLevelDataPlotter  
-yearLevelDataProcessor     →    yearLevelDataPlotter
+  Insight Analytics Layer                Visualization & Report Generating Layer
+  (analyticsOrchestrator)                          (dashboardBuilder)
+            ↓                                              ↓
+  Analytics Service Layer                ┌─ Static dashboard generating Layer
+  multiLevelDataAnalytics                |   multiLevelDataPlotter
+    ├─ DayLevelDataProcessor        →    │    ├─ DayLevelDataPlotter (PNG/TXT/XLSX)
+    ├─ MonthLevelDataProcessor      →    │    ├─ MonthLevelDataPlotter (PNG/TXT/XLSX)
+    └─ YearLevelDataProcessor       →    │    └─ YearLevelDataPlotter (PNG/TXT/XLSX)
+                                         │
+                                         └─ Interactive Dashboard Platform 📝 
+                                              dynamicDashboardUI 
+                                               ├─ Interactive Web Dashboard (Browser)
+                                               ├─ Real-time Data Streaming (WebSocket)
+                                               └─ Advanced Filtering & Drill-down
 ```
-**Purpose:**  
-Transform analytics outputs into actionable visual insights for managers and engineers across multiple time resolutions. This separation of concerns ensures that data processing logic remains independent from visualization logic, enabling flexible dashboard design without affecting underlying analytics.
 
-1. **dayLevelDataPlotter ✅**
-
-    **Role:**  
-    Daily dashboard generation and visualization.
-
-    **Functions**
-    - Generates dashboards at **daily** resolutions.  
-    - End-to-end workflow: Data extraction → Validation → Aggregation → Visualization  
-    - Consumes processed insights from `dayLevelDataProcessor` to ensure consistency.  
-    - Outputs **static or dynamic dashboards** for operational decision-making.
-
-2. **2 monthLevelDataPlotter ✅**
-
-    **Role:**  
-    Monthly dashboard generation and visualization.
-
-    **Functions**
-    - Generates dashboards at **monthly** resolutions.  
-    - End-to-end workflow: Data extraction → Validation → Aggregation → Visualization  
-    - Consumes processed insights from `monthLevelDataProcessor` to ensure consistency.  
-    - Outputs **static or dynamic dashboards** for operational decision-making.
-
-3. **yearLevelDataPlotter ✅**
-
-    **Role:**  
-    Yearly dashboard generation and visualization.
-
-    **Functions**
-    - Generates dashboards at **yearly** resolutions.  
-    - End-to-end workflow: Data extraction → Validation → Aggregation → Visualization  
-    - Consumes processed insights from `yearLevelDataProcessor` to ensure consistency.  
-    - Outputs **static or dynamic dashboards** for operational decision-making.
-
-</details>
-
-<details>
-<summary>2.7 taskOrchestrator 📝</summary>
+#### 2.7 taskOrchestrator 📝
 
 **Role:**  
 Coordinates cross-dependent operational activities to prevent downtime and optimize production efficiency.
@@ -425,15 +451,14 @@ Coordinates cross-dependent operational activities to prevent downtime and optim
 **Subcomponents**
 
 - **resinCoordinator:** Tracks resin stock, consumption, and forecasts material needs.  
-- **moldCoordinator:** Manages mold lifecycle, usage, and maintenance requirements.  
-- **machineCoordinator:** Monitors machine utilization and maintenance requirements.  
 - **maintenanceCoordinator:** Handles predictive mold-machine maintenance scheduling, working alongside `moldCoordinator` and `machineCoordinator`.
+  - **moldTracker:** Tracks mold status, lifecycle, production and maintenance history.
+  - **machineTracker:** Monitors machine conditions, performance metrics, activity schedules and maintenance history.
 - **productQualityCoordinator:** Monitors yield, NG rates, and defect analysis.  
 - **yieldOptimizer:** Evaluates cycle times and resin efficiency; recommends performance improvements.
 
 **Purpose:**  
 Maintains stable, optimized operations across all production assets.
-</details>
 
 ### System Connectivity Summary
 
@@ -448,21 +473,25 @@ Together, these layers form a **closed feedback loop** where data → planning �
 ### Execution Flow
 
 ```
-                RAW DATA
-                    ↓ 
-            DATA OPERATIONS → VALIDATION ────┐
-                    |                        ├──→ TRACKING ─→ PLANNING
-                    ├────────────────────────┘                   ↓
-                    ↓                                    ┌───────────────┐          
-        ┌────────────────────┐                           ↓               ↓           
-        ↓                    ↓                     INITIAL PLAN    REFINER PLAN
-    ANALYTICS --------→ DASHBOARDS                                       ↑
-        | (Service)      (Consumer)                                      |
-        | Optimize                                                       |
-        ├────────────────────────────────────────────────────────────────┘
-        ↓ 
+                                      RAW DATA
+                                          ↓ 
+                                  DATA OPERATIONS → VALIDATION ────┐
+                                          |                        ├──────────────────→ TRACKING ─→ PLANNING
+                                          ├────────────────────────┘                                   ↓
+                                          ↓                                                    ┌───────────────┐          
+                              ┌─────────────────────────────────────────────┐                  ↓               ↓           
+                              ↓                                             ↓             INITIAL PLAN    REFINER PLAN
+                          ANALYTICS                                 DASHBOARD BUILDER                      (Consumer)   
+                              |                                             |                                  ↑
+        ┌─────────────────────┼────────────────────┐                        |                                  |
+        ↓                     ↓                    ↓                        ↓                                  |
+    CROSS-LEVEL            LAYOUT             MULTI-LEVEL  --------→   MULTI-LEVEL                             |
+    INSIGHTS               CHANGES            INSIGHTS                 PLOTTERS                                |
+    (Optimize)            (Service)           (Service)                (Consumer)                              |
+        |                     |                                                                                |
+        ↓                     └────────────────────────────────────────────────────────────────────────────────┘
  OPERATIONAL TASK
-
+    (Consumer)
 ```
 
 ---
@@ -505,24 +534,28 @@ PHASE 2 — SHARED DB BUILDING (If updatesDetected)
     • Generate Historical Insights:
         - MoldStabilityIndexCalculator → mold stability index
         - MoldMachineFeatureWeightCalculator → machine/mold feature weights
-    • Support Production & Material Coordination: ProducingProcessor
-
+        
 ──────────────────────────────────────────────────────────────────────────
-PHASE 3 — INITIAL PLANNING (If purchaseOrders changed)
+PHASE 3 — INITIAL PLANNING
+    • Support Production & Material Coordination (active POs): ProducingProcessor
     • Detect Purchase Order Changes: PurchaseOrderChangeDetection
-    • Generate Planning for New Orders: PendingProcessor
+    • Generate Initial Planning for (active POs + pending POs): PendingProcessor
 
 ──────────────────────────────────────────────────────────────────────────
 PHASE 4 — ANALYTICS & VISUALIZATION
     • TriggerDetection → checks for new or changed data
-    • Dashboard Builders
-        - DayLevelPlotter → daily dashboards
-        - MonthLevelPlotter → monthly dashboards
-        - YearLevelPlotter → yearly dashboards
-    • Historical Analysis Modules
+    • DataChangeAnalyzer
         - MoldOverview → first-run machine/mold pair history extraction
         - MachineLayout → layout change history
-
+    • MultiLevelDataAnalytics
+        - DayLevelDataProcessor → daily production records with mold/item aggregations
+        - MonthLevelDataProcessor → monthly finished/unfinished order analysis
+        - YearLevelDataProcessor → annual production trends and completion statistics
+    • MultiLevelDataPlotter
+        - DayLevelPlotter → daily dashboards + reports
+        - MonthLevelPlotter → monthly dashboards + reports
+        - YearLevelPlotter → yearly dashboards + reports
+    
 ──────────────────────────────────────────────────────────────────────────
 CENTRALIZED REPORTING
     agents/shared_db/{ModuleName}/
@@ -618,42 +651,46 @@ agents/shared_db/
 # ══════════════════════════════════════════════════════════════════
 # DATA INSIGHTS GENERATOR
 # ══════════════════════════════════════════════════════════════════
-├── MoldMachineFeatureWeightCalculator/     # Mold-machine compatibility scoring
-│   ├── newest/                             # *_confidence_report.txt
-│   └── weights_hist.xlsx                   # Historical calculations
-│
-├── MoldStabilityIndexCalculator/newest/    # Mold performance stability (1 file)
-│   └── *_mold_stability_index.xlsx         # → Feeds ProducingProcessor
+├── HistoricalInsights/
+|   ├── MoldMachineFeatureWeightCalculator/     # Mold-machine compatibility scoring
+|   │   ├── newest/                             # *_confidence_report.txt
+|   │   └── weights_hist.xlsx                   # Historical calculations
+|   │
+|   └── MoldStabilityIndexCalculator/newest/    # Mold performance stability (1 file)
+|       └── *_mold_stability_index.xlsx         # → Feeds ProducingProcessor
 |
 # ══════════════════════════════════════════════════════════════════
 # PRODUCTION OPTIMIZATION
 # ══════════════════════════════════════════════════════════════════
-├── ProducingProcessor/newest/              # Active production analysis (1 file)
-│   └── *_producing_processor.xlsx          # Uses: OrderProgress + MoldMachineFeatureWeightCalculator +  MoldStabilityIndexCalculator outputs
-│
-├── PendingProcessor/newest/                # Production planning suggestions (1 file)
-│   └── *_pending_processor.xlsx            # Builds on ProducingProcessor output
+├── AutoPlanner/InitialPlanner/
+|   |
+|   ├── ProducingProcessor/newest/       # Active production analysis (1 file)
+|   │   └── *_producing_processor.xlsx   # Uses: OrderProgress + MoldMachineFeatureWeightCalculator +  MoldStabilityIndexCalculator outputs
+|   │
+|   └── PendingProcessor/newest/         # Production planning suggestions (1 file)
+|        └── *_pending_processor.xlsx    # Builds on ProducingProcessor output
 │
 # ══════════════════════════════════════════════════════════════════
 # HISTORICAL ANALYTICS
 # ══════════════════════════════════════════════════════════════════
-├── UpdateHistMachineLayout/newest/         # Machine layout change analysis (4 files)
-│   ├── *_Machine_change_layout_timeline.png
-│   ├── *_Machine_level_change_layout_details.png
-│   ├── *_Machine_level_change_layout_pivot.xlsx
-│   └── *_Top_machine_change_layout.png
-│
-├── UpdateHistMoldOverview/newest/          # Mold usage & performance history (11 files)
-│   ├── *_Bottom_molds_tonnage.png
-│   ├── ... (9 more visualization files)
-│   └── *_Top_molds_tonnage.png
+├── DataChangeAnalyzer/
+|   ├── UpdateHistMachineLayout/newest/         # Machine layout change analysis (4 files)
+│   │   ├── *_Machine_change_layout_timeline.png
+│   │   ├── *_Machine_level_change_layout_details.png
+│   │   ├── *_Machine_level_change_layout_pivot.xlsx
+│   │   └── *_Top_machine_change_layout.png
+│   └── UpdateHistMoldOverview/newest/          # Mold usage & performance history (11 files)
+│       ├── *_Bottom_molds_tonnage.png
+│       ├── ... (9 more visualization files)
+│       └── *_Top_molds_tonnage.png
 │
 # ══════════════════════════════════════════════════════════════════
 # MULTI-LEVEL PERFORMANCE DASHBOARDS
 # ══════════════════════════════════════════════════════════════════
-├── DayLevelDataPlotter/newest/             # Daily dashboards (9 files)
-├── MonthLevelDataPlotter/newest/           # Monthly dashboards (6 files)
-└── YearLevelPlotter/newest/                # Annual dashboards (11 files)
+└── MultiLevelDataPlotter
+    ├── DayLevelDataPlotter/newest/             # Daily dashboards & reports (9 files)
+    ├── MonthLevelDataPlotter/newest/           # Monthly dashboards & reports (6 files)
+    └── YearLevelPlotter/newest/                # Annual dashboards & reports (11 files)
 ```
 
 > Full shared database details: [Shared Database Details](docs/OptiMoldIQ-sharedDatabase.md).
@@ -694,17 +731,16 @@ agents/shared_db/
         |                                 |                                  |                                           |
         ↓                                 ↓                                  ↓                                           ↓
     ValidationOrch            MoldMachineFeatureWeightCalculator     DataChangeAnalyzer                  Multi-Level Performance Analysis
-        ↓                     + MoldStabilityIndexCalculator      (Change History Analysis)              ┌──────────────┼───────────────┐
-    Validation Report            (Data Insights Generator)         ├─ UpdateHistMachine                  ↓              ↓               ↓
-        | (cross-ref                      |                        └─ UpdateHistMold                 DayLevel       MonthLevel      YearLevel
-        |  if exists)                     ↓                                  ↓                       Plotter        Plotter         Plotter
-        └──> OrderProgress ─────→ ProducingProcessor                  Change Detection                                  ↓
-           (reads Shared DB)              ↓                                  ↓                           Multi-Level Performance Dashboards
-                   ↓               PendingProcessor                    Change Analysis                   
-             Status Reports               ↓                          Change Visualization          
-            (with validation      Production Plans                               
+        ↓                     + MoldStabilityIndexCalculator      (Change History Analysis)                              ↓
+    Validation Report            (Data Insights Generator)         ├─ UpdateHistMachine                         MultiLevelDataPlotter
+        | (cross-ref                      |                        └─ UpdateHistMold                      ┌──────────────┼───────────────┐
+        |  if exists)                     ↓                                  ↓                            ↓              ↓               ↓
+        └──> OrderProgress ─────→ ProducingProcessor                  Change Detection                DayLevel       MonthLevel      YearLevel
+           (reads Shared DB)              ↓                                  ↓                        Plotter        Plotter         Plotter
+                   ↓               PendingProcessor                    Change Analysis                                   ↓
+             Status Reports               ↓                          Change Visualization                 Multi-Level Performance Dashboards
+            (with validation       Production Plans                               
              flags)                (Initial Plan)           
-
 ```
 
 ---
@@ -824,74 +860,117 @@ agents/shared_db/
 - Improved planning accuracy and visibility across operations.
 - Consistent historical insights improve decision-making.
 
-### Milestone 03: Analytics Orchestration + Multi-Level Dashboard Agents (Completed November 2025)
-> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_03.md) 🔄 
+### Milestone 03: Enhanced Production Planning with Analytics and Dashboard System (Completed November 2025)
+> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_03.md)
 
-- Depends on: Milestone 01 (Core Data Pipeline Agents)
+- **Depends on:** Milestone 02 (Initial Production Planning System)
+- **Nature of Update:** Upgrade & Extension to OptiMoldIQWorkflow
 
-#### Scope & Objectives
+#### Overview
+Milestone 03 is a **direct upgrade** of Milestone 02.
+It **does not modify or replace** the existing workflow phases from M02, but instead extends the main orchestrator (**OptiMoldIQWorkflow**) by adding **a new optional Phase 4: Analytics & Dashboards**.
 
-Build a multi-tier analytics system with two complementary functions:
+This transforms the workflow from a pure production-planning engine into a **planning + analytics + visualization system**, while preserving backward compatibility.
 
-**1. Standalone Change Detection**:
 
-  - Auto-detect layout & machine–mold relationship changes
-  - Generate independent historical change reports
+#### What’s Preserved from Milestone 02
 
-**2. Shared Analytics Service**:
+All phases and behaviors introduced in M02 remain intact and unchanged:
 
-  - Run day/month/year-level analytical processing at scale
-  - Serve as a shared analytics layer for multiple consumers
-  - Currently powers [Day/Month/Year]LevelDataPlotter
-  - Designed to extend to planRefiner and taskOrchestrator
+1. Phase 1: Data Pipeline
+2. Phase 2: Shared DB Build & Validation
+3. Phase 2.5: Historical Insights
+4. Phase 3: Production Planning
 
-**Deliverables**:
+Along with:
+- Conditional execution & smart change detection
+- Historical insight engines
+- WorkflowConfig-based settings
+- Centralized error-handling & safe execution
 
-  - 20+ production dashboards with versioned historical archives
-  - Centralized static reports for operational visibility
-  - Structured analytics outputs for multi-agent consumption
+**M03 does not alter the M02 logic — it only adds new capabilities on top.**
 
-#### Completed Agents
-| Agent                       | Service Model | Core Responsibilities                                                                                      |
-| --------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------- |
-| **DataChangeAnalyzer**      | Standalone    | Detects machine layout changes & first-run machine–mold pairings; generates independent historical reports.  |
-| **DayLevelDataProcessor**   | Shared Service | Performs day-level aggregations; **currently serves** dayLevelDataPlotter. |
-| **MonthLevelDataProcessor** | Shared Service | Performs month-level aggregations; **currently serves** monthLevelDataPlotter. |
-| **YearLevelDataProcessor**  | Shared Service | Performs year-level aggregations; **currently serves** yearLevelDataPlotter. |
-| **DayLevelDataPlotter**     | Consumer | Consumes dayLevelDataProcessor outputs to generate day-level production dashboards (PNG, Excel, JSON logs). |
-| **MonthLevelDataPlotter**   | Consumer | Consumes monthLevelDataProcessor outputs to generate month-level production dashboards (PNG, Excel, JSON logs). |
-| **YearLevelDataPlotter**    | Consumer | Consumes yearLevelDataProcessor outputs to generate year-level production dashboards (PNG, Excel, JSON logs). |
+#### What’s Added in Milestone 03 (Upgrade)
+Milestone 03 introduces **Phase 4**, implemented as two **optional modules** that can be enabled or disabled inside OptiMoldIQWorkflow:
 
-#### High-Level Workflow
+> **✔ New Option 1 — Analytics Engine**
 
-**Parallel Independent Tracks**:
+> **✔ New Option 2 — Dashboard Generation**
 
-1. **Standalone Change Detection** (DataChangeAnalyzer):
-   - Detects machine layout changes & first-run machine–mold pairings
-   - Generates independent historical reports and change logs
-   - Does NOT trigger other analytics processes
-   > 👉 [dataChangeAnalyzer Output Overview](docs/agents_output_overviews/dataChangeAnalyzer)
+These additions enable the workflow to:
+- Perform multi-resolution analytics (day, month, year)
+- Detect machine layout changes & mold–machine evolution
+- Produce 20+ dashboards (PNG + TXT + XLSX)
+- Prepare structured analytical data for future systems (M04–M05)
 
-2. **Shared Analytics Pipeline** ([Day/Month/Year]LevelDataProcessor → [Day/Month/Year]LevelDataPlotter):
-   - [Day/Month/Year]LevelDataProcessor executes day → month → year processors (conditional on data availability)
-   - Produces structured analytics outputs (KPIs, trends, metrics)
-   - [Day/Month/Year]LevelDataPlotter consumes these outputs to generate:
-     - Production dashboards (PNG format)
-     - Excel summaries
-     - Timestamped archives with JSON logs
-   > 👉 [dashboardBuilder Output Overview](docs/agents_output_overviews/dashboardBuilder)
+#### Enhanced Workflow Architecture (After Upgrade)
 
-*Current State*: [Day/Month/Year]LevelDataProcessor serves [Day/Month/Year]LevelDataPlotter only
+| Phase                               | Trigger             | Runs                                                               | Status   |
+| ----------------------------------- | ------------------- | ------------------------------------------------------------------ | -------- |
+| **1. Data Pipeline**                | Always              | DataPipelineOrchestrator                                           | From M02 |
+| **2. Shared DB Build & Validation** | When data changes   | ValidationOrchestrator, OrderProgressTracker                       | From M02 |
+| **2.5. Historical Insights**        | When enough records | MoldStabilityIndexCalculator, MoldMachineFeatureWeightCalculator   | From M02 |
+| **3. Production Planning**          | When PO changes     | ProducingProcessor, PendingProcessor                               | From M02 |
+| **4. Analytics & Dashboards**       | Optional (config)   | DataChangeAnalyzer, MultiLevelDataAnalytics, MultiLevelDataPlotter | **NEW**  |
 
-*Planned*: Will extend to serve planRefiner and taskOrchestrator
+#### Key Point
+**Phase 4 is optional** — the workflow can:
+- run production planning alone,
+- run analytics alone,
+- or combine both seamlessly.
 
-#### Performance & Reliability Features
-- Parallel Processing Engine: 40–60% faster execution via smart worker allocation.
-- Multi-Resolution Analytics: 8 day-level, 3 month-level, 9+ year-level dashboards.
-- Versioned Output System: Auto-archived historical PNG/Excel/TXT summaries.
-- Error Isolation Layer: Per-module fault isolation with fallback execution paths.
+#### New Components Introduced in Phase 4
 
-### In Progress: AnalyticsOrchestrator + TaskOrchestrator
+**4A. DataChangeAnalyzer (Standalone Change Detection)**
+- Monitors historical changes without affecting planning:
+  - Machine layout evolution
+  - First-time mold–machine relationships
+  - Mold utilization overview
+
+Runs independently and does not trigger downstream phases.
+
+**4B. Shared Analytics + Visualization Pipeline** 
+
+**MultiLevelDataAnalytics (Service Layer)**: Processes production data into structured analytics across resolutions:
+- **DayLevelDataProcessor**
+- **MonthLevelDataProcessor**
+- **YearLevelDataProcessor**
+
+**MultiLevelDataPlotter (Consumer Layer)**: Generates dashboards from analytics outputs:
+
+| Level | Plotter               | Output Formats |
+| ----- | --------------------- | -------------- |
+| Day   | DayLevelDataPlotter   | PNG, TXT, XLSX |
+| Month | MonthLevelDataPlotter | PNG, TXT, XLSX |
+| Year  | YearLevelDataPlotter  | PNG, TXT, XLSX |
+
+*Data Flow*
+```
+Raw Production Data
+        ↓
+MultiLevelDataAnalytics  (service)
+        ↓
+MultiLevelDataPlotter    (visualization)
+        ↓
+PNG + TXT + XLSX Dashboards
+
+```
+
+*System Evolution*
+```
+M01: Data Pipeline
+  ↓
+M02: Production Planning Workflow
+  ↓
+M03: + Analytics & Dashboards (this milestone)
+  ↓
+M04: + Plan Refinement (consumes M03 analytics)
+  ↓
+M05: + Task Orchestration (consumes M03 analytics)
+
+```
+
+### Milestone 04: Enhanced Production Planning with Analytics and Task Orchestrator System (In Progress)
 
 ---
 
