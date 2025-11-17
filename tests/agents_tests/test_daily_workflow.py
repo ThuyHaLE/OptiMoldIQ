@@ -46,11 +46,9 @@ def test_daily_workflow():
         )
 
     workflow = OptiMoldIQWorkflow(config)
-    return workflow.run_workflow()
 
-if __name__ == "__main__":
-    # Example usage
-    results = daily_workflow()
+    results = workflow.run_workflow()
+    
     colored_reporter = DictBasedReportGenerator(use_colors=True)
     print("\n".join(colored_reporter.export_report(results)))
 
