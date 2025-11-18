@@ -23,8 +23,8 @@ class DataChangeAnalyzer:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 machine_layout_output_dir: str = "agents/shared_db/UpdateHistMachineLayout",
-                 mold_overview_output_dir: str = "agents/shared_db/UpdateHistMoldOverview",
+                 machine_layout_output_dir: str = "agents/shared_db/DataChangeAnalyzer/UpdateHistMachineLayout",
+                 mold_overview_output_dir: str = "agents/shared_db/DataChangeAnalyzer/UpdateHistMoldOverview",
                  min_workers: int = 2,
                  max_workers: Optional[int] = None,
                  parallel_mode: str = "process"):  # "process" or "thread"
@@ -60,7 +60,7 @@ class DataChangeAnalyzer:
         """Load database schemas with error handling."""
         try:
             return load_annotation_path(Path(databaseSchemas_path).parent, 
-                                      Path(databaseSchemas_path).name)
+                                        Path(databaseSchemas_path).name)
         except Exception as e:
             self.logger.error("❌ Failed to load database schemas: {}", e)
             raise
