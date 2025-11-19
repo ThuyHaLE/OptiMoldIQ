@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Tuple, Dict, Any, Callable
 from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path
-from agents.analyticsOrchestrator.multiLevelDataAnalytics.month_level_data_processor import MonthLevelDataProcessor
+from agents.analyticsOrchestrator.multiLevelDataAnalytics.multi_level_data_processor import AnalyticflowConfig, MultiLevelDataAnalytics
 from agents.dashboardBuilder.visualize_data.month_level.month_performance_plotter import month_performance_plotter 
 from agents.dashboardBuilder.reportFormatters.generate_early_warning_report import generate_early_warning_report
 from agents.dashboardBuilder.visualize_data.month_level.machine_based_dashboard_plotter import machine_based_dashboard_plotter
@@ -108,23 +108,27 @@ class MonthLevelDataPlotter:
         self.databaseSchemas_path = databaseSchemas_path
         self._setup_schemas()
         
-        # Initialize data processor
-        self.month_level_data_processor = MonthLevelDataProcessor(
-            record_month,
-            analysis_date, 
-            source_path,
-            annotation_name,
-            databaseSchemas_path,
-            default_dir
-        )
+        # Initialize data processor    
+        self.month_level_data_processor = MultiLevelDataAnalytics(
+            config = AnalyticflowConfig(
+                record_month = record_month,
+                month_analysis_date = analysis_date,
+                source_path = source_path,
+                annotation_name = annotation_name,
+                databaseSchemas_path = databaseSchemas_path,
+                default_dir = default_dir)
+                )
         
         # Process data
         try:
-            (self.analysis_timestamp, 
-             self.adjusted_record_month, 
-             self.finished_df, 
-             self.unfinished_df,
-             self.final_summary) = self.month_level_data_processor.product_record_processing()
+
+            month_level_results = self.month_level_data_processor.data_process()["month_level_results"]
+
+            self.analysis_timestamp = month_level_results["month_analysis_date"]
+            self.adjusted_record_month = month_level_results["record_month"]
+            self.finished_df = month_level_results["finished_records"]
+            self.unfinished_df = month_level_results["unfinished_records"]
+            self.final_summary = month_level_results["summary_stats"]
             
             self.early_warning_report = generate_early_warning_report(
                 self.unfinished_df, 
@@ -272,13 +276,15 @@ class MonthLevelDataPlotter:
         return short_unfinished_df, all_progress_df
 
     @staticmethod
-    def _plot_single_chart(args: Tuple[Any, str, Callable, str, str, Dict]) -> Tuple[bool, str, str, float]:
+    def _plot_single_chart(args: Tuple[Any, str, Callable, str, str, Dict]) -> Tuple[bool, str, list, str, float]:
         """
         Worker function to create a single plot.
         Returns: (success, plot_name, error_message, execution_time)
         """
         data, config_path, name, func, path, timestamp_file, kwargs = args
         start_time = time.time()
+
+        path_collection = []
 
         try:
             # Create the plot - pass visualization_config_path as keyword argument
@@ -297,23 +303,28 @@ class MonthLevelDataPlotter:
                     for idx, fig in enumerate(fig_or_figs):
                         fig_path = path.replace('.png', f'_page{idx+1}.png')
                         fig.savefig(fig_path, dpi=300, bbox_inches="tight", pad_inches=0.5)
+                        path_collection.append(fig_path)
                         plt.close(fig)
+
                 else:
                     # Single figure
                     fig_or_figs.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
+                    path_collection.append(path)
                     plt.close(fig_or_figs)
+
             else:
                 # Result is just a figure
                 result.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
+                path_collection.append(path)
                 plt.close(result)
-
+                
             execution_time = time.time() - start_time
-            return True, name, "", execution_time
+            return True, name, path_collection, "", execution_time
 
         except Exception as e:
             execution_time = time.time() - start_time
             error_msg = f"Failed to create plot '{name}': {str(e)}\n{traceback.format_exc()}"
-            return False, name, error_msg, execution_time
+            return False, name, path_collection, error_msg, execution_time
 
     def _prepare_plot_tasks(self, timestamp_file: str, newest_dir: Path) -> list:
         """Prepare plotting tasks for parallel execution."""
@@ -386,9 +397,9 @@ class MonthLevelDataPlotter:
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
                 try:
-                    success, name, error_msg, exec_time = future.result()
+                    success, name, path_collection, error_msg, exec_time = future.result()
                     if success:
-                        successful_plots.append(f"  ⤷ Saved new file: {name} ({exec_time:.1f}s)")
+                        successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): {'\n'.join(path_collection)}")
                         self.logger.info("✅ Created plot: {} ({:.1f}s)", name, exec_time)
                     else:
                         failed_plots.append(error_msg)
@@ -413,9 +424,9 @@ class MonthLevelDataPlotter:
         start_time = time.time()
 
         for task in tasks:
-            success, name, error_msg, exec_time = self._plot_single_chart(task)
+            success, name, path_collection, error_msg, exec_time = self._plot_single_chart(task)
             if success:
-                successful_plots.append(f"  ⤷ Saved new file: {name} ({exec_time:.1f}s)")
+                successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): {'\n'.join(path_collection)}")
                 self.logger.info("✅ Created plot: {} ({:.1f}s)", name, exec_time)
             else:
                 failed_plots.append(error_msg)
@@ -473,8 +484,8 @@ class MonthLevelDataPlotter:
                     if not isinstance(df, pd.DataFrame):
                         df = pd.DataFrame([df])
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
-            log_entries.append(f"  ⤷ Saved new file: {excel_file_path}\n")
-            self.logger.info("✅ Saved new file: {}", excel_file_path)
+            log_entries.append(f"  ⤷ Saved data analysis results: {excel_file_path}\n")
+            self.logger.info("✅ Saved data analysis results: {}", excel_file_path)
         except Exception as e:
             self.logger.error("❌ Failed to save file {}: {}", excel_file_name, e)
             raise OSError(f"Failed to save file {excel_file_name}: {e}")
@@ -532,3 +543,5 @@ class MonthLevelDataPlotter:
         except Exception as e:
             self.logger.error("Failed to update change log {}: {}", log_path, e)
             raise OSError(f"Failed to update change log {log_path}: {e}")
+        
+        return log_entries

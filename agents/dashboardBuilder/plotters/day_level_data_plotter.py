@@ -6,7 +6,8 @@ from agents.dashboardBuilder.visualize_data.day_level.shift_level_yield_efficien
 from agents.dashboardBuilder.visualize_data.day_level.shift_level_detailed_yield_efficiency_plotter import shift_level_detailed_yield_efficiency_plotter
 from agents.dashboardBuilder.visualize_data.day_level.mold_based_overview_plotter import mold_based_overview_plotter
 from agents.dashboardBuilder.visualize_data.day_level.shift_level_mold_efficiency_plotter import shift_level_mold_efficiency_plotter
-from agents.analyticsOrchestrator.multiLevelDataAnalytics.day_level_data_processor import DayLevelDataProcessor
+from agents.analyticsOrchestrator.multiLevelDataAnalytics.multi_level_data_processor import AnalyticflowConfig, MultiLevelDataAnalytics
+
 from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path
 
@@ -47,16 +48,29 @@ class DayLevelDataPlotter:
             visualization_config_path 
             or "agents/dashboardBuilder/visualize_data/day_level/visualization_config.json"
         )
-    
-        self.day_level_data_processor = DayLevelDataProcessor(selected_date,
-                                                              source_path,
-                                                              annotation_name,
-                                                              databaseSchemas_path,
-                                                              default_dir
-                                                              )
-        (self.processed_df, self.mold_based_record_df, 
-         self.item_based_record_df, self.summary_stats) = self.day_level_data_processor.product_record_processing()
 
+        self.day_level_data_processor = MultiLevelDataAnalytics(
+            config = AnalyticflowConfig(
+                record_date=selected_date,
+                source_path = source_path,
+                annotation_name = annotation_name,
+                databaseSchemas_path = databaseSchemas_path,
+                default_dir = default_dir)
+                )
+        
+        # Process data
+        try:
+            day_level_results = self.day_level_data_processor.data_process()["day_level_results"]
+
+            self.processed_df = day_level_results["processed_records"]
+            self.mold_based_record_df = day_level_results["mold_based_records"]
+            self.item_based_record_df = day_level_results["item_based_records"]
+            self.summary_stats = day_level_results["summary_stats"]
+
+        except Exception as e:
+            self.logger.error("Failed to process data: {}", e)
+            raise
+        
         self.selected_date = selected_date
         self.path_annotation = load_annotation_path(source_path, annotation_name)
         self._load_base_dataframes()
@@ -155,7 +169,7 @@ class DayLevelDataPlotter:
             raise
 
     @staticmethod
-    def _plot_single_chart(args: Tuple[Any, str, Callable, str, str]) -> Tuple[bool, str, str, float]:
+    def _plot_single_chart(args: Tuple[Any, str, Callable, str, str]) -> Tuple[bool, str, list, str, float]:
         """
         Worker function to create a single plot.
         Returns: (success, plot_name, error_message, execution_time)
@@ -163,6 +177,8 @@ class DayLevelDataPlotter:
         data, config_path, name, func, path, timestamp_file = args
         start_time = time.time()
         
+        path_collection = []
+
         try:
             # Create the plot
             if isinstance(data, tuple):
@@ -172,16 +188,17 @@ class DayLevelDataPlotter:
                 
             # Save the plot
             fig.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
+            path_collection.append(path)
             
             plt.close(fig)
 
             execution_time = time.time() - start_time
-            return True, name, "", execution_time
+            return True, name, path_collection, "", execution_time
             
         except Exception as e:
             execution_time = time.time() - start_time
             error_msg = f"Failed to create plot '{name}': {str(e)}\n{traceback.format_exc()}"
-            return False, name, error_msg, execution_time
+            return False, name, path_collection, error_msg, execution_time
 
     def _prepare_plot_tasks(self, timestamp_file: str, newest_dir: Path) -> list:
         """Prepare plotting tasks for parallel execution."""
@@ -239,9 +256,9 @@ class DayLevelDataPlotter:
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
                 try:
-                    success, name, error_msg, exec_time = future.result()
+                    success, name, path_collection, error_msg, exec_time = future.result()
                     if success:
-                        successful_plots.append(f"  ⤷ Saved new file: {name} ({exec_time:.1f}s)")
+                        successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): {'\n'.join(path_collection)}")
                         self.logger.info("✅ Created plot: {} ({:.1f}s)", name, exec_time)
                     else:
                         failed_plots.append(error_msg)
@@ -266,9 +283,9 @@ class DayLevelDataPlotter:
         start_time = time.time()
         
         for task in tasks:
-            success, name, error_msg, exec_time = self._plot_single_chart(task)
+            success, name, path_collection, error_msg, exec_time = self._plot_single_chart(task)
             if success:
-                successful_plots.append(f"  ⤷ Saved new file: {name} ({exec_time:.1f}s)")
+                successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): {'\n'.join(path_collection)}")
                 self.logger.info("✅ Created plot: {} ({:.1f}s)", name, exec_time)
             else:
                 failed_plots.append(error_msg)
@@ -325,8 +342,8 @@ class DayLevelDataPlotter:
                     if not isinstance(df, pd.DataFrame):
                         df = pd.DataFrame([df])
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
-            log_entries.append(f"  ⤷ Saved new file: {excel_file_path}\n")
-            logger.info("✅ Saved new file: {}", excel_file_path)
+            log_entries.append(f"  ⤷ Saved data analysis results: {excel_file_path}\n")
+            logger.info("✅ Saved data analysis results: {}", excel_file_path)
         except Exception as e:
             logger.error("❌ Failed to save file {}: {}", excel_file_name, e)
             raise OSError(f"Failed to save file {excel_file_name}: {e}")
@@ -362,3 +379,5 @@ class DayLevelDataPlotter:
         except Exception as e:
             self.logger.error("Failed to update change log {}: {}", log_path, e)
             raise OSError(f"Failed to update change log {log_path}: {e}")
+        
+        return log_entries
