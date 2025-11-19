@@ -468,7 +468,8 @@ class YearLevelDataPlotter:
                 try:
                     success, name, path_collection, error_msg, exec_time = future.result()
                     if success:
-                        successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): \n{'\n'.join(path_collection)}")
+                        path_collection_str = '\n'.join(path_collection)
+                        successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): \n - {path_collection_str}")
                         self.logger.info("✅ Created plot: {} ({:.1f}s)", name, exec_time)
                     else:
                         failed_plots.append(error_msg)
@@ -495,7 +496,8 @@ class YearLevelDataPlotter:
         for task in tasks:
             success, name, path_collection, error_msg, exec_time = self._plot_single_chart(task)
             if success:
-                successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): \n{'\n'.join(path_collection)}")
+                path_collection_str = '\n'.join(path_collection)
+                successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): \n - {path_collection_str}")
                 self.logger.info("✅ Created plot: {} ({:.1f}s)", name, exec_time)
             else:
                 failed_plots.append(error_msg)
