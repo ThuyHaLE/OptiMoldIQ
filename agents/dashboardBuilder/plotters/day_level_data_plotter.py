@@ -6,7 +6,8 @@ from agents.dashboardBuilder.visualize_data.day_level.shift_level_yield_efficien
 from agents.dashboardBuilder.visualize_data.day_level.shift_level_detailed_yield_efficiency_plotter import shift_level_detailed_yield_efficiency_plotter
 from agents.dashboardBuilder.visualize_data.day_level.mold_based_overview_plotter import mold_based_overview_plotter
 from agents.dashboardBuilder.visualize_data.day_level.shift_level_mold_efficiency_plotter import shift_level_mold_efficiency_plotter
-from agents.analyticsOrchestrator.multiLevelDataAnalytics.multi_level_data_processor import AnalyticflowConfig, MultiLevelDataAnalytics
+
+from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestratorConfig, AnalyticsOrchestrator
 
 from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path
@@ -48,24 +49,26 @@ class DayLevelDataPlotter:
             visualization_config_path 
             or "agents/dashboardBuilder/visualize_data/day_level/visualization_config.json"
         )
-
-        self.day_level_data_processor = MultiLevelDataAnalytics(
-            config = AnalyticflowConfig(
-                record_date=selected_date,
-                source_path = source_path,
-                annotation_name = annotation_name,
-                databaseSchemas_path = databaseSchemas_path,
-                default_dir = default_dir)
-                )
         
+        self.day_level_data_processor = AnalyticsOrchestrator(
+            AnalyticsOrchestratorConfig(
+            enable_multi_level_analysis = True,
+            source_path = source_path,
+            annotation_name = annotation_name,
+            databaseSchemas_path = databaseSchemas_path,
+            record_date = selected_date
+            )
+        )
+
         # Process data
         try:
-            day_level_results = self.day_level_data_processor.data_process()["day_level_results"]
+            day_level_results = self.day_level_data_processor.run_analytics()['multi_level_analytics']['day_level_results']
 
             self.processed_df = day_level_results["processed_records"]
             self.mold_based_record_df = day_level_results["mold_based_records"]
             self.item_based_record_df = day_level_results["item_based_records"]
             self.summary_stats = day_level_results["summary_stats"]
+            self.analysis_summary = day_level_results["analysis_summary"]
 
         except Exception as e:
             self.logger.error("Failed to process data: {}", e)
@@ -312,7 +315,6 @@ class DayLevelDataPlotter:
         historical_dir = self.output_dir / "historical_db"
         historical_dir.mkdir(parents=True, exist_ok=True)
         
-        log_path = self.output_dir / "change_log.txt"
         log_entries = [f"[{timestamp_str}] Saving new version...\n"]
 
         # Move old files to historical_db
@@ -328,17 +330,15 @@ class DayLevelDataPlotter:
                     raise OSError(f"Failed to move file {f.name}: {e}")
 
         # Save day level extracted records
-        excel_file_name = f"{timestamp_file}_extracted_records_{self.selected_date}.xlsx"
-        excel_file_path = newest_dir / excel_file_name
-
-        excel_data = {
-            "selectedDateFilter": self.processed_df,
-            "moldBasedRecords": self.mold_based_record_df,
-            "itemBasedRecords": self.item_based_record_df,
-            "summaryStatics": self.summary_stats
-        }
-
         try:
+            excel_file_name = f"{timestamp_file}_extracted_records_{self.selected_date}.xlsx"
+            excel_file_path = newest_dir / excel_file_name
+            excel_data = {
+                "selectedDateFilter": self.processed_df,
+                "moldBasedRecords": self.mold_based_record_df,
+                "itemBasedRecords": self.item_based_record_df,
+                "summaryStatics": self.summary_stats
+            }
             with pd.ExcelWriter(excel_file_path, engine="openpyxl") as writer:
                 for sheet_name, df in excel_data.items():
                     if not isinstance(df, pd.DataFrame):
@@ -349,10 +349,21 @@ class DayLevelDataPlotter:
         except Exception as e:
             logger.error("❌ Failed to save file {}: {}", excel_file_name, e)
             raise OSError(f"Failed to save file {excel_file_name}: {e}")
-    
+
+        # Save analysis summary 
+        try:
+            analysis_summary_name = f"{timestamp_file}_summary_{self.selected_date}.txt"
+            analysis_summary_path = newest_dir / analysis_summary_name
+            with open(analysis_summary_path, "w", encoding="utf-8") as log_file:
+                log_file.writelines(self.analysis_summary)
+            log_entries.append(f"  ⤷ Saved analysis summary: {analysis_summary_path}\n")
+            self.logger.info("✅ Saved analysis summary: {}", analysis_summary_path)
+        except Exception as e:
+            self.logger.warning("Failed to generate summary: {}", e)
+         
         # Prepare plotting tasks
         tasks = self._prepare_plot_tasks(timestamp_file, newest_dir)
-        
+
         # Execute plotting (parallel or sequential)
         try:
             if self.enable_parallel and len(tasks) > 1:
@@ -375,6 +386,7 @@ class DayLevelDataPlotter:
 
         # Update change log
         try:
+            log_path = self.output_dir / "change_log.txt"
             with open(log_path, "a", encoding="utf-8") as log_file:
                 log_file.writelines(log_entries)
             self.logger.info("Updated change log {}", log_path)

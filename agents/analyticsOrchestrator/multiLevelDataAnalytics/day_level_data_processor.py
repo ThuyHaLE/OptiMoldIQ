@@ -5,7 +5,9 @@ from loguru import logger
 from pathlib import Path
 import os
 from agents.decorators import validate_init_dataframes
-from agents.utils import load_annotation_path, save_output_with_versioning
+from agents.utils import load_annotation_path
+from datetime import datetime
+import shutil
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
@@ -36,7 +38,7 @@ class DayLevelDataProcessor:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db"):
+                 default_dir: str = "agents/shared_db/MultiLevelDataAnalytics"):
 
         self.logger = logger.bind(class_="DayLevelDataProcessor")
 
@@ -48,25 +50,117 @@ class DayLevelDataProcessor:
         self.path_annotation = load_annotation_path(source_path,
                                                     annotation_name)
 
-        # ===== Load productRecords DataFrame =====
-        productRecords_path = self.path_annotation.get('productRecords')
-        if not productRecords_path or not os.path.exists(productRecords_path):
-            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
-            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
-        self.productRecords_df = pd.read_parquet(productRecords_path)
-        self.logger.debug("productRecords: {} - {}", self.productRecords_df.shape, self.productRecords_df.columns)
+        # Load DataFrames
+        self.productRecords_df = self._load_dataframe('productRecords')
+        self.purchaseOrders_df = self._load_dataframe('purchaseOrders')
 
-        # ===== Load purchaseOrders DataFrame =====
-        purchaseOrders_path = self.path_annotation.get('purchaseOrders')
-        if not purchaseOrders_path or not os.path.exists(purchaseOrders_path):
-            self.logger.error("❌ Path to 'purchaseOrders' not found or does not exist.")
-            raise FileNotFoundError("Path to 'purchaseOrders' not found or does not exist.")
-        self.purchaseOrders_df = pd.read_parquet(purchaseOrders_path)
-        self.logger.debug("purchaseOrders: {} - {}", self.purchaseOrders_df.shape, self.purchaseOrders_df.columns)
-
-        self.filename_prefix= "day_level"
+        self.filename_prefix = "day_level"
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DayLevelDataProcessor"
+
+    def _load_dataframe(self, df_name: str) -> pd.DataFrame:
+        """Load a specific DataFrame with error handling."""
+        df_path = self.path_annotation.get(df_name)
+
+        if not df_path:
+            error_msg = f"Path to '{df_name}' not found in annotations."
+            self.logger.error("❌ {}", error_msg)
+            raise KeyError(error_msg)
+
+        if not os.path.exists(df_path):
+            error_msg = f"Path to '{df_name}' does not exist: {df_path}"
+            self.logger.error("❌ {}", error_msg)
+            raise FileNotFoundError(error_msg)
+
+        try:
+            df = pd.read_parquet(df_path)
+            self.logger.info("✅ Successfully loaded {}: {} records", df_name, len(df))
+            return df
+        except Exception as e:
+            error_msg = f"Failed to read parquet file for '{df_name}': {e}"
+            self.logger.error("❌ {}", error_msg)
+            raise
+
+    def data_process(self, 
+                     save_output = False):
+        
+        self.logger.info("Start processing...")
+        (merged_df, mold_based_record_df, 
+            item_based_record_df, summary_stats, analysis_summary) = self.product_record_processing()
+    
+        if save_output: 
+            # Setup directories and timestamps
+            timestamp_now = datetime.now()
+            timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+            timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
+            
+            newest_dir = self.output_dir / "newest"
+            newest_dir.mkdir(parents=True, exist_ok=True)
+            historical_dir = self.output_dir / "historical_db"
+            historical_dir.mkdir(parents=True, exist_ok=True)
+            
+            log_entries = [f"[{timestamp_str}] Saving new version...\n"]
+            
+            # Move old files to historical_db
+            for f in newest_dir.iterdir():
+                if f.is_file():
+                    try:
+                        dest = historical_dir / f.name
+                        shutil.move(str(f), dest)
+                        log_entries.append(f"  ⤷ Moved old file: {f.name} → historical_db/{f.name}\n")
+                        self.logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
+                    except Exception as e:
+                        self.logger.error("Failed to move file {}: {}", f.name, e)
+                        raise OSError(f"Failed to move file {f.name}: {e}")
+            
+            # Save day level extracted records
+            try:
+                excel_file_name = f"{timestamp_file}_{self.filename_prefix}_insights_{self.record_date}.xlsx"
+                excel_file_path = newest_dir / excel_file_name
+
+                excel_data = {
+                    "selectedDateFilter": merged_df,
+                    "moldBasedRecords": mold_based_record_df,
+                    "itemBasedRecords": item_based_record_df,
+                    "summaryStatics": summary_stats
+                }
+                with pd.ExcelWriter(excel_file_path, engine="openpyxl") as writer:
+                    for sheet_name, df in excel_data.items():
+                        if not isinstance(df, pd.DataFrame):
+                            df = pd.DataFrame([df])
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                log_entries.append(f"  ⤷ Saved data analysis results: {excel_file_path}\n")
+                logger.info("✅ Saved data analysis results: {}", excel_file_path)
+            except Exception as e:
+                logger.error("❌ Failed to save file {}: {}", excel_file_name, e)
+                raise OSError(f"Failed to save file {excel_file_name}: {e}")
+            
+            # Save analysis summary
+            try:
+                analysis_summary_name = f"{timestamp_file}_{self.filename_prefix}_summary_{self.record_date}.txt"
+                analysis_summary_path = newest_dir / analysis_summary_name
+                with open(analysis_summary_path, "w", encoding="utf-8") as log_file:
+                    log_file.writelines(analysis_summary)
+                log_entries.append(f"  ⤷ Saved analysis summary: {analysis_summary_path}\n")
+                self.logger.info("Updated analysis summary {}", analysis_summary_path)
+            except Exception as e:
+                self.logger.error("Failed to update analysis summary {}: {}", analysis_summary_path, e)
+                raise OSError(f"Failed to update analysis summary {analysis_summary_path}: {e}")
+
+            # Update change log
+            try:
+                log_path = self.output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.writelines(log_entries)
+                self.logger.info("Updated change log {}", log_path)
+            except Exception as e:
+                self.logger.error("Failed to update change log {}: {}", log_path, e)
+                raise OSError(f"Failed to update change log {log_path}: {e}")
+            
+            return log_entries
+        
+        else:
+            return merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary
 
     def product_record_processing(self) -> Tuple[pd.DataFrame, dict]:
         """
@@ -153,7 +247,62 @@ class DayLevelDataProcessor:
         # Generate summary statistics
         summary_stats = self.generate_summary_stats(merged_df, latest_record_date)
 
-        return merged_df, mold_based_record_df, item_based_record_df, summary_stats
+        analysis_summary = self._log_analysis_summary(summary_stats)
+
+        return merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary
+
+    def _log_analysis_summary(self, stats: dict) -> str:
+
+        """
+        Convert summary statistics dictionary into formatted text block.
+        """
+        lines = []
+        lines.append("=" * 60)
+        lines.append("DATA SUMMARY REPORT")
+        lines.append("=" * 60)
+
+        # Basic info
+        lines.append(f"Record date: {stats.get('record_date')}")
+        lines.append(f"Total records: {stats.get('total_records', 0)}")
+        lines.append(f"Active jobs: {stats.get('active_jobs', 0)}")
+
+        # Optional: Only show detailed stats if active_jobs > 0
+        if stats.get('active_jobs', 0) > 0:
+
+            # Working shifts & machines
+            if 'working_shifts' in stats:
+                lines.append(f"Working shifts: {stats['working_shifts']}")
+
+            if 'machines' in stats:
+                lines.append(f"Machines: {stats['machines']}")
+
+            if 'purchase_orders' in stats:
+                lines.append(f"Purchase orders: {stats['purchase_orders']}")
+
+            # Products
+            if 'products' in stats:
+                lines.append(f"Products: {stats['products']}")
+
+            # Molds
+            if 'molds' in stats:
+                lines.append(f"Molds: {stats['molds']}")
+
+            # Late status report
+            if 'late_pos' in stats and 'total_pos_with_eta' in stats:
+                late = stats['late_pos']
+                total = stats['total_pos_with_eta']
+                lines.append(f"POs delayed vs ETA: {late}/{total}")
+
+            # Change type distribution
+            if 'change_type_distribution' in stats:
+                lines.append("Change type distribution:")
+                for change_type, count in stats['change_type_distribution'].items():
+                    lines.append(f"  └─ {change_type}: {count}")
+        else:
+            lines.append("No active job data found!")
+
+        lines.append("=" * 60)
+        return "\n".join(lines)
 
     def generate_summary_stats(self, merged_df: pd.DataFrame, record_date: str) -> dict:
         """Generate summary statistics and return as dictionary."""

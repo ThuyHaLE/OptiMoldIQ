@@ -14,11 +14,13 @@ from datetime import datetime
 from typing import Tuple, Dict, Any, Callable
 from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path
-from agents.analyticsOrchestrator.multiLevelDataAnalytics.multi_level_data_processor import AnalyticflowConfig, MultiLevelDataAnalytics
+
 from agents.dashboardBuilder.visualize_data.month_level.month_performance_plotter import month_performance_plotter 
 from agents.dashboardBuilder.reportFormatters.generate_early_warning_report import generate_early_warning_report
 from agents.dashboardBuilder.visualize_data.month_level.machine_based_dashboard_plotter import machine_based_dashboard_plotter
 from agents.dashboardBuilder.visualize_data.month_level.mold_based_dashboard_plotter import mold_based_dashboard_plotter
+
+from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestratorConfig, AnalyticsOrchestrator
 
 # Required columns for dataframes
 REQUIRED_FINISHED_COLUMNS = ['poReceivedDate', 'poNo', 'poETA', 'itemCode', 'itemName',
@@ -109,26 +111,27 @@ class MonthLevelDataPlotter:
         self._setup_schemas()
         
         # Initialize data processor    
-        self.month_level_data_processor = MultiLevelDataAnalytics(
-            config = AnalyticflowConfig(
-                record_month = record_month,
-                month_analysis_date = analysis_date,
-                source_path = source_path,
-                annotation_name = annotation_name,
-                databaseSchemas_path = databaseSchemas_path,
-                default_dir = default_dir)
-                )
+        self.month_level_data_processor = AnalyticsOrchestrator(
+            AnalyticsOrchestratorConfig(
+            enable_multi_level_analysis = True,
+            source_path = source_path,
+            annotation_name = annotation_name,
+            databaseSchemas_path = databaseSchemas_path,
+            record_month = record_month,
+            month_analysis_date = analysis_date,
+            )
+        )
         
         # Process data
         try:
 
-            month_level_results = self.month_level_data_processor.data_process()["month_level_results"]
+            month_level_results = self.month_level_data_processor.run_analytics()['multi_level_analytics']['month_level_results']
 
             self.analysis_timestamp = month_level_results["month_analysis_date"]
             self.adjusted_record_month = month_level_results["record_month"]
             self.finished_df = month_level_results["finished_records"]
             self.unfinished_df = month_level_results["unfinished_records"]
-            self.final_summary = month_level_results["summary_stats"]
+            self.final_summary = month_level_results["analysis_summary"]
             
             self.early_warning_report = generate_early_warning_report(
                 self.unfinished_df, 
@@ -469,18 +472,16 @@ class MonthLevelDataPlotter:
                     raise OSError(f"Failed to move file {f.name}: {e}")
 
         # Save month level extracted records
-        excel_file_name = f"{timestamp_file}_extracted_records_{self.adjusted_record_month}.xlsx"
-        excel_file_path = newest_dir / excel_file_name
-
-        excel_data = {
-            "finished_df": self.finished_df,
-            "unfinished_df": self.unfinished_df,
-            "short_unfinished_df": self.short_unfinished_df,
-            "all_progress_df": self.all_progress_df,
-            "filtered_records": self.filtered_df
-        }
-
         try:
+            excel_file_name = f"{timestamp_file}_extracted_records_{self.adjusted_record_month}.xlsx"
+            excel_file_path = newest_dir / excel_file_name
+            excel_data = {
+                "finished_df": self.finished_df,
+                "unfinished_df": self.unfinished_df,
+                "short_unfinished_df": self.short_unfinished_df,
+                "all_progress_df": self.all_progress_df,
+                "filtered_records": self.filtered_df
+            }
             with pd.ExcelWriter(excel_file_path, engine="openpyxl") as writer:
                 for sheet_name, df in excel_data.items():
                     if not isinstance(df, pd.DataFrame):
@@ -493,24 +494,24 @@ class MonthLevelDataPlotter:
             raise OSError(f"Failed to save file {excel_file_name}: {e}")
         
         # Save final summary
-        report_name = f"{timestamp_file}_final_summary_{self.adjusted_record_month}.txt"
-        report_path = newest_dir / report_name
         try:
+            report_name = f"{timestamp_file}_final_summary_{self.adjusted_record_month}.txt"
+            report_path = newest_dir / report_name
             with open(report_path, "w", encoding="utf-8") as f:
                 f.write(self.final_summary)
-            log_entries.append(f"  ⤷ Saved final summary: {report_name}\n")
-            self.logger.info("✅ Saved final summary: {}", report_name)
+            log_entries.append(f"  ⤷ Saved final summary: {report_path}\n")
+            self.logger.info("✅ Saved final summary: {}", report_path)
         except Exception as e:
             self.logger.warning("Failed to generate summary: {}", e)
 
         # Save early warning report
-        warning_report_name = f"{timestamp_file}_early_warning_report_{self.adjusted_record_month}.txt"
-        warning_report_path = newest_dir / warning_report_name
         try:
+            warning_report_name = f"{timestamp_file}_early_warning_report_{self.adjusted_record_month}.txt"
+            warning_report_path = newest_dir / warning_report_name
             with open(warning_report_path, "w", encoding="utf-8") as f:
                 f.write(self.early_warning_report)
-            log_entries.append(f"  ⤷ Saved early warning report: {warning_report_name}\n")
-            self.logger.info("✅ Saved early warning report: {}", warning_report_name)
+            log_entries.append(f"  ⤷ Saved early warning report: {warning_report_path}\n")
+            self.logger.info("✅ Saved early warning report: {}", warning_report_path)
         except Exception as e:
             self.logger.warning("Failed to generate early warning report: {}", e)
 

@@ -5,7 +5,8 @@ from typing import Dict, Optional, Any
 from agents.analyticsOrchestrator.multiLevelDataAnalytics.day_level_data_processor import DayLevelDataProcessor
 from agents.analyticsOrchestrator.multiLevelDataAnalytics.month_level_data_processor import MonthLevelDataProcessor
 from agents.analyticsOrchestrator.multiLevelDataAnalytics.year_level_data_processor import YearLevelDataProcessor
-
+from pathlib import Path
+from datetime import datetime
 
 @dataclass
 class AnalyticflowConfig:
@@ -13,20 +14,23 @@ class AnalyticflowConfig:
     
     # Day level
     record_date: Optional[str] = None
+    day_save_output: bool = False
     
     # Month level
     record_month: Optional[str] = None
     month_analysis_date: Optional[str] = None
+    month_save_output: bool = False
     
     # Year level
     record_year: Optional[str] = None
     year_analysis_date: Optional[str] = None
+    year_save_output: bool = False
     
     # Shared paths
     source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
     annotation_name: str = "path_annotations.json"
     databaseSchemas_path: str = 'database/databaseSchemas.json'
-    default_dir: str = "agents/shared_db"
+    default_dir: str = "agents/shared_db/AnalyticsOrchestrator"
 
 
 class MultiLevelDataAnalytics:
@@ -63,6 +67,10 @@ class MultiLevelDataAnalytics:
         self.logger = logger.bind(class_="MultiLevelDataAnalytics")
         self.config = config
         self.logger.info("Initialized MultiLevelDataAnalytics")
+
+        self.default_dir = Path(self.config.default_dir)
+
+        self.output_dir = self.default_dir / "MultiLevelDataAnalytics"
         
     def data_process(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """
@@ -98,10 +106,115 @@ class MultiLevelDataAnalytics:
             ) if self.config.record_year else None
         }
         
-        self._log_processing_summary(results)
+        self.update_change_logs(results)
 
         return results
     
+    def update_change_logs(self, results: Dict[str, Optional[Dict]]):
+        """
+        Update change log file with processing results and configuration.
+        
+        Args:
+            results: Dictionary containing processing results for each level
+        """
+        timestamp_now = datetime.now()
+        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        log_path = self.output_dir / "change_log.txt"
+        log_entries = []
+
+        # Prepare log entries
+        log_entries.append(f"[{timestamp_str}] multiLevelDataAnalytics Run")
+        log_entries.append("")
+
+        # Configuration section
+        log_entries.append("--Configuration--")
+
+        log_entries.append(f"⤷ Output Directory: {self.default_dir}")
+        log_entries.append(f"⤷ Source Path: {self.config.source_path}")
+
+        if self.config.record_date is not None:
+            log_entries.append(f"Day Level:")
+            log_entries.append(f"⤷ Record Date: {self.config.record_date}")
+            log_entries.append(f"⤷ Save output: {self.config.day_save_output}")
+        if self.config.record_month is not None:
+            log_entries.append(f"Month Level:")
+            log_entries.append(f"⤷ Record Month: {self.config.record_month}")
+            log_entries.append(f"⤷ Analysis Date: {self.config.month_analysis_date or 'Not set'}")
+            log_entries.append(f"⤷ Save output: {self.config.month_save_output}")
+        if self.config.record_year is not None:
+            log_entries.append(f"Year Level:")
+            log_entries.append(f"⤷ Record Year: {self.config.record_year or 'Not set'}")
+            log_entries.append(f"⤷ Analysis Date: {self.config.year_analysis_date or 'Not set'}")
+            log_entries.append(f"⤷ Save output: {self.config.year_save_output}")
+
+        log_entries.append("")
+        
+        # Processing summary
+        log_entries_dict = self._log_processing_summary(results)
+        
+        log_entries.append("--Processing Summary--")
+        
+        # Skipped levels
+        if 'Skipped' in log_entries_dict['Processing Summary']:
+            log_entries.append(f"⤷ Skipped: {log_entries_dict['Processing Summary']['Skipped']}")
+        
+        # Completed levels
+        if 'Completed' in log_entries_dict['Processing Summary']:
+            completed_str = log_entries_dict['Processing Summary']['Completed']
+            log_entries.append(f"⤷ Completed: {completed_str}")
+        log_entries.append("")
+        
+        # Detailed results
+        if log_entries_dict.get('Details'):
+            log_entries.append("--Details--")
+            for level_name, level_result in log_entries_dict['Details'].items():
+                log_entries.append(f"⤷ {level_name}:")
+                log_entries.append(''.join(level_result))
+            log_entries.append("")
+        
+        # Write to file
+        try:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.write("\n".join(log_entries))
+            
+            self.logger.info("✓ Updated change log: {}", log_path)
+            
+        except Exception as e:
+            self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
+            raise OSError(f"Failed to update change log {log_path}: {e}")
+
+    def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
+        """Log summary of processing results."""
+
+        log_entries = {
+            'Processing Summary': {},
+            'Details': {}
+        }
+
+        self.logger.info("Processing Summary:")
+        
+        skipped = [k for k, v in results.items() if v is None]
+
+        if skipped:
+            skipped_info = ", ".join(skipped)
+            self.logger.info("  ⊘ Skipped: {}", skipped_info)
+            log_entries['Processing Summary']['Skipped'] = skipped_info
+
+        completed = [k for k, v in results.items() if v is not None]
+        completed_info = ", ".join(completed) if completed else "None"
+    
+        self.logger.info("  ✓ Completed: {}", completed_info)
+        log_entries['Processing Summary']['Completed'] = completed_info
+        
+        for lv in completed:
+            if "log_entries" in results[lv]:
+                log_entries['Details'][lv] = results[lv]["log_entries"]
+
+        return log_entries
+
     def day_level_process(self) -> Dict[str, Any]:
         """
         Process day-level production data.
@@ -114,6 +227,7 @@ class MultiLevelDataAnalytics:
                 - mold_based_records: Mold-aggregated data
                 - item_based_records: Item-aggregated data
                 - summary_stats: Statistical summary
+                - analysis_summary: Analysis summary
         """
         self.logger.info("Processing day-level data for date: {}", 
                         self.config.record_date or "default")
@@ -123,18 +237,24 @@ class MultiLevelDataAnalytics:
             self.config.source_path,
             self.config.annotation_name,
             self.config.databaseSchemas_path,
-            self.config.default_dir
+            self.output_dir
         )
         
-        (processed_df, mold_based_record_df, 
-         item_based_record_df, summary_stats) = day_level_processor.product_record_processing()
-        
-        return {
-            "processed_records": processed_df,
-            "mold_based_records": mold_based_record_df,
-            "item_based_records": item_based_record_df,
-            "summary_stats": summary_stats
-        }
+        if self.config.day_save_output:
+            log_entries = day_level_processor.data_process(self.config.day_save_output)
+            return {"log_entries": log_entries}
+        else: 
+            (processed_df, mold_based_record_df, 
+            item_based_record_df, summary_stats, analysis_summary) = day_level_processor.data_process(
+                self.config.day_save_output)
+            
+            return {
+                "processed_records": processed_df,
+                "mold_based_records": mold_based_record_df,
+                "item_based_records": item_based_record_df,
+                "summary_stats": summary_stats,
+                "analysis_summary": analysis_summary
+            }
     
     def month_level_process(self) -> Dict[str, Any]:
         """
@@ -148,7 +268,7 @@ class MultiLevelDataAnalytics:
                 - month_analysis_date: Timestamp of analysis
                 - finished_records: Completed orders DataFrame
                 - unfinished_records: In-progress orders DataFrame
-                - summary_stats: Monthly summary statistics
+                - analysis_summary: Analysis summary
         """
         self.logger.info("Processing month-level data for month: {}", 
                         self.config.record_month)
@@ -159,20 +279,27 @@ class MultiLevelDataAnalytics:
             self.config.source_path,
             self.config.annotation_name,
             self.config.databaseSchemas_path,
-            self.config.default_dir
+            self.output_dir
         )
         
-        (analysis_timestamp, adjusted_record_month, 
-         finished_df, unfinished_df, 
-         final_summary) = month_level_processor.product_record_processing()
+        if self.config.month_save_output:
+            log_entries = month_level_processor.data_process(
+                    self.config.month_save_output)
+            return {"log_entries": log_entries}
+        else: 
+
+            (analysis_timestamp, adjusted_record_month, 
+            finished_df, unfinished_df, 
+            analysis_summary) = month_level_processor.data_process(
+                    self.config.month_save_output)
         
-        return {
-            "record_month": adjusted_record_month,
-            "month_analysis_date": analysis_timestamp,
-            "finished_records": finished_df,
-            "unfinished_records": unfinished_df,
-            "summary_stats": final_summary
-        }
+            return {
+                "record_month": adjusted_record_month,
+                "month_analysis_date": analysis_timestamp,
+                "finished_records": finished_df,
+                "unfinished_records": unfinished_df,
+                "analysis_summary": analysis_summary
+            }
     
     def year_level_process(self) -> Dict[str, Any]:
         """
@@ -186,7 +313,7 @@ class MultiLevelDataAnalytics:
                 - year_analysis_date: Timestamp of analysis
                 - finished_records: Completed orders DataFrame
                 - unfinished_records: In-progress orders DataFrame
-                - summary_stats: Yearly summary statistics
+                - analysis_summary: Analysis summary
         """
         self.logger.info("Processing year-level data for year: {}", 
                         self.config.record_year)
@@ -197,20 +324,26 @@ class MultiLevelDataAnalytics:
             self.config.source_path,
             self.config.annotation_name,
             self.config.databaseSchemas_path,
-            self.config.default_dir
+            self.output_dir
         )
         
-        (analysis_timestamp, adjusted_record_year, 
-         finished_df, unfinished_df, 
-         final_summary) = year_level_processor.product_record_processing()
+        if self.config.year_save_output:
+            log_entries = year_level_processor.data_process(
+                    self.config.year_save_output)
+            return {"log_entries": log_entries}
+        else: 
+            (analysis_timestamp, adjusted_record_year, 
+            finished_df, unfinished_df, 
+            analysis_summary) = year_level_processor.data_process(
+                    self.config.year_save_output)
         
-        return {
-            "record_year": adjusted_record_year,
-            "year_analysis_date": analysis_timestamp,
-            "finished_records": finished_df,
-            "unfinished_records": unfinished_df,
-            "summary_stats": final_summary
-        }
+            return {
+                "record_year": adjusted_record_year,
+                "year_analysis_date": analysis_timestamp,
+                "finished_records": finished_df,
+                "unfinished_records": unfinished_df,
+                "analysis_summary": analysis_summary
+            }
     
     def _safe_process(self, 
                       process_func, 
@@ -232,14 +365,3 @@ class MultiLevelDataAnalytics:
         except Exception as e:
             self.logger.error("✗ {} level processing failed: {}", level_name.capitalize(), e)
             return None
-    
-    def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
-        
-        """Log summary of processing results."""
-        completed = [k for k, v in results.items() if v is not None]
-        skipped = [k for k, v in results.items() if v is None]
-        
-        self.logger.info("Processing Summary:")
-        self.logger.info("  ✓ Completed: {}", ", ".join(completed) if completed else "None")
-        if skipped:
-            self.logger.info("  ⊘ Skipped: {}", ", ".join(skipped))

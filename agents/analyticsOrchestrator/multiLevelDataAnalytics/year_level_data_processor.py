@@ -5,6 +5,8 @@ from loguru import logger
 from pathlib import Path
 import numpy as np
 import pandas as pd
+from datetime import datetime
+import shutil
 import os
 
 # Decorator to validate DataFrames are initialized with the correct schema
@@ -23,7 +25,7 @@ class YearLevelDataProcessor:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db"):
+                 default_dir: str = "agents/shared_db/MultiLevelDataAnalytics"):
 
         self.logger = logger.bind(class_="YearLevelDataProcessor")
 
@@ -41,6 +43,10 @@ class YearLevelDataProcessor:
         self.purchaseOrders_df = self._load_dataframe('purchaseOrders')
         self.moldSpecificationSummary_df = self._load_dataframe('moldSpecificationSummary')
         self.moldInfo_df = self._load_dataframe('moldInfo')
+
+        self.filename_prefix = "year_level"
+        self.default_dir = Path(default_dir)
+        self.output_dir = self.default_dir / "YearLevelDataProcessor"
 
     def _load_dataframe(self, df_name: str) -> pd.DataFrame:
         """Load a specific DataFrame with error handling."""
@@ -65,6 +71,84 @@ class YearLevelDataProcessor:
             self.logger.error("❌ {}", error_msg)
             raise
 
+    def data_process(self, 
+                     save_output = False):
+        
+        self.logger.info("Start processing...")
+        (analysis_timestamp, adjusted_record_year, 
+         finished_df, unfinished_df, final_summary) = self.product_record_processing()
+    
+        if save_output: 
+            # Setup directories and timestamps
+            timestamp_now = datetime.now()
+            timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+            timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
+            
+            newest_dir = self.output_dir / "newest"
+            newest_dir.mkdir(parents=True, exist_ok=True)
+            historical_dir = self.output_dir / "historical_db"
+            historical_dir.mkdir(parents=True, exist_ok=True)
+            
+            log_entries = [f"[{timestamp_str}] Saving new version...\n"]
+            
+            # Move old files to historical_db
+            for f in newest_dir.iterdir():
+                if f.is_file():
+                    try:
+                        dest = historical_dir / f.name
+                        shutil.move(str(f), dest)
+                        log_entries.append(f"  ⤷ Moved old file: {f.name} → historical_db/{f.name}\n")
+                        self.logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
+                    except Exception as e:
+                        self.logger.error("Failed to move file {}: {}", f.name, e)
+                        raise OSError(f"Failed to move file {f.name}: {e}")
+
+            # Save day level extracted records
+            try:
+                excel_file_name = f"{timestamp_file}_{self.filename_prefix}_insights_{adjusted_record_year}.xlsx"
+                excel_file_path = newest_dir / excel_file_name
+                excel_data = {
+                    "finishedRecords": finished_df,
+                    "unfinishedRecords": unfinished_df,
+                }
+                with pd.ExcelWriter(excel_file_path, engine="openpyxl") as writer:
+                    for sheet_name, df in excel_data.items():
+                        if not isinstance(df, pd.DataFrame):
+                            df = pd.DataFrame([df])
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                log_entries.append(f"  ⤷ Saved data analysis results: {excel_file_path}\n")
+                logger.info("✅ Saved data analysis results: {}", excel_file_path)
+            except Exception as e:
+                logger.error("❌ Failed to save file {}: {}", excel_file_name, e)
+                raise OSError(f"Failed to save file {excel_file_name}: {e}")
+            
+            # Save analysis summary
+            try:
+                analysis_summary_name = f"{timestamp_file}_{self.filename_prefix}_summary_{adjusted_record_year}.txt"
+                analysis_summary_path = newest_dir / analysis_summary_name
+                with open(analysis_summary_path, "w", encoding="utf-8") as log_file:
+                    log_file.writelines(final_summary)
+                log_entries.append(f"  ⤷ Saved analysis summary: {analysis_summary_path}\n")
+                self.logger.info("Updated analysis summary {}", analysis_summary_path)
+            except Exception as e:
+                self.logger.error("Failed to update analysis summary {}: {}", analysis_summary_path, e)
+                raise OSError(f"Failed to update analysis summary {analysis_summary_path}: {e}")
+            
+            # Update change log
+            try:
+                log_path = self.output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.writelines(log_entries)
+                self.logger.info("Updated change log {}", log_path)
+            except Exception as e:
+                self.logger.error("Failed to update change log {}: {}", log_path, e)
+                raise OSError(f"Failed to update change log {log_path}: {e}")
+            
+            return log_entries
+        
+        else:
+            return analysis_timestamp, adjusted_record_year, finished_df, unfinished_df, final_summary
+        
     def product_record_processing(self):
 
         """
