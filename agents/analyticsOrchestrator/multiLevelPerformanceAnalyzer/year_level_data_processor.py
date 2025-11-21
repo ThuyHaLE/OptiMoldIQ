@@ -144,10 +144,10 @@ class YearLevelDataProcessor:
                 self.logger.error("Failed to update change log {}: {}", log_path, e)
                 raise OSError(f"Failed to update change log {log_path}: {e}")
             
-            return log_entries
+            return analysis_timestamp, adjusted_record_year, finished_df, unfinished_df, final_summary, log_entries
         
         else:
-            return analysis_timestamp, adjusted_record_year, finished_df, unfinished_df, final_summary
+            return analysis_timestamp, adjusted_record_year, finished_df, unfinished_df, final_summary, None
         
     def product_record_processing(self):
 

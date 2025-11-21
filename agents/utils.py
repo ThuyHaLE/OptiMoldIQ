@@ -116,6 +116,8 @@ def read_change_log(folder_path, target_name):
     Read a log file in the given folder and extract the path to the latest saved Excel file.
     """
 
+    folder_path = Path(folder_path) 
+    
     # Check if folder exists
     if not os.path.isdir(folder_path):
         logger.warning("Directory does not exist: {}", folder_path)
@@ -132,15 +134,20 @@ def read_change_log(folder_path, target_name):
         with open(file_path, "r", encoding="utf-8") as f:
             log_text = f.read()
             newest_files = extract_latest_saved_files(log_text)
-            
-            if newest_files:
-              if len(newest_files) > 1:
-                return [os.path.join(folder_path, f) for f in newest_files]
-              else:
-                return newest_files[0]
-            else:
+
+            if not newest_files:
                 logger.warning(f"No file information found saved in '{target_name}'")
-                return None
+                return None 
+            
+            newest_paths = [
+                (folder_path / f) if folder_path not in Path(f).parents else Path(f)
+                for f in (newest_files if isinstance(newest_files, list) else [newest_files])
+            ]
+            
+            if len(newest_paths) == 1:
+                return newest_paths[0]
+            
+            return newest_paths
                 
     except Exception as e:
         logger.error("Error reading file '{}': {}", target_name, str(e))

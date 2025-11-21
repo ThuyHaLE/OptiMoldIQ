@@ -2,14 +2,14 @@ from loguru import logger
 from dataclasses import dataclass
 from typing import Dict, Optional, Any
 
-from agents.analyticsOrchestrator.multiLevelDataAnalytics.day_level_data_processor import DayLevelDataProcessor
-from agents.analyticsOrchestrator.multiLevelDataAnalytics.month_level_data_processor import MonthLevelDataProcessor
-from agents.analyticsOrchestrator.multiLevelDataAnalytics.year_level_data_processor import YearLevelDataProcessor
+from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.day_level_data_processor import DayLevelDataProcessor
+from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.month_level_data_processor import MonthLevelDataProcessor
+from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.year_level_data_processor import YearLevelDataProcessor
 from pathlib import Path
 from datetime import datetime
 
 @dataclass
-class AnalyticflowConfig:
+class PerformanceAnalyticflowConfig:
     """Configuration class for analyticflow parameters"""
     
     # Day level
@@ -30,10 +30,10 @@ class AnalyticflowConfig:
     source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
     annotation_name: str = "path_annotations.json"
     databaseSchemas_path: str = 'database/databaseSchemas.json'
-    default_dir: str = "agents/shared_db/AnalyticsOrchestrator"
+    default_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelDataAnalytics"
 
 
-class MultiLevelDataAnalytics:
+class MultiLevelPerformanceAnalyzer:
     """
     Unified interface for multi-level data analytics processing.
     
@@ -42,7 +42,7 @@ class MultiLevelDataAnalytics:
     and future agents (planRefiner, taskOrchestrator).
     
     Architecture:
-        MultiLevelDataAnalytics (Service Layer)
+        MultiLevelPerformanceAnalyzer (Service Layer)
             ├─ DayLevelDataProcessor
             ├─ MonthLevelDataProcessor  
             └─ YearLevelDataProcessor
@@ -57,7 +57,7 @@ class MultiLevelDataAnalytics:
         results = analytics.data_process()
     """
     
-    def __init__(self, config: AnalyticflowConfig):
+    def __init__(self, config: PerformanceAnalyticflowConfig):
         """
         Initialize MultiLevelDataAnalytics with configuration.
         
@@ -68,9 +68,7 @@ class MultiLevelDataAnalytics:
         self.config = config
         self.logger.info("Initialized MultiLevelDataAnalytics")
 
-        self.default_dir = Path(self.config.default_dir)
-
-        self.output_dir = self.default_dir / "MultiLevelDataAnalytics"
+        self.output_dir = Path(self.config.default_dir)
         
     def data_process(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """
@@ -210,8 +208,10 @@ class MultiLevelDataAnalytics:
         log_entries['Processing Summary']['Completed'] = completed_info
         
         for lv in completed:
-            if "log_entries" in results[lv]:
+            if results[lv]["log_entries"] is not None:
                 log_entries['Details'][lv] = results[lv]["log_entries"]
+            else: 
+                log_entries['Details'][lv] = "Only process the data without saving any results."
 
         return log_entries
 
@@ -245,7 +245,7 @@ class MultiLevelDataAnalytics:
             return {"log_entries": log_entries}
         else: 
             (processed_df, mold_based_record_df, 
-            item_based_record_df, summary_stats, analysis_summary) = day_level_processor.data_process(
+            item_based_record_df, summary_stats, analysis_summary, log_entries) = day_level_processor.data_process(
                 self.config.day_save_output)
             
             return {
@@ -253,7 +253,8 @@ class MultiLevelDataAnalytics:
                 "mold_based_records": mold_based_record_df,
                 "item_based_records": item_based_record_df,
                 "summary_stats": summary_stats,
-                "analysis_summary": analysis_summary
+                "analysis_summary": analysis_summary,
+                "log_entries": log_entries
             }
     
     def month_level_process(self) -> Dict[str, Any]:
@@ -290,7 +291,7 @@ class MultiLevelDataAnalytics:
 
             (analysis_timestamp, adjusted_record_month, 
             finished_df, unfinished_df, 
-            analysis_summary) = month_level_processor.data_process(
+            analysis_summary, log_entries) = month_level_processor.data_process(
                     self.config.month_save_output)
         
             return {
@@ -298,7 +299,8 @@ class MultiLevelDataAnalytics:
                 "month_analysis_date": analysis_timestamp,
                 "finished_records": finished_df,
                 "unfinished_records": unfinished_df,
-                "analysis_summary": analysis_summary
+                "analysis_summary": analysis_summary,
+                "log_entries": log_entries
             }
     
     def year_level_process(self) -> Dict[str, Any]:
@@ -334,7 +336,7 @@ class MultiLevelDataAnalytics:
         else: 
             (analysis_timestamp, adjusted_record_year, 
             finished_df, unfinished_df, 
-            analysis_summary) = year_level_processor.data_process(
+            analysis_summary, log_entries) = year_level_processor.data_process(
                     self.config.year_save_output)
         
             return {
@@ -342,7 +344,8 @@ class MultiLevelDataAnalytics:
                 "year_analysis_date": analysis_timestamp,
                 "finished_records": finished_df,
                 "unfinished_records": unfinished_df,
-                "analysis_summary": analysis_summary
+                "analysis_summary": analysis_summary,
+                "log_entries": log_entries
             }
     
     def _safe_process(self, 

@@ -157,10 +157,10 @@ class DayLevelDataProcessor:
                 self.logger.error("Failed to update change log {}: {}", log_path, e)
                 raise OSError(f"Failed to update change log {log_path}: {e}")
             
-            return log_entries
+            return merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary, log_entries
         
         else:
-            return merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary
+            return merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary, None
 
     def product_record_processing(self) -> Tuple[pd.DataFrame, dict]:
         """
