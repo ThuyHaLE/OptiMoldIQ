@@ -104,9 +104,9 @@ class MultiLevelPerformanceAnalyzer:
             ) if self.config.record_year else None
         }
         
-        self.update_change_logs(results)
+        log_entries_str = self.update_change_logs(results)
 
-        return results
+        return results, log_entries_str
     
     def update_change_logs(self, results: Dict[str, Optional[Dict]]):
         """
@@ -128,7 +128,7 @@ class MultiLevelPerformanceAnalyzer:
         # Configuration section
         log_entries.append("--Configuration--")
 
-        log_entries.append(f"⤷ Output Directory: {self.default_dir}")
+        log_entries.append(f"⤷ Output Directory: {self.config.default_dir}")
         log_entries.append(f"⤷ Source Path: {self.config.source_path}")
 
         if self.config.record_date is not None:
@@ -184,6 +184,8 @@ class MultiLevelPerformanceAnalyzer:
             self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
             raise OSError(f"Failed to update change log {log_path}: {e}")
 
+        return "\n".join(log_entries)
+    
     def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
         """Log summary of processing results."""
 
@@ -211,7 +213,7 @@ class MultiLevelPerformanceAnalyzer:
             if results[lv]["log_entries"] is not None:
                 log_entries['Details'][lv] = results[lv]["log_entries"]
             else: 
-                log_entries['Details'][lv] = "Only process the data without saving any results."
+                log_entries['Details'][lv] = [f"Only process the data without saving any results.\n-{lv}_summary:\n", results[lv]['analysis_summary']]
 
         return log_entries
 
@@ -240,22 +242,18 @@ class MultiLevelPerformanceAnalyzer:
             self.output_dir
         )
         
-        if self.config.day_save_output:
-            log_entries = day_level_processor.data_process(self.config.day_save_output)
-            return {"log_entries": log_entries}
-        else: 
-            (processed_df, mold_based_record_df, 
-            item_based_record_df, summary_stats, analysis_summary, log_entries) = day_level_processor.data_process(
-                self.config.day_save_output)
-            
-            return {
-                "processed_records": processed_df,
-                "mold_based_records": mold_based_record_df,
-                "item_based_records": item_based_record_df,
-                "summary_stats": summary_stats,
-                "analysis_summary": analysis_summary,
-                "log_entries": log_entries
-            }
+        (processed_df, mold_based_record_df, 
+        item_based_record_df, summary_stats, analysis_summary, log_entries) = day_level_processor.data_process(
+            self.config.day_save_output)
+        
+        return {
+            "processed_records": processed_df,
+            "mold_based_records": mold_based_record_df,
+            "item_based_records": item_based_record_df,
+            "summary_stats": summary_stats,
+            "analysis_summary": analysis_summary,
+            "log_entries": log_entries
+        }
     
     def month_level_process(self) -> Dict[str, Any]:
         """
@@ -283,25 +281,19 @@ class MultiLevelPerformanceAnalyzer:
             self.output_dir
         )
         
-        if self.config.month_save_output:
-            log_entries = month_level_processor.data_process(
-                    self.config.month_save_output)
-            return {"log_entries": log_entries}
-        else: 
-
-            (analysis_timestamp, adjusted_record_month, 
-            finished_df, unfinished_df, 
-            analysis_summary, log_entries) = month_level_processor.data_process(
-                    self.config.month_save_output)
-        
-            return {
-                "record_month": adjusted_record_month,
-                "month_analysis_date": analysis_timestamp,
-                "finished_records": finished_df,
-                "unfinished_records": unfinished_df,
-                "analysis_summary": analysis_summary,
-                "log_entries": log_entries
-            }
+        (analysis_timestamp, adjusted_record_month, 
+        finished_df, unfinished_df, 
+        analysis_summary, log_entries) = month_level_processor.data_process(
+                self.config.month_save_output)
+    
+        return {
+            "record_month": adjusted_record_month,
+            "month_analysis_date": analysis_timestamp,
+            "finished_records": finished_df,
+            "unfinished_records": unfinished_df,
+            "analysis_summary": analysis_summary,
+            "log_entries": log_entries
+        }
     
     def year_level_process(self) -> Dict[str, Any]:
         """
@@ -328,25 +320,20 @@ class MultiLevelPerformanceAnalyzer:
             self.config.databaseSchemas_path,
             self.output_dir
         )
-        
-        if self.config.year_save_output:
-            log_entries = year_level_processor.data_process(
-                    self.config.year_save_output)
-            return {"log_entries": log_entries}
-        else: 
-            (analysis_timestamp, adjusted_record_year, 
-            finished_df, unfinished_df, 
-            analysis_summary, log_entries) = year_level_processor.data_process(
-                    self.config.year_save_output)
-        
-            return {
-                "record_year": adjusted_record_year,
-                "year_analysis_date": analysis_timestamp,
-                "finished_records": finished_df,
-                "unfinished_records": unfinished_df,
-                "analysis_summary": analysis_summary,
-                "log_entries": log_entries
-            }
+
+        (analysis_timestamp, adjusted_record_year, 
+        finished_df, unfinished_df, 
+        analysis_summary, log_entries) = year_level_processor.data_process(
+                self.config.year_save_output)
+    
+        return {
+            "record_year": adjusted_record_year,
+            "year_analysis_date": analysis_timestamp,
+            "finished_records": finished_df,
+            "unfinished_records": unfinished_df,
+            "analysis_summary": analysis_summary,
+            "log_entries": log_entries
+        }
     
     def _safe_process(self, 
                       process_func, 

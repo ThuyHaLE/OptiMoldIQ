@@ -127,9 +127,9 @@ class HardwareChangeAnalyzer:
 
         self.logger.info("✅ Analysis completed in {:.2f} seconds", elapsed_time)
 
-        self.update_change_logs(results)
+        log_entries_str = self.update_change_logs(results)
 
-        return results
+        return results, log_entries_str
 
     def update_change_logs(self, results: Dict[str, Optional[Dict]]):
         """
@@ -212,6 +212,8 @@ class HardwareChangeAnalyzer:
             self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
             raise OSError(f"Failed to update change log {log_path}: {e}")
         
+        return "\n".join(log_entries)
+
     def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
         """Log summary of processing results."""
 

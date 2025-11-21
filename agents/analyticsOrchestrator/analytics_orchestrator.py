@@ -16,15 +16,18 @@ class AnalyticsOrchestratorConfig:
     source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
     annotation_name: str = "path_annotations.json"
     databaseSchemas_path: str = 'database/databaseSchemas.json'
+    default_dir: str = 'agents/shared_db/AnalyticsOrchestrator'
 
-    # DataChangeAnalyzer config
-    machine_layout_output_dir: str = "agents/shared_db/AnalyticsOrchestrator/DataChangeAnalyzer/UpdateHistMachineLayout"
-    mold_overview_output_dir: str = "agents/shared_db/AnalyticsOrchestrator/DataChangeAnalyzer/UpdateHistMoldOverview"
-    min_workers: int = 2
-    max_workers: int = None
-    parallel_mode: str = "thread" # "process" or "thread"
+    # HardwareChangeAnalyzer config
+    enable_machine_layout_tracker: bool = False
+    enable_machine_mold_pair_tracker: bool = False
+    change_tracker_output_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer"
+    machine_layout_tracker_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/UpdateMachineLayout/tracker_results"
+    machine_layout_tracker_change_log_name: str = "change_log.txt"
+    machine_mold_pair_tracker_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/UpdateMoldOverview/tracker_results"
+    machine_mold_pair_tracker_change_log_name: str = "change_log.txt"
 
-    # MultiLevelDataAnalytics config
+    # MultiLevelPerformanceAnalyzer config
     # Day level 
     record_date: Optional[str] = None
     day_save_output: bool = False
@@ -36,8 +39,9 @@ class AnalyticsOrchestratorConfig:
     record_year: Optional[str] = None
     year_analysis_date: Optional[str] = None
     year_save_output: bool = False
+
     # Output directory
-    multi_level_output_dir: str = "agents/shared_db/AnalyticsOrchestrator"
+    multi_level_output_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelDataAnalytics"
     
 class AnalyticsOrchestrator:
     """
@@ -123,11 +127,11 @@ class AnalyticsOrchestrator:
         
         self.logger.info("Processing multi-level analytics")
 
-        from agents.analyticsOrchestrator.multiLevelDataAnalytics.multi_level_data_processor import (
-            AnalyticflowConfig, MultiLevelDataAnalytics)
+        from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.multi_level_performance_analyzer import (
+            PerformanceAnalyticflowConfig, MultiLevelPerformanceAnalyzer)
         
         # Build analytics config
-        analytics_config = AnalyticflowConfig(
+        analytics_config = PerformanceAnalyticflowConfig(
             record_date=self.config.record_date,
             day_save_output = self.config.day_save_output,
             record_month=self.config.record_month,
@@ -143,12 +147,15 @@ class AnalyticsOrchestrator:
         )
         
         # Execute analytics
-        analytics = MultiLevelDataAnalytics(analytics_config)
-        results = analytics.data_process()
+        analytics = MultiLevelPerformanceAnalyzer(analytics_config)
+        results, log_entries_str = analytics.data_process()
         
         self.logger.success("✓ Multi-level analytics completed")
         
-        return results
+        return {
+            "results": results, 
+            "log_entries_str": log_entries_str
+            }
     
     def process_change_analysis(self) -> Dict[str, Any]:
         """
@@ -159,27 +166,33 @@ class AnalyticsOrchestrator:
         """
         self.logger.info("Processing data change analysis")
 
-        from agents.analyticsOrchestrator.dataChangeAnalyzer.data_change_analyzer import DataChangeAnalyzer
+        from agents.analyticsOrchestrator.hardwareChangeAnalyzer.hardware_change_analyzer import (
+            ChangeAnalyticflowConfig, HardwareChangeAnalyzer)
 
-        # Initialize analyzer
-        analyzer = DataChangeAnalyzer(
-            source_path=self.config.source_path,
-            annotation_name=self.config.annotation_name,
-            databaseSchemas_path=self.config.databaseSchemas_path,
-            machine_layout_output_dir=self.config.machine_layout_output_dir,
-            mold_overview_output_dir=self.config.mold_overview_output_dir,
-            min_workers=self.config.min_workers,
-            max_workers=self.config.max_workers,
-            parallel_mode=self.config.parallel_mode
-        )
-        
-        # Execute analysis
-        analyzer.analyze_changes(force_parallel=self.config.force_parallel_analysis)
-        summary = analyzer.get_analysis_summary()
+        # Build analytics config
+        analytics_config = ChangeAnalyticflowConfig(
+            enable_machine_layout_tracker = self.config.enable_machine_layout_tracker,
+            enable_machine_mold_pair_tracker = self.config.enable_machine_mold_pair_tracker,
+            source_path = self.config.source_path,
+            annotation_name = self.config.annotation_name,
+            databaseSchemas_path = self.config.databaseSchemas_path,
+            default_dir = self.config.change_tracker_output_dir,
+            machine_layout_tracker_dir = self.config.machine_layout_tracker_dir,
+            machine_layout_tracker_change_log_name = self.config.machine_layout_tracker_change_log_name,
+            machine_mold_pair_tracker_dir = self.config.machine_mold_pair_tracker_dir,
+            machine_mold_pair_tracker_change_log_name = self.config.machine_mold_pair_tracker_change_log_name
+            )
+
+        # Execute analytics
+        analyzer = HardwareChangeAnalyzer(analytics_config)
+        results, log_entries_str = analyzer.analyze_changes()
         
         self.logger.success("✓ Change analysis completed")
         
-        return summary
+        return {
+                "results": results, 
+                "log_entries_str": log_entries_str
+                }
     
     def update_change_logs(self, results: Dict[str, Optional[Dict]]):
         """
@@ -202,16 +215,30 @@ class AnalyticsOrchestrator:
         # Database sources
         log_entries.append(f"⤷ Database Annotation: {self.config.source_path}/{self.config.annotation_name}")
         log_entries.append(f"⤷ Database Schemas: {self.config.databaseSchemas_path}")
+        log_entries.append(f"⤷ Default Directory: {self.config.default_dir}")
 
         # Change Analysis
         if self.config.enable_change_analysis:
             log_entries.append("⤷ Change Analysis: Enable")
+            log_entries.append(f"   ⤷ Output Directory: {self.config.change_tracker_output_dir}")
             log_entries.append("--DataChangeAnalyzer Configuration--")
-            log_entries.append(f"   ⤷ Machine Layout Output Directory: {self.config.machine_layout_output_dir}")
-            log_entries.append(f"   ⤷ Mold Overview Output Directory: {self.config.mold_overview_output_dir}")
-            log_entries.append(f"   ⤷ Min workers: {self.config.min_workers}")
-            log_entries.append(f"   ⤷ Max workers: {self.config.max_workers}")
-            log_entries.append(f"   ⤷ Parallel Mode: {self.config.parallel_mode}")
+            # Machine layout tracker
+            if self.config.enable_machine_layout_tracker:
+                log_entries.append("⤷ Machine layout tracker: Enable")
+                log_entries.append("--MachineLayoutTracker Configuration--")
+                log_entries.append(f"   ⤷ Machine Layout Output Directory: {self.config.machine_layout_tracker_dir}")
+                log_entries.append(f"   ⤷ Machine Layout Change Log Name: {self.config.machine_layout_tracker_change_log_name}")
+            else:
+                log_entries.append("⤷ Machine layout tracker: Disable")
+
+            # Machine mold pair tracker
+            if self.config.enable_machine_mold_pair_tracker:
+                log_entries.append("⤷ Machine mold pair tracker: Enable")
+                log_entries.append("--MachineMoldPairTrackerr Configuration--")
+                log_entries.append(f"   ⤷ Mold Overview Output Directory: {self.config.machine_mold_pair_tracker_dir}")
+                log_entries.append(f"   ⤷ Mold Overview Change Log Name: {self.config.machine_mold_pair_tracker_change_log_name}")
+            else:
+                log_entries.append("⤷ Machine mold pair tracker: Disable")
         else:
             log_entries.append("⤷ Change Analysis: Disable")
 
@@ -276,22 +303,14 @@ class AnalyticsOrchestrator:
             log_entries.append("--Component Details--")
             for component in completed_components:
                 log_entries.append(f"⤷ {component}")
-                component_details = results[component]
-                for item in component_details:
-                    if component_details[item] is not None:
-                        log_entries.append(f"   ⤷ {item}")
-                        if "log_entries" in component_details[item]:
-                            entries_str = ''.join(component_details[item]['log_entries'])
-                            log_entries.append(f"      ⤷ Log Entries:\n{entries_str}")
-                        if "analysis_summary" in component_details[item]:
-                            summary_str = component_details[item]['analysis_summary']
-                            log_entries.append(f"      ⤷ Analysis Summary:\n{summary_str}")
+                component_details = results[component]["log_entries_str"]
+                log_entries.append(f"      ⤷ Log Entries:\n{component_details}")
 
         log_entries.append("")
 
         # WRITE FILE
         try:
-            output_dir = Path(self.config.multi_level_output_dir)
+            output_dir = Path(self.config.default_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
 
             log_path = output_dir / "change_log.txt"

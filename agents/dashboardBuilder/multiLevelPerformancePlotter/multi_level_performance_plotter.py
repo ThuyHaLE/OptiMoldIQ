@@ -4,12 +4,12 @@ from typing import Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
 
-from agents.dashboardBuilder.plotters.day_level_data_plotter import DayLevelDataPlotter
-from agents.dashboardBuilder.plotters.month_level_data_plotter import MonthLevelDataPlotter
-from agents.dashboardBuilder.plotters.year_level_data_plotter import YearLevelDataPlotter
+from agents.dashboardBuilder.multiLevelPerformancePlotter.day_level_data_plotter import DayLevelDataPlotter
+from agents.dashboardBuilder.multiLevelPerformancePlotter.month_level_data_plotter import MonthLevelDataPlotter
+from agents.dashboardBuilder.multiLevelPerformancePlotter.year_level_data_plotter import YearLevelDataPlotter
 
 @dataclass
-class PlotflowConfig:
+class PerformancePlotflowConfig:
     """Configuration class for plotflow parameters"""
 
     # Day level
@@ -37,7 +37,7 @@ class PlotflowConfig:
     max_workers: Optional[int] = None  # Auto-detect optimal worker count
 
 
-class MultiLevelDataPlotter: 
+class MultiLevelPerformancePlotter: 
     """
     Unified interface for multi-level data analytics plotting.
     
@@ -45,7 +45,7 @@ class MultiLevelDataPlotter:
     structured analytics, plot and save reports and visualization.
     
     Architecture:
-        MultiLevelDataPlotter (Service Layer)
+        MultiLevelPerformancePlotter (Service Layer)
             ├─ DayLevelDataPlotter
             ├─ MonthLevelDataPlotter
             └─ YearLevelDataPlotter
@@ -60,12 +60,12 @@ class MultiLevelDataPlotter:
         results = plotter.data_process()
     """
     
-    def __init__(self, config: PlotflowConfig):
+    def __init__(self, config: PerformancePlotflowConfig):
         """
         Initialize MultiLevelDataPlotter with configuration.
         
         Args:
-            config: PlotflowConfig containing time parameters and paths
+            config: PerformancePlotflowConfig containing time parameters and paths
         """
         self.logger = logger.bind(class_="MultiLevelDataPlotter")
         self.config = config

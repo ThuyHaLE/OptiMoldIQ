@@ -15,10 +15,11 @@ from typing import Tuple, Dict, Any, Callable
 from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path
 
-from agents.dashboardBuilder.visualize_data.month_level.month_performance_plotter import month_performance_plotter 
-from agents.dashboardBuilder.reportFormatters.generate_early_warning_report import generate_early_warning_report
-from agents.dashboardBuilder.visualize_data.month_level.machine_based_dashboard_plotter import machine_based_dashboard_plotter
-from agents.dashboardBuilder.visualize_data.month_level.mold_based_dashboard_plotter import mold_based_dashboard_plotter
+from agents.dashboardBuilder.visualize_data.year_level.monthly_performance_plotter import monthly_performance_plotter
+from agents.dashboardBuilder.visualize_data.year_level.year_performance_plotter import year_performance_plotter
+from agents.dashboardBuilder.visualize_data.year_level.machine_based_year_view_dashboard_plotter import machine_based_year_view_dashboard_plotter
+from agents.dashboardBuilder.visualize_data.year_level.mold_based_year_view_dashboard_plotter import mold_based_year_view_dashboard_plotter
+from agents.dashboardBuilder.visualize_data.year_level.field_based_month_view_dashboard_plotter import field_based_month_view_dashboard_plotter
 
 from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestratorConfig, AnalyticsOrchestrator
 
@@ -59,47 +60,47 @@ REQUIRED_PROGRESS_COLUMNS = [
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys())
 })
 @validate_init_dataframes({
-    "finished_df": REQUIRED_FINISHED_COLUMNS, 
+    "finished_df": REQUIRED_FINISHED_COLUMNS,
     "unfinished_df": REQUIRED_UNFINISHED_COLUMNS,
     "short_unfinished_df": REQUIRED_UNFINISHED_SHORT_COLUMNS,
     "all_progress_df": REQUIRED_PROGRESS_COLUMNS
 })
-class MonthLevelDataPlotter:
+class YearLevelDataPlotter:
     """
-    Plotter for month-level PO dashboard with visualization and reporting.
-    
+    Plotter for year-level PO dashboard with visualization and reporting.
+
     Attributes:
-        record_month: Target month in YYYY-MM format
+        record_year: Target year in YYYY format
         analysis_date: Date of analysis (defaults to current date)
         output_dir: Directory for saving outputs
     """
-    
-    def __init__(self, 
-                 record_month: str,
+
+    def __init__(self,
+                 record_year: str,
                  analysis_date: str = None,
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
+                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
                  default_dir: str = "agents/shared_db",
                  visualization_config_path: str = None,
                  enable_parallel: bool = True,
                  max_workers: int = None):
-        
-        self.logger = logger.bind(class_="MonthLevelDataPlotter")
-        
+
+        self.logger = logger.bind(class_="YearLevelPlotter")
+
         # Parallel processing configuration
         self.enable_parallel = enable_parallel
         self.max_workers = max_workers
         self._setup_parallel_config()
-        
-        # Validate record_month format
-        self._validate_record_month(record_month)
+
+        # Validate record_year format
+        self._validate_record_year(record_year)
         analysis_date = analysis_date or datetime.now().strftime("%Y-%m-%d")
-        
+
         # Setup config path
         self.visualization_config_path = (
-            visualization_config_path 
-            or "agents/dashboardBuilder/visualize_data/month_level/visualization_config.json"
+            visualization_config_path
+            or "agents/dashboardBuilder/visualize_data/year_level/visualization_config.json"
         )
 
         # Load path annotations and base dataframes
@@ -109,44 +110,36 @@ class MonthLevelDataPlotter:
         # Load database schemas
         self.databaseSchemas_path = databaseSchemas_path
         self._setup_schemas()
-        
-        # Initialize data processor    
-        self.month_level_data_processor = AnalyticsOrchestrator(
+
+        # Initialize data processor
+        self.year_level_data_processor = AnalyticsOrchestrator(
             AnalyticsOrchestratorConfig(
             enable_multi_level_analysis = True,
             source_path = source_path,
             annotation_name = annotation_name,
             databaseSchemas_path = databaseSchemas_path,
-            record_month = record_month,
-            month_analysis_date = analysis_date,
+            record_year = record_year,
+            year_analysis_date = analysis_date,
             )
         )
-        
+
         # Process data
         try:
 
-            month_level_results = self.month_level_data_processor.run_analytics()['multi_level_analytics']['month_level_results']
+            year_level_results = self.year_level_data_processor.run_analytics()['multi_level_analytics']["results"]['year_level_results']
+            self.analysis_timestamp = year_level_results["year_analysis_date"]
+            self.adjusted_record_year = year_level_results["record_year"]
+            self.finished_df = year_level_results["finished_records"]
+            self.unfinished_df = year_level_results["unfinished_records"]
+            self.final_summary = year_level_results["analysis_summary"]
 
-            self.analysis_timestamp = month_level_results["month_analysis_date"]
-            self.adjusted_record_month = month_level_results["record_month"]
-            self.finished_df = month_level_results["finished_records"]
-            self.unfinished_df = month_level_results["unfinished_records"]
-            self.final_summary = month_level_results["analysis_summary"]
-            
-            self.early_warning_report = generate_early_warning_report(
-                self.unfinished_df, 
-                self.adjusted_record_month,
-                self.analysis_timestamp,
-                colored=False
-            )
-            
-            # Filter data by date and month
+            # Filter data by date and year
             self.filtered_df = self.productRecords_df[
                 (self.productRecords_df['recordDate'].dt.date < self.analysis_timestamp.date()) &
-                (self.productRecords_df['recordDate'].dt.strftime('%Y-%m') == self.adjusted_record_month)
+                (self.productRecords_df['recordDate'].dt.year == int(self.adjusted_record_year))
             ].copy()
             self.filtered_df['recordMonth'] = self.filtered_df['recordDate'].dt.strftime('%Y-%m')
-            
+
             # Prepare unfinished POs and Total POs data
             self.short_unfinished_df, self.all_progress_df = self._prepare_data()
 
@@ -154,14 +147,14 @@ class MonthLevelDataPlotter:
                 "Data prepared: {} unfinished records, {} total records",
                 len(self.short_unfinished_df), len(self.all_progress_df)
             )
-            
+
         except Exception as e:
             self.logger.error("Failed to process data: {}", e)
             raise
-        
+
         # Setup directories
         self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "MonthLevelDataPlotter"
+        self.output_dir = self.default_dir / "YearLevelPlotter"
 
     def _setup_parallel_config(self) -> None:
         """Setup parallel processing configuration based on system resources."""
@@ -202,8 +195,8 @@ class MonthLevelDataPlotter:
                 self.max_workers = 1
                 self.logger.info("Parallel processing disabled. Workers: {}", self.max_workers)
             else:
-                # Estimate number of plots for month level (3 different plot types)
-                num_plots = 3
+                # Estimate number of plots for year level (10 different plot types)
+                num_plots = 10
                 if self.max_workers >= num_plots:
                     self.max_workers = num_plots  # No need for more workers than plots
 
@@ -249,33 +242,33 @@ class MonthLevelDataPlotter:
         except Exception as e:
             self.logger.error("Failed to load {}: {}", path_key, str(e))
             raise
-    
-    def _validate_record_month(self, record_month: str) -> None:
-        """Validate record_month format (YYYY-MM)."""
-        if not re.match(r'^\d{4}-\d{2}$', record_month):
+
+    def _validate_record_year(self, record_year: str) -> None:
+        """Validate record_year format (YYYY)."""
+        if not re.match(r'^\d{4}$', record_year):
             raise ValueError(
-                f"Invalid record_month format: '{record_month}'. Expected format: YYYY-MM"
+                f"Invalid record_year format: '{record_year}'. Expected format: YYYY"
             )
-    
+
     def _prepare_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         Prepare dataframes for visualization.
-        
+
         Returns:
             Tuple of (short_unfinished_df, all_progress_df) containing processed data
         """
         # Prepare main dataframe
         short_unfinished_df = self.unfinished_df[REQUIRED_UNFINISHED_SHORT_COLUMNS].copy()
-        
+
         # Prepare progress dataframe
         all_progress_df = pd.concat(
             [
-                self.finished_df[REQUIRED_PROGRESS_COLUMNS], 
+                self.finished_df[REQUIRED_PROGRESS_COLUMNS],
                 self.unfinished_df[REQUIRED_PROGRESS_COLUMNS]
-            ], 
+            ],
             ignore_index=True
         )
-        
+
         return short_unfinished_df, all_progress_df
 
     @staticmethod
@@ -308,19 +301,17 @@ class MonthLevelDataPlotter:
                         fig.savefig(fig_path, dpi=300, bbox_inches="tight", pad_inches=0.5)
                         path_collection.append(fig_path)
                         plt.close(fig)
-
                 else:
                     # Single figure
                     fig_or_figs.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
                     path_collection.append(path)
                     plt.close(fig_or_figs)
-
             else:
                 # Result is just a figure
                 result.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
                 path_collection.append(path)
                 plt.close(result)
-                
+
             execution_time = time.time() - start_time
             return True, name, path_collection, "", execution_time
 
@@ -332,51 +323,127 @@ class MonthLevelDataPlotter:
     def _prepare_plot_tasks(self, timestamp_file: str, newest_dir: Path) -> list:
         """Prepare plotting tasks for parallel execution."""
         
-        fig_title_date = f'{self.adjusted_record_month} - Analysis date: {self.analysis_timestamp.date()}'
+        fig_title_date = f'{self.adjusted_record_year} - Analysis date: {self.analysis_timestamp.date()}'
         
         plots_args = [
-            # 1. Month performance plotter
-            # Signature: (short_unfinished_df, all_progress_df, fig_title, visualization_config_path)
+            # 1. Monthly performance plotter
+            # Signature: (short_unfinished_df, all_progress_df, record_year, analysis_timestamp, visualization_config_path)
             (
-                (self.short_unfinished_df, self.all_progress_df,
-                f'Month Performance Dashboard for {fig_title_date}'),
+                (self.short_unfinished_df, self.all_progress_df, 
+                self.adjusted_record_year, self.analysis_timestamp),
                 self.visualization_config_path,
-                "month_performance_dashboard",
-                month_performance_plotter,
+                "monthly_performance_dashboard",
+                monthly_performance_plotter,
                 {}  # No extra kwargs
             ),
             
-            # 2. Machine based dashboard
-            # Signature: (filtered_df, metrics, fig_title, visualization_config_path)
+            # 2. Year performance plotter
+            # Signature: (short_unfinished_df, all_progress_df, record_year, analysis_timestamp, visualization_config_path)
             (
-                (self.filtered_df,
-                ['totalQuantity', 'goodQuantity', 'totalMoldShot', 'avgNGRate',
-                 'workingDays', 'notProgressDays', 'workingShifts', 'notProgressShifts',
-                 'poNums', 'itemNums', 'itemComponentNums'],
-                f'Production Dashboard by Machine for {fig_title_date}'),
+                (self.short_unfinished_df, self.all_progress_df, 
+                self.adjusted_record_year, self.analysis_timestamp),
                 self.visualization_config_path,
-                "machine_based_dashboard",
-                machine_based_dashboard_plotter,
+                "year_performance_dashboard",
+                year_performance_plotter,
                 {}  # No extra kwargs
             ),
             
-            # 3. Mold based dashboard
+            # 3. Machine based year view
+            # Signature: (filtered_df, fig_title, visualization_config_path)
+            (
+                (self.filtered_df, f'Production Dashboard by Machine for {fig_title_date}'),
+                self.visualization_config_path,
+                "machine_based_year_view_dashboard",
+                machine_based_year_view_dashboard_plotter,
+                {}  # No extra kwargs
+            ),
+            
+            # 4. Mold based year view
             # Signature: (filtered_df, metrics, fig_title, visualization_config_path)
             (
-                (self.filtered_df,
-                ['totalShots', 'cavityNums', 'avgCavity', 'machineNums',
-                 'totalQuantity', 'goodQuantity', 'totalNG', 'totalNGRate'],
+                (self.filtered_df, 
+                ['totalShots', 'cavityNums', 'avgCavity', 'machineNums', 'totalNGRate'],
                 f'Production Dashboard by Mold for {fig_title_date}'),
                 self.visualization_config_path,
-                "mold_based_dashboard",
-                mold_based_dashboard_plotter,
+                "mold_based_year_view_dashboard",
+                mold_based_year_view_dashboard_plotter,
+                {}  # No extra kwargs
+            ),
+            
+            # 5. Machine - Working days metrics
+            # Signature: (filtered_df, metrics, fig_title, field, subfig_per_page, visualization_config_path)
+            (
+                (self.filtered_df,
+                ['workingDays', 'notProgressDays', 'workingShifts', 'notProgressShifts'],
+                f"Production Dashboard by Machine for {fig_title_date}",
+                'machineCode',
+                10),
+                self.visualization_config_path,
+                "machine_working_days_dashboard",
+                field_based_month_view_dashboard_plotter,
+                {}  # No extra kwargs
+            ),
+            
+            # 6. Machine - PO/Item metrics
+            # Signature: (filtered_df, metrics, fig_title, field, subfig_per_page, visualization_config_path)
+            (
+                (self.filtered_df,
+                ['poNums', 'itemNums', 'moldNums', 'itemComponentNums', 'avgNGRate'],
+                f"Production Dashboard by Machine for {fig_title_date}",
+                'machineCode',
+                10),
+                self.visualization_config_path,
+                "machine_po_item_dashboard",
+                field_based_month_view_dashboard_plotter,
+                {}  # No extra kwargs
+            ),
+            
+            # 7. Machine - Quantity metrics
+            # Signature: (filtered_df, metrics, fig_title, field, subfig_per_page, visualization_config_path)
+            (
+                (self.filtered_df,
+                ['totalQuantity', 'goodQuantity', 'totalMoldShot'],
+                f"Production Dashboard by Machine for {fig_title_date}",
+                'machineCode',
+                10),
+                self.visualization_config_path,
+                "machine_quantity_dashboard",
+                field_based_month_view_dashboard_plotter,
+                {}  # No extra kwargs
+            ),
+            
+            # 8. Mold - Shots metrics
+            # Signature: (filtered_df, metrics, fig_title, field, subfig_per_page, visualization_config_path)
+            (
+                (self.filtered_df,
+                ['totalShots', 'cavityNums', 'avgCavity', 'machineNums', 'totalNGRate'],
+                f"Production Dashboard by Mold for {fig_title_date}",
+                'moldNo',
+                10),
+                self.visualization_config_path,
+                "mold_shots_dashboard",
+                field_based_month_view_dashboard_plotter,
+                {}  # No extra kwargs
+            ),
+            
+            # 9. Mold - Quantity metrics
+            # Signature: (filtered_df, metrics, fig_title, field, subfig_per_page, visualization_config_path)
+            (
+                (self.filtered_df,
+                ['totalQuantity', 'goodQuantity', 'totalNG'],
+                f"Production Dashboard by Mold for {fig_title_date}",
+                'moldNo',
+                10),
+                self.visualization_config_path,
+                "mold_quantity_dashboard",
+                field_based_month_view_dashboard_plotter,
                 {}  # No extra kwargs
             ),
         ]
 
         tasks = []
         for data, config_path, name, func, kwargs in plots_args:
-            path = newest_dir / f'{timestamp_file}_{name}_{self.adjusted_record_month}.png'
+            path = newest_dir / f'{timestamp_file}_{name}_{self.adjusted_record_year}.png'
             tasks.append((data, config_path, name, func, str(path), timestamp_file, kwargs))
 
         return tasks
@@ -403,7 +470,7 @@ class MonthLevelDataPlotter:
                     success, name, path_collection, error_msg, exec_time = future.result()
                     if success:
                         path_collection_str = '\n'.join(path_collection)
-                        successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): {path_collection_str}")
+                        successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): \n - {path_collection_str}")
                         self.logger.info("✅ Created plot: {} ({:.1f}s)", name, exec_time)
                     else:
                         failed_plots.append(error_msg)
@@ -431,7 +498,7 @@ class MonthLevelDataPlotter:
             success, name, path_collection, error_msg, exec_time = self._plot_single_chart(task)
             if success:
                 path_collection_str = '\n'.join(path_collection)
-                successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): {path_collection_str}")
+                successful_plots.append(f"  ⤷ Saved new plots for {name} ({exec_time:.1f}s): \n - {path_collection_str}")
                 self.logger.info("✅ Created plot: {} ({:.1f}s)", name, exec_time)
             else:
                 failed_plots.append(error_msg)
@@ -441,7 +508,7 @@ class MonthLevelDataPlotter:
         self.logger.info("Sequential plotting completed in {:.1f}s", total_time)
 
         return successful_plots, failed_plots
-    
+
     def plot_all(self, **kwargs):
         """Generate all plots with optional parallel processing."""
         self.logger.info("Start charting... (Parallel: {})", self.enable_parallel)
@@ -471,9 +538,9 @@ class MonthLevelDataPlotter:
                     self.logger.error("Failed to move file {}: {}", f.name, e)
                     raise OSError(f"Failed to move file {f.name}: {e}")
 
-        # Save month level extracted records
+        # Save year level extracted records
         try:
-            excel_file_name = f"{timestamp_file}_extracted_records_{self.adjusted_record_month}.xlsx"
+            excel_file_name = f"{timestamp_file}_extracted_records_{self.adjusted_record_year}.xlsx"
             excel_file_path = newest_dir / excel_file_name
             excel_data = {
                 "finished_df": self.finished_df,
@@ -495,7 +562,7 @@ class MonthLevelDataPlotter:
         
         # Save final summary
         try:
-            report_name = f"{timestamp_file}_final_summary_{self.adjusted_record_month}.txt"
+            report_name = f"{timestamp_file}_final_summary_{self.adjusted_record_year}.txt"
             report_path = newest_dir / report_name
             with open(report_path, "w", encoding="utf-8") as f:
                 f.write(self.final_summary)
@@ -503,17 +570,6 @@ class MonthLevelDataPlotter:
             self.logger.info("✅ Saved final summary: {}", report_path)
         except Exception as e:
             self.logger.warning("Failed to generate summary: {}", e)
-
-        # Save early warning report
-        try:
-            warning_report_name = f"{timestamp_file}_early_warning_report_{self.adjusted_record_month}.txt"
-            warning_report_path = newest_dir / warning_report_name
-            with open(warning_report_path, "w", encoding="utf-8") as f:
-                f.write(self.early_warning_report)
-            log_entries.append(f"  ⤷ Saved early warning report: {warning_report_path}\n")
-            self.logger.info("✅ Saved early warning report: {}", warning_report_path)
-        except Exception as e:
-            self.logger.warning("Failed to generate early warning report: {}", e)
 
         # Prepare plotting tasks
         tasks = self._prepare_plot_tasks(timestamp_file, newest_dir)
