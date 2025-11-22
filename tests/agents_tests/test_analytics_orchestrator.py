@@ -5,7 +5,7 @@ def test_analytics_orchestrator():
     orchestrator = AnalyticsOrchestrator(
         AnalyticsOrchestratorConfig(
         # Enable AnalyticsOrchestrator components
-        enable_change_analysis = True,
+        enable_hardware_change_analysis = True,
         enable_multi_level_analysis = True,
 
         # Database sources
@@ -36,6 +36,6 @@ def test_analytics_orchestrator():
         )
     )
 
-    results = orchestrator.run_analytics()
+    results, log_str = orchestrator.run_analytics()
 
     assert True
