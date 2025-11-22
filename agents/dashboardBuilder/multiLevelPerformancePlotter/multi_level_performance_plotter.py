@@ -30,7 +30,7 @@ class PerformancePlotflowConfig:
     source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
     annotation_name: str = "path_annotations.json"
     databaseSchemas_path: str = 'database/databaseSchemas.json'
-    default_dir: str = "agents/shared_db"
+    default_dir: str = "agents/shared_db/DashboardBuilder/MultiLevelPerformancePlotter"
 
     # Optimal Processing
     enable_parallel: bool = True  # Enable parallel processing
@@ -72,8 +72,7 @@ class MultiLevelPerformancePlotter:
         self.logger.info("Initialized MultiLevelDataPlotter")
 
         # Setup directories
-        self.default_dir = Path(self.config.default_dir)
-        self.output_dir = self.default_dir / "MultiLevelDataPlotter"
+        self.output_dir = Path(self.config.default_dir)
         
     def data_process(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """
@@ -111,9 +110,9 @@ class MultiLevelPerformancePlotter:
             ) if self.config.record_year else None
         }
 
-        self.update_change_logs(results)
+        log_entries_str = self.update_change_logs(results)
 
-        return results
+        return results, log_entries_str
     
     def update_change_logs(self, results: Dict[str, Optional[Dict]]):
         """
@@ -192,6 +191,8 @@ class MultiLevelPerformancePlotter:
         except Exception as e:
             self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
             raise OSError(f"Failed to update change log {log_path}: {e}")
+
+        return "\n".join(log_entries)
     
     def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
         """Log summary of processing results."""

@@ -55,16 +55,18 @@ REQUIRED_PROGRESS_COLUMNS = [
     'proStatus', 'moldHistNum'
 ]
 
-
+# Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys())
 })
+
 @validate_init_dataframes({
     "finished_df": REQUIRED_FINISHED_COLUMNS,
     "unfinished_df": REQUIRED_UNFINISHED_COLUMNS,
     "short_unfinished_df": REQUIRED_UNFINISHED_SHORT_COLUMNS,
     "all_progress_df": REQUIRED_PROGRESS_COLUMNS
 })
+
 class YearLevelDataPlotter:
     """
     Plotter for year-level PO dashboard with visualization and reporting.
@@ -81,7 +83,7 @@ class YearLevelDataPlotter:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db",
+                 default_dir: str = "agents/shared_db/DashboardBuilder/MultiLevelPerformancePlotter",
                  visualization_config_path: str = None,
                  enable_parallel: bool = True,
                  max_workers: int = None):
@@ -271,54 +273,101 @@ class YearLevelDataPlotter:
 
         return short_unfinished_df, all_progress_df
 
-    @staticmethod
-    def _plot_single_chart(args: Tuple[Any, str, Callable, str, str, Dict]) -> Tuple[bool, str, list, str, float]:
-        """
-        Worker function to create a single plot.
-        Returns: (success, plot_name, error_message, execution_time)
-        """
-        data, config_path, name, func, path, timestamp_file, kwargs = args
-        start_time = time.time()
+    def plot_all(self, **kwargs):
+        """Generate all plots with optional parallel processing."""
+        self.logger.info("Start charting... (Parallel: {})", self.enable_parallel)
 
-        path_collection = []
+        # Setup directories and timestamps
+        timestamp_now = datetime.now()
+        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+        timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
 
+        newest_dir = self.output_dir / "newest"
+        newest_dir.mkdir(parents=True, exist_ok=True)
+        historical_dir = self.output_dir / "historical_db"
+        historical_dir.mkdir(parents=True, exist_ok=True)
+
+        log_path = self.output_dir / "change_log.txt"
+        log_entries = [f"[{timestamp_str}] Saving new version...\n"]
+
+        # Move old files to historical_db
+        for f in newest_dir.iterdir():
+            if f.is_file():
+                try:
+                    dest = historical_dir / f.name
+                    shutil.move(str(f), dest)
+                    log_entries.append(f"  ⤷ Moved old file: {f.name} → historical_db/{f.name}\n")
+                    self.logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
+                except Exception as e:
+                    self.logger.error("Failed to move file {}: {}", f.name, e)
+                    raise OSError(f"Failed to move file {f.name}: {e}")
+
+        # Save year level extracted records
         try:
-            # Create the plot - pass visualization_config_path as keyword argument
-            if isinstance(data, tuple):
-                result = func(*data, visualization_config_path=config_path, **kwargs)
-            else:
-                result = func(data, visualization_config_path=config_path, **kwargs)
+            excel_file_name = f"{timestamp_file}_extracted_records_{self.adjusted_record_year}.xlsx"
+            excel_file_path = newest_dir / excel_file_name
+            excel_data = {
+                "finished_df": self.finished_df,
+                "unfinished_df": self.unfinished_df,
+                "short_unfinished_df": self.short_unfinished_df,
+                "all_progress_df": self.all_progress_df,
+                "filtered_records": self.filtered_df
+            }
+            with pd.ExcelWriter(excel_file_path, engine="openpyxl") as writer:
+                for sheet_name, df in excel_data.items():
+                    if not isinstance(df, pd.DataFrame):
+                        df = pd.DataFrame([df])
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+            log_entries.append(f"  ⤷ Saved data analysis results: {excel_file_path}\n")
+            self.logger.info("✅ Saved data analysis results: {}", excel_file_path)
+        except Exception as e:
+            self.logger.error("❌ Failed to save file {}: {}", excel_file_name, e)
+            raise OSError(f"Failed to save file {excel_file_name}: {e}")
+        
+        # Save final summary
+        try:
+            report_name = f"{timestamp_file}_final_summary_{self.adjusted_record_year}.txt"
+            report_path = newest_dir / report_name
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write(self.final_summary)
+            log_entries.append(f"  ⤷ Saved final summary: {report_path}\n")
+            self.logger.info("✅ Saved final summary: {}", report_path)
+        except Exception as e:
+            self.logger.warning("Failed to generate summary: {}", e)
 
-            # Handle different return types
-            if isinstance(result, tuple):
-                # Result is (summary, fig) or (summary, figs)
-                summary, fig_or_figs = result
-                
-                if isinstance(fig_or_figs, list):
-                    # Multiple figures - save each one
-                    for idx, fig in enumerate(fig_or_figs):
-                        fig_path = path.replace('.png', f'_page{idx+1}.png')
-                        fig.savefig(fig_path, dpi=300, bbox_inches="tight", pad_inches=0.5)
-                        path_collection.append(fig_path)
-                        plt.close(fig)
-                else:
-                    # Single figure
-                    fig_or_figs.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
-                    path_collection.append(path)
-                    plt.close(fig_or_figs)
-            else:
-                # Result is just a figure
-                result.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
-                path_collection.append(path)
-                plt.close(result)
+        # Prepare plotting tasks
+        tasks = self._prepare_plot_tasks(timestamp_file, newest_dir)
 
-            execution_time = time.time() - start_time
-            return True, name, path_collection, "", execution_time
+        # Execute plotting (parallel or sequential)
+        try:
+            if self.enable_parallel and len(tasks) > 1:
+                successful_plots, failed_plots = self._execute_plots_parallel(tasks)
+            else:
+                successful_plots, failed_plots = self._execute_plots_sequential(tasks)
+
+            # Add successful plots to log
+            log_entries.extend([f"{plot}\n" for plot in successful_plots])
+
+            # Handle failures
+            if failed_plots:
+                error_summary = f"Failed to create {len(failed_plots)} plots:\n" + "\n".join(failed_plots)
+                self.logger.error(error_summary)
+                raise OSError(error_summary)
 
         except Exception as e:
-            execution_time = time.time() - start_time
-            error_msg = f"Failed to create plot '{name}': {str(e)}\n{traceback.format_exc()}"
-            return False, name, path_collection, error_msg, execution_time
+            self.logger.error("Plotting process failed: {}", str(e))
+            raise
+
+        # Update change log
+        try:
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.writelines(log_entries)
+            self.logger.info("Updated change log {}", log_path)
+        except Exception as e:
+            self.logger.error("Failed to update change log {}: {}", log_path, e)
+            raise OSError(f"Failed to update change log {log_path}: {e}")
+        
+        return log_entries
 
     def _prepare_plot_tasks(self, timestamp_file: str, newest_dir: Path) -> list:
         """Prepare plotting tasks for parallel execution."""
@@ -509,98 +558,51 @@ class YearLevelDataPlotter:
 
         return successful_plots, failed_plots
 
-    def plot_all(self, **kwargs):
-        """Generate all plots with optional parallel processing."""
-        self.logger.info("Start charting... (Parallel: {})", self.enable_parallel)
+    @staticmethod
+    def _plot_single_chart(args: Tuple[Any, str, Callable, str, str, Dict]) -> Tuple[bool, str, list, str, float]:
+        """
+        Worker function to create a single plot.
+        Returns: (success, plot_name, error_message, execution_time)
+        """
+        data, config_path, name, func, path, timestamp_file, kwargs = args
+        start_time = time.time()
 
-        # Setup directories and timestamps
-        timestamp_now = datetime.now()
-        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
-        timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
+        path_collection = []
 
-        newest_dir = self.output_dir / "newest"
-        newest_dir.mkdir(parents=True, exist_ok=True)
-        historical_dir = self.output_dir / "historical_db"
-        historical_dir.mkdir(parents=True, exist_ok=True)
-
-        log_path = self.output_dir / "change_log.txt"
-        log_entries = [f"[{timestamp_str}] Saving new version...\n"]
-
-        # Move old files to historical_db
-        for f in newest_dir.iterdir():
-            if f.is_file():
-                try:
-                    dest = historical_dir / f.name
-                    shutil.move(str(f), dest)
-                    log_entries.append(f"  ⤷ Moved old file: {f.name} → historical_db/{f.name}\n")
-                    self.logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
-                except Exception as e:
-                    self.logger.error("Failed to move file {}: {}", f.name, e)
-                    raise OSError(f"Failed to move file {f.name}: {e}")
-
-        # Save year level extracted records
         try:
-            excel_file_name = f"{timestamp_file}_extracted_records_{self.adjusted_record_year}.xlsx"
-            excel_file_path = newest_dir / excel_file_name
-            excel_data = {
-                "finished_df": self.finished_df,
-                "unfinished_df": self.unfinished_df,
-                "short_unfinished_df": self.short_unfinished_df,
-                "all_progress_df": self.all_progress_df,
-                "filtered_records": self.filtered_df
-            }
-            with pd.ExcelWriter(excel_file_path, engine="openpyxl") as writer:
-                for sheet_name, df in excel_data.items():
-                    if not isinstance(df, pd.DataFrame):
-                        df = pd.DataFrame([df])
-                    df.to_excel(writer, sheet_name=sheet_name, index=False)
-            log_entries.append(f"  ⤷ Saved data analysis results: {excel_file_path}\n")
-            self.logger.info("✅ Saved data analysis results: {}", excel_file_path)
-        except Exception as e:
-            self.logger.error("❌ Failed to save file {}: {}", excel_file_name, e)
-            raise OSError(f"Failed to save file {excel_file_name}: {e}")
-        
-        # Save final summary
-        try:
-            report_name = f"{timestamp_file}_final_summary_{self.adjusted_record_year}.txt"
-            report_path = newest_dir / report_name
-            with open(report_path, "w", encoding="utf-8") as f:
-                f.write(self.final_summary)
-            log_entries.append(f"  ⤷ Saved final summary: {report_path}\n")
-            self.logger.info("✅ Saved final summary: {}", report_path)
-        except Exception as e:
-            self.logger.warning("Failed to generate summary: {}", e)
-
-        # Prepare plotting tasks
-        tasks = self._prepare_plot_tasks(timestamp_file, newest_dir)
-
-        # Execute plotting (parallel or sequential)
-        try:
-            if self.enable_parallel and len(tasks) > 1:
-                successful_plots, failed_plots = self._execute_plots_parallel(tasks)
+            # Create the plot - pass visualization_config_path as keyword argument
+            if isinstance(data, tuple):
+                result = func(*data, visualization_config_path=config_path, **kwargs)
             else:
-                successful_plots, failed_plots = self._execute_plots_sequential(tasks)
+                result = func(data, visualization_config_path=config_path, **kwargs)
 
-            # Add successful plots to log
-            log_entries.extend([f"{plot}\n" for plot in successful_plots])
+            # Handle different return types
+            if isinstance(result, tuple):
+                # Result is (summary, fig) or (summary, figs)
+                summary, fig_or_figs = result
+                
+                if isinstance(fig_or_figs, list):
+                    # Multiple figures - save each one
+                    for idx, fig in enumerate(fig_or_figs):
+                        fig_path = path.replace('.png', f'_page{idx+1}.png')
+                        fig.savefig(fig_path, dpi=300, bbox_inches="tight", pad_inches=0.5)
+                        path_collection.append(fig_path)
+                        plt.close(fig)
+                else:
+                    # Single figure
+                    fig_or_figs.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
+                    path_collection.append(path)
+                    plt.close(fig_or_figs)
+            else:
+                # Result is just a figure
+                result.savefig(path, dpi=300, bbox_inches="tight", pad_inches=0.5)
+                path_collection.append(path)
+                plt.close(result)
 
-            # Handle failures
-            if failed_plots:
-                error_summary = f"Failed to create {len(failed_plots)} plots:\n" + "\n".join(failed_plots)
-                self.logger.error(error_summary)
-                raise OSError(error_summary)
+            execution_time = time.time() - start_time
+            return True, name, path_collection, "", execution_time
 
         except Exception as e:
-            self.logger.error("Plotting process failed: {}", str(e))
-            raise
-
-        # Update change log
-        try:
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.writelines(log_entries)
-            self.logger.info("Updated change log {}", log_path)
-        except Exception as e:
-            self.logger.error("Failed to update change log {}: {}", log_path, e)
-            raise OSError(f"Failed to update change log {log_path}: {e}")
-        
-        return log_entries
+            execution_time = time.time() - start_time
+            error_msg = f"Failed to create plot '{name}': {str(e)}\n{traceback.format_exc()}"
+            return False, name, path_collection, error_msg, execution_time
