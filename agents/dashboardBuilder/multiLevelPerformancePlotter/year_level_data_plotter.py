@@ -127,8 +127,8 @@ class YearLevelDataPlotter:
 
         # Process data
         try:
-
-            year_level_results, _ = self.year_level_data_processor.run_analytics()['multi_level_analytics']["results"]['year_level_results']
+            all_results, _  = self.year_level_data_processor.run_analytics()
+            year_level_results = all_results['multi_level_analytics']["results"]['year_level_results']
             self.analysis_timestamp = year_level_results["year_analysis_date"]
             self.adjusted_record_year = year_level_results["record_year"]
             self.finished_df = year_level_results["finished_records"]

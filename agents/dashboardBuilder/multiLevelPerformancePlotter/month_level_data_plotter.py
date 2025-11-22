@@ -126,8 +126,8 @@ class MonthLevelDataPlotter:
         
         # Process data
         try:
-
-            month_level_results, _ = self.month_level_data_processor.run_analytics()['multi_level_analytics']["results"]['month_level_results']
+            all_results, _  = self.month_level_data_processor.run_analytics()
+            month_level_results = all_results['multi_level_analytics']["results"]['month_level_results']
 
             self.analysis_timestamp = month_level_results["month_analysis_date"]
             self.adjusted_record_month = month_level_results["record_month"]
