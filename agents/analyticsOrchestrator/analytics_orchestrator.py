@@ -9,8 +9,8 @@ class AnalyticsOrchestratorConfig:
     """Configuration class for analytics orchestrator parameters"""
 
     # Enable AnalyticsOrchestrator components
-    enable_change_analysis: bool = False
-    enable_multi_level_analysis: bool = False
+    enable_hardware_change_analysis: bool = False #HardwareChangeAnalyzer
+    enable_multi_level_analysis: bool = False #MultiLevelPerformanceAnalyzer
 
     # Database sources
     source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
@@ -52,14 +52,14 @@ class AnalyticsOrchestrator:
     
     Architecture:
         AnalyticsOrchestrator (Facade Layer)
-            ├─ MultiLevelDataAnalytics (Day/Month/Year processing)
-            └─ DataChangeAnalyzer (Change detection)
+            ├─ MultiLevelPerformanceAnalyzer (Day/Month/Year processing)
+            └─ HardwareChangeAnalyzer (Change detection)
     
     Usage:
         config = AnalyticsOrchestratorConfig(
             record_date="2025-11-16",
             record_month="2025-11",
-            enable_change_analysis=True
+            enable_multi_level_analysis=True
         )
         orchestrator = AnalyticsOrchestrator(config)
         results = orchestrator.process()
@@ -86,18 +86,18 @@ class AnalyticsOrchestrator:
         """
         results =  {
             "multi_level_analytics": None, 
-            "change_analysis": None
+            "change_hardware_analysis": None
             }
         
         # Nothing enabled
-        if not self.config.enable_change_analysis and not self.config.enable_multi_level_analysis:
+        if not self.config.enable_hardware_change_analysis and not self.config.enable_multi_level_analysis:
             self.logger.info("No analytics enabled. Nothing to run.")
         
         # Run Multi-Level analytics
-        if self.config.enable_change_analysis:
-            results["change_analysis"] = self._safe_process(
+        if self.config.enable_hardware_change_analysis:
+            results["change_hardware_analysis"] = self._safe_process(
                 self.process_change_analysis,
-                "change analysis")
+                "change hardware analysis")
 
         # Run Change Analysis
         if self.config.enable_multi_level_analysis:
@@ -105,9 +105,9 @@ class AnalyticsOrchestrator:
                 self.process_multi_level_analytics,
                 "multi-level analytics")
         
-        self.update_change_logs(results)
+        log_entries_str = self.update_change_logs(results)
 
-        return results
+        return results, log_entries_str
     
     def process_multi_level_analytics(self) -> Dict[str, Any]:
         """
@@ -194,6 +194,28 @@ class AnalyticsOrchestrator:
                 "log_entries_str": log_entries_str
                 }
     
+    def _safe_process(
+        self,
+        process_func,
+        component_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Execute processing function with error isolation.
+        
+        Args:
+            process_func: Processing function to execute
+            component_name: Name of component (for logging)
+            
+        Returns:
+            Processing results or None if failed
+        """
+        try:
+            result = process_func()
+            self.logger.success("✓ {} completed", component_name)
+            return result
+        except Exception as e:
+            self.logger.error("✗ {} failed: {}", component_name, e)
+            return None
+        
     def update_change_logs(self, results: Dict[str, Optional[Dict]]):
         """
         Update change_log.txt with run configuration and processing results.
@@ -218,7 +240,7 @@ class AnalyticsOrchestrator:
         log_entries.append(f"⤷ Default Directory: {self.config.default_dir}")
 
         # Change Analysis
-        if self.config.enable_change_analysis:
+        if self.config.enable_hardware_change_analysis:
             log_entries.append("⤷ Change Analysis: Enable")
             log_entries.append(f"   ⤷ Output Directory: {self.config.change_tracker_output_dir}")
             log_entries.append("--DataChangeAnalyzer Configuration--")
@@ -323,25 +345,4 @@ class AnalyticsOrchestrator:
         except Exception as e:
             self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
 
-    
-    def _safe_process(
-        self,
-        process_func,
-        component_name: str) -> Optional[Dict[str, Any]]:
-        """
-        Execute processing function with error isolation.
-        
-        Args:
-            process_func: Processing function to execute
-            component_name: Name of component (for logging)
-            
-        Returns:
-            Processing results or None if failed
-        """
-        try:
-            result = process_func()
-            self.logger.success("✓ {} completed", component_name)
-            return result
-        except Exception as e:
-            self.logger.error("✗ {} failed: {}", component_name, e)
-            return None
+        return "\n".join(log_entries)
