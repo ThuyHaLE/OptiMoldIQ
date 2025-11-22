@@ -64,7 +64,7 @@ class DayLevelDataPlotter:
 
         # Process data
         try:
-            day_level_results = self.day_level_data_processor.run_analytics()['multi_level_analytics']["results"]['day_level_results']
+            day_level_results, _ = self.day_level_data_processor.run_analytics()['multi_level_analytics']["results"]['day_level_results']
 
             self.processed_df = day_level_results["processed_records"]
             self.mold_based_record_df = day_level_results["mold_based_records"]
