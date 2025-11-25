@@ -77,7 +77,7 @@ class AnalyticsOrchestrator:
         self.config = config
         self.logger.info("Initialized AnalyticsOrchestrator")
         
-    def run_analytics(self):
+    def run_analytics(self, save_log = False):
         """
         Executes analytics modules based on enable flags:
         - If both disabled → do nothing
@@ -106,6 +106,18 @@ class AnalyticsOrchestrator:
                 "multi-level analytics")
         
         log_entries_str = self.update_change_logs(results)
+
+        # Save log
+        if save_log:
+            try:
+                output_dir = Path(self.config.default_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                log_path = output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(log_entries_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
 
         return results, log_entries_str
     
@@ -329,20 +341,5 @@ class AnalyticsOrchestrator:
                 log_entries.append(f"      ⤷ Log Entries:\n{component_details}")
 
         log_entries.append("")
-
-        # WRITE FILE
-        try:
-            output_dir = Path(self.config.default_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            log_path = output_dir / "change_log.txt"
-
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write("\n".join(log_entries))
-
-            self.logger.info("✓ Updated change log: {}", log_path)
-
-        except Exception as e:
-            self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
 
         return "\n".join(log_entries)

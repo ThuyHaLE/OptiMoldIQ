@@ -33,7 +33,9 @@ class ChangeAnalyticflowConfig:
     machine_mold_pair_tracker_change_log_name: str = "change_log.txt"
 
 @validate_init_dataframes(lambda self: {
-    "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys())
+    "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
+    "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
+    "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys())
 })
 
 class HardwareChangeAnalyzer:
@@ -49,6 +51,8 @@ class HardwareChangeAnalyzer:
 
         # Load DataFrames
         self.productRecords_df = self._load_dataframe('productRecords')
+        self.machineInfo_df = self._load_dataframe('machineInfo')
+        self.moldInfo_df = self._load_dataframe('moldInfo')
 
         # Get latest record date
         self.latest_record_date = self.productRecords_df['recordDate'].max()
@@ -257,8 +261,8 @@ class HardwareChangeAnalyzer:
             change_log_name = self.config.machine_layout_tracker_change_log_name)
         
         # Check for new layout changes
-        (has_new_layout_change, layout_changes_dict, log_entries) = tracker.data_process(self.latest_record_date)
-          
+        (has_new_layout_change, machine_layout_hist_change, log_entries) = tracker.data_process(self.latest_record_date)
+
         if has_new_layout_change:
             self.logger.info("New layout changes detected.")
         else:
@@ -266,7 +270,7 @@ class HardwareChangeAnalyzer:
 
         return {
             "has_new_layout_change": has_new_layout_change,
-            "layout_changes_dict": layout_changes_dict,
+            "machine_layout_hist_change": machine_layout_hist_change,
             "log_entries": log_entries
         }
 
@@ -277,12 +281,18 @@ class HardwareChangeAnalyzer:
         # Initialize machine-mold pair tracker
         tracker = MachineMoldPairTracker(
                  productRecords_df = self.productRecords_df, 
+                 moldInfo_df = self.moldInfo_df,
+                 machineInfo_df = self.machineInfo_df,
                  databaseSchemas_path = self.config.databaseSchemas_path,
                  output_dir = self.config.machine_mold_pair_tracker_dir,
                  change_log_name = self.config.machine_mold_pair_tracker_change_log_name)
         
         # Check for new mold-machine pair changes
-        (has_new_pair_change, new_pairs, pair_data, log_entries) = tracker.data_process(self.latest_record_date)
+        (has_new_pair_change, 
+         mold_tonnage_summary_df,
+         first_mold_usage_df, 
+         first_paired_mold_machine_df,
+         log_entries) = tracker.data_process(self.latest_record_date)
 
         if has_new_pair_change:
             self.logger.info("New machine-mold pair changes detected.")
@@ -291,8 +301,9 @@ class HardwareChangeAnalyzer:
 
         return {
             "has_new_pair_change": has_new_pair_change,
-            "new_pairs": new_pairs,
-            "pair_data": pair_data,
+            "mold_tonnage_summary": mold_tonnage_summary_df,
+            "first_mold_usage": first_mold_usage_df,
+            "first_paired_mold_machine": first_paired_mold_machine_df,
             "log_entries": log_entries
         }
     
