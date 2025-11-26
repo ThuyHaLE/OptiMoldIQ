@@ -8,8 +8,8 @@ from typing import Optional
 from agents.decorators import validate_dataframe
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 
-from agents.dashboardBuilder.visualize_data.hardware_change_level.mold_level.plot_machine_first_run_distribution import plot_machine_first_run_distribution
-from agents.dashboardBuilder.visualize_data.hardware_change_level.mold_level.plot_mold_first_run_distribution import plot_mold_first_run_distribution
+from agents.dashboardBuilder.visualize_data.mold_level.plot_machine_first_run_distribution import plot_machine_first_run_distribution
+from agents.dashboardBuilder.visualize_data.mold_level.plot_mold_first_run_distribution import plot_mold_first_run_distribution
 
 # Default config for visualization
 DEFAULT_CONFIG = {

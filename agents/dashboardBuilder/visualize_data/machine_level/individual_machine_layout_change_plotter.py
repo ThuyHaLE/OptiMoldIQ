@@ -9,7 +9,7 @@ import math
 from agents.decorators import validate_dataframe
 from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
 
-from agents.dashboardBuilder.visualize_data.hardware_change_level.machine_level.plot_individual_machine_change_timeline import plot_individual_machine_change_timeline
+from agents.dashboardBuilder.visualize_data.machine_level.plot_individual_machine_change_timeline import plot_individual_machine_change_timeline
 
 # Default config for visualization
 DEFAULT_CONFIG = {
