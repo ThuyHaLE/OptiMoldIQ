@@ -58,8 +58,6 @@ class HardwareChangeAnalyzer:
         self.latest_record_date = self.productRecords_df['recordDate'].max()
         self.logger.info("Latest record date: {}", self.latest_record_date)
 
-        self.default_dir = Path(self.config.default_dir)
-
     def _load_database_schemas(self, databaseSchemas_path: str) -> dict:
         """Load database schemas with error handling."""
         try:
@@ -100,7 +98,7 @@ class HardwareChangeAnalyzer:
             self.logger.error("❌ {}", error_msg)
             raise
 
-    def analyze_changes(self):
+    def analyze_changes(self, save_log = False):
         
         results =  {
             "machine_layout_tracker": None, 
@@ -133,6 +131,18 @@ class HardwareChangeAnalyzer:
 
         log_entries_str = self.update_change_logs(results)
 
+        # Save log
+        if save_log:
+            try:
+                output_dir = Path(self.config.default_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                log_path = output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(log_entries_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+
         return results, log_entries_str
 
     def update_change_logs(self, results: Dict[str, Optional[Dict]]):
@@ -145,9 +155,6 @@ class HardwareChangeAnalyzer:
         timestamp_now = datetime.now()
         timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
         
-        self.default_dir.mkdir(parents=True, exist_ok=True)
-        log_path = self.default_dir / "change_log.txt"
-
         log_entries = []
 
         # Prepare log entries
@@ -204,18 +211,7 @@ class HardwareChangeAnalyzer:
                 log_entries.append(f"⤷ {level_name}:")
                 log_entries.append(''.join(level_result))
             log_entries.append("")
-        
-        # Write to file
-        try:
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write("\n".join(log_entries))
-            
-            self.logger.info("✓ Updated change log: {}", log_path)
-            
-        except Exception as e:
-            self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
-            raise OSError(f"Failed to update change log {log_path}: {e}")
-        
+
         return "\n".join(log_entries)
 
     def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
@@ -245,7 +241,7 @@ class HardwareChangeAnalyzer:
             if results[lv]["log_entries"] is not None:
                 log_entries['Details'][lv] = results[lv]["log_entries"]
             else: 
-                log_entries['Details'][lv] = "No new layout changes detected."
+                log_entries['Details'][lv] = "No new changes detected."
 
         return log_entries
     

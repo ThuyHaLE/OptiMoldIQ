@@ -338,7 +338,7 @@ class AnalyticsOrchestrator:
             for component in completed_components:
                 log_entries.append(f"⤷ {component}")
                 component_details = results[component]["log_entries_str"]
-                log_entries.append(f"      ⤷ Log Entries:\n{component_details}")
+                log_entries.append(f"      ⤷ Log Entries:\n{component_details}" if component_details else "None")
 
         log_entries.append("")
 
