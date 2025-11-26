@@ -68,10 +68,10 @@ REQUIRED_MOLD_COLUMNS = [
 ]
 
 def mold_utilization_plotter(mold_df: pd.DataFrame,
-                                       fig_title: str = 'Mold Utilization Dashboard',
-                                       top_n: int = 20,
-                                       bot_n: int = 20,
-                                       visualization_config_path: Optional[str] = None) -> plt.Figure:
+                             fig_title: str = 'Mold Utilization Dashboard',
+                             top_n: int = 20,
+                             bot_n: int = 20,
+                             visualization_config_path: Optional[str] = None) -> plt.Figure:
     """
     Create comprehensive mold overview dashboard with acquisition and first use analysis.
     
