@@ -85,7 +85,7 @@ class DayLevelDataProcessor:
                      save_output = False):
         
         self.logger.info("Start processing...")
-        (merged_df, mold_based_record_df, 
+        (latest_record_date, merged_df, mold_based_record_df, 
          item_based_record_df, summary_stats, analysis_summary) = self.product_record_processing()
     
         if save_output: 
@@ -157,10 +157,10 @@ class DayLevelDataProcessor:
                 self.logger.error("Failed to update change log {}: {}", log_path, e)
                 raise OSError(f"Failed to update change log {log_path}: {e}")
             
-            return merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary, log_entries
+            return latest_record_date, merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary, log_entries
         
         else:
-            return merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary, None
+            return latest_record_date, merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary, None
 
     def product_record_processing(self) -> Tuple[pd.DataFrame, dict]:
         """
