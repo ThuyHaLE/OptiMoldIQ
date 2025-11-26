@@ -242,11 +242,12 @@ class MultiLevelPerformanceAnalyzer:
             self.output_dir
         )
         
-        (processed_df, mold_based_record_df, 
+        (adjusted_record_date, processed_df, mold_based_record_df, 
         item_based_record_df, summary_stats, analysis_summary, log_entries) = day_level_processor.data_process(
             self.config.day_save_output)
         
         return {
+            "record_date": adjusted_record_date,
             "processed_records": processed_df,
             "mold_based_records": mold_based_record_df,
             "item_based_records": item_based_record_df,

@@ -25,7 +25,7 @@ class YearLevelDataProcessor:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db/MultiLevelDataAnalytics"):
+                 default_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"):
 
         self.logger = logger.bind(class_="YearLevelDataProcessor")
 

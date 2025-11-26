@@ -38,7 +38,7 @@ class DayLevelDataProcessor:
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db/MultiLevelDataAnalytics"):
+                 default_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"):
 
         self.logger = logger.bind(class_="DayLevelDataProcessor")
 
@@ -86,7 +86,7 @@ class DayLevelDataProcessor:
         
         self.logger.info("Start processing...")
         (merged_df, mold_based_record_df, 
-            item_based_record_df, summary_stats, analysis_summary) = self.product_record_processing()
+         item_based_record_df, summary_stats, analysis_summary) = self.product_record_processing()
     
         if save_output: 
             # Setup directories and timestamps
@@ -249,7 +249,7 @@ class DayLevelDataProcessor:
 
         analysis_summary = self._log_analysis_summary(summary_stats)
 
-        return merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary
+        return latest_record_date, merged_df, mold_based_record_df, item_based_record_df, summary_stats, analysis_summary
 
     def _log_analysis_summary(self, stats: dict) -> str:
 
