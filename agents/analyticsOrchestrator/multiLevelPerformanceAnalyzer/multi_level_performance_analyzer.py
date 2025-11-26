@@ -7,6 +7,7 @@ from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.month_level_data
 from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.year_level_data_processor import YearLevelDataProcessor
 from pathlib import Path
 from datetime import datetime
+from agents.utils import validate_path
 
 @dataclass
 class PerformanceAnalyticflowConfig:
@@ -30,8 +31,14 @@ class PerformanceAnalyticflowConfig:
     source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
     annotation_name: str = "path_annotations.json"
     databaseSchemas_path: str = 'database/databaseSchemas.json'
-    default_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelDataAnalytics"
 
+    save_multi_level_performance_analyzer_log: bool = False
+    multi_level_performance_analyzer_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"
+
+    def __post_init__(self):
+        """Validate directory settings when saving is enabled."""
+        if self.save_multi_level_performance_analyzer_log:
+            validate_path("multi_level_performance_analyzer_dir", self.multi_level_performance_analyzer_dir)
 
 class MultiLevelPerformanceAnalyzer:
     """
@@ -67,8 +74,6 @@ class MultiLevelPerformanceAnalyzer:
         self.logger = logger.bind(class_="MultiLevelDataAnalytics")
         self.config = config
         self.logger.info("Initialized MultiLevelDataAnalytics")
-
-        self.output_dir = Path(self.config.default_dir)
         
     def data_process(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """
@@ -106,6 +111,18 @@ class MultiLevelPerformanceAnalyzer:
         
         log_entries_str = self.update_change_logs(results)
 
+        # Save log
+        if self.config.save_multi_level_performance_analyzer_log:
+            try:
+                output_dir = Path(self.config.multi_level_performance_analyzer_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                log_path = output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(log_entries_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+
         return results, log_entries_str
     
     def update_change_logs(self, results: Dict[str, Optional[Dict]]):
@@ -117,19 +134,21 @@ class MultiLevelPerformanceAnalyzer:
         """
         timestamp_now = datetime.now()
         timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
-        
-        log_path = self.output_dir / "change_log.txt"
+
         log_entries = []
 
         # Prepare log entries
-        log_entries.append(f"[{timestamp_str}] multiLevelDataAnalytics Run")
+        log_entries.append(f"[{timestamp_str}] MultiLevelPerformanceAnalyzer Run")
         log_entries.append("")
 
         # Configuration section
         log_entries.append("--Configuration--")
 
-        log_entries.append(f"⤷ Output Directory: {self.config.default_dir}")
-        log_entries.append(f"⤷ Source Path: {self.config.source_path}")
+        log_entries.append(f"⤷ Database Annotation: {self.config.source_path}/{self.config.annotation_name}")
+        log_entries.append(f"⤷ Database Schemas: {self.config.databaseSchemas_path}")
+        log_entries.append(f"⤷ Save multi-level performance analyzer log: {self.config.save_multi_level_performance_analyzer_log}")
+        if self.config.save_multi_level_performance_analyzer_log:
+            log_entries.append(f"   ⤷ Output Directory: {self.config.multi_level_performance_analyzer_dir}")
 
         if self.config.record_date is not None:
             log_entries.append(f"Day Level:")
@@ -170,19 +189,6 @@ class MultiLevelPerformanceAnalyzer:
                 log_entries.append(f"⤷ {level_name}:")
                 log_entries.append(''.join(level_result))
             log_entries.append("")
-        
-        # Write to file
-        try:
-            self.output_dir.mkdir(parents=True, exist_ok=True)
-
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write("\n".join(log_entries))
-            
-            self.logger.info("✓ Updated change log: {}", log_path)
-            
-        except Exception as e:
-            self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
-            raise OSError(f"Failed to update change log {log_path}: {e}")
 
         return "\n".join(log_entries)
     
@@ -239,7 +245,7 @@ class MultiLevelPerformanceAnalyzer:
             self.config.source_path,
             self.config.annotation_name,
             self.config.databaseSchemas_path,
-            self.output_dir
+            self.config.multi_level_performance_analyzer_dir
         )
         
         (adjusted_record_date, processed_df, 
@@ -280,7 +286,7 @@ class MultiLevelPerformanceAnalyzer:
             self.config.source_path,
             self.config.annotation_name,
             self.config.databaseSchemas_path,
-            self.output_dir
+            self.config.multi_level_performance_analyzer_dir
         )
         
         (analysis_timestamp, adjusted_record_month, 
@@ -320,7 +326,7 @@ class MultiLevelPerformanceAnalyzer:
             self.config.source_path,
             self.config.annotation_name,
             self.config.databaseSchemas_path,
-            self.output_dir
+            self.config.multi_level_performance_analyzer_dir
         )
 
         (analysis_timestamp, adjusted_record_year, 

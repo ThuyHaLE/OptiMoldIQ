@@ -289,3 +289,18 @@ def rank_nonzero(row):
     nonzero = row[row != 0]
     ranked = nonzero.sort_values(ascending=False).rank(method='first', ascending=False).astype('Int64')
     return row.where(row == 0, ranked).astype('Int64')
+
+def validate_path(name: str, value: str):
+    """Ensure value is a non-empty path-like string and normalize it."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string.")
+
+    # Check path-like
+    if "/" not in value and "\\" not in value:
+        raise ValueError(f"{name} must look like a path (contain '/' or '\\').")
+
+    # Normalize path: convert to POSIX, remove trailing spaces and extra slashes
+    path = Path(value).as_posix().strip().rstrip("/")
+
+    # Return normalized folder path (with trailing '/')
+    return path + "/"

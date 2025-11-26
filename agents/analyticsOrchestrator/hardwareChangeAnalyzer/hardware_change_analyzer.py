@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 from datetime import datetime
+from agents.utils import validate_path
 
 from agents.analyticsOrchestrator.hardwareChangeAnalyzer.machine_layout_tracker import MachineLayoutTracker
 from agents.analyticsOrchestrator.hardwareChangeAnalyzer.machine_mold_pair_tracker import MachineMoldPairTracker
@@ -24,13 +25,21 @@ class ChangeAnalyticflowConfig:
     annotation_name: str = "path_annotations.json"
     databaseSchemas_path: str = 'database/databaseSchemas.json'
 
-    default_dir: str = "agents/shared_db/HardwareChangeAnalyzer"
+    save_hardware_change_analyzer_log: bool = True
+    hardware_change_analyzer_dir: str = "agents/shared_db/HardwareChangeAnalyzer"
 
-    machine_layout_tracker_dir: str = "agents/shared_db/HardwareChangeAnalyzer/UpdateMachineLayout/tracker_results"
+    machine_layout_tracker_dir: str = "agents/shared_db/HardwareChangeAnalyzer/MachineLayoutTracker"
     machine_layout_tracker_change_log_name: str = "change_log.txt"
 
-    machine_mold_pair_tracker_dir: str = "agents/shared_db/HardwareChangeAnalyzer/UpdateMoldOverview/tracker_results"
+    machine_mold_pair_tracker_dir: str = "agents/shared_db/HardwareChangeAnalyzer/MachineMoldPairTracker"
     machine_mold_pair_tracker_change_log_name: str = "change_log.txt"
+
+    def __post_init__(self):
+        """Validate directory settings when saving is enabled."""
+        validate_path("machine_layout_tracker_dir", self.machine_layout_tracker_dir)
+        validate_path("machine_mold_pair_tracker_dir", self.machine_mold_pair_tracker_dir)
+        if self.save_hardware_change_analyzer_log:
+            validate_path("hardware_change_analyzer_dir", self.hardware_change_analyzer_dir)
 
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
@@ -98,7 +107,7 @@ class HardwareChangeAnalyzer:
             self.logger.error("❌ {}", error_msg)
             raise
 
-    def analyze_changes(self, save_log = False):
+    def analyze_changes(self):
         
         results =  {
             "machine_layout_tracker": None, 
@@ -132,9 +141,9 @@ class HardwareChangeAnalyzer:
         log_entries_str = self.update_change_logs(results)
 
         # Save log
-        if save_log:
+        if self.config.save_hardware_change_analyzer_log:
             try:
-                output_dir = Path(self.config.default_dir)
+                output_dir = Path(self.config.hardware_change_analyzer_dir)
                 output_dir.mkdir(parents=True, exist_ok=True)
                 log_path = output_dir / "change_log.txt"
                 with open(log_path, "a", encoding="utf-8") as log_file:
@@ -158,7 +167,7 @@ class HardwareChangeAnalyzer:
         log_entries = []
 
         # Prepare log entries
-        log_entries.append(f"[{timestamp_str}] hardwareChangeAnalyzer Run")
+        log_entries.append(f"[{timestamp_str}] HardwareChangeAnalyzer Run")
         log_entries.append("")
 
         # Configuration section
@@ -167,7 +176,10 @@ class HardwareChangeAnalyzer:
         # Database sources
         log_entries.append(f"⤷ Database Annotation: {self.config.source_path}/{self.config.annotation_name}")
         log_entries.append(f"⤷ Database Schemas: {self.config.databaseSchemas_path}")
-        log_entries.append(f"⤷ Output Directory: {self.config.default_dir}")
+
+        log_entries.append(f"⤷ Save hardware change analyzer log: {self.config.save_hardware_change_analyzer_log}")
+        if self.config.save_hardware_change_analyzer_log:
+            log_entries.append(f"   ⤷ Output Directory: {self.config.hardware_change_analyzer_dir}")
 
         log_entries.append("")
 

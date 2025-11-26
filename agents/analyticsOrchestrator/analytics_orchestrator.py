@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Any
 from pathlib import Path
 from datetime import datetime
+from agents.utils import validate_path
 
 @dataclass
 class AnalyticsOrchestratorConfig:
@@ -16,33 +17,57 @@ class AnalyticsOrchestratorConfig:
     source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
     annotation_name: str = "path_annotations.json"
     databaseSchemas_path: str = 'database/databaseSchemas.json'
-    default_dir: str = 'agents/shared_db/AnalyticsOrchestrator'
 
+    save_analytics_orchestrator_log: bool = False
+    analytics_orchestrator_dir: str = 'agents/shared_db/AnalyticsOrchestrator'
+    
     # HardwareChangeAnalyzer config
     enable_machine_layout_tracker: bool = False
     enable_machine_mold_pair_tracker: bool = False
-    change_tracker_output_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer"
-    machine_layout_tracker_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/UpdateMachineLayout/tracker_results"
-    machine_layout_tracker_change_log_name: str = "change_log.txt"
-    machine_mold_pair_tracker_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/UpdateMoldOverview/tracker_results"
-    machine_mold_pair_tracker_change_log_name: str = "change_log.txt"
 
+    save_hardware_change_analyzer_log: bool = True
+    hardware_change_analyzer_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer"
+
+    machine_layout_tracker_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/UpdateMachineLayout"
+    machine_layout_tracker_change_log_name: str = "change_log.txt"
+
+    machine_mold_pair_tracker_dir: str = "agents/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/UpdateMoldOverview"
+    machine_mold_pair_tracker_change_log_name: str = "change_log.txt"
+            
     # MultiLevelPerformanceAnalyzer config
     # Day level 
     record_date: Optional[str] = None
     day_save_output: bool = False
+
     # Month level
     record_month: Optional[str] = None
     month_analysis_date: Optional[str] = None
     month_save_output: bool = False
+
     # Year level
     record_year: Optional[str] = None
     year_analysis_date: Optional[str] = None
     year_save_output: bool = False
 
     # Output directory
-    multi_level_output_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelDataAnalytics"
-    
+    save_multi_level_performance_analyzer_log: bool = False
+    multi_level_performance_analyzer_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"
+
+    def __post_init__(self):
+        """Validate directory settings when saving is enabled."""
+
+        validate_path("machine_layout_tracker_dir", self.machine_layout_tracker_dir)
+        validate_path("machine_mold_pair_tracker_dir", self.machine_mold_pair_tracker_dir)
+
+        if self.save_analytics_orchestrator_log:
+            validate_path("analytics_orchestrator_dir", self.analytics_orchestrator_dir)
+
+        if self.save_hardware_change_analyzer_log:
+            validate_path("hardware_change_analyzer_dir", self.hardware_change_analyzer_dir)
+
+        if self.save_multi_level_performance_analyzer_log:
+            validate_path("multi_level_performance_analyzer_dir", self.multi_level_performance_analyzer_dir)
+
 class AnalyticsOrchestrator:
     """
     Unified interface for analytics operations.
@@ -77,7 +102,7 @@ class AnalyticsOrchestrator:
         self.config = config
         self.logger.info("Initialized AnalyticsOrchestrator")
         
-    def run_analytics(self, save_log = False):
+    def run_analytics(self):
         """
         Executes analytics modules based on enable flags:
         - If both disabled → do nothing
@@ -108,9 +133,9 @@ class AnalyticsOrchestrator:
         log_entries_str = self.update_change_logs(results)
 
         # Save log
-        if save_log:
+        if self.config.save_analytics_orchestrator_log:
             try:
-                output_dir = Path(self.config.default_dir)
+                output_dir = Path(self.config.analytics_orchestrator_dir)
                 output_dir.mkdir(parents=True, exist_ok=True)
                 log_path = output_dir / "change_log.txt"
                 with open(log_path, "a", encoding="utf-8") as log_file:
@@ -155,7 +180,8 @@ class AnalyticsOrchestrator:
             source_path=self.config.source_path,
             annotation_name=self.config.annotation_name,
             databaseSchemas_path=self.config.databaseSchemas_path,
-            default_dir=self.config.multi_level_output_dir
+            save_multi_level_performance_analyzer_log = self.config.save_multi_level_performance_analyzer_log,
+            multi_level_performance_analyzer_dir = self.config.multi_level_performance_analyzer_dir
         )
         
         # Execute analytics
@@ -188,7 +214,8 @@ class AnalyticsOrchestrator:
             source_path = self.config.source_path,
             annotation_name = self.config.annotation_name,
             databaseSchemas_path = self.config.databaseSchemas_path,
-            default_dir = self.config.change_tracker_output_dir,
+            save_hardware_change_analyzer_log = self.config.save_hardware_change_analyzer_log,
+            hardware_change_analyzer_dir = self.config.hardware_change_analyzer_dir,
             machine_layout_tracker_dir = self.config.machine_layout_tracker_dir,
             machine_layout_tracker_change_log_name = self.config.machine_layout_tracker_change_log_name,
             machine_mold_pair_tracker_dir = self.config.machine_mold_pair_tracker_dir,
@@ -249,13 +276,20 @@ class AnalyticsOrchestrator:
         # Database sources
         log_entries.append(f"⤷ Database Annotation: {self.config.source_path}/{self.config.annotation_name}")
         log_entries.append(f"⤷ Database Schemas: {self.config.databaseSchemas_path}")
-        log_entries.append(f"⤷ Default Directory: {self.config.default_dir}")
+
+        log_entries.append(f"⤷ Save hardware change analyzer log: {self.config.save_analytics_orchestrator_log}")
+        if self.config.save_analytics_orchestrator_log:
+            log_entries.append(f"   ⤷ Output Directory: {self.config.analytics_orchestrator_dir}")
 
         # Change Analysis
         if self.config.enable_hardware_change_analysis:
             log_entries.append("⤷ Change Analysis: Enable")
-            log_entries.append(f"   ⤷ Output Directory: {self.config.change_tracker_output_dir}")
-            log_entries.append("--DataChangeAnalyzer Configuration--")
+            log_entries.append(f"⤷ Save hardware change analyzer log: {self.config.save_hardware_change_analyzer_log}")
+            if self.config.save_hardware_change_analyzer_log:
+                log_entries.append(f"   ⤷ Output Directory: {self.config.hardware_change_analyzer_dir}")
+
+            log_entries.append("--HardwareChangeAnalyzer Configuration--")
+            
             # Machine layout tracker
             if self.config.enable_machine_layout_tracker:
                 log_entries.append("⤷ Machine layout tracker: Enable")
@@ -268,7 +302,7 @@ class AnalyticsOrchestrator:
             # Machine mold pair tracker
             if self.config.enable_machine_mold_pair_tracker:
                 log_entries.append("⤷ Machine mold pair tracker: Enable")
-                log_entries.append("--MachineMoldPairTrackerr Configuration--")
+                log_entries.append("--MachineMoldPairTracker Configuration--")
                 log_entries.append(f"   ⤷ Mold Overview Output Directory: {self.config.machine_mold_pair_tracker_dir}")
                 log_entries.append(f"   ⤷ Mold Overview Change Log Name: {self.config.machine_mold_pair_tracker_change_log_name}")
             else:
@@ -279,9 +313,12 @@ class AnalyticsOrchestrator:
         # Multi-Level Analysis
         if self.config.enable_multi_level_analysis:
             log_entries.append("⤷ Multi-level Analysis: Enable")
-            log_entries.append(f"   ⤷ Output Directory: {self.config.multi_level_output_dir}")
-            log_entries.append("--MultiLevelDataAnalytics Configuration--")
+            log_entries.append(f"⤷ Save multi level performance analyzer log: {self.config.save_multi_level_performance_analyzer_log}")
+            if self.config.save_multi_level_performance_analyzer_log:
+                log_entries.append(f"   ⤷ Output Directory: {self.config.multi_level_performance_analyzer_dir}")
 
+            log_entries.append("--MultiLevelPerformanceAnalyzer Configuration--")
+            
             # Day Level
             if self.config.record_date is None:
                 log_entries.append("   ⤷ Day level: Disable")
