@@ -37,18 +37,23 @@ class HardwareChangePlotter:
         """
         self.logger = logger.bind(class_="HardwareChangePlotter")
         self.config = config
+
+        self.analytics_orchestrator_config = self.config.analytics_orchestrator_config
+
         self.logger.info("Initialized HardwareChangePlotter")
 
         try:
-            self.config.analytics_orchestrator_config.enable_hardware_change_analysis = (
+            self.analytics_orchestrator_config.enable_hardware_change_analysis = (
                 self.config.enable_machine_layout_plotter 
                 or self.config.enable_machine_mold_pair_plotter),
-            self.config.analytics_orchestrator_config.enable_machine_layout_tracker = (
+            
+
+            self.analytics_orchestrator_config.change_analytic_config.enable_machine_layout_tracker = (
                 self.config.enable_machine_layout_plotter),
-            self.config.analytics_orchestrator_config.enable_machine_mold_pair_tracker = (
+            self.analytics_orchestrator_config.change_analytic_config.enable_machine_mold_pair_tracker = (
                 self.config.enable_machine_mold_pair_plotter),
 
-            orchestrator = AnalyticsOrchestrator(self.config.analytics_orchestrator_config)
+            orchestrator = AnalyticsOrchestrator(self.analytics_orchestrator_config)
             
             self.orchestrator_results, self.orchestrator_log_str = orchestrator.run_analytics()
 

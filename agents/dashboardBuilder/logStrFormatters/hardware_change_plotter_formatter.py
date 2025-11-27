@@ -8,6 +8,8 @@ def build_hardware_change_plotter_log(config: HardwareChangePlotflowConfig,
     Build formatted log string for HardwareChangePlotter run.
     Does NOT log; just returns string.
     """
+    analytics_orchestrator_config = config.analytics_orchestrator_config
+    change_analytic_config = analytics_orchestrator_config.change_config
 
     if not isinstance(results, dict):
         raise TypeError("results must be a dict")
@@ -19,15 +21,17 @@ def build_hardware_change_plotter_log(config: HardwareChangePlotflowConfig,
     log_lines.append("--Configuration--")
 
     log_lines.append("⤷ Analyzer Configuration")
-    log_lines.append(f"⤷ Database Annotation: {config.analytics_orchestrator_config.source_path}/{config.analytics_orchestrator_config.annotation_name}")
-    log_lines.append(f"⤷ Database Schemas: {config.analytics_orchestrator_config.databaseSchemas_path}")
-    log_lines.append(f"   ⤷ Save analytics orchestrator log: {config.analytics_orchestrator_config.save_analytics_orchestrator_log}")
-    if config.analytics_orchestrator_config.save_analytics_orchestrator_log:
-        log_lines.append(f"       ⤷ Output Directory: {config.analytics_orchestrator_config.analytics_orchestrator_dir}")
+    
+    log_lines.append(f"⤷ Database Annotation: {change_analytic_config.source_path}/{change_analytic_config.annotation_name}")
+    log_lines.append(f"⤷ Database Schemas: {change_analytic_config.databaseSchemas_path}")
 
-    log_lines.append(f"   ⤷ Save hardware change analyzer log: {config.analytics_orchestrator_config.save_hardware_change_analyzer_log}")
-    if config.analytics_orchestrator_config.save_hardware_change_analyzer_log:
-        log_lines.append(f"       ⤷ Output Directory: {config.analytics_orchestrator_config.hardware_change_analyzer_dir}")
+    log_lines.append(f"   ⤷ Save analytics orchestrator log: {analytics_orchestrator_config.save_analytics_orchestrator_log}")
+    if analytics_orchestrator_config.save_analytics_orchestrator_log:
+        log_lines.append(f"       ⤷ Output Directory: {analytics_orchestrator_config.analytics_orchestrator_dir}")
+
+    log_lines.append(f"   ⤷ Save hardware change analyzer log: {change_analytic_config.save_hardware_change_analyzer_log}")
+    if change_analytic_config.save_hardware_change_analyzer_log:
+        log_lines.append(f"       ⤷ Output Directory: {change_analytic_config.hardware_change_analyzer_dir}")
 
     log_lines.append("⤷ Plotter Configuration")
     log_lines.append(f"   ⤷ Save hardware change plotter log: {config.save_hardware_change_plotter_log}")
@@ -41,8 +45,8 @@ def build_hardware_change_plotter_log(config: HardwareChangePlotflowConfig,
     if getattr(config, "enable_machine_layout_plotter", False):
         log_lines.append("⤷ Machine layout plotter: Enable")
         log_lines.append("--MachineLayoutPlotter Configuration--")
-        log_lines.append(f"   ⤷ Tracker Output Dir: {config.analytics_orchestrator_config.machine_layout_tracker_dir}")
-        log_lines.append(f"   ⤷ Change Log Name: {config.analytics_orchestrator_config.machine_layout_tracker_change_log_name}")
+        log_lines.append(f"   ⤷ Tracker Output Dir: {change_analytic_config.machine_layout_tracker_result_dir}")
+        log_lines.append(f"   ⤷ Change Log Name: {change_analytic_config.machine_layout_tracker_change_log_name}")
         log_lines.append(f"   ⤷ Plotter Output Dir: {config.machine_layout_plotter_result_dir}")
         log_lines.append(f"   ⤷ Viz Config: {config.machine_layout_visualization_config_path}")
     else:
@@ -52,8 +56,8 @@ def build_hardware_change_plotter_log(config: HardwareChangePlotflowConfig,
     if getattr(config, "enable_machine_mold_pair_plotter", False):
         log_lines.append("⤷ Machine mold pair plotter: Enable")
         log_lines.append("--MachineMoldPairPlotter Configuration--")
-        log_lines.append(f"   ⤷ Tracker Output Dir: {config.analytics_orchestrator_config.machine_mold_pair_tracker_dir}")
-        log_lines.append(f"   ⤷ Change Log Name: {config.analytics_orchestrator_config.machine_mold_pair_tracker_change_log_name}")
+        log_lines.append(f"   ⤷ Tracker Output Dir: {change_analytic_config.machine_mold_pair_tracker_result_dir}")
+        log_lines.append(f"   ⤷ Change Log Name: {change_analytic_config.machine_mold_pair_tracker_change_log_name}")
         log_lines.append(f"   ⤷ Plotter Output Dir: {config.machine_mold_pair_plotter_result_dir}")
         log_lines.append(f"   ⤷ Viz Config: {config.machine_mold_pair_visualization_config_path}")
     else:

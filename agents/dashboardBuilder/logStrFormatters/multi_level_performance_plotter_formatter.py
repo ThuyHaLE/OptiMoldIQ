@@ -9,6 +9,9 @@ def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig,
     Does NOT log; just returns string.
     """
 
+    analytics_orchestrator_config = config.analytics_orchestrator_config
+    performance_analytic_config = analytics_orchestrator_config.performance_config
+
     if not isinstance(results, dict):
         raise TypeError("results must be a dict")
 
@@ -19,15 +22,17 @@ def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig,
     log_lines.append("--Configuration--")
 
     log_lines.append("⤷ Analyzer Configuration")
-    log_lines.append(f"⤷ Database Annotation: {config.analytics_orchestrator_config.source_path}/{config.analytics_orchestrator_config.annotation_name}")
-    log_lines.append(f"⤷ Database Schemas: {config.analytics_orchestrator_config.databaseSchemas_path}")
-    log_lines.append(f"   ⤷ Save analytics orchestrator log: {config.analytics_orchestrator_config.save_analytics_orchestrator_log}")
-    if config.analytics_orchestrator_config.save_analytics_orchestrator_log:
-        log_lines.append(f"       ⤷ Output Directory: {config.analytics_orchestrator_config.analytics_orchestrator_dir}")
+    
+    log_lines.append(f"⤷ Database Annotation: {performance_analytic_config.source_path}/{performance_analytic_config.annotation_name}")
+    log_lines.append(f"⤷ Database Schemas: {performance_analytic_config.databaseSchemas_path}")
+    
+    log_lines.append(f"   ⤷ Save analytics orchestrator log: {analytics_orchestrator_config.save_analytics_orchestrator_log}")
+    if analytics_orchestrator_config.save_analytics_orchestrator_log:
+        log_lines.append(f"       ⤷ Output Directory: {analytics_orchestrator_config.analytics_orchestrator_dir}")
 
-    log_lines.append(f"   ⤷ Save multi level performance analyzer log: {config.analytics_orchestrator_config.save_multi_level_performance_analyzer_log}")
-    if config.analytics_orchestrator_config.save_multi_level_performance_analyzer_log:
-        log_lines.append(f"       ⤷ Output Directory: {config.analytics_orchestrator_config.multi_level_performance_analyzer_dir}")
+    log_lines.append(f"   ⤷ Save multi level performance analyzer log: {performance_analytic_config.save_multi_level_performance_analyzer_log}")
+    if performance_analytic_config.save_multi_level_performance_analyzer_log:
+        log_lines.append(f"       ⤷ Output Directory: {performance_analytic_config.multi_level_performance_analyzer_dir}")
 
     log_lines.append("⤷ Plotter Configuration")
     log_lines.append(f"   ⤷ Save multi level performance plotter log: {config.save_multi_level_performance_plotter_log}")
@@ -38,30 +43,30 @@ def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig,
     log_lines.append(f"⤷ Max Workers: {config.max_workers or 'Auto'}")
 
     # ---------- Day-level ----------
-    if config.analytics_orchestrator_config.record_date:
+    if performance_analytic_config.record_date:
         log_lines.append("⤷ Day-level performance plotter: Enable")
         log_lines.append("--DayLevelDataPlotter Configuration--")
-        log_lines.append(f"   ⤷ Plotter for: {config.analytics_orchestrator_config.record_date}")
-        log_lines.append(f"   ⤷ Used plotter config: {config.day_level_visualization_config_path}")
+        log_lines.append(f"   ⤷ Plotter for: {performance_analytic_config.record_date}")
+        log_lines.append(f"   ⤷ Used plotter config: {performance_analytic_config.day_level_visualization_config_path}")
     else:
         log_lines.append("⤷ Day-level performance plotter: Disable")
 
     # ---------- Month-level ----------
-    if config.analytics_orchestrator_config.record_month:
+    if performance_analytic_config.record_month:
         log_lines.append("⤷ Month-level performance plotter: Enable")
         log_lines.append("--MonthLevelDataPlotter Configuration--")
-        log_lines.append(f"   ⤷ Plotter for: {config.analytics_orchestrator_config.record_month}")
-        log_lines.append(f"   ⤷ Analysis date: {config.analytics_orchestrator_config.month_analysis_date}")
+        log_lines.append(f"   ⤷ Plotter for: {performance_analytic_config.record_month}")
+        log_lines.append(f"   ⤷ Analysis date: {performance_analytic_config.month_analysis_date}")
         log_lines.append(f"   ⤷ Used plotter config: {config.month_level_visualization_config_path or 'Default'}")
     else:
         log_lines.append("⤷ Month-level performance plotter: Disable")
 
     # ---------- Year-level ----------
-    if config.analytics_orchestrator_config.record_year:
+    if performance_analytic_config.record_year:
         log_lines.append("⤷ Year-level performance plotter: Enable")
         log_lines.append("--YearLevelDataPlotter Configuration--")
-        log_lines.append(f"   ⤷ Plotter for: {config.analytics_orchestrator_config.record_year}")
-        log_lines.append(f"   ⤷ Analysis date: {config.analytics_orchestrator_config.year_analysis_date}")
+        log_lines.append(f"   ⤷ Plotter for: {performance_analytic_config.record_year}")
+        log_lines.append(f"   ⤷ Analysis date: {performance_analytic_config.year_analysis_date}")
         log_lines.append(f"   ⤷ Used plotter config: {config.year_level_visualization_config_path or 'Default'}")
     else:
         log_lines.append("⤷ Year-level performance plotter: Disable")
