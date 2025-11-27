@@ -2,8 +2,8 @@ from loguru import logger
 from dataclasses import dataclass
 from typing import Dict, Optional, Any
 from pathlib import Path
-from datetime import datetime
 from agents.utils import validate_path
+from agents.analyticsOrchestrator.logStrFormatters.analytics_orchestrator_formatter import build_analytics_orchestrator_log
 
 @dataclass
 class AnalyticsOrchestratorConfig:
@@ -130,7 +130,7 @@ class AnalyticsOrchestrator:
                 self.process_multi_level_analytics,
                 "multi-level analytics")
         
-        log_entries_str = self.update_change_logs(results)
+        log_entries_str = build_analytics_orchestrator_log(self.config, results)
 
         # Save log
         if self.config.save_analytics_orchestrator_log:
@@ -254,129 +254,3 @@ class AnalyticsOrchestrator:
         except Exception as e:
             self.logger.error("✗ {} failed: {}", component_name, e)
             return None
-        
-    def update_change_logs(self, results: Dict[str, Optional[Dict]]):
-        """
-        Update change_log.txt with run configuration and processing results.
-        Clean, consistent, and corrected version.
-        """
-
-        timestamp_now = datetime.now()
-        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
-
-        log_entries = []
-
-        # HEADER
-        log_entries.append(f"[{timestamp_str}] AnalyticsOrchestrator Run")
-        log_entries.append("")
-
-        # CONFIGURATION
-        log_entries.append("--Configuration--")
-
-        # Database sources
-        log_entries.append(f"⤷ Database Annotation: {self.config.source_path}/{self.config.annotation_name}")
-        log_entries.append(f"⤷ Database Schemas: {self.config.databaseSchemas_path}")
-
-        log_entries.append(f"⤷ Save hardware change analyzer log: {self.config.save_analytics_orchestrator_log}")
-        if self.config.save_analytics_orchestrator_log:
-            log_entries.append(f"   ⤷ Output Directory: {self.config.analytics_orchestrator_dir}")
-
-        # Change Analysis
-        if self.config.enable_hardware_change_analysis:
-            log_entries.append("⤷ Change Analysis: Enable")
-            log_entries.append(f"⤷ Save hardware change analyzer log: {self.config.save_hardware_change_analyzer_log}")
-            if self.config.save_hardware_change_analyzer_log:
-                log_entries.append(f"   ⤷ Output Directory: {self.config.hardware_change_analyzer_dir}")
-
-            log_entries.append("--HardwareChangeAnalyzer Configuration--")
-            
-            # Machine layout tracker
-            if self.config.enable_machine_layout_tracker:
-                log_entries.append("⤷ Machine layout tracker: Enable")
-                log_entries.append("--MachineLayoutTracker Configuration--")
-                log_entries.append(f"   ⤷ Machine Layout Output Directory: {self.config.machine_layout_tracker_dir}")
-                log_entries.append(f"   ⤷ Machine Layout Change Log Name: {self.config.machine_layout_tracker_change_log_name}")
-            else:
-                log_entries.append("⤷ Machine layout tracker: Disable")
-
-            # Machine mold pair tracker
-            if self.config.enable_machine_mold_pair_tracker:
-                log_entries.append("⤷ Machine mold pair tracker: Enable")
-                log_entries.append("--MachineMoldPairTracker Configuration--")
-                log_entries.append(f"   ⤷ Mold Overview Output Directory: {self.config.machine_mold_pair_tracker_dir}")
-                log_entries.append(f"   ⤷ Mold Overview Change Log Name: {self.config.machine_mold_pair_tracker_change_log_name}")
-            else:
-                log_entries.append("⤷ Machine mold pair tracker: Disable")
-        else:
-            log_entries.append("⤷ Change Analysis: Disable")
-
-        # Multi-Level Analysis
-        if self.config.enable_multi_level_analysis:
-            log_entries.append("⤷ Multi-level Analysis: Enable")
-            log_entries.append(f"⤷ Save multi level performance analyzer log: {self.config.save_multi_level_performance_analyzer_log}")
-            if self.config.save_multi_level_performance_analyzer_log:
-                log_entries.append(f"   ⤷ Output Directory: {self.config.multi_level_performance_analyzer_dir}")
-
-            log_entries.append("--MultiLevelPerformanceAnalyzer Configuration--")
-            
-            # Day Level
-            if self.config.record_date is None:
-                log_entries.append("   ⤷ Day level: Disable")
-            else:
-                log_entries.append("   ⤷ Day level")
-                log_entries.append(f"      ⤷ Record Date: {self.config.record_date}")
-                log_entries.append(f"      ⤷ Save Output: {self.config.day_save_output}")
-
-            # Month Level
-            if self.config.record_month is None:
-                log_entries.append("   ⤷ Month level: Disable")
-            else:
-                log_entries.append("   ⤷ Month level")
-                log_entries.append(f"      ⤷ Record Month: {self.config.record_month}")
-                log_entries.append(f"      ⤷ Analysis Date: {self.config.month_analysis_date}")
-                log_entries.append(f"      ⤷ Save Output: {self.config.month_save_output}")
-
-            # Year Level
-            if self.config.record_year is None:
-                log_entries.append("   ⤷ Year level: Disable")
-            else:
-                log_entries.append("   ⤷ Year level")
-                log_entries.append(f"      ⤷ Record Year: {self.config.record_year}")
-                log_entries.append(f"      ⤷ Analysis Date: {self.config.year_analysis_date}")
-                log_entries.append(f"      ⤷ Save Output: {self.config.year_save_output}")
-
-        else:
-            log_entries.append("⤷ Multi-level Analysis: Disable")
-
-        log_entries.append("")
-
-        # PROCESSING SUMMARY
-        log_entries.append("--Processing Summary--")
-
-        # Skipped tasks
-        skipped_components = [k for k, v in results.items() if v is None]
-        if skipped_components:
-            skipped_info = ", ".join(skipped_components)
-            log_entries.append("⤷ Skipped")
-            log_entries.append(f"   ⤷ {skipped_info}")
-            self.logger.info("  ⊘ Skipped: {}", skipped_info)
-
-        # Completed tasks
-        completed_components = [k for k, v in results.items() if v is not None]
-        completed_info = ", ".join(completed_components) if completed_components else "None"
-
-        log_entries.append("⤷ Completed")
-        log_entries.append(f"   ⤷ {completed_info}")
-        self.logger.info("  ✓ Completed: {}", completed_info)
-
-        # Detailed results
-        if completed_components:
-            log_entries.append("--Component Details--")
-            for component in completed_components:
-                log_entries.append(f"⤷ {component}")
-                component_details = results[component]["log_entries_str"]
-                log_entries.append(f"      ⤷ Log Entries:\n{component_details}" if component_details else "None")
-
-        log_entries.append("")
-
-        return "\n".join(log_entries)

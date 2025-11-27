@@ -1,13 +1,14 @@
 from loguru import logger
 from dataclasses import dataclass
 from typing import Dict, Optional, Any
+from pathlib import Path
+from agents.utils import validate_path
 
 from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.day_level_data_processor import DayLevelDataProcessor
 from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.month_level_data_processor import MonthLevelDataProcessor
 from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.year_level_data_processor import YearLevelDataProcessor
-from pathlib import Path
-from datetime import datetime
-from agents.utils import validate_path
+
+from agents.analyticsOrchestrator.logStrFormatters.multi_level_performance_analyzer_formatter import build_multi_level_performance_analyzer_log
 
 @dataclass
 class PerformanceAnalyticflowConfig:
@@ -109,7 +110,7 @@ class MultiLevelPerformanceAnalyzer:
             ) if self.config.record_year else None
         }
         
-        log_entries_str = self.update_change_logs(results)
+        log_entries_str = build_multi_level_performance_analyzer_log(self.config, results)
 
         # Save log
         if self.config.save_multi_level_performance_analyzer_log:
@@ -124,104 +125,6 @@ class MultiLevelPerformanceAnalyzer:
                 self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
 
         return results, log_entries_str
-    
-    def update_change_logs(self, results: Dict[str, Optional[Dict]]):
-        """
-        Update change log file with processing results and configuration.
-        
-        Args:
-            results: Dictionary containing processing results for each level
-        """
-        timestamp_now = datetime.now()
-        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
-
-        log_entries = []
-
-        # Prepare log entries
-        log_entries.append(f"[{timestamp_str}] MultiLevelPerformanceAnalyzer Run")
-        log_entries.append("")
-
-        # Configuration section
-        log_entries.append("--Configuration--")
-
-        log_entries.append(f"⤷ Database Annotation: {self.config.source_path}/{self.config.annotation_name}")
-        log_entries.append(f"⤷ Database Schemas: {self.config.databaseSchemas_path}")
-        log_entries.append(f"⤷ Save multi-level performance analyzer log: {self.config.save_multi_level_performance_analyzer_log}")
-        if self.config.save_multi_level_performance_analyzer_log:
-            log_entries.append(f"   ⤷ Output Directory: {self.config.multi_level_performance_analyzer_dir}")
-
-        if self.config.record_date is not None:
-            log_entries.append(f"Day Level:")
-            log_entries.append(f"⤷ Record Date: {self.config.record_date}")
-            log_entries.append(f"⤷ Save output: {self.config.day_save_output}")
-        if self.config.record_month is not None:
-            log_entries.append(f"Month Level:")
-            log_entries.append(f"⤷ Record Month: {self.config.record_month}")
-            log_entries.append(f"⤷ Analysis Date: {self.config.month_analysis_date or 'Not set'}")
-            log_entries.append(f"⤷ Save output: {self.config.month_save_output}")
-        if self.config.record_year is not None:
-            log_entries.append(f"Year Level:")
-            log_entries.append(f"⤷ Record Year: {self.config.record_year or 'Not set'}")
-            log_entries.append(f"⤷ Analysis Date: {self.config.year_analysis_date or 'Not set'}")
-            log_entries.append(f"⤷ Save output: {self.config.year_save_output}")
-
-        log_entries.append("")
-        
-        # Processing summary
-        log_entries_dict = self._log_processing_summary(results)
-        
-        log_entries.append("--Processing Summary--")
-        
-        # Skipped levels
-        if 'Skipped' in log_entries_dict['Processing Summary']:
-            log_entries.append(f"⤷ Skipped: {log_entries_dict['Processing Summary']['Skipped']}")
-        
-        # Completed levels
-        if 'Completed' in log_entries_dict['Processing Summary']:
-            completed_str = log_entries_dict['Processing Summary']['Completed']
-            log_entries.append(f"⤷ Completed: {completed_str}")
-        log_entries.append("")
-        
-        # Detailed results
-        if log_entries_dict.get('Details'):
-            log_entries.append("--Details--")
-            for level_name, level_result in log_entries_dict['Details'].items():
-                log_entries.append(f"⤷ {level_name}:")
-                log_entries.append(''.join(level_result))
-            log_entries.append("")
-
-        return "\n".join(log_entries)
-    
-    def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
-        """Log summary of processing results."""
-
-        log_entries = {
-            'Processing Summary': {},
-            'Details': {}
-        }
-
-        self.logger.info("Processing Summary:")
-        
-        skipped = [k for k, v in results.items() if v is None]
-
-        if skipped:
-            skipped_info = ", ".join(skipped)
-            self.logger.info("  ⊘ Skipped: {}", skipped_info)
-            log_entries['Processing Summary']['Skipped'] = skipped_info
-
-        completed = [k for k, v in results.items() if v is not None]
-        completed_info = ", ".join(completed) if completed else "None"
-    
-        self.logger.info("  ✓ Completed: {}", completed_info)
-        log_entries['Processing Summary']['Completed'] = completed_info
-        
-        for lv in completed:
-            if results[lv]["log_entries"] is not None:
-                log_entries['Details'][lv] = results[lv]["log_entries"]
-            else: 
-                log_entries['Details'][lv] = [f"Only process the data without saving any results.\n-{lv}_summary:\n", results[lv]['analysis_summary']]
-
-        return log_entries
 
     def day_level_process(self) -> Dict[str, Any]:
         """

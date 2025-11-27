@@ -7,11 +7,12 @@ import os
 import time
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
-from datetime import datetime
 from agents.utils import validate_path
 
 from agents.analyticsOrchestrator.hardwareChangeAnalyzer.machine_layout_tracker import MachineLayoutTracker
 from agents.analyticsOrchestrator.hardwareChangeAnalyzer.machine_mold_pair_tracker import MachineMoldPairTracker
+
+from agents.analyticsOrchestrator.logStrFormatters.hardware_change_analyzer_formatter import build_hardware_change_analyzer_log
 
 @dataclass
 class ChangeAnalyticflowConfig:
@@ -138,7 +139,7 @@ class HardwareChangeAnalyzer:
 
         self.logger.info("✅ Analysis completed in {:.2f} seconds", elapsed_time)
 
-        log_entries_str = self.update_change_logs(results)
+        log_entries_str = build_hardware_change_analyzer_log(self.config, results)
 
         # Save log
         if self.config.save_hardware_change_analyzer_log:
@@ -153,109 +154,6 @@ class HardwareChangeAnalyzer:
                 self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
 
         return results, log_entries_str
-
-    def update_change_logs(self, results: Dict[str, Optional[Dict]]):
-        """
-        Update change log file with processing results and configuration.
-        
-        Args:
-            results: Dictionary containing processing results for each level
-        """
-        timestamp_now = datetime.now()
-        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
-        
-        log_entries = []
-
-        # Prepare log entries
-        log_entries.append(f"[{timestamp_str}] HardwareChangeAnalyzer Run")
-        log_entries.append("")
-
-        # Configuration section
-        log_entries.append("--Configuration--")
-
-        # Database sources
-        log_entries.append(f"⤷ Database Annotation: {self.config.source_path}/{self.config.annotation_name}")
-        log_entries.append(f"⤷ Database Schemas: {self.config.databaseSchemas_path}")
-
-        log_entries.append(f"⤷ Save hardware change analyzer log: {self.config.save_hardware_change_analyzer_log}")
-        if self.config.save_hardware_change_analyzer_log:
-            log_entries.append(f"   ⤷ Output Directory: {self.config.hardware_change_analyzer_dir}")
-
-        log_entries.append("")
-
-        # Machine layout tracker
-        if self.config.enable_machine_layout_tracker:
-            log_entries.append("⤷ Machine layout tracker: Enable")
-            log_entries.append("--MachineLayoutTracker Configuration--")
-            log_entries.append(f"   ⤷ Machine Layout Output Directory: {self.config.machine_layout_tracker_dir}")
-            log_entries.append(f"   ⤷ Machine Layout Change Log Name: {self.config.machine_layout_tracker_change_log_name}")
-        else:
-            log_entries.append("⤷ Machine layout tracker: Disable")
-
-        # Machine mold pair tracker
-        if self.config.enable_machine_mold_pair_tracker:
-            log_entries.append("⤷ Machine mold pair tracker: Enable")
-            log_entries.append("--MachineMoldPairTrackerr Configuration--")
-            log_entries.append(f"   ⤷ Mold Overview Output Directory: {self.config.machine_mold_pair_tracker_dir}")
-            log_entries.append(f"   ⤷ Mold Overview Change Log Name: {self.config.machine_mold_pair_tracker_change_log_name}")
-        else:
-            log_entries.append("⤷ Machine mold pair tracker: Disable")
-
-        # Processing summary
-        log_entries_dict = self._log_processing_summary(results)
-        
-        log_entries.append("--Processing Summary--")
-        
-        # Skipped levels
-        if 'Skipped' in log_entries_dict['Processing Summary']:
-            log_entries.append(f"⤷ Skipped: {log_entries_dict['Processing Summary']['Skipped']}")
-        
-        # Completed levels
-        if 'Completed' in log_entries_dict['Processing Summary']:
-            completed_str = log_entries_dict['Processing Summary']['Completed']
-            log_entries.append(f"⤷ Completed: {completed_str}")
-        log_entries.append("")
-        
-        # Detailed results
-        if log_entries_dict.get('Details'):
-            log_entries.append("--Details--")
-            for level_name, level_result in log_entries_dict['Details'].items():
-                log_entries.append(f"⤷ {level_name}:")
-                log_entries.append(''.join(level_result))
-            log_entries.append("")
-
-        return "\n".join(log_entries)
-
-    def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
-        """Log summary of processing results."""
-
-        log_entries = {
-            'Processing Summary': {},
-            'Details': {}
-        }
-
-        self.logger.info("Processing Summary:")
-        
-        skipped = [k for k, v in results.items() if v is None]
-
-        if skipped:
-            skipped_info = ", ".join(skipped)
-            self.logger.info("  ⊘ Skipped: {}", skipped_info)
-            log_entries['Processing Summary']['Skipped'] = skipped_info
-
-        completed = [k for k, v in results.items() if v is not None]
-        completed_info = ", ".join(completed) if completed else "None"
-    
-        self.logger.info("  ✓ Completed: {}", completed_info)
-        log_entries['Processing Summary']['Completed'] = completed_info
-        
-        for lv in completed:
-            if results[lv]["log_entries"] is not None:
-                log_entries['Details'][lv] = results[lv]["log_entries"]
-            else: 
-                log_entries['Details'][lv] = "No new changes detected."
-
-        return log_entries
     
     def analyze_layout_changes(self, save_output = False):
         """Analyze layout changes and update if necessary."""
