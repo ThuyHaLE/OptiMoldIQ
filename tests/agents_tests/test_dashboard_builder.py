@@ -23,7 +23,7 @@ def test_dashboard_builder():
         databaseSchemas_path = 'database/databaseSchemas.json',
 
         save_multi_level_performance_analyzer_log = True,
-        multi_level_performance_analyzer_dir = "tests/shared_db/DashboardBuilder/MultiLevelPerformanceAnalyzer", 
+        multi_level_performance_analyzer_dir = "tests/shared_db/DashboardBuilder/MultiLevelPerformancePlotter", 
         )
 
     change_analytic_config = ChangeAnalyticflowConfig(
@@ -32,7 +32,7 @@ def test_dashboard_builder():
         annotation_name = "path_annotations.json",
         databaseSchemas_path = "tests/mock_database/databaseSchemas.json",
         
-        save_hardware_change_analyzer_log = True,
+        save_hardware_change_analyzer_log = False,
         hardware_change_analyzer_dir = "tests/shared_db/DashboardBuilder/HardwareChangeAnalyzer",
 
         machine_layout_tracker_dir = "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineLayoutTracker",
