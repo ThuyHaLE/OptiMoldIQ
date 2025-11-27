@@ -47,7 +47,7 @@ def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig,
         log_lines.append("⤷ Day-level performance plotter: Enable")
         log_lines.append("--DayLevelDataPlotter Configuration--")
         log_lines.append(f"   ⤷ Plotter for: {performance_analytic_config.record_date}")
-        log_lines.append(f"   ⤷ Used plotter config: {performance_analytic_config.day_level_visualization_config_path}")
+        log_lines.append(f"   ⤷ Used plotter config: {config.day_level_visualization_config_path}")
     else:
         log_lines.append("⤷ Day-level performance plotter: Disable")
 
