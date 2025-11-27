@@ -48,9 +48,9 @@ class HardwareChangePlotter:
                 or self.config.enable_machine_mold_pair_plotter),
             
 
-            self.analytics_orchestrator_config.change_analytic_config.enable_machine_layout_tracker = (
+            self.analytics_orchestrator_config.change_config.enable_machine_layout_tracker = (
                 self.config.enable_machine_layout_plotter),
-            self.analytics_orchestrator_config.change_analytic_config.enable_machine_mold_pair_tracker = (
+            self.analytics_orchestrator_config.change_config.enable_machine_mold_pair_tracker = (
                 self.config.enable_machine_mold_pair_plotter),
 
             orchestrator = AnalyticsOrchestrator(self.analytics_orchestrator_config)
