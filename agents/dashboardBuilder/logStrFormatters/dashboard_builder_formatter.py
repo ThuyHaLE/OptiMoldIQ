@@ -2,7 +2,6 @@ from typing import Dict, Optional, Any
 from datetime import datetime
 from agents.dashboardBuilder.dashboardBuilderConfigs.dashboard_builder_config import DashboardBuilderConfig
 
-
 def build_dashboard_builder_log(config: DashboardBuilderConfig, 
                                 results: Dict[str, Optional[Dict[str, Any]]]) -> str:
     """
@@ -17,90 +16,93 @@ def build_dashboard_builder_log(config: DashboardBuilderConfig,
 
     # ---------- Configuration ----------
     log_lines.append("--Configuration--")
-    log_lines.append(f"⤷ Database Annotation: {config.source_path}/{config.annotation_name}")
-    log_lines.append(f"⤷ Database Schemas: {config.databaseSchemas_path}")
     log_lines.append(f"⤷ Save dashboard builder log: {config.save_dashboard_builder_log}")
     if getattr(config, "save_dashboard_builder_log", False):
         log_lines.append(f"   ⤷ Output Directory: {config.dashboard_builder_dir}")
 
-    # Processing optimization
-    log_lines.append(f"⤷ Parallel Processing: {config.enable_parallel}")
-    if config.enable_parallel:
-        log_lines.append(f"   ⤷ Max Workers: {config.max_workers if config.max_workers else 'Auto-detect'}")
-
     # ---------- Hardware Change Plotter ----------
     if getattr(config, "enable_hardware_change_plotter", False):
         log_lines.append("⤷ Hardware Change Plotter: Enable")
-        log_lines.append(f"   ⤷ Save hardware change plotter log: {config.save_hardware_change_plotter_log}")
-        if getattr(config, "save_hardware_change_plotter_log", False):
-            log_lines.append(f"       ⤷ Output Directory: {config.hardware_change_plotter_dir}")
+        
+        hw_config = config.hardware_change_plotflow_config
+        analytics_config = hw_config.analytics_orchestrator_config
+        change_config = analytics_config.change_config
+        
+        log_lines.append(f"⤷ Database Annotation: {change_config.source_path}/{change_config.annotation_name}")
+        log_lines.append(f"⤷ Database Schemas: {change_config.databaseSchemas_path}")
+        log_lines.append(f"   ⤷ Save hardware change plotter log: {hw_config.save_hardware_change_plotter_log}")
+        if getattr(hw_config, "save_hardware_change_plotter_log", False):
+            log_lines.append(f"       ⤷ Output Directory: {hw_config.hardware_change_plotter_dir}")
 
         log_lines.append("--HardwareChangePlotter Configuration--")
         # Machine layout plotter
-        if getattr(config, "enable_machine_layout_plotter", False):
+        if getattr(hw_config, "enable_machine_layout_plotter", False):
             log_lines.append("   ⤷ Machine layout plotter: Enable")
-            log_lines.append(f"       ⤷ Result Directory: {config.machine_layout_plotter_result_dir}")
-            log_lines.append(f"       ⤷ Visualization Config: {config.machine_layout_visualization_config_path or 'Default'}")
+            log_lines.append(f"       ⤷ Result Directory: {hw_config.machine_layout_plotter_result_dir}")
+            log_lines.append(f"       ⤷ Visualization Config: {hw_config.machine_layout_visualization_config_path or 'Default'}")
         else:
             log_lines.append("   ⤷ Machine layout plotter: Disable")
         
         # Machine mold pair plotter
-        if getattr(config, "enable_machine_mold_pair_plotter", False):
+        if getattr(hw_config, "enable_machine_mold_pair_plotter", False):
             log_lines.append("   ⤷ Machine mold pair plotter: Enable")
-            log_lines.append(f"       ⤷ Result Directory: {config.machine_mold_pair_plotter_result_dir}")
-            log_lines.append(f"       ⤷ Visualization Config: {config.machine_mold_pair_visualization_config_path or 'Default'}")
+            log_lines.append(f"       ⤷ Result Directory: {hw_config.machine_mold_pair_plotter_result_dir}")
+            log_lines.append(f"       ⤷ Visualization Config: {hw_config.machine_mold_pair_visualization_config_path or 'Default'}")
         else:
             log_lines.append("   ⤷ Machine mold pair plotter: Disable")
-
-        # AnalyticsOrchestrator - HardwareChangeAnalyzer
-        log_lines.append("--HardwareChangeAnalyzer Configuration--")
-        log_lines.append(f"   ⤷ Save hardware change analyzer log: {config.save_hardware_change_analyzer_log}")
-        if getattr(config, "save_hardware_change_analyzer_log", False):
-            log_lines.append(f"       ⤷ Output Directory: {config.hardware_change_analyzer_dir}")
-        log_lines.append(f"   ⤷ Machine layout tracker directory: {config.machine_layout_tracker_result_dir}")
-        log_lines.append(f"   ⤷ Machine mold pair tracker directory: {config.machine_mold_pair_tracker_result_dir}")
+        
+        # Parallel processing
+        log_lines.append(f"   ⤷ Parallel Processing: {'Enable' if hw_config.enable_parallel else 'Disable'}")
+        if hw_config.enable_parallel:
+            log_lines.append(f"       ⤷ Max Workers: {hw_config.max_workers or 'Auto-detect'}")
     else:
         log_lines.append("⤷ Hardware Change Plotter: Disable")
 
     # ---------- Multi-Level Performance Plotter ----------
     if getattr(config, "enable_multi_level_plotter", False):
         log_lines.append("⤷ Multi-level Performance Plotter: Enable")
-        log_lines.append(f"   ⤷ Save multi-level performance plotter log: {config.save_multi_level_performance_plotter_log}")
-        if getattr(config, "save_multi_level_performance_plotter_log", False):
-            log_lines.append(f"       ⤷ Output Directory: {config.multi_level_performance_plotter_dir}")
+        
+        perf_config = config.performance_plotflow_config
+        analytics_config = perf_config.analytics_orchestrator_config
+        performance_config = analytics_config.performance_config
+        
+        log_lines.append(f"⤷ Database Annotation: {performance_config.source_path}/{performance_config.annotation_name}")
+        log_lines.append(f"⤷ Database Schemas: {performance_config.databaseSchemas_path}")
+        log_lines.append(f"   ⤷ Save multi-level performance plotter log: {perf_config.save_multi_level_performance_plotter_log}")
+        if getattr(perf_config, "save_multi_level_performance_plotter_log", False):
+            log_lines.append(f"       ⤷ Output Directory: {perf_config.multi_level_performance_plotter_dir}")
 
         log_lines.append("--MultiLevelPerformancePlotter Configuration--")
         # Day level
-        if getattr(config, "record_date", None):
+        if getattr(performance_config, "record_date", None):
             log_lines.append("   ⤷ Day level")
-            log_lines.append(f"       ⤷ Record Date: {config.record_date}")
-            log_lines.append(f"       ⤷ Visualization Config: {config.day_level_visualization_config_path or 'Default'}")
+            log_lines.append(f"       ⤷ Record Date: {performance_config.record_date}")
+            log_lines.append(f"       ⤷ Visualization Config: {perf_config.day_level_visualization_config_path or 'Default'}")
         else:
             log_lines.append("   ⤷ Day level: Disable")
         
         # Month level
-        if getattr(config, "record_month", None):
+        if getattr(performance_config, "record_month", None):
             log_lines.append("   ⤷ Month level")
-            log_lines.append(f"       ⤷ Record Month: {config.record_month}")
-            log_lines.append(f"       ⤷ Analysis Date: {getattr(config, 'month_analysis_date', 'Not set')}")
-            log_lines.append(f"       ⤷ Visualization Config: {config.month_level_visualization_config_path or 'Default'}")
+            log_lines.append(f"       ⤷ Record Month: {performance_config.record_month}")
+            log_lines.append(f"       ⤷ Analysis Date: {getattr(performance_config, 'month_analysis_date', 'Not set')}")
+            log_lines.append(f"       ⤷ Visualization Config: {perf_config.month_level_visualization_config_path or 'Default'}")
         else:
             log_lines.append("   ⤷ Month level: Disable")
         
         # Year level
-        if getattr(config, "record_year", None):
+        if getattr(performance_config, "record_year", None):
             log_lines.append("   ⤷ Year level")
-            log_lines.append(f"       ⤷ Record Year: {config.record_year}")
-            log_lines.append(f"       ⤷ Analysis Date: {getattr(config, 'year_analysis_date', 'Not set')}")
-            log_lines.append(f"       ⤷ Visualization Config: {config.year_level_visualization_config_path or 'Default'}")
+            log_lines.append(f"       ⤷ Record Year: {performance_config.record_year}")
+            log_lines.append(f"       ⤷ Analysis Date: {getattr(performance_config, 'year_analysis_date', 'Not set')}")
+            log_lines.append(f"       ⤷ Visualization Config: {perf_config.year_level_visualization_config_path or 'Default'}")
         else:
             log_lines.append("   ⤷ Year level: Disable")
-
-        # AnalyticsOrchestrator - MultiLevelPerformanceAnalyzer
-        log_lines.append("--MultiLevelPerformanceAnalyzer Configuration--")
-        log_lines.append(f"   ⤷ Save multi-level performance analyzer log: {config.save_multi_level_performance_analyzer_log}")
-        if getattr(config, "save_multi_level_performance_analyzer_log", False):
-            log_lines.append(f"       ⤷ Output Directory: {config.multi_level_performance_analyzer_dir}")
+        
+        # Parallel processing
+        log_lines.append(f"   ⤷ Parallel Processing: {'Enable' if perf_config.enable_parallel else 'Disable'}")
+        if perf_config.enable_parallel:
+            log_lines.append(f"       ⤷ Max Workers: {perf_config.max_workers or 'Auto-detect'}")
     else:
         log_lines.append("⤷ Multi-level Performance Plotter: Disable")
 

@@ -139,7 +139,7 @@ class MultiLevelPerformancePlotter:
         return {"status": "completed", 
                 "result": {
                     "day_level_processor": day_level_results['log_entries'], 
-                    "day_level_plotter": "".join(day_level_log_entries)
+                    "day_level_plotter": "".join(day_level_log_entries) if day_level_log_entries else None
                     }
                 }
 
@@ -175,7 +175,7 @@ class MultiLevelPerformancePlotter:
         return {"status": "completed", 
                 "result": {
                     "month_level_processor": month_level_results['log_entries'], 
-                    "month_level_plotter": "".join(month_level_log_entries)
+                    "month_level_plotter": "".join(month_level_log_entries) if month_level_log_entries else None
                     }
                 }
     
@@ -211,7 +211,7 @@ class MultiLevelPerformancePlotter:
         return {"status": "completed", 
                 "result": {
                     "year_level_processor": year_level_results['log_entries'], 
-                    "year_level_plotter": "".join(year_level_log_entries)
+                    "year_level_plotter": "".join(year_level_log_entries) if year_level_log_entries else None
                     }
                 }
     

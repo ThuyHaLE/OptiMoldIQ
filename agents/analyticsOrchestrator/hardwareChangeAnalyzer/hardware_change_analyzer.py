@@ -148,7 +148,7 @@ class HardwareChangeAnalyzer:
         return {
             "has_new_layout_change": has_new_layout_change,
             "machine_layout_hist_change": machine_layout_hist_change,
-            "log_entries": "".join(log_entries)
+            "log_entries": "".join(log_entries) if log_entries else None
         }
 
     def analyze_machine_mold_pair_changes(self):
@@ -181,7 +181,7 @@ class HardwareChangeAnalyzer:
             "mold_tonnage_summary": mold_tonnage_summary_df,
             "first_mold_usage": first_mold_usage_df,
             "first_paired_mold_machine": first_paired_mold_machine_df,
-            "log_entries": "".join(log_entries)
+            "log_entries": "".join(log_entries) if log_entries else None
         }
     
     def _safe_process(
