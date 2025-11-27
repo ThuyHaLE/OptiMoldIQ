@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Any
 from datetime import datetime
-from agents.dashboardBuilder.logStrFormatters.multi_level_performance_formatter import PerformancePlotflowConfig
+from agents.dashboardBuilder.dashboardBuilderConfigs.performance_plotflow_config import PerformancePlotflowConfig
 
 def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig, 
                                 results: Dict[str, Optional[Dict[str, Any]]]) -> str:

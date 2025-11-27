@@ -1,41 +1,12 @@
 from loguru import logger
-from dataclasses import dataclass
 from typing import Dict, Optional, Any
 from pathlib import Path
-from datetime import datetime
 
-from agents.dashboardBuilder.multiLevelPerformancePlotter.day_level_data_plotter import DayLevelDataPlotter
-from agents.dashboardBuilder.multiLevelPerformancePlotter.month_level_data_plotter import MonthLevelDataPlotter
-from agents.dashboardBuilder.multiLevelPerformancePlotter.year_level_data_plotter import YearLevelDataPlotter
+from agents.analyticsOrchestrator.analyticsConfigs.analytics_orchestrator_config import AnalyticsOrchestratorConfig
+from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestrator
 
-@dataclass
-class PerformancePlotflowConfig:
-    """Configuration class for plotflow parameters"""
-
-    # Day level
-    record_date: Optional[str] = None
-    day_visualization_config_path: Optional[str] = None
-    
-    # Month level
-    record_month: Optional[str] = None
-    month_analysis_date: Optional[str] = None
-    month_visualization_config_path: Optional[str] = None
-    
-    # Year level
-    record_year: Optional[str] = None
-    year_analysis_date: Optional[str] = None
-    year_visualization_config_path: Optional[str] = None
-    
-    # Shared paths
-    source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
-    annotation_name: str = "path_annotations.json"
-    databaseSchemas_path: str = 'database/databaseSchemas.json'
-    default_dir: str = "agents/shared_db/DashboardBuilder/MultiLevelPerformancePlotter"
-
-    # Optimal Processing
-    enable_parallel: bool = True  # Enable parallel processing
-    max_workers: Optional[int] = None  # Auto-detect optimal worker count
-
+from agents.dashboardBuilder.dashboardBuilderConfigs.performance_plotflow_config import PerformancePlotflowConfig
+from agents.dashboardBuilder.logStrFormatters.multi_level_performance_plotter_formatter import build_multi_level_performance_plotter_log
 
 class MultiLevelPerformancePlotter: 
     """
@@ -51,7 +22,7 @@ class MultiLevelPerformancePlotter:
             └─ YearLevelDataPlotter
     
     Usage:
-        config = PlotflowConfig(
+        config = PerformancePlotflowConfig(
             record_date="2025-11-16",
             record_month="2025-11",
             record_year="2025"
@@ -62,165 +33,94 @@ class MultiLevelPerformancePlotter:
     
     def __init__(self, config: PerformancePlotflowConfig):
         """
-        Initialize MultiLevelDataPlotter with configuration.
+        Initialize MultiLevelPerformancePlotter with configuration.
         
         Args:
-            config: PerformancePlotflowConfig containing time parameters and paths
+            config: PerformancePlotflowConfig containing parameters and paths
         """
-        self.logger = logger.bind(class_="MultiLevelDataPlotter")
+        self.logger = logger.bind(class_="MultiLevelPerformancePlotter")
         self.config = config
-        self.logger.info("Initialized MultiLevelDataPlotter")
+        self.logger.info("Initialized MultiLevelPerformancePlotter")
 
-        # Setup directories
-        self.output_dir = Path(self.config.default_dir)
-        
+        try:
+            orchestrator = AnalyticsOrchestrator(
+                AnalyticsOrchestratorConfig(
+                # Enable AnalyticsOrchestrator components
+                enable_multi_level_analysis = (self.config.record_date is not None 
+                                               or self.config.record_month is not None
+                                               or self.config.record_year is not None),
+
+                # Database sources
+                source_path = self.config.source_path,
+                annotation_name = self.config.annotation_name,
+                databaseSchemas_path = self.config.databaseSchemas_path,
+
+                save_analytics_orchestrator_log = self.config.save_analytics_orchestrator_log,
+                analytics_orchestrator_dir = self.config.analytics_orchestrator_dir,
+
+                # MultiLevelPerformanceAnalyzer config
+                record_date=self.config.record_date,
+                day_save_output = self.config.record_date is not None,
+
+                record_month=self.config.record_month,
+                month_analysis_date=self.config.month_analysis_date,
+                month_save_output = self.config.record_month is not None,
+
+                record_year=self.config.record_year,
+                year_analysis_date=self.config.year_analysis_date,
+                year_save_output = self.config.record_year is not None,
+
+                save_multi_level_performance_analyzer_log = self.config.save_multi_level_performance_analyzer_log,
+                multi_level_performance_analyzer_dir = self.config.multi_level_performance_analyzer_dir
+                )
+            )
+
+            self.orchestrator_results, self.orchestrator_log_str = orchestrator.run_analytics()
+
+        except Exception as e:
+            self.logger.error("Failed to analyze data: {}", e)
+            raise
+
     def data_process(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """
         Execute multi-level data processing pipeline.
         
-        Conditionally runs day/month/year processors based on config.
-        Day/Month/year levels only run if respective dates are provided.
+        Conditionally runs machine/mold processors based on config.
+        Machine/mold levels only run if respective dates are provided.
         """
 
         self.logger.info("Starting multi-level data processing pipeline")
-        
-        # Check if all dates are None
-        if not any([self.config.record_date, 
-                    self.config.record_month, 
-                    self.config.record_year]):
-            self.logger.warning("No dates configured - skipping all processing")
-            return {
-                "day_level_results": None,
-                "month_level_results": None,
-                "year_level_results": None
-            }
-        
+
         results = {
             "day_level_results": self._safe_process(
                 self.day_level_process, 
                 "day"
-            ) if self.config.record_date else None,
+            ) if self.config.record_date is not None else None,
             "month_level_results": self._safe_process(
                 self.month_level_process, 
                 "month"
-            ) if self.config.record_month else None,
+            ) if self.config.record_month is not None else None,
             "year_level_results": self._safe_process(
                 self.year_level_process, 
                 "year"
-            ) if self.config.record_year else None
+            ) if self.config.record_year is not None else None,
         }
 
-        log_entries_str = self.update_change_logs(results)
+        log_entries_str = build_multi_level_performance_plotter_log(self.config, results)
 
+        # Save log
+        if self.config.save_multi_level_performance_plotter_log:
+            try:
+                output_dir = Path(self.config.multi_level_performance_plotter_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                log_path = output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(log_entries_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+        
         return results, log_entries_str
-    
-    def update_change_logs(self, results: Dict[str, Optional[Dict]]):
-        """
-        Update change log file with processing results and configuration.
-        
-        Args:
-            results: Dictionary containing processing results for each level
-        """
-        timestamp_now = datetime.now()
-        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
-        
-        log_path = self.output_dir / "change_log.txt"
-        log_entries = []
-
-        # Prepare log entries
-        log_entries.append(f"[{timestamp_str}] MultiLevelDataPlotter Run")
-        log_entries.append("")
-
-        # Configuration section
-        log_entries.append("--Configuration--")
-
-        log_entries.append(f"⤷ Output Directory: {self.output_dir}")
-        log_entries.append(f"⤷ Source Path: {self.config.source_path}")
-        log_entries.append(f"⤷ Parallel Enabled: {self.config.enable_parallel}")
-        log_entries.append(f"⤷ Max Workers: {self.config.max_workers or 'Auto'}")
-
-        if self.config.record_date != None:
-            log_entries.append(f"Day Level:")
-            log_entries.append(f"⤷ Record Date: {self.config.record_date}")
-            log_entries.append(f"⤷ Viz Config: {self.config.day_visualization_config_path or 'Default'}")
-        if self.config.record_month != None:
-            log_entries.append(f"Month Level:")
-            log_entries.append(f"⤷ Record Month: {self.config.record_month}")
-            log_entries.append(f"⤷ Analysis Date: {self.config.month_analysis_date or 'Not set'}")
-            log_entries.append(f"⤷ Viz Config: {self.config.month_visualization_config_path or 'Default'}")
-        if self.config.record_year != None:
-            log_entries.append(f"Year Level:")
-            log_entries.append(f"⤷ Record Year: {self.config.record_year or 'Not set'}")
-            log_entries.append(f"⤷ Analysis Date: {self.config.year_analysis_date or 'Not set'}")
-            log_entries.append(f"⤷ Viz Config: {self.config.year_visualization_config_path or 'Default'}")
-
-        log_entries.append("")
-        
-        # Processing summary
-        log_entries_dict = self._log_processing_summary(results)
-        
-        log_entries.append("--Processing Summary--")
-        
-        # Skipped levels
-        if 'Skipped' in log_entries_dict['Processing Summary']:
-            log_entries.append(f"⤷ Skipped: {log_entries_dict['Processing Summary']['Skipped']}")
-        
-        # Completed levels
-        if 'Completed' in log_entries_dict['Processing Summary']:
-            completed_str = log_entries_dict['Processing Summary']['Completed']
-            log_entries.append(f"⤷ Completed: {completed_str}")
-        log_entries.append("")
-        
-        # Detailed results
-        if log_entries_dict.get('Details'):
-            log_entries.append("--Details--")
-            for level_name, level_result in log_entries_dict['Details'].items():
-                log_entries.append(f"⤷ {level_name}:")
-                log_entries.append(''.join(level_result))
-            log_entries.append("")
-        
-        # Write to file
-        try:
-            self.output_dir.mkdir(parents=True, exist_ok=True)
-
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write("\n".join(log_entries))
-            
-            self.logger.info("✓ Updated change log: {}", log_path)
-            
-        except Exception as e:
-            self.logger.error("✗ Failed to update change log {}: {}", log_path, e)
-            raise OSError(f"Failed to update change log {log_path}: {e}")
-
-        return "\n".join(log_entries)
-    
-    def _log_processing_summary(self, results: Dict[str, Optional[Dict]]):
-        """Log summary of processing results."""
-
-        log_entries = {
-            'Processing Summary': {},
-            'Details': {}
-        }
-
-        self.logger.info("Processing Summary:")
-        
-        skipped = [k for k, v in results.items() if v is None]
-
-        if skipped:
-            skipped_info = ", ".join(skipped)
-            self.logger.info("  ⊘ Skipped: {}", skipped_info)
-            log_entries['Processing Summary']['Skipped'] = skipped_info
-
-        completed = [k for k, v in results.items() if v is not None]
-        completed_info = ", ".join(completed) if completed else "None"
-    
-        self.logger.info("  ✓ Completed: {}", completed_info)
-        log_entries['Processing Summary']['Completed'] = completed_info
-        
-        for lv in completed:
-            log_entries['Details'][lv] = results[lv]['result']
-
-        return log_entries
     
     def day_level_process(self) -> Dict[str, Any]:
         """
@@ -230,25 +130,34 @@ class MultiLevelPerformancePlotter:
             Dictionary containing processing results
         """
 
-        self.logger.info("Plotting day-level data for date: {}", self.config.record_date or "default")
+        self.logger.info("Plotting day-level data.")
+        
+        day_level_results = self.orchestrator_results['multi_level_analytics']['results']['day_level_results']
+
+        from agents.dashboardBuilder.multiLevelPerformancePlotter.day_level_data_plotter import DayLevelDataPlotter
         
         day_level_plotter = DayLevelDataPlotter(
-            self.config.record_date,
-            self.config.source_path,
-            self.config.annotation_name,
-            self.config.databaseSchemas_path,
-            self.output_dir,
-            self.config.day_visualization_config_path,
-            self.config.enable_parallel,
-            self.config.max_workers
+            day_level_results = day_level_results,
+            source_path = self.config.source_path, 
+            annotation_name = self.config.annotation_name,
+            databaseSchemas_path = self.config.databaseSchemas_path,
+            default_dir = self.config.multi_level_performance_plotter_dir,
+            visualization_config_path = self.config.day_level_visualization_config_path,
+            enable_parallel = self.config.enable_parallel,
+            max_workers = self.config.max_workers
         )
         
-        log_entries = day_level_plotter.plot_all()
+        day_level_log_entries = day_level_plotter.plot_all()
 
-        self.logger.info("Day-level data for date: {} saved!", self.config.record_date or "default")
-        
-        return {"status": "completed", "date": self.config.record_date, "result": log_entries}
+        self.logger.info("Day-level data saved!")
     
+        return {"status": "completed", 
+                "result": {
+                    "day_level_processor": day_level_results['log_entries'], 
+                    "day_level_plotter": "".join(day_level_log_entries)
+                    }
+                }
+
     def month_level_process(self) -> Dict[str, Any]:
         """
         Plot and save plots & reports with optional parallel processing for month-level production data.
@@ -257,27 +166,34 @@ class MultiLevelPerformancePlotter:
             Dictionary containing processing results
         """
 
-        self.logger.info("Processing month-level data for month: {}", self.config.record_month)
+        self.logger.info("Plotting day-level data.")
+        
+        month_level_results = self.orchestrator_results['multi_level_analytics']['results']['month_level_results']
+
+        from agents.dashboardBuilder.multiLevelPerformancePlotter.month_level_data_plotter import MonthLevelDataPlotter
         
         month_level_plotter = MonthLevelDataPlotter(
-            self.config.record_month,
-            self.config.month_analysis_date,
-            self.config.source_path,
-            self.config.annotation_name,
-            self.config.databaseSchemas_path,
-            self.output_dir,
-            self.config.month_visualization_config_path,
-            self.config.enable_parallel,
-            self.config.max_workers
+            day_level_results = month_level_results,
+            source_path = self.config.source_path, 
+            annotation_name = self.config.annotation_name,
+            databaseSchemas_path = self.config.databaseSchemas_path,
+            default_dir = self.config.multi_level_performance_plotter_dir,
+            visualization_config_path = self.config.day_level_visualization_config_path,
+            enable_parallel = self.config.enable_parallel,
+            max_workers = self.config.max_workers
         )
-
-        log_entries = month_level_plotter.plot_all()
-
-        # FIXED: Changed to use record_month instead of record_date
-        self.logger.info("Month-level data for month: {} saved!", self.config.record_month)
         
-        return {"status": "completed", "month": self.config.record_month, "result": log_entries}
-        
+        month_level_log_entries = month_level_plotter.plot_all()
+
+        self.logger.info("Month-level data saved!")
+    
+        return {"status": "completed", 
+                "result": {
+                    "month_level_processor": month_level_results['log_entries'], 
+                    "month_level_plotter": "".join(month_level_log_entries)
+                    }
+                }
+    
     def year_level_process(self) -> Dict[str, Any]:
         """
         Plot and save plots & reports with optional parallel processing for year-level production data.
@@ -286,26 +202,33 @@ class MultiLevelPerformancePlotter:
             Dictionary containing processing results
         """
 
-        self.logger.info("Processing year-level data for year: {}", self.config.record_year)
+        self.logger.info("Plotting day-level data.")
+        
+        year_level_results = self.orchestrator_results['multi_level_analytics']['results']['year_level_results']
+
+        from agents.dashboardBuilder.multiLevelPerformancePlotter.year_level_data_plotter import YearLevelDataPlotter
         
         year_level_plotter = YearLevelDataPlotter(
-            self.config.record_year,
-            self.config.year_analysis_date,
-            self.config.source_path,
-            self.config.annotation_name,
-            self.config.databaseSchemas_path,
-            self.output_dir,
-            self.config.year_visualization_config_path,
-            self.config.enable_parallel,
-            self.config.max_workers
+            day_level_results = year_level_results,
+            source_path = self.config.source_path, 
+            annotation_name = self.config.annotation_name,
+            databaseSchemas_path = self.config.databaseSchemas_path,
+            default_dir = self.config.multi_level_performance_plotter_dir,
+            visualization_config_path = self.config.day_level_visualization_config_path,
+            enable_parallel = self.config.enable_parallel,
+            max_workers = self.config.max_workers
         )
         
-        log_entries = year_level_plotter.plot_all()
+        year_level_log_entries = year_level_plotter.plot_all()
 
-        # FIXED: Changed to use record_year instead of record_date
-        self.logger.info("Year-level data for year: {} saved!", self.config.record_year)
-        
-        return {"status": "completed", "year": self.config.record_year, "result": log_entries}
+        self.logger.info("Year-level data saved!")
+    
+        return {"status": "completed", 
+                "result": {
+                    "year_level_processor": year_level_results['log_entries'], 
+                    "year_level_plotter": "".join(year_level_log_entries)
+                    }
+                }
     
     def _safe_process(self, 
                       process_func, 
