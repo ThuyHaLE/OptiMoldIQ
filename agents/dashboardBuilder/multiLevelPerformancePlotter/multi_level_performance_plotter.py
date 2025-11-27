@@ -51,11 +51,11 @@ class MultiLevelPerformancePlotter:
                 or self.analytics_orchestrator_config.performance_config.record_year is not None)
             
             self.analytics_orchestrator_config.performance_config.day_save_output = (
-                self.config.analytics_orchestrator_config.record_date is not None)
+                self.analytics_orchestrator_config.performance_config.record_date is not None)
             self.analytics_orchestrator_config.performance_config.month_save_output = (
-                self.config.analytics_orchestrator_config.record_month is not None)
+                self.analytics_orchestrator_config.performance_config.record_month is not None)
             self.analytics_orchestrator_config.performance_config.year_save_output = (
-                self.config.analytics_orchestrator_config.record_year is not None)
+                self.analytics_orchestrator_config.performance_config.record_year is not None)
             
             orchestrator = AnalyticsOrchestrator(self.analytics_orchestrator_config)
             self.orchestrator_results, self.orchestrator_log_str = orchestrator.run_analytics()
