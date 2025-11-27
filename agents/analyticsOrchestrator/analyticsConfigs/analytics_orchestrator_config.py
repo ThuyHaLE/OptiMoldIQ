@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from agents.utils import validate_path
 from agents.analyticsOrchestrator.analyticsConfigs.change_analyticflow_config import ChangeAnalyticflowConfig
 from agents.analyticsOrchestrator.analyticsConfigs.performance_analyticflow_config import PerformanceAnalyticflowConfig
@@ -14,8 +14,8 @@ class AnalyticsOrchestratorConfig:
     save_analytics_orchestrator_log: bool = False
     analytics_orchestrator_dir: str = 'agents/shared_db/AnalyticsOrchestrator'
     
-    change_config: ChangeAnalyticflowConfig = ChangeAnalyticflowConfig()
-    performance_config: PerformanceAnalyticflowConfig = PerformanceAnalyticflowConfig()
+    change_config: ChangeAnalyticflowConfig = field(default_factory=ChangeAnalyticflowConfig)
+    performance_config: PerformanceAnalyticflowConfig = field(default_factory=PerformanceAnalyticflowConfig)
 
     def __post_init__(self):
         """Validate directory settings when saving is enabled."""
