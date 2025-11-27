@@ -45,7 +45,7 @@ def build_hardware_change_plotter_log(config: HardwareChangePlotflowConfig,
     if getattr(config, "enable_machine_layout_plotter", False):
         log_lines.append("⤷ Machine layout plotter: Enable")
         log_lines.append("--MachineLayoutPlotter Configuration--")
-        log_lines.append(f"   ⤷ Tracker Output Dir: {change_analytic_config.machine_layout_tracker_result_dir}")
+        log_lines.append(f"   ⤷ Tracker Output Dir: {change_analytic_config.machine_layout_tracker_dir}") 
         log_lines.append(f"   ⤷ Change Log Name: {change_analytic_config.machine_layout_tracker_change_log_name}")
         log_lines.append(f"   ⤷ Plotter Output Dir: {config.machine_layout_plotter_result_dir}")
         log_lines.append(f"   ⤷ Viz Config: {config.machine_layout_visualization_config_path}")
@@ -56,7 +56,7 @@ def build_hardware_change_plotter_log(config: HardwareChangePlotflowConfig,
     if getattr(config, "enable_machine_mold_pair_plotter", False):
         log_lines.append("⤷ Machine mold pair plotter: Enable")
         log_lines.append("--MachineMoldPairPlotter Configuration--")
-        log_lines.append(f"   ⤷ Tracker Output Dir: {change_analytic_config.machine_mold_pair_tracker_result_dir}")
+        log_lines.append(f"   ⤷ Tracker Output Dir: {change_analytic_config.machine_mold_pair_tracker_dir}")
         log_lines.append(f"   ⤷ Change Log Name: {change_analytic_config.machine_mold_pair_tracker_change_log_name}")
         log_lines.append(f"   ⤷ Plotter Output Dir: {config.machine_mold_pair_plotter_result_dir}")
         log_lines.append(f"   ⤷ Viz Config: {config.machine_mold_pair_visualization_config_path}")
