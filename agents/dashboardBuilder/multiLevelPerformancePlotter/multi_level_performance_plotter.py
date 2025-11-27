@@ -2,7 +2,6 @@ from loguru import logger
 from typing import Dict, Optional, Any
 from pathlib import Path
 
-from agents.analyticsOrchestrator.analyticsConfigs.analytics_orchestrator_config import AnalyticsOrchestratorConfig
 from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestrator
 
 from agents.dashboardBuilder.dashboardBuilderConfigs.performance_plotflow_config import PerformancePlotflowConfig
@@ -43,38 +42,18 @@ class MultiLevelPerformancePlotter:
         self.logger.info("Initialized MultiLevelPerformancePlotter")
 
         try:
-            orchestrator = AnalyticsOrchestrator(
-                AnalyticsOrchestratorConfig(
-                # Enable AnalyticsOrchestrator components
-                enable_multi_level_analysis = (self.config.record_date is not None 
-                                               or self.config.record_month is not None
-                                               or self.config.record_year is not None),
-
-                # Database sources
-                source_path = self.config.source_path,
-                annotation_name = self.config.annotation_name,
-                databaseSchemas_path = self.config.databaseSchemas_path,
-
-                save_analytics_orchestrator_log = self.config.save_analytics_orchestrator_log,
-                analytics_orchestrator_dir = self.config.analytics_orchestrator_dir,
-
-                # MultiLevelPerformanceAnalyzer config
-                record_date=self.config.record_date,
-                day_save_output = self.config.record_date is not None,
-
-                record_month=self.config.record_month,
-                month_analysis_date=self.config.month_analysis_date,
-                month_save_output = self.config.record_month is not None,
-
-                record_year=self.config.record_year,
-                year_analysis_date=self.config.year_analysis_date,
-                year_save_output = self.config.record_year is not None,
-
-                save_multi_level_performance_analyzer_log = self.config.save_multi_level_performance_analyzer_log,
-                multi_level_performance_analyzer_dir = self.config.multi_level_performance_analyzer_dir
-                )
-            )
-
+            self.config.analytics_orchestrator_config.enable_multi_level_analysis = (
+                self.config.record_date is not None 
+                or self.config.record_month is not None
+                or self.config.record_year is not None)
+            self.config.analytics_orchestrator_config.day_save_output = (
+                self.config.analytics_orchestrator_config.record_date is not None)
+            self.config.analytics_orchestrator_config.month_save_output = (
+                self.config.analytics_orchestrator_config.record_month is not None)
+            self.config.analytics_orchestrator_config.year_save_output = (
+                self.config.analytics_orchestrator_config.record_year is not None)
+            
+            orchestrator = AnalyticsOrchestrator(self.config.analytics_orchestrator_config)
             self.orchestrator_results, self.orchestrator_log_str = orchestrator.run_analytics()
 
         except Exception as e:
@@ -95,17 +74,17 @@ class MultiLevelPerformancePlotter:
             "day_level_results": self._safe_process(
                 self.day_level_process, 
                 "day"
-            ) if self.config.record_date is not None else None,
+            ) if self.config.analytics_orchestrator_config.record_date is not None else None,
 
             "month_level_results": self._safe_process(
                 self.month_level_process, 
                 "month"
-            ) if self.config.record_month is not None else None,
+            ) if self.config.analytics_orchestrator_config.record_month is not None else None,
 
             "year_level_results": self._safe_process(
                 self.year_level_process, 
                 "year"
-            ) if self.config.record_year is not None else None,
+            ) if self.config.analytics_orchestrator_config.record_year is not None else None,
         }
 
         log_entries_str = build_multi_level_performance_plotter_log(self.config, results)
@@ -140,9 +119,9 @@ class MultiLevelPerformancePlotter:
         
         day_level_plotter = DayLevelDataPlotter(
             day_level_results = day_level_results,
-            source_path = self.config.source_path, 
-            annotation_name = self.config.annotation_name,
-            databaseSchemas_path = self.config.databaseSchemas_path,
+            source_path = self.config.analytics_orchestrator_config.source_path, 
+            annotation_name = self.config.analytics_orchestrator_config.annotation_name,
+            databaseSchemas_path = self.config.analytics_orchestrator_config.databaseSchemas_path,
             default_dir = self.config.multi_level_performance_plotter_dir,
             visualization_config_path = self.config.day_level_visualization_config_path,
             enable_parallel = self.config.enable_parallel,
@@ -176,9 +155,9 @@ class MultiLevelPerformancePlotter:
         
         month_level_plotter = MonthLevelDataPlotter(
             month_level_results = month_level_results,
-            source_path = self.config.source_path, 
-            annotation_name = self.config.annotation_name,
-            databaseSchemas_path = self.config.databaseSchemas_path,
+            source_path = self.config.analytics_orchestrator_config.source_path, 
+            annotation_name = self.config.analytics_orchestrator_config.annotation_name,
+            databaseSchemas_path = self.config.analytics_orchestrator_config.databaseSchemas_path,
             default_dir = self.config.multi_level_performance_plotter_dir,
             visualization_config_path = self.config.day_level_visualization_config_path,
             enable_parallel = self.config.enable_parallel,
@@ -212,9 +191,9 @@ class MultiLevelPerformancePlotter:
         
         year_level_plotter = YearLevelDataPlotter(
             year_level_results = year_level_results,
-            source_path = self.config.source_path, 
-            annotation_name = self.config.annotation_name,
-            databaseSchemas_path = self.config.databaseSchemas_path,
+            source_path = self.config.analytics_orchestrator_config.source_path, 
+            annotation_name = self.config.analytics_orchestrator_config.annotation_name,
+            databaseSchemas_path = self.config.analytics_orchestrator_config.databaseSchemas_path,
             default_dir = self.config.multi_level_performance_plotter_dir,
             visualization_config_path = self.config.day_level_visualization_config_path,
             enable_parallel = self.config.enable_parallel,
