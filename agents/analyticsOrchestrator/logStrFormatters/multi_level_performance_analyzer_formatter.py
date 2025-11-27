@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Any
 from datetime import datetime
-from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.multi_level_performance_analyzer import PerformanceAnalyticflowConfig
+from agents.analyticsOrchestrator.analyticsConfigs.performance_analyticflow_config import PerformanceAnalyticflowConfig
 
 def build_multi_level_performance_analyzer_log(config: PerformanceAnalyticflowConfig, 
                                                results: Dict[str, Optional[Dict[str, Any]]]) -> str:

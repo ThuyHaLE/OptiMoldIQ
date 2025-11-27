@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Any
 from datetime import datetime
-from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestratorConfig
+from agents.analyticsOrchestrator.analyticsConfigs.analytics_orchestrator_config import AnalyticsOrchestratorConfig
 
 def build_analytics_orchestrator_log(config: AnalyticsOrchestratorConfig, 
                                      results: Dict[str, Optional[Dict[str, Any]]]) -> str:

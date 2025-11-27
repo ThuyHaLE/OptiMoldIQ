@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Any
 from datetime import datetime
-from agents.analyticsOrchestrator.hardwareChangeAnalyzer.hardware_change_analyzer import ChangeAnalyticflowConfig
+from agents.analyticsOrchestrator.analyticsConfigs.change_analyticflow_config import ChangeAnalyticflowConfig
 
 def build_hardware_change_analyzer_log(config: ChangeAnalyticflowConfig, 
                                        results: Dict[str, Optional[Dict[str, Any]]]) -> str:
