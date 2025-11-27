@@ -7,10 +7,8 @@ from agents.dashboardBuilder.visualize_data.day_level.shift_level_detailed_yield
 from agents.dashboardBuilder.visualize_data.day_level.mold_based_overview_plotter import mold_based_overview_plotter
 from agents.dashboardBuilder.visualize_data.day_level.shift_level_mold_efficiency_plotter import shift_level_mold_efficiency_plotter
 
-from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestratorConfig, AnalyticsOrchestrator
-
 from agents.decorators import validate_init_dataframes
-from agents.utils import load_annotation_path
+from agents.utils import load_annotation_path, validate_multi_level_analyzer_result
 
 from loguru import logger
 from pathlib import Path
@@ -22,16 +20,29 @@ import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import psutil
 import time
-from typing import Tuple, Any, Callable
+from typing import Tuple, Any, Callable, Dict
 import traceback
 import matplotlib.pyplot as plt
+
+DAY_LEVEL_KEYS = ['record_date', 'processed_records', 
+                  'mold_based_records', 'item_based_records', 
+                  'summary_stats', 'analysis_summary']
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {"moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys())})
 
 class DayLevelDataPlotter:
+
+    """
+    Plotter for day-level PO dashboard with visualization and reporting.
+    
+    Attributes:
+        day_level_results: Results from day level analyzer
+        output_dir: Directory for saving outputs
+    """
+
     def __init__(self, 
-                 selected_date: str,
+                 day_level_results: Dict,
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
@@ -47,43 +58,32 @@ class DayLevelDataPlotter:
         self.max_workers = max_workers
         self._setup_parallel_config()
 
+        # Load visualization config
         self.visualization_config_path = (
             visualization_config_path 
             or "agents/dashboardBuilder/visualize_data/day_level/visualization_config.json"
         )
-        
-        self.day_level_data_processor = AnalyticsOrchestrator(
-            AnalyticsOrchestratorConfig(
-            enable_multi_level_analysis = True,
-            source_path = source_path,
-            annotation_name = annotation_name,
-            databaseSchemas_path = databaseSchemas_path,
-            record_date = selected_date
-            )
-        )
 
-        # Process data
-        try:
-            all_results, _  = self.day_level_data_processor.run_analytics()
-            day_level_results = all_results['multi_level_analytics']["results"]['day_level_results']
+        # Validate data
+        validate_multi_level_analyzer_result(day_level_results, DAY_LEVEL_KEYS)
 
-            self.processed_df = day_level_results["processed_records"]
-            self.mold_based_record_df = day_level_results["mold_based_records"]
-            self.item_based_record_df = day_level_results["item_based_records"]
-            self.summary_stats = day_level_results["summary_stats"]
-            self.analysis_summary = day_level_results["analysis_summary"]
+        # Extract features
+        self.selected_date = day_level_results['record_date']
+        self.processed_df = day_level_results["processed_records"]
+        self.mold_based_record_df = day_level_results["mold_based_records"]
+        self.item_based_record_df = day_level_results["item_based_records"]
+        self.summary_stats = day_level_results["summary_stats"]
+        self.analysis_summary = day_level_results["analysis_summary"]
 
-        except Exception as e:
-            self.logger.error("Failed to process data: {}", e)
-            raise
-        
-        self.selected_date = selected_date
+        # Load path annotations and base dataframes
         self.path_annotation = load_annotation_path(source_path, annotation_name)
         self._load_base_dataframes()
 
+        # Load database schemas
         self.databaseSchemas_path = databaseSchemas_path
         self._setup_schemas()
-      
+
+        # Setup output directory
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DayLevelDataPlotter"
 
@@ -201,38 +201,6 @@ class DayLevelDataPlotter:
                 except Exception as e:
                     self.logger.error("Failed to move file {}: {}", f.name, e)
                     raise OSError(f"Failed to move file {f.name}: {e}")
-
-        # Save day level extracted records
-        try:
-            excel_file_name = f"{timestamp_file}_extracted_records_{self.selected_date}.xlsx"
-            excel_file_path = newest_dir / excel_file_name
-            excel_data = {
-                "selectedDateFilter": self.processed_df,
-                "moldBasedRecords": self.mold_based_record_df,
-                "itemBasedRecords": self.item_based_record_df,
-                "summaryStatics": self.summary_stats
-            }
-            with pd.ExcelWriter(excel_file_path, engine="openpyxl") as writer:
-                for sheet_name, df in excel_data.items():
-                    if not isinstance(df, pd.DataFrame):
-                        df = pd.DataFrame([df])
-                    df.to_excel(writer, sheet_name=sheet_name, index=False)
-            log_entries.append(f"  ⤷ Saved data analysis results: {excel_file_path}\n")
-            logger.info("✅ Saved data analysis results: {}", excel_file_path)
-        except Exception as e:
-            logger.error("❌ Failed to save file {}: {}", excel_file_name, e)
-            raise OSError(f"Failed to save file {excel_file_name}: {e}")
-
-        # Save analysis summary 
-        try:
-            analysis_summary_name = f"{timestamp_file}_summary_{self.selected_date}.txt"
-            analysis_summary_path = newest_dir / analysis_summary_name
-            with open(analysis_summary_path, "w", encoding="utf-8") as log_file:
-                log_file.writelines(self.analysis_summary)
-            log_entries.append(f"  ⤷ Saved analysis summary: {analysis_summary_path}\n")
-            self.logger.info("✅ Saved analysis summary: {}", analysis_summary_path)
-        except Exception as e:
-            self.logger.warning("Failed to generate summary: {}", e)
          
         # Prepare plotting tasks
         tasks = self._prepare_plot_tasks(timestamp_file, newest_dir)

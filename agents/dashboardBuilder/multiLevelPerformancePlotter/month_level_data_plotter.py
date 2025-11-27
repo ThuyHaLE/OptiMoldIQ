@@ -11,16 +11,14 @@ import os
 import re
 import time
 from datetime import datetime
-from typing import Tuple, Dict, Any, Callable
+from typing import Tuple, Dict, Any, Callable, Dict
 from agents.decorators import validate_init_dataframes
-from agents.utils import load_annotation_path
+from agents.utils import load_annotation_path, validate_multi_level_analyzer_result
 
 from agents.dashboardBuilder.visualize_data.month_level.month_performance_plotter import month_performance_plotter 
 from agents.dashboardBuilder.reportFormatters.generate_early_warning_report import generate_early_warning_report
 from agents.dashboardBuilder.visualize_data.month_level.machine_based_dashboard_plotter import machine_based_dashboard_plotter
 from agents.dashboardBuilder.visualize_data.month_level.mold_based_dashboard_plotter import mold_based_dashboard_plotter
-
-from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestratorConfig, AnalyticsOrchestrator
 
 # Required columns for dataframes
 REQUIRED_FINISHED_COLUMNS = ['poReceivedDate', 'poNo', 'poETA', 'itemCode', 'itemName',
@@ -54,6 +52,9 @@ REQUIRED_PROGRESS_COLUMNS = [
     'proStatus', 'moldHistNum'
 ]
 
+MONTH_LEVEL_KEYS = ['record_month', 'month_analysis_date', 
+                    'finished_records', 'unfinished_records', 'analysis_summary']
+
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys())
@@ -71,14 +72,12 @@ class MonthLevelDataPlotter:
     Plotter for month-level PO dashboard with visualization and reporting.
     
     Attributes:
-        record_month: Target month in YYYY-MM format
-        analysis_date: Date of analysis (defaults to current date)
+        month_level_results: Results from month level analyzer
         output_dir: Directory for saving outputs
     """
     
     def __init__(self, 
-                 record_month: str,
-                 analysis_date: str = None,
+                 month_level_results: Dict,
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
@@ -94,10 +93,6 @@ class MonthLevelDataPlotter:
         self.max_workers = max_workers
         self._setup_parallel_config()
         
-        # Validate record_month format
-        self._validate_record_month(record_month)
-        analysis_date = analysis_date or datetime.now().strftime("%Y-%m-%d")
-        
         # Setup config path
         self.visualization_config_path = (
             visualization_config_path 
@@ -112,55 +107,39 @@ class MonthLevelDataPlotter:
         self.databaseSchemas_path = databaseSchemas_path
         self._setup_schemas()
         
-        # Initialize data processor    
-        self.month_level_data_processor = AnalyticsOrchestrator(
-            AnalyticsOrchestratorConfig(
-            enable_multi_level_analysis = True,
-            source_path = source_path,
-            annotation_name = annotation_name,
-            databaseSchemas_path = databaseSchemas_path,
-            record_month = record_month,
-            month_analysis_date = analysis_date,
-            )
+        # Validate data
+        validate_multi_level_analyzer_result(month_level_results, MONTH_LEVEL_KEYS)
+
+        # Extract features
+        self.analysis_timestamp = month_level_results["month_analysis_date"]
+        self.adjusted_record_month = month_level_results["record_month"]
+        self.finished_df = month_level_results["finished_records"]
+        self.unfinished_df = month_level_results["unfinished_records"]
+        self.final_summary = month_level_results["analysis_summary"]
+        
+        # Generate early warning report
+        self.early_warning_report = generate_early_warning_report(
+            self.unfinished_df, 
+            self.adjusted_record_month,
+            self.analysis_timestamp,
+            colored=False
         )
         
-        # Process data
-        try:
-            all_results, _  = self.month_level_data_processor.run_analytics()
-            month_level_results = all_results['multi_level_analytics']["results"]['month_level_results']
-
-            self.analysis_timestamp = month_level_results["month_analysis_date"]
-            self.adjusted_record_month = month_level_results["record_month"]
-            self.finished_df = month_level_results["finished_records"]
-            self.unfinished_df = month_level_results["unfinished_records"]
-            self.final_summary = month_level_results["analysis_summary"]
-            
-            self.early_warning_report = generate_early_warning_report(
-                self.unfinished_df, 
-                self.adjusted_record_month,
-                self.analysis_timestamp,
-                colored=False
-            )
-            
-            # Filter data by date and month
-            self.filtered_df = self.productRecords_df[
-                (self.productRecords_df['recordDate'].dt.date < self.analysis_timestamp.date()) &
-                (self.productRecords_df['recordDate'].dt.strftime('%Y-%m') == self.adjusted_record_month)
-            ].copy()
-            self.filtered_df['recordMonth'] = self.filtered_df['recordDate'].dt.strftime('%Y-%m')
-            
-            # Prepare unfinished POs and Total POs data
-            self.short_unfinished_df, self.all_progress_df = self._prepare_data()
-
-            self.logger.info(
-                "Data prepared: {} unfinished records, {} total records",
-                len(self.short_unfinished_df), len(self.all_progress_df)
-            )
-            
-        except Exception as e:
-            self.logger.error("Failed to process data: {}", e)
-            raise
+        # Filter production data by date and month
+        self.filtered_df = self.productRecords_df[
+            (self.productRecords_df['recordDate'].dt.date < self.analysis_timestamp.date()) &
+            (self.productRecords_df['recordDate'].dt.strftime('%Y-%m') == self.adjusted_record_month)
+        ].copy()
+        self.filtered_df['recordMonth'] = self.filtered_df['recordDate'].dt.strftime('%Y-%m')
         
+        # Prepare unfinished POs and Total POs data
+        self.short_unfinished_df, self.all_progress_df = self._prepare_data()
+
+        self.logger.info(
+            "Data prepared: {} unfinished records, {} total records",
+            len(self.short_unfinished_df), len(self.all_progress_df)
+        )
+
         # Setup directories
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "MonthLevelDataPlotter"
@@ -251,13 +230,6 @@ class MonthLevelDataPlotter:
         except Exception as e:
             self.logger.error("Failed to load {}: {}", path_key, str(e))
             raise
-    
-    def _validate_record_month(self, record_month: str) -> None:
-        """Validate record_month format (YYYY-MM)."""
-        if not re.match(r'^\d{4}-\d{2}$', record_month):
-            raise ValueError(
-                f"Invalid record_month format: '{record_month}'. Expected format: YYYY-MM"
-            )
     
     def _prepare_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """

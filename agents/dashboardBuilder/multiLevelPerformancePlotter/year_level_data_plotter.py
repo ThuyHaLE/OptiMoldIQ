@@ -13,15 +13,13 @@ import time
 from datetime import datetime
 from typing import Tuple, Dict, Any, Callable
 from agents.decorators import validate_init_dataframes
-from agents.utils import load_annotation_path
+from agents.utils import load_annotation_path, validate_multi_level_analyzer_result
 
 from agents.dashboardBuilder.visualize_data.year_level.monthly_performance_plotter import monthly_performance_plotter
 from agents.dashboardBuilder.visualize_data.year_level.year_performance_plotter import year_performance_plotter
 from agents.dashboardBuilder.visualize_data.year_level.machine_based_year_view_dashboard_plotter import machine_based_year_view_dashboard_plotter
 from agents.dashboardBuilder.visualize_data.year_level.mold_based_year_view_dashboard_plotter import mold_based_year_view_dashboard_plotter
 from agents.dashboardBuilder.visualize_data.year_level.field_based_month_view_dashboard_plotter import field_based_month_view_dashboard_plotter
-
-from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestratorConfig, AnalyticsOrchestrator
 
 # Required columns for dataframes
 REQUIRED_FINISHED_COLUMNS = ['poReceivedDate', 'poNo', 'poETA', 'itemCode', 'itemName',
@@ -55,6 +53,9 @@ REQUIRED_PROGRESS_COLUMNS = [
     'proStatus', 'moldHistNum'
 ]
 
+YEAR_LEVEL_KEYS = ['record_year', 'year_analysis_date', 
+                   'finished_records', 'unfinished_records', 'analysis_summary']
+
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys())
@@ -72,14 +73,12 @@ class YearLevelDataPlotter:
     Plotter for year-level PO dashboard with visualization and reporting.
 
     Attributes:
-        record_year: Target year in YYYY format
-        analysis_date: Date of analysis (defaults to current date)
+        year_level_results: Results from year level analyzer
         output_dir: Directory for saving outputs
     """
 
     def __init__(self,
-                 record_year: str,
-                 analysis_date: str = None,
+                 year_level_results: Dict,
                  source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
                  annotation_name: str = "path_annotations.json",
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
@@ -95,10 +94,6 @@ class YearLevelDataPlotter:
         self.max_workers = max_workers
         self._setup_parallel_config()
 
-        # Validate record_year format
-        self._validate_record_year(record_year)
-        analysis_date = analysis_date or datetime.now().strftime("%Y-%m-%d")
-
         # Setup config path
         self.visualization_config_path = (
             visualization_config_path
@@ -112,47 +107,31 @@ class YearLevelDataPlotter:
         # Load database schemas
         self.databaseSchemas_path = databaseSchemas_path
         self._setup_schemas()
+        
+        # Validate data
+        validate_multi_level_analyzer_result(year_level_results, YEAR_LEVEL_KEYS)
 
-        # Initialize data processor
-        self.year_level_data_processor = AnalyticsOrchestrator(
-            AnalyticsOrchestratorConfig(
-            enable_multi_level_analysis = True,
-            source_path = source_path,
-            annotation_name = annotation_name,
-            databaseSchemas_path = databaseSchemas_path,
-            record_year = record_year,
-            year_analysis_date = analysis_date,
-            )
+        # Extract features
+        self.analysis_timestamp = year_level_results["year_analysis_date"]
+        self.adjusted_record_year = year_level_results["record_year"]
+        self.finished_df = year_level_results["finished_records"]
+        self.unfinished_df = year_level_results["unfinished_records"]
+        self.final_summary = year_level_results["analysis_summary"]
+
+        # Filter production data by date and year
+        self.filtered_df = self.productRecords_df[
+            (self.productRecords_df['recordDate'].dt.date < self.analysis_timestamp.date()) &
+            (self.productRecords_df['recordDate'].dt.year == int(self.adjusted_record_year))
+        ].copy()
+        self.filtered_df['recordMonth'] = self.filtered_df['recordDate'].dt.strftime('%Y-%m')
+
+        # Prepare unfinished POs and Total POs data
+        self.short_unfinished_df, self.all_progress_df = self._prepare_data()
+
+        self.logger.info(
+            "Data prepared: {} unfinished records, {} total records",
+            len(self.short_unfinished_df), len(self.all_progress_df)
         )
-
-        # Process data
-        try:
-            all_results, _  = self.year_level_data_processor.run_analytics()
-            year_level_results = all_results['multi_level_analytics']["results"]['year_level_results']
-            self.analysis_timestamp = year_level_results["year_analysis_date"]
-            self.adjusted_record_year = year_level_results["record_year"]
-            self.finished_df = year_level_results["finished_records"]
-            self.unfinished_df = year_level_results["unfinished_records"]
-            self.final_summary = year_level_results["analysis_summary"]
-
-            # Filter data by date and year
-            self.filtered_df = self.productRecords_df[
-                (self.productRecords_df['recordDate'].dt.date < self.analysis_timestamp.date()) &
-                (self.productRecords_df['recordDate'].dt.year == int(self.adjusted_record_year))
-            ].copy()
-            self.filtered_df['recordMonth'] = self.filtered_df['recordDate'].dt.strftime('%Y-%m')
-
-            # Prepare unfinished POs and Total POs data
-            self.short_unfinished_df, self.all_progress_df = self._prepare_data()
-
-            self.logger.info(
-                "Data prepared: {} unfinished records, {} total records",
-                len(self.short_unfinished_df), len(self.all_progress_df)
-            )
-
-        except Exception as e:
-            self.logger.error("Failed to process data: {}", e)
-            raise
 
         # Setup directories
         self.default_dir = Path(default_dir)
@@ -244,13 +223,6 @@ class YearLevelDataPlotter:
         except Exception as e:
             self.logger.error("Failed to load {}: {}", path_key, str(e))
             raise
-
-    def _validate_record_year(self, record_year: str) -> None:
-        """Validate record_year format (YYYY)."""
-        if not re.match(r'^\d{4}$', record_year):
-            raise ValueError(
-                f"Invalid record_year format: '{record_year}'. Expected format: YYYY"
-            )
 
     def _prepare_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
