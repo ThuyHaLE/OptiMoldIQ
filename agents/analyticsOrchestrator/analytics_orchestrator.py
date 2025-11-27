@@ -102,27 +102,10 @@ class AnalyticsOrchestrator:
         self.logger.info("Processing multi-level analytics")
 
         from agents.analyticsOrchestrator.multiLevelPerformanceAnalyzer.multi_level_performance_analyzer import (
-            PerformanceAnalyticflowConfig, MultiLevelPerformanceAnalyzer)
-        
-        # Build analytics config
-        analytics_config = PerformanceAnalyticflowConfig(
-            record_date=self.config.record_date,
-            day_save_output = self.config.day_save_output,
-            record_month=self.config.record_month,
-            month_analysis_date=self.config.month_analysis_date,
-            month_save_output = self.config.month_save_output,
-            record_year=self.config.record_year,
-            year_analysis_date=self.config.year_analysis_date,
-            year_save_output = self.config.year_save_output,
-            source_path=self.config.source_path,
-            annotation_name=self.config.annotation_name,
-            databaseSchemas_path=self.config.databaseSchemas_path,
-            save_multi_level_performance_analyzer_log = self.config.save_multi_level_performance_analyzer_log,
-            multi_level_performance_analyzer_dir = self.config.multi_level_performance_analyzer_dir
-        )
+            MultiLevelPerformanceAnalyzer)
         
         # Execute analytics
-        analytics = MultiLevelPerformanceAnalyzer(analytics_config)
+        analytics = MultiLevelPerformanceAnalyzer(self.config.performance_config)
         results, log_entries_str = analytics.data_process()
         
         self.logger.success("✓ Multi-level analytics completed")
@@ -142,25 +125,10 @@ class AnalyticsOrchestrator:
         self.logger.info("Processing data change analysis")
 
         from agents.analyticsOrchestrator.hardwareChangeAnalyzer.hardware_change_analyzer import (
-            ChangeAnalyticflowConfig, HardwareChangeAnalyzer)
-
-        # Build analytics config
-        analytics_config = ChangeAnalyticflowConfig(
-            enable_machine_layout_tracker = self.config.enable_machine_layout_tracker,
-            enable_machine_mold_pair_tracker = self.config.enable_machine_mold_pair_tracker,
-            source_path = self.config.source_path,
-            annotation_name = self.config.annotation_name,
-            databaseSchemas_path = self.config.databaseSchemas_path,
-            save_hardware_change_analyzer_log = self.config.save_hardware_change_analyzer_log,
-            hardware_change_analyzer_dir = self.config.hardware_change_analyzer_dir,
-            machine_layout_tracker_dir = self.config.machine_layout_tracker_dir,
-            machine_layout_tracker_change_log_name = self.config.machine_layout_tracker_change_log_name,
-            machine_mold_pair_tracker_dir = self.config.machine_mold_pair_tracker_dir,
-            machine_mold_pair_tracker_change_log_name = self.config.machine_mold_pair_tracker_change_log_name
-            )
+            HardwareChangeAnalyzer)
 
         # Execute analytics
-        analyzer = HardwareChangeAnalyzer(analytics_config)
+        analyzer = HardwareChangeAnalyzer(self.config.change_config)
         results, log_entries_str = analyzer.analyze_changes()
         
         self.logger.success("✓ Change analysis completed")
