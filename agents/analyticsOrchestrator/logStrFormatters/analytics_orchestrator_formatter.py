@@ -16,66 +16,68 @@ def build_analytics_orchestrator_log(config: AnalyticsOrchestratorConfig,
 
     # ---------- Configuration ----------
     log_lines.append("--Configuration--")
-    log_lines.append(f"⤷ Database Annotation: {config.source_path}/{config.annotation_name}")
-    log_lines.append(f"⤷ Database Schemas: {config.databaseSchemas_path}")
     log_lines.append(f"⤷ Save analytics orchestrator log: {config.save_analytics_orchestrator_log}")
     if getattr(config, "save_analytics_orchestrator_log", False):
         log_lines.append(f"   ⤷ Output Directory: {config.analytics_orchestrator_dir}")
 
     # ---------- Change Analysis ----------
-    if getattr(config, "enable_hardware_change_analysis", False):
+    if getattr(config.change_config, "enable_hardware_change_analysis", False):
         log_lines.append("⤷ Change Analysis: Enable")
-        log_lines.append(f"   ⤷ Save hardware change analyzer log: {config.save_hardware_change_analyzer_log}")
-        if getattr(config, "save_hardware_change_analyzer_log", False):
-            log_lines.append(f"       ⤷ Output Directory: {config.hardware_change_analyzer_dir}")
+        log_lines.append(f"⤷ Database Annotation: {config.change_config.source_path}/{config.change_config.annotation_name}")
+        log_lines.append(f"⤷ Database Schemas: {config.change_config.databaseSchemas_path}")
+        log_lines.append(f"   ⤷ Save hardware change analyzer log: {config.change_config.save_hardware_change_analyzer_log}")
+        if getattr(config.change_config, "save_hardware_change_analyzer_log", False):
+            log_lines.append(f"       ⤷ Output Directory: {config.change_config.hardware_change_analyzer_dir}")
 
         log_lines.append("--HardwareChangeAnalyzer Configuration--")
         # Machine layout tracker
-        if getattr(config, "enable_machine_layout_tracker", False):
+        if getattr(config.change_config, "enable_machine_layout_tracker", False):
             log_lines.append("   ⤷ Machine layout tracker: Enable")
-            log_lines.append(f"       ⤷ Output Directory: {config.machine_layout_tracker_dir}")
-            log_lines.append(f"       ⤷ Change Log Name: {config.machine_layout_tracker_change_log_name}")
+            log_lines.append(f"       ⤷ Output Directory: {config.change_config.machine_layout_tracker_dir}")
+            log_lines.append(f"       ⤷ Change Log Name: {config.change_config.machine_layout_tracker_change_log_name}")
         else:
             log_lines.append("   ⤷ Machine layout tracker: Disable")
         # Machine mold pair tracker
-        if getattr(config, "enable_machine_mold_pair_tracker", False):
+        if getattr(config.change_config, "enable_machine_mold_pair_tracker", False):
             log_lines.append("   ⤷ Machine mold pair tracker: Enable")
-            log_lines.append(f"       ⤷ Output Directory: {config.machine_mold_pair_tracker_dir}")
-            log_lines.append(f"       ⤷ Change Log Name: {config.machine_mold_pair_tracker_change_log_name}")
+            log_lines.append(f"       ⤷ Output Directory: {config.change_config.machine_mold_pair_tracker_dir}")
+            log_lines.append(f"       ⤷ Change Log Name: {config.change_config.machine_mold_pair_tracker_change_log_name}")
         else:
             log_lines.append("   ⤷ Machine mold pair tracker: Disable")
     else:
         log_lines.append("⤷ Change Analysis: Disable")
 
     # ---------- Multi-Level Analysis ----------
-    if getattr(config, "enable_multi_level_analysis", False):
+    if getattr(config.performance_config, "enable_multi_level_analysis", False):
         log_lines.append("⤷ Multi-level Analysis: Enable")
-        log_lines.append(f"   ⤷ Save multi-level performance analyzer log: {config.save_multi_level_performance_analyzer_log}")
-        if getattr(config, "save_multi_level_performance_analyzer_log", False):
-            log_lines.append(f"       ⤷ Output Directory: {config.multi_level_performance_analyzer_dir}")
+        log_lines.append(f"⤷ Database Annotation: {config.performance_config.source_path}/{config.performance_config.annotation_name}")
+        log_lines.append(f"⤷ Database Schemas: {config.performance_config.databaseSchemas_path}")
+        log_lines.append(f"   ⤷ Save multi-level performance analyzer log: {config.performance_config.save_multi_level_performance_analyzer_log}")
+        if getattr(config.performance_config, "save_multi_level_performance_analyzer_log", False):
+            log_lines.append(f"       ⤷ Output Directory: {config.performance_config.multi_level_performance_analyzer_dir}")
 
         log_lines.append("--MultiLevelPerformanceAnalyzer Configuration--")
         # Day level
-        if getattr(config, "record_date", None):
+        if getattr(config.performance_config, "record_date", None):
             log_lines.append("   ⤷ Day level")
-            log_lines.append(f"       ⤷ Record Date: {config.record_date}")
-            log_lines.append(f"       ⤷ Save Output: {config.day_save_output}")
+            log_lines.append(f"       ⤷ Record Date: {config.performance_config.record_date}")
+            log_lines.append(f"       ⤷ Save Output: {config.performance_config.day_save_output}")
         else:
             log_lines.append("   ⤷ Day level: Disable")
         # Month level
-        if getattr(config, "record_month", None):
+        if getattr(config.performance_config, "record_month", None):
             log_lines.append("   ⤷ Month level")
-            log_lines.append(f"       ⤷ Record Month: {config.record_month}")
+            log_lines.append(f"       ⤷ Record Month: {config.performance_config.record_month}")
             log_lines.append(f"       ⤷ Analysis Date: {getattr(config, 'month_analysis_date', 'Not set')}")
-            log_lines.append(f"       ⤷ Save Output: {config.month_save_output}")
+            log_lines.append(f"       ⤷ Save Output: {config.performance_config.month_save_output}")
         else:
             log_lines.append("   ⤷ Month level: Disable")
         # Year level
-        if getattr(config, "record_year", None):
+        if getattr(config.performance_config, "record_year", None):
             log_lines.append("   ⤷ Year level")
-            log_lines.append(f"       ⤷ Record Year: {config.record_year}")
-            log_lines.append(f"       ⤷ Analysis Date: {getattr(config, 'year_analysis_date', 'Not set')}")
-            log_lines.append(f"       ⤷ Save Output: {config.year_save_output}")
+            log_lines.append(f"       ⤷ Record Year: {config.performance_config.record_year}")
+            log_lines.append(f"       ⤷ Analysis Date: {getattr(config.performance_config, 'year_analysis_date', 'Not set')}")
+            log_lines.append(f"       ⤷ Save Output: {config.performance_config.year_save_output}")
         else:
             log_lines.append("   ⤷ Year level: Disable")
     else:

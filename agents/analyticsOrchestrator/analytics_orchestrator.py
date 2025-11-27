@@ -92,9 +92,9 @@ class AnalyticsOrchestrator:
         """
         # Check if any date is configured
         if not any([
-            self.config.record_date,
-            self.config.record_month,
-            self.config.record_year
+            self.config.performance_config.record_date,
+            self.config.performance_config.record_month,
+            self.config.performance_config.record_year
         ]):
             self.logger.warning("No dates configured - skipping analytics")
             return None
