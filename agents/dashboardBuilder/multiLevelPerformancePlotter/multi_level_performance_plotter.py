@@ -96,10 +96,12 @@ class MultiLevelPerformancePlotter:
                 self.day_level_process, 
                 "day"
             ) if self.config.record_date is not None else None,
+
             "month_level_results": self._safe_process(
                 self.month_level_process, 
                 "month"
             ) if self.config.record_month is not None else None,
+
             "year_level_results": self._safe_process(
                 self.year_level_process, 
                 "year"
@@ -173,7 +175,7 @@ class MultiLevelPerformancePlotter:
         from agents.dashboardBuilder.multiLevelPerformancePlotter.month_level_data_plotter import MonthLevelDataPlotter
         
         month_level_plotter = MonthLevelDataPlotter(
-            day_level_results = month_level_results,
+            month_level_results = month_level_results,
             source_path = self.config.source_path, 
             annotation_name = self.config.annotation_name,
             databaseSchemas_path = self.config.databaseSchemas_path,
@@ -209,7 +211,7 @@ class MultiLevelPerformancePlotter:
         from agents.dashboardBuilder.multiLevelPerformancePlotter.year_level_data_plotter import YearLevelDataPlotter
         
         year_level_plotter = YearLevelDataPlotter(
-            day_level_results = year_level_results,
+            year_level_results = year_level_results,
             source_path = self.config.source_path, 
             annotation_name = self.config.annotation_name,
             databaseSchemas_path = self.config.databaseSchemas_path,
