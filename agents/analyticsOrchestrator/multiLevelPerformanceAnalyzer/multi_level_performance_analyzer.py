@@ -131,7 +131,7 @@ class MultiLevelPerformanceAnalyzer:
             "item_based_records": item_based_record_df,
             "summary_stats": summary_stats,
             "analysis_summary": analysis_summary,
-            "log_entries": "\n".join(log_entries)
+            "log_entries": "".join(log_entries)
         }
     
     def month_level_process(self) -> Dict[str, Any]:
@@ -171,7 +171,7 @@ class MultiLevelPerformanceAnalyzer:
             "finished_records": finished_df,
             "unfinished_records": unfinished_df,
             "analysis_summary": analysis_summary,
-            "log_entries": "\n".join(log_entries)
+            "log_entries": "".join(log_entries)
         }
     
     def year_level_process(self) -> Dict[str, Any]:
@@ -211,7 +211,7 @@ class MultiLevelPerformanceAnalyzer:
             "finished_records": finished_df,
             "unfinished_records": unfinished_df,
             "analysis_summary": analysis_summary,
-            "log_entries": "\n".join(log_entries)
+            "log_entries": "".join(log_entries)
         }
     
     def _safe_process(self, 
