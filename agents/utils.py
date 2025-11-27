@@ -7,7 +7,7 @@ import os
 import json 
 import re
 from tabulate import tabulate
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Iterable
 
 def save_output_with_versioning(
     data: dict[str, pd.DataFrame],
@@ -304,3 +304,14 @@ def validate_path(name: str, value: str):
 
     # Return normalized folder path (with trailing '/')
     return path + "/"
+
+def validate_multi_level_analyzer_result(
+    data: Dict[str, Any],
+    required_keys: Iterable[str],
+    ) -> None:
+    if not isinstance(data, dict):
+        raise TypeError("MultiLevelAnalyzer result must be a dict.")
+
+    missing = [k for k in required_keys if k not in data]
+    if missing:
+        raise KeyError(f"MultiLevelAnalyzer result missing keys: {missing}")
