@@ -2,7 +2,6 @@ from loguru import logger
 from typing import Dict, Optional, Any
 from pathlib import Path
 
-from agents.analyticsOrchestrator.analyticsConfigs.analytics_orchestrator_config import AnalyticsOrchestratorConfig
 from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestrator
 
 from agents.dashboardBuilder.dashboardBuilderConfigs.hardware_change_plotflow_config import HardwareChangePlotflowConfig
@@ -41,34 +40,15 @@ class HardwareChangePlotter:
         self.logger.info("Initialized HardwareChangePlotter")
 
         try:
-            orchestrator = AnalyticsOrchestrator(
-                AnalyticsOrchestratorConfig(
-                # Enable AnalyticsOrchestrator components
-                enable_hardware_change_analysis = (self.config.enable_machine_layout_plotter 
-                                                   or self.config.enable_machine_mold_pair_plotter),
+            self.config.analytics_orchestrator_config.enable_hardware_change_analysis = (
+                self.config.enable_machine_layout_plotter 
+                or self.config.enable_machine_mold_pair_plotter),
+            self.config.analytics_orchestrator_config.enable_machine_layout_tracker = (
+                self.config.enable_machine_layout_plotter),
+            self.config.analytics_orchestrator_config.enable_machine_mold_pair_tracker = (
+                self.config.enable_machine_mold_pair_plotter),
 
-                # Database sources
-                source_path = self.config.source_path,
-                annotation_name = self.config.annotation_name,
-                databaseSchemas_path = self.config.databaseSchemas_path,
-
-                save_analytics_orchestrator_log = self.config.save_analytics_orchestrator_log,
-                analytics_orchestrator_dir = self.config.analytics_orchestrator_dir,
-
-                # HardwareChangeAnalyzer config
-                enable_machine_layout_tracker = self.config.enable_machine_layout_plotter,
-                enable_machine_mold_pair_tracker = self.config.enable_machine_mold_pair_plotter,
-
-                save_hardware_change_analyzer_log = self.config.save_hardware_change_analyzer_log,
-                hardware_change_analyzer_dir = self.config.hardware_change_analyzer_dir,
-
-                machine_layout_tracker_dir = self.config.machine_layout_tracker_result_dir,
-                machine_layout_tracker_change_log_name = self.config.machine_layout_tracker_change_log_name,
-
-                machine_mold_pair_tracker_dir = self.config.machine_mold_pair_tracker_result_dir,
-                machine_mold_pair_tracker_change_log_name = self.config.machine_mold_pair_tracker_change_log_name,
-                )
-            )
+            orchestrator = AnalyticsOrchestrator(self.config.analytics_orchestrator_config)
             
             self.orchestrator_results, self.orchestrator_log_str = orchestrator.run_analytics()
 
