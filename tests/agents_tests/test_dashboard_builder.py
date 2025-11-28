@@ -355,5 +355,3 @@ def test_dashboard_builder():
     results, log_entries_str = builder.build_dashboards()
 
     assert True
-
-test_dashboard_builder()
