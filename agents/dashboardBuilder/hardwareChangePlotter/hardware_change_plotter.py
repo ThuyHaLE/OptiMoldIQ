@@ -37,30 +37,71 @@ class HardwareChangePlotter:
         """
         self.logger = logger.bind(class_="HardwareChangePlotter")
         self.config = config
-
         self.analytics_orchestrator_config = self.config.analytics_orchestrator_config
-
         self.logger.info("Initialized HardwareChangePlotter")
 
         try:
-            self.analytics_orchestrator_config.enable_hardware_change_analysis = (
-                self.config.enable_machine_layout_plotter 
-                or self.config.enable_machine_mold_pair_plotter),
+            # Apply auto-configuration and get summary string            
+            self.auto_configuration_str = self._apply_auto_configuration()
+            # Log the auto-config summary to console
+            self.logger.info("{}", self.auto_configuration_str)
             
-
-            self.analytics_orchestrator_config.change_config.enable_machine_layout_tracker = (
-                self.config.enable_machine_layout_plotter),
-            self.analytics_orchestrator_config.change_config.enable_machine_mold_pair_tracker = (
-                self.config.enable_machine_mold_pair_plotter),
-
+            # Load AnalyticsOrchestrator and run analytics
             orchestrator = AnalyticsOrchestrator(self.analytics_orchestrator_config)
-            
             self.orchestrator_results, self.orchestrator_log_str = orchestrator.run_analytics()
 
         except Exception as e:
             self.logger.error("Failed to analyze data: {}", e)
             raise
+    
+    def _apply_auto_configuration(self) -> str:
+        """
+        Apply auto-configuration rules to analytics_orchestrator_config.
+        This modifies the config in-place based on plotter enable flags.
         
+        Returns:
+            str: Summary string of auto-configuration changes
+        """
+        log_lines = []
+        log_lines.append("--Auto-Configuration--")
+        log_lines.append(f"⤷ Input Configs:")
+        log_lines.append(f"   ⤷ enable_machine_layout_plotter: {self.config.enable_machine_layout_plotter}")
+        log_lines.append(f"   ⤷ enable_machine_mold_pair_plotter: {self.config.enable_machine_mold_pair_plotter}")
+        log_lines.append("")
+        
+        log_lines.append("⤷ Applied Changes:")
+        
+        # Enable AnalyticsOrchestrator components: 
+        # MachineLayoutPlotter or MachineMoldPairPlotter -> HardwareChangeAnalyzer
+        new_hw_analysis = (
+            self.config.enable_machine_layout_plotter 
+            or self.config.enable_machine_mold_pair_plotter)
+        self.analytics_orchestrator_config.enable_hardware_change_analysis = new_hw_analysis
+        log_lines.append(f"   ⤷ enable_hardware_change_analysis (layout OR mold): {new_hw_analysis}")
+        
+        # Disable AnalyticsOrchestrator change log
+        self.analytics_orchestrator_config.save_analytics_orchestrator_log = False
+        log_lines.append(f"   ⤷ save_analytics_orchestrator_log: False (force disabled)")
+        
+        # Enable ChangeAnalyticflowConfig components: 
+        # MachineLayoutPlotter -> MachineLayoutTracker
+        self.analytics_orchestrator_config.change_config.enable_machine_layout_tracker = (
+            self.config.enable_machine_layout_plotter)
+        log_lines.append(f"   ⤷ enable_machine_layout_tracker (=layout): {self.config.enable_machine_layout_plotter}")
+        
+        # Enable ChangeAnalyticflowConfig components: 
+        # MachineMoldPairPlotter -> MachineMoldPairTracker
+        self.analytics_orchestrator_config.change_config.enable_machine_mold_pair_tracker = (
+            self.config.enable_machine_mold_pair_plotter)
+        log_lines.append(f"   ⤷ enable_machine_mold_pair_tracker (=mold): {self.config.enable_machine_mold_pair_plotter}")
+        
+        # Disable ChangeAnalyticflowConfig change log
+        self.analytics_orchestrator_config.change_config.save_hardware_change_analyzer_log = False
+        log_lines.append(f"   ⤷ save_hardware_change_analyzer_log: False (force disabled)")
+        log_lines.append("")
+        
+        return "\n".join(log_lines)
+
     def data_process(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """
         Execute multi-level data processing pipeline.
@@ -82,8 +123,10 @@ class HardwareChangePlotter:
             ) if self.config.enable_machine_mold_pair_plotter else None
         }
 
-        log_entries_str = build_hardware_change_plotter_log(self.config, results)
-
+        log_entries_str = build_hardware_change_plotter_log(self.config, 
+                                                            results, 
+                                                            self.auto_configuration_str)
+        
         # Save log
         if self.config.save_hardware_change_plotter_log:
             try:

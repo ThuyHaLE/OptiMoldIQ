@@ -3,7 +3,8 @@ from datetime import datetime
 from agents.dashboardBuilder.dashboardBuilderConfigs.performance_plotflow_config import PerformancePlotflowConfig
 
 def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig, 
-                                results: Dict[str, Optional[Dict[str, Any]]]) -> str:
+                                              results: Dict[str, Optional[Dict[str, Any]]],
+                                              auto_configuration_str: str) -> str:
     """
     Build formatted log string for MultiLevelPerformancePlotter run.
     Does NOT log; just returns string.
@@ -17,6 +18,9 @@ def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig,
 
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_lines = [f"[{timestamp_str}] MultiLevelPerformancePlotter Run", ""]
+
+    # Add auto-configuration summary
+    log_lines.append(auto_configuration_str)
 
     # ---------- Configuration ----------
     log_lines.append("--Configuration--")
@@ -42,17 +46,17 @@ def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig,
     log_lines.append(f"⤷ Parallel Enabled: {config.enable_parallel}")
     log_lines.append(f"⤷ Max Workers: {config.max_workers or 'Auto'}")
 
-    # ---------- Day-level ----------
-    if performance_analytic_config.record_date:
+    # ---------- Day-level ---------- 
+    if getattr(config, "enable_day_level_plotter", False):
         log_lines.append("⤷ Day-level performance plotter: Enable")
         log_lines.append("--DayLevelDataPlotter Configuration--")
         log_lines.append(f"   ⤷ Plotter for: {performance_analytic_config.record_date}")
-        log_lines.append(f"   ⤷ Used plotter config: {config.day_level_visualization_config_path}")
+        log_lines.append(f"   ⤷ Used plotter config: {config.day_level_visualization_config_path or 'Default'}")
     else:
         log_lines.append("⤷ Day-level performance plotter: Disable")
 
     # ---------- Month-level ----------
-    if performance_analytic_config.record_month:
+    if getattr(config, "enable_month_level_plotter", False):
         log_lines.append("⤷ Month-level performance plotter: Enable")
         log_lines.append("--MonthLevelDataPlotter Configuration--")
         log_lines.append(f"   ⤷ Plotter for: {performance_analytic_config.record_month}")
@@ -62,7 +66,7 @@ def build_multi_level_performance_plotter_log(config: PerformancePlotflowConfig,
         log_lines.append("⤷ Month-level performance plotter: Disable")
 
     # ---------- Year-level ----------
-    if performance_analytic_config.record_year:
+    if getattr(config, "enable_year_level_plotter", False):
         log_lines.append("⤷ Year-level performance plotter: Enable")
         log_lines.append("--YearLevelDataPlotter Configuration--")
         log_lines.append(f"   ⤷ Plotter for: {performance_analytic_config.record_year}")

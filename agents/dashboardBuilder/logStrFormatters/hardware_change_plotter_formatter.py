@@ -3,7 +3,8 @@ from datetime import datetime
 from agents.dashboardBuilder.dashboardBuilderConfigs.hardware_change_plotflow_config import HardwareChangePlotflowConfig
 
 def build_hardware_change_plotter_log(config: HardwareChangePlotflowConfig, 
-                                    results: Dict[str, Optional[Dict[str, Any]]]) -> str:
+                                      results: Dict[str, Optional[Dict[str, Any]]],
+                                      auto_configuration_str: str) -> str:
     """
     Build formatted log string for HardwareChangePlotter run.
     Does NOT log; just returns string.
@@ -17,6 +18,9 @@ def build_hardware_change_plotter_log(config: HardwareChangePlotflowConfig,
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_lines = [f"[{timestamp_str}] HardwareChangePlotter Run", ""]
 
+    # Add auto-configuration summary
+    log_lines.append(auto_configuration_str)
+    
     # ---------- Configuration ----------
     log_lines.append("--Configuration--")
 

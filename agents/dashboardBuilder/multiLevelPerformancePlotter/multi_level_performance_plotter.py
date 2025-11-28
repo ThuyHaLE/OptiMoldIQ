@@ -45,17 +45,11 @@ class MultiLevelPerformancePlotter:
         self.logger.info("Initialized MultiLevelPerformancePlotter")
 
         try:
-            self.analytics_orchestrator_config.enable_multi_level_analysis = (
-                self.analytics_orchestrator_config.performance_config.record_date is not None 
-                or self.analytics_orchestrator_config.performance_config.record_month is not None
-                or self.analytics_orchestrator_config.performance_config.record_year is not None)
+            # Apply auto-configuration and get summary string
+            self.auto_configuration_str = self._apply_auto_configuration()
             
-            self.analytics_orchestrator_config.performance_config.day_save_output = (
-                self.analytics_orchestrator_config.performance_config.record_date is not None)
-            self.analytics_orchestrator_config.performance_config.month_save_output = (
-                self.analytics_orchestrator_config.performance_config.record_month is not None)
-            self.analytics_orchestrator_config.performance_config.year_save_output = (
-                self.analytics_orchestrator_config.performance_config.record_year is not None)
+            # Log the auto-config summary to console
+            self.logger.info("{}", self.auto_configuration_str)
             
             orchestrator = AnalyticsOrchestrator(self.analytics_orchestrator_config)
             self.orchestrator_results, self.orchestrator_log_str = orchestrator.run_analytics()
@@ -63,6 +57,66 @@ class MultiLevelPerformancePlotter:
         except Exception as e:
             self.logger.error("Failed to analyze data: {}", e)
             raise
+
+    def _apply_auto_configuration(self) -> str:
+        """
+        Apply auto-configuration rules to analytics_orchestrator_config.
+        This modifies the config in-place based on plotter enable flags.
+        
+        Returns:
+            str: Summary string of auto-configuration changes
+        """
+        log_lines = []
+        log_lines.append("--Auto-Configuration--")
+        log_lines.append(f"⤷ Input Configs:")
+        log_lines.append(f"   ⤷ enable_day_level_plotter: {self.enable_day_level_plotter}")
+        log_lines.append(f"   ⤷ enable_month_level_plotter: {self.enable_month_level_plotter}")
+        log_lines.append(f"   ⤷ enable_year_level_plotter: {self.enable_year_level_plotter}")
+        log_lines.append(f"   ⤷ record_date: {self.analytics_orchestrator_config.performance_config.record_date}")
+        log_lines.append(f"   ⤷ record_month: {self.analytics_orchestrator_config.performance_config.record_month}")
+        log_lines.append(f"   ⤷ record_year: {self.analytics_orchestrator_config.performance_config.record_year}")
+        log_lines.append("")
+        
+        log_lines.append("⤷ Applied Changes:")
+        
+        # Enable AnalyticsOrchestrator components: 
+        # DayLevelDataPlotter or MonthLevelDataPlotter or YearLevelDataPlotter -> MultiLevelPerformanceAnalyzer
+        new_multi_level_analysis = (
+            self.enable_day_level_plotter or self.enable_month_level_plotter or self.enable_year_level_plotter)
+        self.analytics_orchestrator_config.enable_multi_level_analysis = new_multi_level_analysis
+        log_lines.append(
+            f"   ⤷ enable_multi_level_analysis (day OR month OR year): {new_multi_level_analysis}"
+        )
+        
+        # Enable PerformanceAnalyticflowConfig components: 
+        # Enable DayLevelDataPlotter/MonthLevelDataPlotter/YearLevelDataPlotter out-saving option
+        # record_date/record_month/year_save_output is not None -> day_save_output/month_save_output/year_save_output = True
+        new_day_save = (self.analytics_orchestrator_config.performance_config.record_date is not None)
+        self.analytics_orchestrator_config.performance_config.day_save_output = new_day_save
+        log_lines.append(
+            f"   ⤷ day_save_output (record_date is not None): {new_day_save}"
+        )
+        
+        new_month_save = (self.analytics_orchestrator_config.performance_config.record_month is not None)
+        self.analytics_orchestrator_config.performance_config.month_save_output = new_month_save
+        log_lines.append(
+            f"   ⤷ month_save_output (record_month is not None): {new_month_save}"
+        )
+        
+        new_year_save = (self.analytics_orchestrator_config.performance_config.record_year is not None)
+        self.analytics_orchestrator_config.performance_config.year_save_output = new_year_save
+        log_lines.append(
+            f"   ⤷ year_save_output (record_year is not None): {new_year_save}"
+        )
+        
+        # Enable PerformanceAnalyticflowConfig change log
+        self.analytics_orchestrator_config.performance_config.save_multi_level_performance_analyzer_log = True
+        log_lines.append(
+            f"   ⤷ save_multi_level_performance_analyzer_log: True (force enabled)"
+        )
+        log_lines.append("")
+        
+        return "\n".join(log_lines)
 
     def data_process(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """
@@ -78,20 +132,22 @@ class MultiLevelPerformancePlotter:
             "day_level_results": self._safe_process(
                 self.day_level_process, 
                 "day"
-            ) if self.analytics_orchestrator_config.performance_config.record_date is not None else None,
+            ) if self.enable_day_level_plotter else None,
 
             "month_level_results": self._safe_process(
                 self.month_level_process, 
                 "month"
-            ) if self.analytics_orchestrator_config.performance_config.record_month is not None else None,
+            ) if self.enable_month_level_plotter else None,
 
             "year_level_results": self._safe_process(
                 self.year_level_process, 
                 "year"
-            ) if self.analytics_orchestrator_config.performance_config.record_year is not None else None,
+            ) if self.enable_year_level_plotter else None,
         }
 
-        log_entries_str = build_multi_level_performance_plotter_log(self.config, results)
+        log_entries_str = build_multi_level_performance_plotter_log(self.config, 
+                                                                    results, 
+                                                                    self.auto_configuration_str)
 
         # Save log
         if self.config.save_multi_level_performance_plotter_log:

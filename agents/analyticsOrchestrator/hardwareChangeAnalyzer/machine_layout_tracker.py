@@ -20,7 +20,7 @@ class MachineLayoutTracker:
     def __init__(self,
                  productRecords_df: pd.DataFrame,
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 output_dir: str = 'agents/shared_db/DataChangeAnalyzer/MachineLayoutTracker/tracker_results',
+                 output_dir: str = 'agents/shared_db/HardwareChangeAnalyzer/MachineLayoutTracker',
                  change_log_name: str = "change_log.txt"):
 
         self.logger = logger.bind(class_="MachineLayoutTracker")

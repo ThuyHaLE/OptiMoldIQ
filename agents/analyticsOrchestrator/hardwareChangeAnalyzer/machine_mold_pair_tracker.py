@@ -24,7 +24,7 @@ class MachineMoldPairTracker:
                  moldInfo_df: pd.DataFrame,
                  machineInfo_df: pd.DataFrame,
                  databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 output_dir: str = 'agents/shared_db/DataChangeAnalyzer/UpdateMoldOverview/tracker_results',
+                 output_dir: str = 'agents/shared_db/HardwareChangeAnalyzer/MachineMoldPairTracker',
                  change_log_name: str = 'change_log.txt'):
 
         self.logger = logger.bind(class_="MachineMoldPairTracker")

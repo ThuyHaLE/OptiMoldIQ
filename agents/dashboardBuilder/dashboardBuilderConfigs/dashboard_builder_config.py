@@ -8,10 +8,25 @@ class DashboardBuilderConfig:
     """Configuration class for dashboard builder parameters"""
 
     # Enable DashboardBuilder components
-    enable_multi_level_plotter: bool = False  # MultiLevelPerformancePlotter
-    enable_hardware_change_plotter: bool = False  # HardwareChangePlotter
+    # HardwareChangePlotter
+    enable_hardware_change_plotter = False  
+    #Default: False
+    enable_hardware_change_machine_layout_plotter = False # MachineLayoutPlotter
+    #Default: False
+    enable_hardware_change_machine_mold_pair_plotter = False # MachineMoldPairPlotter
+    #Default: False
+    
+    # MultiLevelPerformancePlotter
+    enable_multi_level_plotter = False  
+    #Default: False
+    enable_multi_level_day_level_plotter = False # DayLevelDataPlotter
+    #Default: False
+    enable_multi_level_month_level_plotter = False # MonthLevelDataPlotter
+    #Default: False
+    enable_multi_level_year_level_plotter = False # YearLevelDataPlotter
+    #Default: False
 
-    save_dashboard_builder_log: bool = False
+    save_dashboard_builder_log: bool = True
     dashboard_builder_dir: str = 'agents/shared_db/DashboardBuilder'
     
     performance_plotflow_config: PerformancePlotflowConfig = field(default_factory=PerformancePlotflowConfig)

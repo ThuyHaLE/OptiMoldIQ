@@ -3,7 +3,8 @@ from datetime import datetime
 from agents.dashboardBuilder.dashboardBuilderConfigs.dashboard_builder_config import DashboardBuilderConfig
 
 def build_dashboard_builder_log(config: DashboardBuilderConfig, 
-                                results: Dict[str, Optional[Dict[str, Any]]]) -> str:
+                                results: Dict[str, Optional[Dict[str, Any]]],
+                                auto_configuration_str: str) -> str:
     """
     Build formatted log string for DashboardBuilder run.
     Does NOT log; just returns string.
@@ -13,6 +14,9 @@ def build_dashboard_builder_log(config: DashboardBuilderConfig,
 
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_lines = [f"[{timestamp_str}] DashboardBuilder Run", ""]
+
+    # Add auto-configuration summary
+    log_lines.append(auto_configuration_str)
 
     # ---------- Configuration ----------
     log_lines.append("--Configuration--")
@@ -73,16 +77,17 @@ def build_dashboard_builder_log(config: DashboardBuilderConfig,
             log_lines.append(f"       ⤷ Output Directory: {perf_config.multi_level_performance_plotter_dir}")
 
         log_lines.append("--MultiLevelPerformancePlotter Configuration--")
+
         # Day level
-        if getattr(performance_config, "record_date", None):
+        if getattr(perf_config, "enable_day_level_plotter", False):
             log_lines.append("   ⤷ Day level")
-            log_lines.append(f"       ⤷ Record Date: {performance_config.record_date}")
+            log_lines.append(f"       ⤷ Record Date: {performance_config.record_date}") 
             log_lines.append(f"       ⤷ Visualization Config: {perf_config.day_level_visualization_config_path or 'Default'}")
         else:
             log_lines.append("   ⤷ Day level: Disable")
         
         # Month level
-        if getattr(performance_config, "record_month", None):
+        if getattr(perf_config, "enable_month_level_plotter", False):
             log_lines.append("   ⤷ Month level")
             log_lines.append(f"       ⤷ Record Month: {performance_config.record_month}")
             log_lines.append(f"       ⤷ Analysis Date: {getattr(performance_config, 'month_analysis_date', 'Not set')}")
@@ -91,7 +96,7 @@ def build_dashboard_builder_log(config: DashboardBuilderConfig,
             log_lines.append("   ⤷ Month level: Disable")
         
         # Year level
-        if getattr(performance_config, "record_year", None):
+        if getattr(perf_config, "enable_year_level_plotter", False):
             log_lines.append("   ⤷ Year level")
             log_lines.append(f"       ⤷ Record Year: {performance_config.record_year}")
             log_lines.append(f"       ⤷ Analysis Date: {getattr(performance_config, 'year_analysis_date', 'Not set')}")

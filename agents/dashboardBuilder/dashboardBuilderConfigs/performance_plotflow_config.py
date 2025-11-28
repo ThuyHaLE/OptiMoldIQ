@@ -7,6 +7,10 @@ from agents.analyticsOrchestrator.analyticsConfigs.analytics_orchestrator_config
 class PerformancePlotflowConfig:
     """Configuration class for plotflow parameters"""
     
+    enable_day_level_plotter: bool = False
+    enable_month_level_plotter: bool = False
+    enable_year_level_plotter: bool = False
+
     # MultiLevelPerformancePlotter config
     save_multi_level_performance_plotter_log: bool = True
     multi_level_performance_plotter_dir: str = "agents/shared_db/DashboardBuilder/MultiLevelPerformancePlotter"

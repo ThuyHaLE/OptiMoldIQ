@@ -25,7 +25,7 @@ class PerformanceAnalyticflowConfig:
     annotation_name: str = "path_annotations.json"
     databaseSchemas_path: str = 'database/databaseSchemas.json'
 
-    save_multi_level_performance_analyzer_log: bool = False
+    save_multi_level_performance_analyzer_log: bool = True
     multi_level_performance_analyzer_dir: str = "agents/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"
 
     def __post_init__(self):

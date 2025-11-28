@@ -11,7 +11,7 @@ class AnalyticsOrchestratorConfig:
     enable_hardware_change_analysis: bool = False #HardwareChangeAnalyzer
     enable_multi_level_analysis: bool = False #MultiLevelPerformanceAnalyzer
 
-    save_analytics_orchestrator_log: bool = False
+    save_analytics_orchestrator_log: bool = True
     analytics_orchestrator_dir: str = 'agents/shared_db/AnalyticsOrchestrator'
     
     change_config: ChangeAnalyticflowConfig = field(default_factory=ChangeAnalyticflowConfig)
