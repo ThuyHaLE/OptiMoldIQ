@@ -9,22 +9,15 @@ class DashboardBuilderConfig:
 
     # Enable DashboardBuilder components
     # HardwareChangePlotter
-    enable_hardware_change_plotter = False  
-    #Default: False
-    enable_hardware_change_machine_layout_plotter = False # MachineLayoutPlotter
-    #Default: False
-    enable_hardware_change_machine_mold_pair_plotter = False # MachineMoldPairPlotter
-    #Default: False
+    enable_hardware_change_plotter: bool = False  
+    enable_hardware_change_machine_layout_plotter: bool = False # MachineLayoutPlotter
+    enable_hardware_change_machine_mold_pair_plotter: bool = False # MachineMoldPairPlotter
     
     # MultiLevelPerformancePlotter
-    enable_multi_level_plotter = False  
-    #Default: False
-    enable_multi_level_day_level_plotter = False # DayLevelDataPlotter
-    #Default: False
-    enable_multi_level_month_level_plotter = False # MonthLevelDataPlotter
-    #Default: False
-    enable_multi_level_year_level_plotter = False # YearLevelDataPlotter
-    #Default: False
+    enable_multi_level_plotter: bool = False  
+    enable_multi_level_day_level_plotter: bool = False # DayLevelDataPlotter
+    enable_multi_level_month_level_plotter: bool = False # MonthLevelDataPlotter
+    enable_multi_level_year_level_plotter: bool = False # YearLevelDataPlotter
 
     save_dashboard_builder_log: bool = True
     dashboard_builder_dir: str = 'agents/shared_db/DashboardBuilder'
