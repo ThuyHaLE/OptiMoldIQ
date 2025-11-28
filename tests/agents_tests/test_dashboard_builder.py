@@ -62,7 +62,7 @@ def test_dashboard_builder():
         # MACHINE LAYOUT TRACKER #
         #------------------------#
 
-        # Trigger HardwareChangeAnalyzer-MachineLayoutTracker if record_date is not None
+        # Trigger HardwareChangeAnalyzer-MachineLayoutTracker if True
         enable_machine_layout_tracker = False, # Default: False
 
         machine_layout_tracker_dir = "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineLayoutTracker", 
@@ -74,7 +74,7 @@ def test_dashboard_builder():
         # MACHINE-MOLD PAIR TRACKER #
         #---------------------------#
 
-        # Trigger HardwareChangeAnalyzer-MachineMoldPairTracker if record_date is not None
+        # Trigger HardwareChangeAnalyzer-MachineMoldPairTracker if True
         enable_machine_mold_pair_tracker = False, # Default: False
 
         machine_mold_pair_tracker_dir = "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineMoldPairTracker", 
@@ -103,10 +103,14 @@ def test_dashboard_builder():
         
         #--------------------------#
         # HARDWARE CHANGE ANALYZER #
-        #--------------------------#
+        #--------------------------# 
 
         # Trigger AnalyticsOrchestrator-HardwareChangeAnalyzer if True
         enable_hardware_change_analysis = False, # Default: False 
+        # Trigger HardwareChangeAnalyzer-MachineLayoutTracker if True and HardwareChangeAnalyzer enabled
+        enable_hardware_change_machine_layout_tracker = False, # Default: False
+        # Trigger HardwareChangeAnalyzer-MachineMoldPairTracker if True and HardwareChangeAnalyzer enabled
+        enable_hardware_change_machine_mold_pair_tracker = False, # Default: False
 
         #----------------------------------#
         # MULTI-LEVEL PERFORMANCE ANALYZER #
@@ -114,6 +118,13 @@ def test_dashboard_builder():
 
         # Trigger AnalyticsOrchestrator-MultiLevelPerformanceAnalyzer if True
         enable_multi_level_analysis = False, # Default: False
+
+        # Trigger MultiLevelPerformanceAnalyzer-DayLevelDataProcessor if True and MultiLevelPerformanceAnalyzer enabled
+        enable_multi_level_day_level_processor = False, # Default: False
+        # Trigger MultiLevelPerformanceAnalyzer-MonthLevelDataProcessor if True and MultiLevelPerformanceAnalyzer enabled
+        enable_multi_level_month_level_processor = False, # Default: False
+        # Trigger MultiLevelPerformanceAnalyzer-YearLevelDataProcessor if True and MultiLevelPerformanceAnalyzer enabled
+        enable_multi_level_year_level_processor = False, # Default: False
         
         #---------------------------------------#
         # ANALYTICS ORCHESTRATOR GENERAL CONFIG #
@@ -134,6 +145,17 @@ def test_dashboard_builder():
         # ChangeAnalyticflowConfig for HardwareChangeAnalyzer if HardwareChangeAnalyzer True
         change_config=change_analytic_config
         #Default: ChangeAnalyticflowConfig = field(default_factory=ChangeAnalyticflowConfig)
+
+        #--------------------#
+        # AUTO CONFIGURATION #
+        #--------------------#
+        # Auto-configured by AnalyticsOrchestrator._apply_auto_configuration() at initialization.
+        # Parent enable flags are automatically propagated to nested analyzer configs:
+        #
+        # enable_multi_level_analysis → performance_config.enable_*_level_processor
+        # enable_hardware_change_analysis → change_config.enable_*_tracker
+        #
+        # Manual settings below will be overridden. See _apply_auto_configuration() for details.
         
     )
 

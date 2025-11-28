@@ -13,10 +13,10 @@ def test_analytics_orchestrator():
         # MACHINE LAYOUT TRACKER #
         #------------------------#
 
-        # Trigger HardwareChangeAnalyzer-MachineLayoutTracker if record_date is not None
+        # Trigger HardwareChangeAnalyzer-MachineLayoutTracker if True
         enable_machine_layout_tracker = False, # Default: False
 
-        machine_layout_tracker_dir = "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineLayoutTracker",
+        machine_layout_tracker_dir = "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MachineLayoutTracker",
         #Default: "agents/shared_db/HardwareChangeAnalyzer/MachineLayoutTracker"
         machine_layout_tracker_change_log_name = "change_log.txt",
         #Default: "change_log.txt"
@@ -25,10 +25,10 @@ def test_analytics_orchestrator():
         # MACHINE-MOLD PAIR TRACKER #
         #---------------------------#
 
-        # Trigger HardwareChangeAnalyzer-MachineMoldPairTracker if record_date is not None
+        # Trigger HardwareChangeAnalyzer-MachineMoldPairTracker if True
         enable_machine_mold_pair_tracker = False, # Default: False
 
-        machine_mold_pair_tracker_dir = "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineMoldPairTracker",
+        machine_mold_pair_tracker_dir = "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MachineMoldPairTracker",
         #Default: "agents/shared_db/HardwareChangeAnalyzer/MachineMoldPairTracker"
         machine_mold_pair_tracker_change_log_name = "change_log.txt" ,
         #Default: "change_log.txt"
@@ -42,7 +42,7 @@ def test_analytics_orchestrator():
         databaseSchemas_path = "tests/mock_database/databaseSchemas.json", # Default: 'database/databaseSchemas.json'
 
         save_hardware_change_analyzer_log = True, # Default: True
-        hardware_change_analyzer_dir = "tests/shared_db/DashboardBuilder/HardwareChangeAnalyzer",
+        hardware_change_analyzer_dir = "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer",
         # Default: "agents/shared_db/HardwareChangeAnalyzer"
     )
 
@@ -66,7 +66,7 @@ def test_analytics_orchestrator():
         # Trigger MultiLevelPerformanceAnalyzer-MonthLevelDataProcessor if record_month is not None
         record_month="2019-01", # Default: None
         month_analysis_date="2019-01-15", # Default: None
-        month_save_output = False, # Default: False
+        month_save_output = True, # Default: False
 
         #---------------------------------#
         # YEAR-LEVEL PERFORMANCE ANALYZER #
@@ -86,7 +86,7 @@ def test_analytics_orchestrator():
         databaseSchemas_path = 'database/databaseSchemas.json', # Default: 'database/databaseSchemas.json'
 
         save_multi_level_performance_analyzer_log = True, # Default: True
-        multi_level_performance_analyzer_dir = "tests/shared_db/DashboardBuilder/MultiLevelPerformancePlotter",
+        multi_level_performance_analyzer_dir = "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer",
         #Default: "agents/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"
         )
     
@@ -100,21 +100,33 @@ def test_analytics_orchestrator():
         #--------------------------#
 
         # Trigger AnalyticsOrchestrator-HardwareChangeAnalyzer if True
-        enable_hardware_change_analysis = False, # Default: False
+        enable_hardware_change_analysis = True, # Default: False
+
+        # Trigger HardwareChangeAnalyzer-MachineLayoutTracker if True and HardwareChangeAnalyzer enabled
+        enable_hardware_change_machine_layout_tracker = True, # Default: False
+        # Trigger HardwareChangeAnalyzer-MachineMoldPairTracker if True and HardwareChangeAnalyzer enabled
+        enable_hardware_change_machine_mold_pair_tracker = True, # Default: False
 
         #----------------------------------#
         # MULTI-LEVEL PERFORMANCE ANALYZER #
         #----------------------------------#
 
         # Trigger AnalyticsOrchestrator-MultiLevelPerformanceAnalyzer if True
-        enable_multi_level_analysis = False, # Default: False
+        enable_multi_level_analysis = True, # Default: False
+
+        # Trigger MultiLevelPerformanceAnalyzer-DayLevelDataProcessor if True and MultiLevelPerformanceAnalyzer enabled
+        enable_multi_level_day_level_processor = True, # Default: False
+        # Trigger MultiLevelPerformanceAnalyzer-MonthLevelDataProcessor if True and MultiLevelPerformanceAnalyzer enabled
+        enable_multi_level_month_level_processor = True, # Default: False
+        # Trigger MultiLevelPerformanceAnalyzer-YearLevelDataProcessor if True and MultiLevelPerformanceAnalyzer enabled
+        enable_multi_level_year_level_processor = True, # Default: False
 
         #---------------------------------------#
         # ANALYTICS ORCHESTRATOR GENERAL CONFIG #
         #---------------------------------------#
 
         save_analytics_orchestrator_log = True, # Default: True
-        analytics_orchestrator_dir='tests/shared_db/DashboardBuilder',
+        analytics_orchestrator_dir='tests/shared_db/AnalyticsOrchestrator',
         #Default: 'agents/shared_db/AnalyticsOrchestrator'
 
         #---------------------#
@@ -128,6 +140,17 @@ def test_analytics_orchestrator():
         # ChangeAnalyticflowConfig for HardwareChangeAnalyzer if HardwareChangeAnalyzer True
         change_config=change_analytic_config
         #Default: ChangeAnalyticflowConfig = field(default_factory=ChangeAnalyticflowConfig)
+
+        #--------------------#
+        # AUTO CONFIGURATION #
+        #--------------------#
+        # Auto-configured by AnalyticsOrchestrator._apply_auto_configuration() at initialization.
+        # Parent enable flags are automatically propagated to nested analyzer configs:
+        #
+        # enable_multi_level_analysis → performance_config.enable_*_level_processor
+        # enable_hardware_change_analysis → change_config.enable_*_tracker
+        #
+        # Manual settings below will be overridden. See _apply_auto_configuration() for details.
 
     )
     

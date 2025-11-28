@@ -3,7 +3,8 @@ from datetime import datetime
 from agents.analyticsOrchestrator.analyticsConfigs.analytics_orchestrator_config import AnalyticsOrchestratorConfig
 
 def build_analytics_orchestrator_log(config: AnalyticsOrchestratorConfig, 
-                                     results: Dict[str, Optional[Dict[str, Any]]]) -> str:
+                                     results: Dict[str, Optional[Dict[str, Any]]],
+                                     auto_configuration_str: str) -> str:
     """
     Build formatted log string for AnalyticsOrchestrator run.
     Does NOT log; just returns string.
@@ -13,6 +14,9 @@ def build_analytics_orchestrator_log(config: AnalyticsOrchestratorConfig,
 
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_lines = [f"[{timestamp_str}] AnalyticsOrchestrator Run", ""]
+
+    # Add auto-configuration summary
+    log_lines.append(auto_configuration_str)
 
     # ---------- Configuration ----------
     log_lines.append("--Configuration--")

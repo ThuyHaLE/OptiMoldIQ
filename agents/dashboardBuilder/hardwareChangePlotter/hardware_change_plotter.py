@@ -85,13 +85,13 @@ class HardwareChangePlotter:
         
         # Enable ChangeAnalyticflowConfig components: 
         # MachineLayoutPlotter -> MachineLayoutTracker
-        self.analytics_orchestrator_config.change_config.enable_machine_layout_tracker = (
+        self.analytics_orchestrator_config.enable_hardware_change_machine_layout_tracker = (
             self.config.enable_machine_layout_plotter)
         log_lines.append(f"   ⤷ enable_machine_layout_tracker (=layout): {self.config.enable_machine_layout_plotter}")
         
         # Enable ChangeAnalyticflowConfig components: 
         # MachineMoldPairPlotter -> MachineMoldPairTracker
-        self.analytics_orchestrator_config.change_config.enable_machine_mold_pair_tracker = (
+        self.analytics_orchestrator_config.enable_hardware_change_machine_mold_pair_tracker = (
             self.config.enable_machine_mold_pair_plotter)
         log_lines.append(f"   ⤷ enable_machine_mold_pair_tracker (=mold): {self.config.enable_machine_mold_pair_plotter}")
         

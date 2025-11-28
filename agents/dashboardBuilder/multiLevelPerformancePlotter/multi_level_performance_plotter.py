@@ -89,15 +89,23 @@ class MultiLevelPerformancePlotter:
         log_lines.append(
             f"   ⤷ enable_multi_level_analysis (day OR month OR year): {new_multi_level_analysis}"
         )
-        
+
         # Enable PerformanceAnalyticflowConfig components: 
-        # Enable DayLevelDataPlotter/MonthLevelDataPlotter/YearLevelDataPlotter out-saving option
-        # record_date/record_month/year_save_output is not None -> day_save_output/month_save_output/year_save_output = True
+        # DayLevelDataPlotter -> DayLevelDataProcessor
+        self.analytics_orchestrator_config.enable_multi_level_day_level_processor = (
+            self.config.enable_day_level_plotter)
+        log_lines.append(f"   ⤷ enable_day_level_processor (=layout): {self.config.enable_day_level_plotter}")
+
         new_day_save = (self.analytics_orchestrator_config.performance_config.record_date is not None)
         self.analytics_orchestrator_config.performance_config.day_save_output = new_day_save
         log_lines.append(
             f"   ⤷ day_save_output (record_date is not None): {new_day_save}"
         )
+
+        # MonthLevelDataPlotter -> MonthLevelDataProcessor
+        self.analytics_orchestrator_config.enable_multi_level_month_level_processor = (
+            self.config.enable_month_level_plotter)
+        log_lines.append(f"   ⤷ enable_month_level_processor (=layout): {self.config.enable_month_level_plotter}")
         
         new_month_save = (self.analytics_orchestrator_config.performance_config.record_month is not None)
         self.analytics_orchestrator_config.performance_config.month_save_output = new_month_save
@@ -105,6 +113,11 @@ class MultiLevelPerformancePlotter:
             f"   ⤷ month_save_output (record_month is not None): {new_month_save}"
         )
         
+        # YearLevelDataPlotter -> YearLevelDataProcessor
+        self.analytics_orchestrator_config.enable_multi_level_year_level_processor = (
+            self.config.enable_year_level_plotter)
+        log_lines.append(f"   ⤷ enable_year_level_processor (=layout): {self.config.enable_year_level_plotter}")
+
         new_year_save = (self.analytics_orchestrator_config.performance_config.record_year is not None)
         self.analytics_orchestrator_config.performance_config.year_save_output = new_year_save
         log_lines.append(

@@ -55,6 +55,12 @@ class AnalyticsOrchestrator:
         if not self.config.enable_hardware_change_analysis and not self.config.enable_multi_level_analysis:
             self.logger.info("No analytics enabled. Nothing to run.")
         
+        # Apply auto-configuration and get summary string
+        self.auto_configuration_str = self._apply_auto_configuration()
+
+        # Log the auto-config summary to console
+        self.logger.info(f"\n{self.auto_configuration_str}")
+        
         # Run Multi-Level analytics
         if self.config.enable_hardware_change_analysis:
             results["change_hardware_analysis"] = self._safe_process(
@@ -66,8 +72,11 @@ class AnalyticsOrchestrator:
             results["multi_level_analytics"] = self._safe_process(
                 self.process_multi_level_analytics,
                 "multi-level analytics")
-        
-        log_entries_str = build_analytics_orchestrator_log(self.config, results)
+
+        log_entries_str = build_analytics_orchestrator_log(self.config, 
+                                                           results,
+                                                           self.auto_configuration_str
+                                                           )
 
         # Save log
         if self.config.save_analytics_orchestrator_log:
@@ -83,6 +92,93 @@ class AnalyticsOrchestrator:
 
         return results, log_entries_str
     
+    def _apply_auto_configuration(self) -> str:
+        """
+        Apply auto-configuration rules to analytics configs.
+        This modifies the configs in-place based on analytics orchestrator enable flags.
+        
+        Returns:
+            str: Summary string of auto-configuration changes
+        """
+        log_lines = []
+        log_lines.append("--Auto-Configuration--")
+        log_lines.append(f"⤷ Input Configs:")
+        log_lines.append(f"   ⤷ enable_hardware_change_analysis: {self.config.enable_hardware_change_analysis}")
+        log_lines.append(f"   ⤷ enable_multi_level_analysis: {self.config.enable_multi_level_analysis}")
+        
+        if self.config.enable_hardware_change_analysis:
+            log_lines.append(f"   ⤷ enable_hardware_change_machine_layout_tracker: {self.config.enable_hardware_change_machine_layout_tracker}")
+            log_lines.append(f"   ⤷ enable_hardware_change_machine_mold_pair_tracker: {self.config.enable_hardware_change_machine_mold_pair_tracker}")
+        
+        if self.config.enable_multi_level_analysis:
+            log_lines.append(f"   ⤷ enable_multi_level_day_level_processor: {self.config.enable_multi_level_day_level_processor}")
+            log_lines.append(f"   ⤷ enable_multi_level_month_level_processor: {self.config.enable_multi_level_month_level_processor}")
+            log_lines.append(f"   ⤷ enable_multi_level_year_level_processor: {self.config.enable_multi_level_year_level_processor}")
+        
+        log_lines.append("")
+        log_lines.append("⤷ Applied Changes:")
+        
+        # Hardware Change Analysis Configuration
+        if self.config.enable_hardware_change_analysis:
+            log_lines.append("   ⤷ ChangeAnalyticflowConfig:")
+            
+            self.config.change_config.enable_machine_layout_tracker = (
+                self.config.enable_hardware_change_machine_layout_tracker
+            )
+            log_lines.append(
+                f"      ⤷ enable_machine_layout_tracker (=hardware_change_machine_layout_tracker): "
+                f"{self.config.enable_hardware_change_machine_layout_tracker}"
+            )
+            
+            self.config.change_config.enable_machine_mold_pair_tracker = (
+                self.config.enable_hardware_change_machine_mold_pair_tracker
+            )
+            log_lines.append(
+                f"      ⤷ enable_machine_mold_pair_tracker (=hardware_change_machine_mold_pair_tracker): "
+                f"{self.config.enable_hardware_change_machine_mold_pair_tracker}"
+            )
+            
+            self.config.change_config.save_hardware_change_analyzer_log = True
+            log_lines.append(f"      ⤷ save_hardware_change_analyzer_log: True (force enabled)")
+        
+        # Multi-Level Performance Analysis Configuration
+        if self.config.enable_multi_level_analysis:
+            log_lines.append("   ⤷ PerformanceAnalyticflowConfig:")
+            
+            self.config.performance_config.enable_day_level_processor = (
+                self.config.enable_multi_level_day_level_processor
+            )
+            log_lines.append(
+                f"      ⤷ enable_day_level_processor (=multi_level_day_level_processor): "
+                f"{self.config.enable_multi_level_day_level_processor}"
+            )
+            
+            self.config.performance_config.enable_month_level_processor = (
+                self.config.enable_multi_level_month_level_processor
+            )
+            log_lines.append(
+                f"      ⤷ enable_month_level_processor (=multi_level_month_level_processor): "
+                f"{self.config.enable_multi_level_month_level_processor}"
+            )
+            
+            self.config.performance_config.enable_year_level_processor = (
+                self.config.enable_multi_level_year_level_processor
+            )
+            log_lines.append(
+                f"      ⤷ enable_year_level_processor (=multi_level_year_level_processor): "
+                f"{self.config.enable_multi_level_year_level_processor}"
+            )
+            
+            self.config.performance_config.save_multi_level_performance_analyzer_log = True
+            log_lines.append(f"      ⤷ save_multi_level_performance_analyzer_log: True (force enabled)")
+        
+        if not self.config.enable_hardware_change_analysis and not self.config.enable_multi_level_analysis:
+            log_lines.append("   ⤷ No analytics enabled - no changes applied")
+        
+        log_lines.append("")
+        
+        return "\n".join(log_lines)
+
     def process_multi_level_analytics(self) -> Dict[str, Any]:
         """
         Execute multi-level data analytics processing.
