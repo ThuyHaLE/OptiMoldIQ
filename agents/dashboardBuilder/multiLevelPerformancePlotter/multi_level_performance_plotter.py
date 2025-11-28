@@ -69,9 +69,9 @@ class MultiLevelPerformancePlotter:
         log_lines = []
         log_lines.append("--Auto-Configuration--")
         log_lines.append(f"⤷ Input Configs:")
-        log_lines.append(f"   ⤷ enable_day_level_plotter: {self.enable_day_level_plotter}")
-        log_lines.append(f"   ⤷ enable_month_level_plotter: {self.enable_month_level_plotter}")
-        log_lines.append(f"   ⤷ enable_year_level_plotter: {self.enable_year_level_plotter}")
+        log_lines.append(f"   ⤷ enable_day_level_plotter: {self.config.enable_day_level_plotter}")
+        log_lines.append(f"   ⤷ enable_month_level_plotter: {self.config.enable_month_level_plotter}")
+        log_lines.append(f"   ⤷ enable_year_level_plotter: {self.config.enable_year_level_plotter}")
         log_lines.append(f"   ⤷ record_date: {self.analytics_orchestrator_config.performance_config.record_date}")
         log_lines.append(f"   ⤷ record_month: {self.analytics_orchestrator_config.performance_config.record_month}")
         log_lines.append(f"   ⤷ record_year: {self.analytics_orchestrator_config.performance_config.record_year}")
@@ -82,7 +82,9 @@ class MultiLevelPerformancePlotter:
         # Enable AnalyticsOrchestrator components: 
         # DayLevelDataPlotter or MonthLevelDataPlotter or YearLevelDataPlotter -> MultiLevelPerformanceAnalyzer
         new_multi_level_analysis = (
-            self.enable_day_level_plotter or self.enable_month_level_plotter or self.enable_year_level_plotter)
+            self.config.enable_day_level_plotter 
+            or self.config.enable_month_level_plotter 
+            or self.config.enable_year_level_plotter)
         self.analytics_orchestrator_config.enable_multi_level_analysis = new_multi_level_analysis
         log_lines.append(
             f"   ⤷ enable_multi_level_analysis (day OR month OR year): {new_multi_level_analysis}"
@@ -132,17 +134,17 @@ class MultiLevelPerformancePlotter:
             "day_level_results": self._safe_process(
                 self.day_level_process, 
                 "day"
-            ) if self.enable_day_level_plotter else None,
+            ) if self.config.enable_day_level_plotter else None,
 
             "month_level_results": self._safe_process(
                 self.month_level_process, 
                 "month"
-            ) if self.enable_month_level_plotter else None,
+            ) if self.config.enable_month_level_plotter else None,
 
             "year_level_results": self._safe_process(
                 self.year_level_process, 
                 "year"
-            ) if self.enable_year_level_plotter else None,
+            ) if self.config.enable_year_level_plotter else None,
         }
 
         log_entries_str = build_multi_level_performance_plotter_log(self.config, 
