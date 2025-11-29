@@ -71,80 +71,98 @@ agents/shared_db
 |       └── newest/
 |           └── *_pending_processor.xlsx
 |
-├── DataChangeAnalyzer
-|   ├── UpdateHistMachineLayout/
-|   │   ├── change_log.txt
-|   │   ├── historical_db/
-|   │   ├── layout_changes.json
-|   │   └── newest/
-|   │       ├── *_Machine_change_layout_timeline.png
-|   │       ├── *_Machine_level_change_layout_details.png
-|   │       ├── *_Machine_level_change_layout_pivot.xlsx
-|   │       └── *_Top_machine_change_layout.png
-|   └── UpdateHistMoldOverview/
-|       ├── change_log.txt
-|       ├── historical_db/
-|       ├── machine_molds/
-|       │   ├── change_log.txt
-|       │   ├── historical_db/
-|       │   └── newest/
-|       │       ├── ...
-|       │       └── *_machine_molds.json
-|       └── newest/
-|           ├── *_Bottom_molds_tonnage.png
-|           ├── *_Comparison_of_acquisition_and_first_use.png
-|           ├── *_Machine_mold_first_run_pair.xlsx
-|           ├── *_Mold_machine_first_run_pair.xlsx
-|           ├── *_Number_of_molds_first_run_on_each_machine.png
-|           ├── *_Time_Gap_of_acquisition_and_first_use.png
-|           ├── *_Tonage_machine_mold_not_matched.xlsx
-|           ├── *_Tonnage_distribution.png
-|           ├── *_Tonnage_proportion.png
-|           ├── *_Top_Bottom_molds_gap_time_analysis.png
-|           └── *_Top_molds_tonnage.png
+├── dynamicDatabase/
+|    ├── productRecords.parquet
+|    └── purchaseOrders.parquet
 |
-├── DayLevelDataPlotter/
-│   ├── change_log.txt
-│   ├── historical_db/
-│   └── newest/
-│       ├── *_change_times_all_types_fig_YYYY-MM-DD.png
-│       ├── *_extracted_records_YYYY-MM-DD.xlsx
-│       ├── *_item_based_overview_dashboard_YYYY-MM-DD.png
-│       ├── *_machine_level_mold_analysis_chart_YYYY-MM-DD.png
-│       ├── *_machine_level_yield_efficiency_chart_YYYY-MM-DD.png
-│       ├── *_mold_based_overview_dashboard_YYYY-MM-DD.png
-│       ├── *_shift_level_detailed_yield_efficiency_chart_YYYY-MM-DD.png
-│       ├── *_shift_level_mold_efficiency_chart_YYYY-MM-DD.png
-│       └── *_shift_level_yield_efficiency_chart_YYYY-MM-DD.png
-|
-├── MonthLevelDataPlotter/
-│   ├── change_log.txt
-│   ├── historical_db/
-│   └── newest/
-│       ├── *_early_warning_report_YYYY-MM.txt
-│       ├── *_extracted_records_YYYY-MM.xlsx
-│       ├── *_final_summary_YYYY-MM.txt
-│       ├── *_machine_based_dashboard_YYYY-MM.png
-│       ├── *_mold_based_dashboard_YYYY-MM.png
-│       └── *_month_performance_dashboard_YYYY-MM.png
-|
-├── YearLevelPlotter/
-│   ├── change_log.txt
-│   ├── historical_db/
-│   └── newest/
-│       ├── *_extracted_records_YYYY.xlsx
-│       ├── *_final_summary_YYYY.txt
-│       ├── *_machine_based_year_view_dashboard_YYYY.png
-│       ├── *_machine_po_item_dashboard_YYYY_page(x).png
-│       ├── *_machine_quantity_dashboard_YYYY_page(x).png
-│       ├── *_machine_working_days_dashboard_YYYY_page(x).png
-│       ├── *_mold_based_year_view_dashboard_YYYY.png
-│       ├── *_mold_quantity_dashboard_YYYY_page(x).png
-│       ├── *_mold_shots_dashboard_YYYY_page(x).png
-│       ├── *_monthly_performance_dashboard_YYYY.png
-│       └── *_year_performance_dashboard_YYYY.png
-|
-└── dynamicDatabase/
-    ├── productRecords.parquet
-    └── purchaseOrders.parquet
+└── DashboardBuilder/
+    ├── HardwareChangePlotter/
+    │   ├── MachineLayoutPlotter/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_Individual_machine_layout_change_times_dashboard.png
+    │   │       └── *_Machine_layout_change_dashboard.png
+    │   ├── MachineLayoutTracker/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_machine_layout_changes_YYYY-MM-DD.json
+    │   │       └── *_machine_layout_changes_YYYY-MM-DD.xlsx
+    │   ├── MachineMoldPairPlotter/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_Machine_tonage_based_mold_utilization_dashboard.png
+    │   │       ├── *_Mold_machine_first_pairing_dashboard.png
+    │   │       └── *_Mold_utilization_dashboard.png
+    │   ├── MachineMoldPairTracker/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   │   └── pair_changes/
+    │   │   └── newest/
+    │   │       ├── *_mold_machine_pairing_YYYY-MM-DD.xlsx
+    │   │       ├── *_mold_machine_pairing_summary_YYYY-MM-DD.txt
+    │   │       └── pair_changes/
+    │   │           ├── ...
+    │   │           └── *_mold_machine_pairing_YYYY-MM-DD.json
+    │   └── change_log.txt
+    ├── MultiLevelPerformancePlotter/
+    │   ├── DayLevelDataPlotter/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_change_times_all_types_fig_YYYY-MM-DD.png
+    │   │       ├── *_item_based_overview_dashboard_YYYY-MM-DD.png
+    │   │       ├── *_machine_level_mold_analysis_chart_YYYY-MM-DD.png
+    │   │       ├── *_machine_level_yield_efficiency_chart_YYYY-MM-DD.png
+    │   │       ├── *_mold_based_overview_dashboard_YYYY-MM-DD.png
+    │   │       ├── *_shift_level_detailed_yield_efficiency_chart_YYYY-MM-DD.png
+    │   │       ├── *_shift_level_mold_efficiency_chart_YYYY-MM-DD.png
+    │   │       └── *_shift_level_yield_efficiency_chart_YYYY-MM-DD.png
+    │   ├── DayLevelDataProcessor/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_day_level_insights_YYYY-MM-DD.xlsx
+    │   │       └── *_day_level_summary_YYYY-MM-DD.txt
+    │   ├── MonthLevelDataPlotter/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_early_warning_report_YYYY-MM.txt
+    │   │       ├── *_extracted_records_YYYY-MM.xlsx
+    │   │       ├── *_final_summary_YYYY-MM.txt
+    │   │       ├── *_machine_based_dashboard_YYYY-MM.png
+    │   │       ├── *_mold_based_dashboard_YYYY-MM.png
+    │   │       └── *_month_performance_dashboard_YYYY-MM.png
+    │   ├── MonthLevelDataProcessor/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_day_level_insights_YYYY-MM.xlsx
+    │   │       └── *_day_level_summary_YYYY-MM.txt
+    │   ├── YearLevelDataProcessor/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_year_level_insights_YYYY.xlsx
+    │   │       └── *_year_level_summary_YYYY.txt
+    │   ├── YearLevelPlotter/
+    │   │   ├── change_log.txt
+    │   │   ├── historical_db/
+    │   │   └── newest/
+    │   │       ├── *_extracted_records_YYYY.xlsx
+    │   │       ├── *_final_summary_YYYY.txt
+    │   │       ├── *_machine_based_year_view_dashboard_YYYY.png
+    │   │       ├── *_machine_po_item_dashboard_YYYY_page(x).png
+    │   │       ├── *_machine_quantity_dashboard_YYYY_page(x).png
+    │   │       ├── *_machine_working_days_dashboard_YYYY_page(x).png
+    │   │       ├── *_mold_based_year_view_dashboard_YYYY.png
+    │   │       ├── *_mold_quantity_dashboard_YYYY_page(x).png
+    │   │       ├── *_mold_shots_dashboard_YYYY_page(x).png
+    │   │       ├── *_monthly_performance_dashboard_YYYY.png
+    │   │       └── *_year_performance_dashboard_YYYY.png
+    │   └── change_log.txt
+    └── change_log.txt
 ```

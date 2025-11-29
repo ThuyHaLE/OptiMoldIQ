@@ -52,27 +52,26 @@ agents/shared_db/
 |        └── *_pending_processor.xlsx    # Builds on ProducingProcessor output
 │
 # ══════════════════════════════════════════════════════════════════
-# HISTORICAL ANALYTICS
+# DASHBOARD BUILDER
 # ══════════════════════════════════════════════════════════════════
-├── DataChangeAnalyzer/
-|   ├── UpdateHistMachineLayout/newest/         # Machine layout change analysis (4 files)
-│   │   ├── *_Machine_change_layout_timeline.png
-│   │   ├── *_Machine_level_change_layout_details.png
-│   │   ├── *_Machine_level_change_layout_pivot.xlsx
-│   │   └── *_Top_machine_change_layout.png
-│   └── UpdateHistMoldOverview/newest/          # Mold usage & performance history (11 files)
-│       ├── *_Bottom_molds_tonnage.png
-│       ├── ... (9 more visualization files)
-│       └── *_Top_molds_tonnage.png
-│
-# ══════════════════════════════════════════════════════════════════
-# MULTI-LEVEL PERFORMANCE DASHBOARDS
-# ══════════════════════════════════════════════════════════════════
-└── MultiLevelDataPlotter
-    ├── DayLevelDataPlotter/newest/             # Daily dashboards & reports (9 files)
-    ├── MonthLevelDataPlotter/newest/           # Monthly dashboards & reports (6 files)
-    └── YearLevelPlotter/newest/                # Annual dashboards & reports (11 files)
-
+└── DashboardBuilder/
+    │ 
+    # ══════════════════════════════════════════════════════════════════
+    # HARDWARE CHANGE DASHBOARDS
+    # ══════════════════════════════════════════════════════════════════
+    ├── HardwareChangePlotter/
+    |   ├─ MachineLayoutTracker/newest/ + MachineLayoutPlotter/newest/
+    |   └─ MachineMoldPairTracker/newest/ + MachineMoldPairPlotter/newest/
+    # ══════════════════════════════════════════════════════════════════
+    # MULTI-LEVEL PERFORMANCE DASHBOARDS
+    # ══════════════════════════════════════════════════════════════════
+    └── MultiLevelPerformancePlotter/
+        ├── DayLevelDataProcessor/newest/
+        ├── DayLevelDataPlotter/newest/
+        ├── MonthLevelDataProcessor/newest/ 
+        ├── MonthLevelDataPlotter/newest/ 
+        ├── YearLevelDataProcessor/newest/ 
+        └── YearLevelPlotter/newest/
 ```
 
 ### Key Integration Points:
@@ -101,14 +100,11 @@ agents/shared_db/
       ↳ invokes: CompatibilityBasedMoldMachineOptimizer (internal)
       ↳ invokes: MachineAssignmentProcessor (internal)
 
-    DayLevelDataPlotter        → DayLevelDataPlotter/newest/
-      ↳ invokes: DayLevelDataProcessor (internal)
+    HardwareChangePlotter         → HardwareChangePlotter/newest/
+      ↳ invokes: AnalyticsOrchestrator (internal)
 
-    MonthLevelDataPlotter      → MonthLevelDataPlotter/newest/
-      ↳ invokes: MonthLevelDataProcessor (internal)
-
-    YearLevelPlotter           → YearLevelPlotter/newest/
-      ↳ invokes: YearLevelDataProcessor (internal)
+    MultiLevelPerformancePlotter  → MultiLevelPerformancePlotter/newest/
+      ↳ invokes: AnalyticsOrchestrator (internal) 
 
 Note: Other modules output directly to their own folders
 (e.g., ValidationOrchestrator → ValidationOrchestrator/newest/)
@@ -132,7 +128,7 @@ Note: Other modules output directly to their own folders
 - **OrderProgressTracker** reads Main Shared Database + Validation results
 - **Data Insights Generator** reads Main Shared Database
 - **DataChangeAnalyzer** reads Main Shared Database for historical change analysis
-- **DayLevelPlotter**/**MonthLevelPlotter**/**YearLevelPlotter** reads Main Shared Database for performance visualization
+- **DashboardBuilder** reads Main Shared Database for performance analysis and visualization
   
 ---
 
@@ -282,99 +278,173 @@ OrderProgressTracker (`production status`)────────────�
                                                                                      Initial production plan suggestion
 ```
 
-### 3. Historical Machine Layout Change Reports & Machine-Mold First-Run History Reports
+### 3. Hardware Change & Multi-level performance Reports and Static Dashboards
 
-#### **DataChangeAnalyzer** (2 folders, total 15 files)
-Coordinates and executes historical change analyses using `UpdateHistMachineLayout` and `UpdateHistMoldOverview` for both machines and molds. It processes data from the **Main Shared Database** and outputs visualizations and analytical reports through two modules:
+#### Dashboard Builder
 
-- *UpdateHistMachineLayout* (4 files): Analyzes machine layout evolution over time to identify layout changes and activity patterns:
-  - `*_Machine_change_layout_timeline.png` → Machine layout change timeline
-  - `*_Machine_level_change_layout_details.png` → Detailed layout change breakdown
-  - `*_Machine_level_change_layout_pivot.xlsx` → Pivot analysis of layout changes
-  - `*_Top_machine_change_layout.png` → Machines with most frequent layout updates
+The `Dashboard Builder` acts as a coordinating pipeline that provides comprehensive analytics and visualization capabilities through two main plotters:
+- **HardwareChangePlotter**: Tracks and visualizes hardware changes over time
+- **MultiLevelPerformancePlotter**: Analyzes and visualizes production performance at multiple time granularities
+Both plotters share the **AnalyticsOrchestrator** component for coordinated analysis workflows.
 
-- *UpdateHistMoldOverview* (11 files): Analyzes mold-machine relationships, first-run history, and mold utilization to identify operational trends:
-  - `*_Bottom_molds_tonnage.png` → Low-tonnage mold analysis  
-  - `*_Comparison_of_acquisition_and_first_use.png` → Mold acquisition vs. first-use timeline  
-  - `*_Machine_mold_first_run_pair.xlsx` → Machine–mold pairing history  
-  - `*_Mold_machine_first_run_pair.xlsx` → Mold–machine pairing history  
-  - `*_Number_of_molds_first_run_on_each_machine.png` → First-run distribution by machine  
-  - `*_Time_Gap_of_acquisition_and_first_use.png` → Time gap analysis between acquisition and first use  
-  - `*_Tonnage_machine_mold_not_matched.xlsx` → Mismatched tonnage records  
-  - `*_Tonnage_distribution.png` → Tonnage distribution overview  
-  - `*_Tonnage_proportion.png` → Tonnage proportion breakdown  
-  - `*_Top_Bottom_molds_gap_time_analysis.png` → Gap time comparison (top vs. bottom molds)  
-  - `*_Top_molds_tonnage.png` → High-tonnage mold analysis
+**1. HardwareChangePlotter**: coordinates hardware change analysis and visualization. It can invoke one or both subordinate modules—`MachineLayoutPlotter` and `MachineMoldPairPlotter`—depending on configuration. Trigger **AnalyticsOrchestrator** to analyzes machine layout evolution over time to identify layout changes and activity patterns (**MachineLayoutTracker**) and machine-mold relationships, first-run history, and pairing patterns (**MachineMoldPairTracker**). Then visualizes layout change patterns and machine activity (**MachineLayoutPlotter**) and mold-machine relationships, tonnage distribution, and utilization patterns (**MachineMoldPairTracker**).
 
-### 4. Multi-Level Performance Reports and Static Dashboards
+**Key capabilities:**
+- **Invocation flexibility**: Users can run layout tracking only, mold pairing only, or both simultaneously
+- **Data orchestration**: Coordinates with `AnalyticsOrchestrator` → `HardwareChangeAnalyzer` → specific Trackers
+- **Historical tracking**: Maintains change history in JSON format for timeline analysis
 
-#### MultiLevelDataPlotter (Pipeline Overview)
+**Output:**
 
-The `MultiLevelDataPlotter` acts as a coordinating pipeline that can invoke one or all of the subordinate modules—`DayLevelDataPlotter`, `MonthLevelDataPlotter`, and `YearLevelDataPlotter`—depending on the analysis scope. It manages the end-to-end flow from data extraction through analytics to dashboard and report generation, ensuring consistency across daily, monthly, and yearly insights.
-- **Invocation flexibility**: Users can run only the daily, monthly, or yearly module, or all of them in sequence.
-- **Data orchestration**: Coordinates with `MultiLevelDataAnalytics` pipeline and the corresponding processors (`DayLevelDataProcessor`, `MonthLevelDataProcessor`, `YearLevelDataProcessor`) for structured extraction and visualization.
+**MachineLayoutTracker outputs** (in `MachineLayoutTracker/newest/`): (2 files)
+- `*_machine_layout_changes_YYYY-MM-DD.json` → Structured change records
+- `*_machine_layout_changes_YYYY-MM-DD.xlsx` → Human-readable change log
 
-#### **DayLevelDataPlotter** (9 files)
-Analyzes daily production data and visualizes key efficiency metrics. Internally, it configures and invokes `MultiLevelDataAnalytics`, which in turn runs the `DayLevelDataProcessor` for the selected date.
+**MachineLayoutPlotter outputs** (in `MachineLayoutPlotter/newest/`): (2 files)
+- `*_Machine_layout_change_dashboard.png` → Overall layout change timeline
+- `*_Individual_machine_layout_change_times_dashboard.png` → Per-machine change frequency
 
-**Data processing output:**
-- `*_extracted_records_YYYY-MM-DD.xlsx` → Daily data extract with processed insights (from DayLevelDataProcessor)
+**MachineMoldPairTracker outputs** (in `MachineMoldPairTracker/newest/`): (3 files)
+- `*_mold_machine_pairing_YYYY-MM-DD.xlsx` → Complete pairing history
+- `*_mold_machine_pairing_summary_YYYY-MM-DD.txt` → Executive summary
+- `pair_changes/YYYY-MM-DD_mold_machine_pairing_YYYY-MM-DD.json` → Daily tracking snapshots
 
-**Performance visualizations:**
-- `*_change_times_all_types_fig_YYYY-MM-DD.png` → All changeover types  
-- `*_item_based_overview_dashboard_YYYY-MM-DD.png` → Item-level performance  
-- `*_machine_level_mold_analysis_chart_YYYY-MM-DD.png` → Machine–mold analysis  
-- `*_machine_level_yield_efficiency_chart_YYYY-MM-DD.png` → Machine yield efficiency  
-- `*_mold_based_overview_dashboard_YYYY-MM-DD.png` → Mold-level performance  
-- `*_shift_level_detailed_yield_efficiency_chart_YYYY-MM-DD.png` → Shift-level detailed efficiency  
-- `*_shift_level_mold_efficiency_chart_YYYY-MM-DD.png` → Shift-level mold efficiency  
+**MachineMoldPairPlotter outputs** (in `MachineMoldPairPlotter/newest/`): (3 files)
+- `*_Mold_machine_first_pairing_dashboard.png` → First-run pairing analysis
+- `*_Mold_utilization_dashboard.png` → Mold usage patterns
+- `*_Machine_tonage_based_mold_utilization_dashboard.png` → Tonnage-based analysis
+
+**2. MultiLevelPerformancePlotter**: coordinates multi-level performance analysis. It can invoke one, two, or all three subordinate modules—`DayLevelPlotter`, `MonthLevelPlotter`, and `YearLevelPlotter`—depending on the analysis scope. Trigger **AnalyticsOrchestrator** to processes daily production data for the specified date and extracts key metrics (**DayLevelDataProcessor**), monthly production data and aggregates performance metrics (**MonthLevelDataProcessor**) and yearly production data and consolidates annual insights (**YearLevelDataProcessor**). Then visualizes daily production performance across multiple dimensions (**DayLevelDataPlotter**), generates monthly performance dashboards, alerts, and executive summaries (**MonthLevelDataPlotter**) and generates comprehensive annual dashboards with multi-page detailed breakdowns (**YearLevelDataPlotter**).
+
+**Key capabilities:**
+- **Invocation flexibility**: Users can run daily, monthly, yearly analysis independently or in combination
+- **Data orchestration**: Coordinates with `AnalyticsOrchestrator` → `MultiLevelPerformanceAnalyzer` → specific Processors
+- **Consistent metrics**: Ensures uniform KPIs across all time granularities
+
+**Important architecture note:** Each level consists of TWO components:
+1. **DataProcessor**: Extracts and analyzes data, outputs structured insights (XLSX + TXT)
+2. **DataPlotter**: Visualizes processed data, generates dashboards (PNG)
+
+**Output:**
+
+**DayLevelDataProcessor outputs** (in `DayLevelDataProcessor/newest/`): (2 files)
+- `*_day_level_insights_YYYY-MM-DD.xlsx` → Structured daily metrics
+- `*_day_level_summary_YYYY-MM-DD.txt` → Executive daily summary
+
+**DayLevelDataPlotter outputs** (in `DayLevelDataPlotter/newest/`): (8 files)
+- `*_item_based_overview_dashboard_YYYY-MM-DD.png` → Item-level performance overview
+- `*_mold_based_overview_dashboard_YYYY-MM-DD.png` → Mold-level performance overview
 - `*_shift_level_yield_efficiency_chart_YYYY-MM-DD.png` → Shift-level yield efficiency
-  
-#### **MonthLevelDataPlotter** (6 files)
-Analyzes monthly production data and generates performance alerts, executive summaries, and dashboards. It configures `MultiLevelDataAnalytics` to invoke the `MonthLevelDataProcessor` for the target month.
+- `*_shift_level_mold_efficiency_chart_YYYY-MM-DD.png` → Shift-level mold efficiency
+- `*_shift_level_detailed_yield_efficiency_chart_YYYY-MM-DD.png` → Detailed shift efficiency breakdown
+- `*_machine_level_yield_efficiency_chart_YYYY-MM-DD.png` → Machine yield efficiency
+- `*_machine_level_mold_analysis_chart_YYYY-MM-DD.png` → Machine-mold performance analysis
+- `*_change_times_all_types_fig_YYYY-MM-DD.png` → All changeover types analysis
 
-**Data processing output:**
-- `*_extracted_records_YYYY-MM.xlsx` → Monthly data extract with processed insights (from MonthLevelDataProcessor)
+**MonthLevelDataProcessor outputs** (in `MonthLevelDataProcessor/newest/`): (2 files)
+- `*_day_level_insights_YYYY-MM.xlsx` → Daily metrics aggregated by month
+- `*_day_level_summary_YYYY-MM.txt` → Monthly summary with daily breakdowns
 
-**Executive reports:**
-- `*_early_warning_report_YYYY-MM.txt` → Performance alerts  
-- `*_final_summary_YYYY-MM.txt` → Executive summary  
-
-**Performance visualizations:**
-- `*_machine_based_dashboard_YYYY-MM.png` → Machine performance  
-- `*_mold_based_dashboard_YYYY-MM.png` → Mold performance  
+**MonthLevelDataPlotter outputs** (in `MonthLevelDataPlotter/newest/`): (6 files)
+- `*_early_warning_report_YYYY-MM.txt` → Performance alerts and anomalies
+- `*_final_summary_YYYY-MM.txt` → Executive monthly summary
+- `*_extracted_records_YYYY-MM.xlsx` → Detailed monthly records extract
 - `*_month_performance_dashboard_YYYY-MM.png` → Overall monthly performance
+- `*_machine_based_dashboard_YYYY-MM.png` → Machine-level performance
+- `*_mold_based_dashboard_YYYY-MM.png` → Mold-level performance
 
-#### **YearLevelDataPlotter** (11 files)
-Analyzes yearly production data and generates high-level visualizations and executive reports. Internally, it configures and invokes `MultiLevelDataAnalytics`, which automatically selects the `YearLevelDataProcessor` and consolidates machine, mold, and monthly insights into aggregated outputs.
+**YearLevelDataProcessor outputs** (in `YearLevelDataProcessor/newest/`): (2 files)
+- `*_year_level_insights_YYYY.xlsx` → Structured yearly metrics
+- `*_year_level_summary_YYYY.txt` → Executive yearly summary
 
-**Data processing output:**
-- `*_extracted_records_YYYY.xlsx` → Yearly data extract with processed insights (from YearLevelDataProcessor)
+**YearLevelPlotter** 
+Generates comprehensive annual dashboards with multi-page detailed breakdowns.
 
-**Executive report:**
-- `*_final_summary_YYYY.txt` → Annual executive summary  
-  
-**Performance visualizations:**
-- `*_machine_based_year_view_dashboard_YYYY.png` → Machine annual view  
-- `*_machine_po_item_dashboard_YYYY_page(x).png` → Machine PO/item breakdown*  
-- `*_machine_quantity_dashboard_YYYY_page(x).png` → Machine quantity analysis*  
-- `*_machine_working_days_dashboard_YYYY_page(x).png` → Machine utilization*  
-- `*_mold_based_year_view_dashboard_YYYY.png` → Mold annual view  
-- `*_mold_quantity_dashboard_YYYY_page(x).png` → Mold quantity analysis*  
-- `*_mold_shots_dashboard_YYYY_page(x).png` → Mold shot count analysis*  
-- `*_monthly_performance_dashboard_YYYY.png` → Month-by-month trends  
-- `*_year_performance_dashboard_YYYY.png` → Annual overview  
+**YearLevelDataPlotter outputs** (in `YearLevelDataPlotter/newest/`): (11 files)
+- `*_final_summary_YYYY.txt` → Annual executive summary
+- `*_extracted_records_YYYY.xlsx` → Complete yearly records extract
+- `*_year_performance_dashboard_YYYY.png` → Annual overview
+- `*_monthly_performance_dashboard_YYYY.png` → Month-by-month trends
+- `*_machine_based_year_view_dashboard_YYYY.png` → Machine annual view
+- `*_mold_based_year_view_dashboard_YYYY.png` → Mold annual view
+- `*_machine_po_item_dashboard_YYYY_page1.png` → Machine PO/item breakdown (page 1)
+- `*_machine_po_item_dashboard_YYYY_page2.png` → Machine PO/item breakdown (page 2)
+- `*_machine_quantity_dashboard_YYYY_page1.png` → Machine quantity analysis (page 1)
+- `*_machine_quantity_dashboard_YYYY_page2.png` → Machine quantity analysis (page 2)
+- `*_machine_working_days_dashboard_YYYY_page1.png` → Machine utilization (page 1)
+- `*_machine_working_days_dashboard_YYYY_page2.png` → Machine utilization (page 2)
+- `*_mold_quantity_dashboard_YYYY_page1-4.png` → Mold quantity analysis (4 pages)
+- `*_mold_shots_dashboard_YYYY_page1-4.png` → Mold shot count analysis (4 pages)
 
-> *Multi-page outputs: Files marked with `page(x)` contain multiple visualizations for detailed breakdowns.
+> **Note:** Multi-page outputs contain multiple visualizations for comprehensive breakdowns. Page numbers are appended to filenames (e.g., `_page1.png`, `_page2.png`).
 
-#### Summary of all three levels for consistency check:
+**Auto-Configuration Propagation**
 
-| Level | Total Files | Processing | Reports | Visualizations |
-|-------|-------------|------------|---------|----------------|
-| Day   | 9           | 1          | 0       | 8              |
-| Month | 6           | 1          | 2       | 3              |
-| Year  | 11          | 1          | 1       | 9              |
+```
+DashboardBuilder (parent config)
+    │
+    ├─ enable_hardware_change_plotter = True
+    │     ↓ (auto-propagates)
+    │  HardwareChangePlotflowConfig.enable_machine_layout_plotter = True
+    │  HardwareChangePlotflowConfig.enable_machine_mold_pair_plotter = True
+    │     ↓ (auto-propagates)
+    │  AnalyticsOrchestratorConfig.enable_hardware_change_analysis = True
+    │     ↓ (auto-propagates)
+    │  ChangeAnalyticflowConfig.enable_machine_layout_tracker = True
+    │  ChangeAnalyticflowConfig.enable_machine_mold_pair_tracker = True
+    │
+    └─ enable_multi_level_plotter = True
+          ↓ (auto-propagates)
+       PerformancePlotflowConfig.enable_day_level_plotter = True
+       PerformancePlotflowConfig.enable_month_level_plotter = True
+       PerformancePlotflowConfig.enable_year_level_plotter = True
+          ↓ (auto-propagates)
+       AnalyticsOrchestratorConfig.enable_multi_level_analysis = True
+          ↓ (auto-propagates)
+       PerformanceAnalyticflowConfig.enable_day_level_processor = True
+       PerformanceAnalyticflowConfig.enable_month_level_processor = True
+       PerformanceAnalyticflowConfig.enable_year_level_processor = True
+```
 
+> **Note:** Manual config settings are overridden by auto-configuration. Check logs for propagation details.
+
+**Overall Flow:**
+```
+                                               DataPipelineOrchestrator
+                                                         ↓
+                                                  DashboardBuilder
+                            ┌────────────────────────────┴───────────────────────────┐
+                            ↓                                                        ↓
+              enable_hardware_change_plotter                             enable_multi_level_plotter
+                            ↓                                                        ↓
+                HardwareChangePlotter                                   MultiLevelPerformancePlotter
+                            ↓                                                        ↓
+                AnalyticsOrchestrator                                      AnalyticsOrchestrator
+                            ↓                                                        ↓
+                HardwareChangeAnalyzer                                  MultiLevelPerformanceAnalyzer
+                  ├─ Machine Layout change dashboards                    ├─ Daily dashboards
+                  │  MachineLayoutTracker → MachineLayoutPlotter         |  DayLevelDataProcessor  → DayLevelDataPlotter
+                  │       (analysis)          (visualization)            │       (analysis)            (visualization)
+                  │                                                      │
+                  └─ Mold pairing dashboards                             ├─ Monthly dashboards 
+                     MachineMoldPairTracker → MachineMoldPairPlotter     |  MonthLevelDataProcessor → MonthLevelDataPlotter
+                          (analysis)          (visualization)            │       (analysis)            (visualization)
+                                                                         │
+                                                                         └─ Yearly dashboards
+                                                                            YearLevelDataProcessor  → YearLevelPlotter
+                                                                                 (analysis)            (visualization)
+                                                                           
+```
+
+#### Summary of all five levels for consistency check:
+
+| Level  | Total Files | Processing | Reports | Visualizations |
+|--------|-------------|------------|---------|----------------|
+| Machine| 4           | 2          | 2       | 2              |
+| Mold   | 6           | 2          | 3       | 3              |
+| Day    | 11          | 2          | 2       | 8              |
+| Month  | 8           | 2          | 2+3     | 3              |
+| Year   | 12+         | 2          | 2+2     | 8+             |
 
 ---
 
@@ -383,18 +453,30 @@ Analyzes yearly production data and generates high-level visualizations and exec
 ```
     Data Collection → Data Loader → Shared Database (9 files)
                                           ↓
-        ┌─────────────────────────────────┼──────────────────────────────────┬───────────────────────────────────────────┐
-        |                                 |                                  |                                           |
-        ↓                                 ↓                                  ↓                                           ↓
-    ValidationOrch            MoldMachineFeatureWeightCalculator     DataChangeAnalyzer                  Multi-Level Performance Analysis
-        ↓                     + MoldStabilityIndexCalculator      (Change History Analysis)                              ↓
-    Validation Report            (Data Insights Generator)         ├─ UpdateHistMachine                         MultiLevelDataPlotter
-        | (cross-ref                      |                        └─ UpdateHistMold                      ┌──────────────┼───────────────┐
-        |  if exists)                     ↓                                  ↓                            ↓              ↓               ↓
-        └──> OrderProgress ─────→ ProducingProcessor                  Change Detection                DayLevel       MonthLevel      YearLevel
-           (reads Shared DB)              ↓                                  ↓                        Plotter        Plotter         Plotter
-                   ↓               PendingProcessor                    Change Analysis                                   ↓
-             Status Reports               ↓                          Change Visualization                 Multi-Level Performance Dashboards
-            (with validation       Production Plans                               
-             flags)                (Initial Plan)           
+        ┌─────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────┐
+        |                                 |                                                                             |
+        ↓                                 ↓                                                                             ↓
+    ValidationOrch            MoldMachineFeatureWeightCalculator                                                DashboardBuilder
+        ↓                     + MoldStabilityIndexCalculator                               ┌────────────────────────────┴───────────────────────────┐
+    Validation Report            (Data Insights Generator)                                 ↓                                                        ↓
+        | (cross-ref                      |                                     HardwareChangePlotter                                 MultiLevelPerformancePlotter
+        |  if exists)                     ↓                                                ↓                                                        ↓
+        └──> OrderProgress ─────→ ProducingProcessor                        AnalyticsOrchestrator (Shared)                           AnalyticsOrchestrator (Shared)
+           (reads Shared DB)              ↓                                                ↓                                                        ↓
+                   ↓               PendingProcessor                            HardwareChangeAnalyzer                                 MultiLevelPerformanceAnalyzer
+             Status Reports               ↓                                         ┌──────┴──────┐                                      ┌──────────┼──────────┐
+            (with validation       Production Plans                                 ↓             ↓                                      ↓          ↓          ↓
+             flags)                (Initial Plan)                             MachineLayout  MachineMoldPair                          DayLevel    MonthLevel  YearLevel
+                                                                              Tracker        Tracker                                  Processor   Processor   Processor
+                                                                                    ↓             ↓                                      ↓          ↓          ↓
+                                                                              Returns to     Returns to                               Returns to  Returns to  Returns to
+                                                                              Plotter        Plotter                                  Plotter     Plotter     Plotter
+                                                                                    ↓             ↓                                      ↓          ↓          ↓
+                                                                              MachineLayout  MachineMoldPair                          DayLevel    MonthLevel  YearLevel
+                                                                              Plotter        Plotter                                  Plotter     Plotter     Plotter
+                                                                                    ↓             ↓                                      ↓          ↓          ↓
+                                                                              Layout         Mold Pairing                             Daily       Monthly     Yearly
+                                                                              Visualizations Visualizations                           Dashboards  Dashboards  Dashboards
+                                                                                                                          ↓
+                                                                                                Hardware Change & Multi-Level Performance Dashboards
 ```
