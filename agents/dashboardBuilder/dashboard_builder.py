@@ -136,8 +136,8 @@ class DashboardBuilder:
                 f"{self.config.enable_hardware_change_machine_mold_pair_plotter}"
             )
             
-            self.config.hardware_change_plotflow_config.save_hardware_change_plotter_log = True
-            log_lines.append(f"      ⤷ save_hardware_change_plotter_log: True (force enabled)")
+            self.config.hardware_change_plotflow_config.save_hardware_change_plotter_log = False
+            log_lines.append(f"      ⤷ save_hardware_change_plotter_log: False (force enabled)")
         
         # Multi-Level Performance Plotter Configuration
         if self.config.enable_multi_level_plotter:
