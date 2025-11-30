@@ -66,12 +66,9 @@ agents/shared_db/
     # MULTI-LEVEL PERFORMANCE DASHBOARDS
     # ══════════════════════════════════════════════════════════════════
     └── MultiLevelPerformancePlotter/
-        ├── DayLevelDataProcessor/newest/
-        ├── DayLevelDataPlotter/newest/
-        ├── MonthLevelDataProcessor/newest/ 
-        ├── MonthLevelDataPlotter/newest/ 
-        ├── YearLevelDataProcessor/newest/ 
-        └── YearLevelPlotter/newest/
+        ├── DayLevelDataProcessor/newest/ + DayLevelDataPlotter/newest/
+        ├── MonthLevelDataProcessor/newest/ + MonthLevelDataPlotter/newest/ 
+        └── YearLevelDataProcessor/newest/ + YearLevelPlotter/newest/
 ```
 
 ### Key Integration Points:
