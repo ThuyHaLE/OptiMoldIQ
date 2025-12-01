@@ -249,6 +249,7 @@ optiMoldMaster (Mother Agent) 🔄            # Overall system in progress
 ```
 
 > **Note:** `optiMoldMaster` functions as the **mother-agent**, orchestrating all child agents. Each child agent operates autonomously but synchronizes through shared data and event channels.
+>
 > ---
 > 
 > **Analytics Orchestrator - Dual Architecture Modes:**
@@ -264,6 +265,7 @@ optiMoldMaster (Mother Agent) 🔄            # Overall system in progress
 >   → AnalyticsOrchestrator.run_analytics() → Analytics Results 
 >   → Consumer Processing → Outputs
 >   ```
+>   
 > ---
 > 
 > **Config-Driven Orchestration Pattern:**
