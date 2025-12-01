@@ -87,7 +87,7 @@ class YearLevelDataPlotter:
                  enable_parallel: bool = True,
                  max_workers: int = None):
 
-        self.logger = logger.bind(class_="YearLevelPlotter")
+        self.logger = logger.bind(class_="YearLevelDataPlotter")
 
         # Parallel processing configuration
         self.enable_parallel = enable_parallel
