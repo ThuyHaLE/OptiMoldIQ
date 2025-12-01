@@ -148,7 +148,7 @@ agents/shared_db
     │   │   └── newest/
     │   │       ├── *_year_level_insights_YYYY.xlsx
     │   │       └── *_year_level_summary_YYYY.txt
-    │   ├── YearLevelPlotter/
+    │   ├── YearLevelDataPlotter/
     │   │   ├── change_log.txt
     │   │   ├── historical_db/
     │   │   └── newest/
