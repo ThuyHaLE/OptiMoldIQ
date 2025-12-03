@@ -235,17 +235,17 @@ class ReportManager:
 
         return filename
 
-class OptiMoldIQWorkflow:
-    """Orchestrates the daily data pipeline workflow"""
+class AutoPlanner:
+    """Orchestrates the auto-planner pipeline"""
 
     def __init__(self,
                  config: WorkflowConfig):
 
-        self.logger = logger.bind(class_="OptiMoldIQWorkflow")
+        self.logger = logger.bind(class_="AutoPlanner")
         self.config = config
         self.path_manager = PathManager(config)
-        self.report_manager = ReportManager(Path(self.config.shared_db_dir) / "OptiMoldIQWorkflow",
-                                            "OptiMoldIQWorkflow")
+        self.report_manager = ReportManager(Path(self.config.shared_db_dir) / "AutoPlanner",
+                                            "AutoPlanner")
         self.dict_based_reporter = DictBasedReportGenerator(use_colors=False)
         self.output_path_collection = {}
 
