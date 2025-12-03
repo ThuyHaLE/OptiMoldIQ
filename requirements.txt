@@ -21,3 +21,7 @@ pytest-cov
 loguru
 
 psutil
+
+adjustText
+
+pyyaml
