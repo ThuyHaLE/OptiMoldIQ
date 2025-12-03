@@ -1,0 +1,156 @@
+# configs/modules/dashboard_builder.yaml
+
+# Project root directory
+project_root: "."
+
+# ========================================
+# DASHBOARD BUILDER MODULE CONFIG
+# ========================================
+
+# ========================================
+# PARENT ENABLE FLAGS (Top-level control)
+# ========================================
+dashboard:
+  # Hardware Change Plotter
+  enable_hardware_change_plotter: true
+  enable_hardware_change_machine_layout_plotter: true
+  enable_hardware_change_machine_mold_pair_plotter: true
+
+  # Multi-level Performance Plotter
+  enable_multi_level_plotter: true
+  enable_multi_level_day_level_plotter: true
+  enable_multi_level_month_level_plotter: true
+  enable_multi_level_year_level_plotter: true
+
+  # General
+  save_log: true
+  builder_dir: "tests/shared_db/DashboardBuilder"
+
+  # ========================================
+  # PERFORMANCE ANALYSIS CONFIG (Level 3)
+  # For AnalyticsOrchestrator->MultiLevelPerformanceAnalyzer
+  # ========================================
+  performance_analysis:
+    # Day Level
+    record_date: "2018-11-06"
+    day_save_output: false
+    
+    # Month Level
+    record_month: "2019-01"
+    month_analysis_date: "2019-01-15"
+    month_save_output: false
+    
+    # Year Level
+    record_year: "2019"
+    year_analysis_date: "2019-12-31"
+    year_save_output: false
+    
+    # Shared configs
+    source_path: "tests/shared_db/DataLoaderAgent/newest"
+    annotation_name: "path_annotations.json"
+    databaseSchemas_path: "database/databaseSchemas.json"
+
+    # Paths
+    save_log: true
+    analyzer_dir: "tests/shared_db/DashboardBuilder/MultiLevelPerformancePlotter"
+
+  # ========================================
+  # CHANGE ANALYSIS CONFIG (Level 3)
+  # For AnalyticsOrchestrator->HardwareChangeAnalyzer
+  # ========================================
+  change_analysis:
+    # Machine Layout Tracker
+    enable_machine_layout_tracker: false  # Will be auto-configured
+    machine_layout_tracker_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineLayoutTracker"
+    machine_layout_tracker_change_log_name: "change_log.txt"
+    
+    # Machine-Mold Pair Tracker
+    enable_machine_mold_pair_tracker: false  # Will be auto-configured
+    machine_mold_pair_tracker_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineMoldPairTracker"
+    machine_mold_pair_tracker_change_log_name: "change_log.txt"
+    
+    # Shared configs
+    source_path: "tests/shared_db/DataLoaderAgent/newest"
+    annotation_name: "path_annotations.json"
+    databaseSchemas_path: "database/databaseSchemas.json"
+    
+    # Paths
+    save_log: true
+    analyzer_dir: "tests/shared_db/DashboardBuilder/HardwareChangeAnalyzer"
+
+  # ========================================
+  # ANALYTICS ORCHESTRATOR CONFIG (Level 2)
+  # Will be auto-configured by plotters
+  # ========================================
+  analytics_orchestrator:
+    # These will be overridden by auto-configuration
+    enable_hardware_change_analysis: false
+    enable_multi_level_analysis: false
+    
+    enable_hardware_change_machine_layout_tracker: false
+    enable_hardware_change_machine_mold_pair_tracker: false
+    enable_multi_level_day_level_processor: false
+    enable_multi_level_month_level_processor: false
+    enable_multi_level_year_level_processor: false
+    
+    save_log: true
+    dir: "tests/shared_db/DashboardBuilder"
+
+  # ========================================
+  # PERFORMANCE PLOTFLOW CONFIG (Level 1)
+  # ========================================
+  performance_plotflow:
+    # Visualization configs (optional)
+    day_level_visualization_config_path: null
+    month_level_visualization_config_path: null
+    year_level_visualization_config_path: null
+    
+    # Paths
+    save_log: true
+    plotter_dir: "tests/shared_db/DashboardBuilder/MultiLevelPerformancePlotter"
+    
+    # Parallel processing
+    enable_parallel: true
+    max_workers: null  # Auto-detect
+
+  # ========================================
+  # HARDWARE CHANGE PLOTFLOW CONFIG (Level 1)
+  # ========================================
+  hardware_change_plotflow:
+    # Machine Layout Plotter
+    machine_layout_plotter_result_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineLayoutPlotter"
+    machine_layout_visualization_config_path: null
+    
+    # Machine-Mold Pair Plotter
+    machine_mold_pair_plotter_result_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineMoldPairPlotter"
+    machine_mold_pair_visualization_config_path: null
+    
+    # Paths
+    save_log: true
+    plotter_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter"
+    
+    # Parallel processing
+    enable_parallel: true
+    max_workers: null  # Auto-detect
+
+# ========================================
+# AUTO-CONFIGURATION NOTES
+# ========================================
+# The DashboardBuilder uses a 4-level auto-configuration hierarchy:
+#
+# Level 0 (Top): DashboardBuilder
+#   - enable_hardware_change_plotter
+#   - enable_multi_level_plotter
+#   ↓
+# Level 1: Plotters (HardwareChangePlotter, MultiLevelPerformancePlotter)
+#   - enable_*_plotter flags propagate down
+#   ↓
+# Level 2: AnalyticsOrchestrator
+#   - enable_hardware_change_analysis (auto-enabled if any HW plotter enabled)
+#   - enable_multi_level_analysis (auto-enabled if any perf plotter enabled)
+#   ↓
+# Level 3: Analyzers (HardwareChangeAnalyzer, MultiLevelPerformanceAnalyzer)
+#   - enable_*_tracker / enable_*_processor flags auto-propagate
+#
+# Manual nested settings will be OVERRIDDEN by auto-configuration.
+# Check logs for actual configuration used.

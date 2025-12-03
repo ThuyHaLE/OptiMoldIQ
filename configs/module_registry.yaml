@@ -1,0 +1,34 @@
+# Module Registry Configuration
+# This file maps module names to their config files
+# 
+# Structure:
+#   ModuleName:
+#     config_path: path/to/config.yaml
+#     enabled: true/false
+#     description: Optional description
+
+DataPipelineModule:
+  config_path: configs/modules/data_pipeline.yaml
+  enabled: true
+  description: Data loading and preprocessing pipeline
+
+ValidationModule:
+  config_path: configs/modules/validation.yaml
+  enabled: true
+  description: Data validation and quality checks
+
+AnalyticsModule:
+  config_path: configs/modules/analytics.yaml
+  enabled: true
+  description: Data analytics and insights generation
+
+DashboardModule:
+  config_path: configs/modules/dashboard.yaml
+  enabled: true
+  description: Interactive dashboard creation
+
+# Example: Disabled module
+# ExperimentalModule:
+#   config_path: configs/modules/experimental.yaml
+#   enabled: false
+#   description: Experimental features (disabled)

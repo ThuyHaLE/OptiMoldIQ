@@ -1,0 +1,22 @@
+# configs/modules/validation_orchestrator.yaml
+
+# Project root directory
+project_root: "."
+
+# ========================================
+# VALIDATION ORCHESTRATOR MODULE CONFIG
+# ========================================
+validation_orchestrator:
+
+  # Main shared database from DataPipeline
+  source_path: 'tests/shared_db/DataLoaderAgent/newest' # Directory
+  annotation_name: "path_annotations.json"              # Annotation name
+
+  # Database schema definitions
+  databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+
+  # Default output directory for processed data
+  default_dir: "tests/shared_db"
+
+  # Report formatting
+  use_colored_report: true 

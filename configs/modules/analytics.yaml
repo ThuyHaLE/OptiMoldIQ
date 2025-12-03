@@ -1,0 +1,69 @@
+# configs/modules/analytics.yaml
+
+# Project root directory
+project_root: "."
+
+analytics:
+  # Main enable flags (parent flags)
+  enable_hardware_change_analysis: true  # ← Parent flag
+  enable_multi_level_analysis: true      # ← Parent flag
+
+  # Sub-component flags (will be auto-propagated from parent)
+  enable_hardware_change_machine_layout_tracker: true
+  enable_hardware_change_machine_mold_pair_tracker: true
+
+  enable_multi_level_day_level_processor: true
+  enable_multi_level_month_level_processor: true
+  enable_multi_level_year_level_processor: true
+
+  # General settings
+  save_analytics_orchestrator_log: true
+  analytics_orchestrator_dir: "tests/shared_db/AnalyticsOrchestrator"
+
+  # ========================================
+  # CHANGE ANALYSIS CONFIG (Nested)
+  # ========================================
+  change_analysis:
+    # Machine Layout Tracker
+    enable_machine_layout_tracker: false  # ← Will be overridden by parent flag
+    machine_layout_tracker_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MachineLayoutTracker"
+    machine_layout_tracker_change_log_name: "change_log.txt"
+
+    # Machine-Mold Pair Tracker
+    enable_machine_mold_pair_tracker: false  # ← Will be overridden by parent flag
+    machine_mold_pair_tracker_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MachineMoldPairTracker"
+    machine_mold_pair_tracker_change_log_name: "change_log.txt"
+    
+    # Shared configs
+    source_path: "tests/shared_db/DataLoaderAgent/newest"
+    annotation_name: "path_annotations.json"
+    databaseSchemas_path: "database/databaseSchemas.json"
+    
+    save_hardware_change_analyzer_log: true
+    hardware_change_analyzer_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer"
+
+  # ========================================
+  # PERFORMANCE ANALYSIS CONFIG (Nested)
+  # ========================================
+  performance_analysis:
+    # Day Level
+    record_date: "2018-11-06"
+    day_save_output: false
+    
+    # Month Level
+    record_month: "2019-01"
+    month_analysis_date: "2019-01-15"
+    month_save_output: true
+    
+    # Year Level
+    record_year: "2019"
+    year_analysis_date: "2019-12-31"
+    year_save_output: false
+    
+    # Shared configs
+    source_path: "tests/shared_db/DataLoaderAgent/newest"
+    annotation_name: "path_annotations.json"
+    databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+    
+    save_multi_level_performance_analyzer_log: true
+    multi_level_performance_analyzer_dir: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"
