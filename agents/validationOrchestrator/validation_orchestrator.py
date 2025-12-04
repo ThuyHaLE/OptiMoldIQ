@@ -1,14 +1,16 @@
 from agents.decorators import validate_init_dataframes
 from loguru import logger
-from agents.utils import load_annotation_path, save_output_with_versioning
+from agents.utils import load_annotation_path, save_output_with_versioning, ConfigReportMixin
 from pathlib import Path
 import os
 import pandas as pd
 from typing import Dict, Any
+from datetime import datetime
 
 from agents.validationOrchestrator.dynamic_cross_data_validator import DynamicCrossDataValidator
 from agents.validationOrchestrator.static_cross_data_checker import StaticCrossDataChecker
 from agents.validationOrchestrator.po_required_critical_validator import PORequiredCriticalValidator
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
@@ -22,7 +24,7 @@ from agents.validationOrchestrator.po_required_critical_validator import PORequi
     "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
 })
 
-class ValidationOrchestrator:
+class ValidationOrchestrator(ConfigReportMixin):
 
     """
     Main orchestrator class that coordinates multiple validation processes for manufacturing data.
@@ -49,6 +51,8 @@ class ValidationOrchestrator:
             databaseSchemas_path: Path to database schemas JSON file defining data structure
             default_dir: Default directory for saving output validation results
         """
+
+        self._capture_init_args()
 
         # Initialize logger with class name for better tracking
         self.logger = logger.bind(class_="ValidationOrchestrator")
@@ -208,19 +212,43 @@ class ValidationOrchestrator:
         """
 
         try:
-            # Execute all validation processes
+            # Execute validations
             final_results = self.run_validations(**kwargs)
+
+            # Generate validation summary
+            reporter = DictBasedReportGenerator(use_colors=False)
+            validation_summary = "\n".join(reporter.export_report(final_results))
+
+            # Generate config header using mixin
+            timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            config_header = self._generate_config_report(timestamp_str)
+
+            validation_log_lines = [config_header]
+            validation_log_lines.append(f"--Processing Summary--\n")
+            validation_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
 
             # Export results to Excel files with versioning
             self.logger.info("Exporting results to Excel...")
-            save_output_with_versioning(
-                final_results['combined_all'],
-                self.output_dir,
-                self.filename_prefix,
+            output_exporting_log = save_output_with_versioning(
+                data = final_results['combined_all'],
+                output_dir = self.output_dir,
+                filename_prefix = self.filename_prefix,
+                report_text = validation_summary
             )
             self.logger.info("Results exported successfully!")
+            validation_log_lines.append(f"{output_exporting_log}")
 
-            return final_results
+            validation_log_str = "\n".join(validation_log_lines)
+
+            try:
+                log_path = self.output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(validation_log_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+            
+            return final_results, validation_log_str
 
         except Exception as e:
             self.logger.error("Failed to save results: {}", str(e))

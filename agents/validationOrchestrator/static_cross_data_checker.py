@@ -186,9 +186,9 @@ class StaticCrossDataChecker:
         
         self.logger.info("Start excel file exporting...")
         save_output_with_versioning(
-            self.data,
-            self.output_dir,
-            self.filename_prefix,
+            data = self.data,
+            output_dir = self.output_dir,
+            filename_prefix = self.filename_prefix,
         )
 
     def _check_item_info_matches(self, df_name, checking_df):

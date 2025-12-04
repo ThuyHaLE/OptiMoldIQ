@@ -8,12 +8,13 @@ import hashlib
 import os
 from typing import Dict, List, Any
 
+from agents.utils import ConfigReportMixin
 # Import healing system constants for error handling and recovery
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import (
     ProcessingStatus, ErrorType, AgentType, AgentExecutionInfo, RecoveryAction, get_agent_config)
 from agents.dataPipelineOrchestrator.data_loader_healing_rules import check_annotation_paths_and_update_status
 
-class DataLoaderAgent:
+class DataLoaderAgent(ConfigReportMixin):
 
     """
     Data Loader Agent responsible for loading, processing, and managing database files.
@@ -36,12 +37,15 @@ class DataLoaderAgent:
             annotation_path: Path to file storing database path annotations
             default_dir: Default directory for shared database files
         """
+        self._capture_init_args()
+        
+        # Initialize logger for this class
+        self.logger = logger.bind(class_="DataLoaderAgent")
 
         # Set up directory paths
         self.default_dir = Path(default_dir)
         self.output_dir = self.default_dir / "DataLoaderAgent"
-        self.logger = logger.bind(class_="DataLoaderAgent")
-
+        
         # Store configuration paths
         self.annotation_path = annotation_path
         self.config = get_agent_config(AgentType.DATA_LOADER)
@@ -60,36 +64,70 @@ class DataLoaderAgent:
             logger.info("First time for initial - creating new annotation file...")
 
     def process_all_data(self) -> Dict[str, Any]:
-        
         """
         Main processing method that handles all databases and returns structured response.
         
         Returns:
             Dict containing execution information including status, results, and metadata
         """
-
+        
         start_time = datetime.now()
         results = []
         overall_status = ProcessingStatus.SUCCESS
 
+        # Generate config header using mixin
+        timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        # Initialize combined log entries for entire processing run
+        combined_log_entries = [config_header]
+        combined_log_entries.append(f"--Processing Summary--\n")
+        combined_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
+
         # Dictionary to store files that have changed and need to be saved
         self.have_changed_files = {}
+        
+        # Count databases to process
+        total_databases = sum(len(dbs) for dbs in self.databaseSchemas_data.values())
+        combined_log_entries.append(f"Total databases to process: {total_databases}\n\n")
 
         # Process each database type and database name
+        db_counter = 0
         for db_type in self.databaseSchemas_data.keys():
             for db_name in self.databaseSchemas_data[db_type].keys():
+                db_counter += 1
+                combined_log_entries.append(f"--- Database {db_counter}/{total_databases} ---\n")
+                
                 db_result = self._process_database(db_name, db_type)
                 results.append(db_result)
+                
+                # Collect log entries from individual database processing
+                if 'log_entries' in db_result:
+                    combined_log_entries.append(db_result['log_entries'])
+                
+                combined_log_entries.append("\n")  # Add spacing between databases
 
                 # Collect changed files for saving
                 if db_result['status'] == ProcessingStatus.SUCCESS.value and db_result.get('data_updated', False):
                     self.have_changed_files[db_name] = db_result.get('dataframe')
 
         # Save changed files if any were detected
+        combined_log_entries.append(f"\n{'='*80}\n")
+        combined_log_entries.append("FILE SAVE OPERATION\n")
+        combined_log_entries.append(f"{'='*80}\n\n")
+        
         save_result = None
         if self.have_changed_files:
+            combined_log_entries.append(f"Files requiring save: {list(self.have_changed_files.keys())}\n\n")
             save_result = self._save_changed_files()
             results.append(save_result)
+            
+            # Add save operation log entries
+            if 'log_entries' in save_result:
+                combined_log_entries.append(save_result['log_entries'])
+        else:
+            no_changes_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            combined_log_entries.append(f"[{no_changes_timestamp}] No file changes detected - skipping save operation\n")
 
         # Determine overall processing status based on individual results
         if any(r['status'] == ProcessingStatus.ERROR.value for r in results):
@@ -100,77 +138,138 @@ class DataLoaderAgent:
             overall_status = ProcessingStatus.PARTIAL_SUCCESS
 
         # Calculate processing duration
-        processing_duration = (datetime.now() - start_time).total_seconds()
+        end_time = datetime.now()
+        processing_duration = (end_time - start_time).total_seconds()
+        
+        # Calculate statistics
+        db_results = [r for r in results if r.get('database_name')]
+        successful_count = len([r for r in db_results if r['status'] == ProcessingStatus.SUCCESS.value])
+        failed_count = len([r for r in db_results if r['status'] == ProcessingStatus.ERROR.value])
+        warning_count = len([r for r in db_results if r['status'] == ProcessingStatus.WARNING.value])
+        
+        # Add completion log
+        combined_log_entries.append(f"\n{'='*80}\n")
+        end_timestamp = end_time.strftime("%Y-%m-%d %H:%M:%S")
+        combined_log_entries.append(f"[{end_timestamp}] DATA PROCESSING COMPLETED\n")
+        combined_log_entries.append(f"{'='*80}\n\n")
+        combined_log_entries.append(f"SUMMARY:\n")
+        combined_log_entries.append(f"  ⤷ Overall Status: {overall_status.value}\n")
+        combined_log_entries.append(f"  ⤷ Duration: {processing_duration:.2f}s\n")
+        combined_log_entries.append(f"  ⤷ Total Databases: {len(db_results)}\n")
+        combined_log_entries.append(f"  ⤷ Successful: {successful_count}\n")
+        combined_log_entries.append(f"  ⤷ Failed: {failed_count}\n")
+        combined_log_entries.append(f"  ⤷ Warnings: {warning_count}\n")
+        combined_log_entries.append(f"  ⤷ Files Changed: {len(self.have_changed_files)}\n")
+        combined_log_entries.append(f"  ⤷ Files Saved: {1 if save_result and save_result['status'] == ProcessingStatus.SUCCESS.value else 0}\n")
+        combined_log_entries.append(f"\n{'='*80}\n")
+        
+        # Combine all log entries
+        full_log = "".join(combined_log_entries)
 
         # Create comprehensive execution information
-        execution_info = AgentExecutionInfo(agent_id=AgentType.DATA_LOADER.value,
-                                            status=overall_status.value,
-                                            summary={
-                                                "total_databases": len([r for r in results if r.get('database_name')]),
-                                                "successful": len([r for r in results if r['status'] == ProcessingStatus.SUCCESS.value and r.get('database_name')]),
-                                                "failed": len([r for r in results if r['status'] == ProcessingStatus.ERROR.value and r.get('database_name')]),
-                                                "warnings": len([r for r in results if r['status'] == ProcessingStatus.WARNING.value and r.get('database_name')]),
-                                                "changed_files": len(self.have_changed_files),
-                                                "files_saved": 1 if save_result and save_result['status'] == ProcessingStatus.SUCCESS.value else 0
-                                            },
-                                            details=results,
-                                            healing_actions=self._get_healing_actions(results),
-                                            trigger_agents=self._get_trigger_agents(results),
-                                            metadata={
-                                                "processing_duration_seconds": processing_duration,
-                                                "memory_usage": self._get_memory_usage(),
-                                                "disk_usage": self._get_disk_usage()
-                                            }
-                                        )
+        execution_info = AgentExecutionInfo(
+            agent_id=AgentType.DATA_LOADER.value,
+            status=overall_status.value,
+            summary={
+                "total_databases": len(db_results),
+                "successful": successful_count,
+                "failed": failed_count,
+                "warnings": warning_count,
+                "changed_files": len(self.have_changed_files),
+                "files_saved": 1 if save_result and save_result['status'] == ProcessingStatus.SUCCESS.value else 0
+            },
+            details=results,
+            healing_actions=self._get_healing_actions(results),
+            trigger_agents=self._get_trigger_agents(results),
+            metadata={
+                "processing_duration_seconds": processing_duration,
+                "processing_start_time": start_time.isoformat(),
+                "processing_end_time": end_time.isoformat(),
+                "memory_usage": self._get_memory_usage(),
+                "disk_usage": self._get_disk_usage(),
+                "log_entries": full_log,
+                "log_entry_count": len(combined_log_entries),
+                "log_file_path": log_file_path if 'log_file_path' in locals() else None
+            }
+        )
 
         return execution_info
 
     def _process_database(self, db_name: str, db_type: str) -> Dict[str, Any]:
-        
         """
-        Process a single database with comprehensive error handling.
+        Process a single database with comprehensive error handling and logging.
         
         Args:
             db_name: Name of the database to process
             db_type: Type of database (static or dynamic)
             
         Returns:
-            Dict containing processing results and status information
+            Dict containing processing results, status information, and log entries
         """
+        
+        # Initialize log entries for this database processing
+        log_entries = []
+        start_timestamp = datetime.now()
+        timestamp_str = start_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        
+        log_entries.append(f"[{timestamp_str}] Processing database: {db_name} (type: {db_type})\n")
 
         try:
             # Get existing path from annotations
             db_existing_path = self.path_annotation.get(db_name, "")
+            if db_existing_path:
+                log_entries.append(f"  ⤷ Found existing path: {db_existing_path}\n")
+            else:
+                log_entries.append(f"  ⤷ No existing path found - treating as new database\n")
 
             # Load current data based on database type
+            load_start = datetime.now()
             if db_type == 'dynamicDB':
+                log_entries.append(f"  ⤷ Loading dynamic database data...\n")
                 current_result = self._load_dynamic_db(db_name, db_type)
             else:
+                log_entries.append(f"  ⤷ Loading static database data...\n")
                 current_result = self._load_static_db(db_name, db_type)
+            
+            load_duration = (datetime.now() - load_start).total_seconds()
+            log_entries.append(f"  ⤷ Load completed in {load_duration:.2f}s\n")
 
             # Check if current data loading was successful
             if current_result['status'] != ProcessingStatus.SUCCESS.value:
+                log_entries.append(f"  ⤷ ❌ Failed to load current data: {current_result.get('error_message', 'Unknown error')}\n")
+                current_result['log_entries'] = "".join(log_entries)
                 return current_result
 
             current_df = current_result['dataframe']
+            log_entries.append(f"  ⤷ ✓ Loaded {len(current_df)} records from current source\n")
 
             # Load existing data for comparison
+            log_entries.append(f"  ⤷ Loading existing data for comparison...\n")
             existing_result = self._load_existing_df(db_existing_path)
+            
             if existing_result['status'] != ProcessingStatus.SUCCESS.value:
                 # If can't load existing, treat as new data
                 existing_df = pd.DataFrame()
                 warnings = [existing_result['error_message']]
+                log_entries.append(f"  ⤷ ⚠ Could not load existing data: {existing_result['error_message']}\n")
+                log_entries.append(f"  ⤷ Treating as new database with no existing data\n")
             else:
                 existing_df = existing_result['dataframe']
                 warnings = []
+                log_entries.append(f"  ⤷ ✓ Loaded {len(existing_df)} records from existing file\n")
 
             # Compare current and existing dataframes to detect changes
+            log_entries.append(f"  ⤷ Comparing current vs existing data...\n")
             comparison_result = self._compare_dataframes(current_df, existing_df)
+            
             if comparison_result['status'] != ProcessingStatus.SUCCESS.value:
+                log_entries.append(f"  ⤷ ❌ Comparison failed: {comparison_result['error_message']}\n")
                 
                 # Local healing - attempt rollback to backup
                 recovery_actions = self.config.recovery_actions.get(ErrorType.HASH_COMPARISON_ERROR, [])
                 updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+                
+                log_entries.append(f"  ⤷ Initiated {len(updated_recovery_actions)} recovery action(s)\n")
 
                 return {
                     "database_name": db_name,
@@ -180,11 +279,22 @@ class DataLoaderAgent:
                     "error_message": comparison_result['error_message'],
                     "recovery_actions": updated_recovery_actions,
                     "records_processed": 0,
-                    "data_updated": False
+                    "data_updated": False,
+                    "log_entries": "".join(log_entries)
                 }
 
             # Determine if data has been updated
             data_updated = not comparison_result['dataframes_equal']
+            
+            if data_updated:
+                log_entries.append(f"  ⤷ ✓ Data has changed - flagged for saving\n")
+            else:
+                log_entries.append(f"  ⤷ ✓ No changes detected - data is up to date\n")
+            
+            # Calculate processing duration
+            processing_duration = (datetime.now() - start_timestamp).total_seconds()
+            end_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_entries.append(f"[{end_timestamp}] Completed processing {db_name} in {processing_duration:.2f}s\n")
 
             # Return successful processing result
             return {
@@ -196,16 +306,22 @@ class DataLoaderAgent:
                 "dataframe": current_df,
                 "existing_path": db_existing_path,
                 "warnings": warnings,
-                "recovery_actions": []
+                "recovery_actions": [],
+                "log_entries": "".join(log_entries)
             }
 
         except Exception as e:
             # Handle unexpected errors during processing
+            error_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_entries.append(f"[{error_timestamp}] ❌ UNEXPECTED ERROR in {db_name}: {str(e)}\n")
+            
             self.logger.error(f"Unexpected error processing {db_name}: {e}")
 
             # Local healing - attempt rollback to backup
             recovery_actions = self.config.recovery_actions.get(ErrorType.DATA_CORRUPTION, [])
             updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+            
+            log_entries.append(f"  ⤷ Initiated {len(updated_recovery_actions)} recovery action(s)\n")
 
             return {
                 "database_name": db_name,
@@ -215,7 +331,8 @@ class DataLoaderAgent:
                 "error_message": str(e),
                 "recovery_actions": updated_recovery_actions,
                 "records_processed": 0,
-                "data_updated": False
+                "data_updated": False,
+                "log_entries": "".join(log_entries)
             }
 
     def _load_dynamic_db(self, db_name: str, db_type: str) -> Dict[str, Any]:
@@ -392,49 +509,70 @@ class DataLoaderAgent:
             }
 
     def _save_changed_files(self) -> Dict[str, Any]:
-        
         """
         Save files that have changed with versioning support.
         
         Returns:
-            Dict containing save operation results
+            Dict containing save operation results with detailed log entries
         """
-
+        
+        # Initialize log entries list
+        log_entries = []
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
         try:
             # Check if there are any changes to save
             if not self.have_changed_files:
+                log_entries.append(f"[{timestamp_str}] No changes detected - skipping save operation\n")
+                
                 return {
                     "operation": "file_save",
                     "status": ProcessingStatus.SUCCESS.value,
                     "message": "No changes detected - no files to save",
-                    "files_saved": 0
+                    "files_saved": 0,
+                    "log_entries": "".join(log_entries)
                 }
 
             # Log detected changes
+            log_entries.append(f"[{timestamp_str}] Starting file save operation\n")
+            log_entries.append(f"  ⤷ Detected changes in {len(self.have_changed_files)} file(s): {list(self.have_changed_files.keys())}\n")
+            
             self.logger.debug("Detect changes: {}", [(k, v.columns) for k, v in self.have_changed_files.items()])
 
             # Save files using the existing versioning method
-            self.save_output_with_versioning(
+            output_exporting_log = self.save_output_with_versioning(
                 self.have_changed_files,
                 self.path_annotation,
                 self.output_dir
             )
+            
+            # Combine log entries
+            log_entries.append(output_exporting_log)
+            log_entries.append(f"[{timestamp_str}] File save operation completed successfully\n")
+            
+            combined_log = "".join(log_entries)
 
             return {
                 "operation": "file_save",
                 "status": ProcessingStatus.SUCCESS.value,
                 "files_saved": len(self.have_changed_files),
                 "saved_files": list(self.have_changed_files.keys()),
-                "output_directory": str(self.output_dir)
+                "output_directory": str(self.output_dir),
+                "log_entries": combined_log
             }
 
         except Exception as e:
             # Handle save errors
+            error_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_entries.append(f"[{error_timestamp}] ❌ ERROR: Failed to save changed files: {str(e)}\n")
+            
             self.logger.error(f"Failed to save changed files: {e}")
 
             # Local healing - attempt rollback to backup
             recovery_actions = self.config.recovery_actions.get(ErrorType.PARQUET_SAVE_ERROR, [])
             updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+            
+            log_entries.append(f"  ⤷ Initiated recovery actions: {len(updated_recovery_actions)} action(s)\n")
 
             return {
                 "operation": "file_save",
@@ -442,7 +580,8 @@ class DataLoaderAgent:
                 "error_type": ErrorType.PARQUET_SAVE_ERROR.value,
                 "error_message": f"Failed to save files: {str(e)}",
                 "recovery_actions": updated_recovery_actions,
-                "files_saved": 0
+                "files_saved": 0,
+                "log_entries": "".join(log_entries)
             }
 
     def _get_healing_actions(self, results: List[Dict[str, Any]]) -> List[str]:
@@ -641,11 +780,11 @@ class DataLoaderAgent:
                 
                 # Update path annotation
                 path_annotation[db_name] = str(new_path)
-                log_entries.append(f"  ⤷ Saved new file: newest/{new_filename}\n")
-                logger.info("Saved new file: newest/{}", new_filename)
+                log_entries.append(f"  ⤷ Saved new file: {new_path}\n")
+                logger.info("Saved new file: {}", new_path)
         except Exception as e:
-            logger.error("Failed to save file {}: {}", new_filename, e)
-            raise OSError(f"Failed to save file {new_filename}: {e}")
+            logger.error("Failed to save file {}: {}", new_path, e)
+            raise OSError(f"Failed to save file {new_path}: {e}")
 
         # Update change log
         try:
@@ -664,6 +803,8 @@ class DataLoaderAgent:
         except Exception as e:
             logger.error("Failed to update path annotations {}: {}", annotations_path, e)
             raise OSError(f"Failed to update annotation file {annotations_path}: {e}")
+        
+        return "".join(log_entries)
 
     @staticmethod
     def _process_data(db_name, db_type, databaseSchemas_data):

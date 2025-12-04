@@ -6,7 +6,6 @@ from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 
 from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import DataPipelineOrchestrator
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 class DataPipelineModule(BaseModule):
     """
@@ -32,7 +31,7 @@ class DataPipelineModule(BaseModule):
         """Keys that this module writes to context"""
         return [
             'data_pipeline_result',
-            'data_pipeline_report',
+            'data_pipeline_log',
             'data_loader_path',
             'annotation_path'
         ]
@@ -112,18 +111,10 @@ class DataPipelineModule(BaseModule):
             
             # Run pipeline
             self.logger.info("Running data pipeline...")
-            results = orchestrator.run_pipeline()
-            
-            # Generate report
-            use_colored_report = pipeline_config.get('use_colored_report', True)
-            reporter = DictBasedReportGenerator(use_colors=use_colored_report)
-            report_lines = reporter.export_report(results)
-            report_text = "\n".join(report_lines)
+            results, log_str = orchestrator.run_pipeline()
             
             # Log report
-            self.logger.info("Pipeline execution completed:")
-            for line in report_lines:
-                self.logger.info(line)
+            self.logger.info("Pipeline execution completed!")
             
             # Determine data loader path (where processed data is stored)
             data_loader_path = str(Path(default_dir) / 'DataLoaderAgent/newest')
@@ -133,12 +124,12 @@ class DataPipelineModule(BaseModule):
                 status='success',
                 data={
                     'pipeline_results': results,
-                    'report': report_text
+                    'pipeline_log': log_str
                 },
                 message='DataPipeline completed successfully',
                 context_updates={
                     'data_pipeline_result': results,
-                    'data_pipeline_report': report_text,
+                    'data_pipeline_log': log_str,
                     'data_loader_path': data_loader_path,
                     'annotation_path': annotation_path
                 }

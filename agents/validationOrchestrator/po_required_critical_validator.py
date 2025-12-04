@@ -209,9 +209,9 @@ class PORequiredCriticalValidator:
         # Export results to Excel file with versioning
         self.logger.info("Start excel file exporting...")
         save_output_with_versioning(
-            self.data,
-            self.output_dir,
-            self.filename_prefix,
+            data = self.data,
+            output_dir = self.output_dir,
+            filename_prefix = self.filename_prefix,
         )
 
     @staticmethod

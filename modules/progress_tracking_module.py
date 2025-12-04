@@ -6,7 +6,6 @@ from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 
 from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 class ProgressTrackingModule(BaseModule):
     """
@@ -32,7 +31,7 @@ class ProgressTrackingModule(BaseModule):
         """Keys that this module writes to context"""
         return [
             'progress_tracking_result',
-            'progress_tracking_report',
+            'progress_tracking_log',
             'data_loader_path',
             'annotation_path',
             'validation_changlog_path'
@@ -119,30 +118,22 @@ class ProgressTrackingModule(BaseModule):
             
             # Run validations
             self.logger.info("Running tracking...")
-            results = order_progress_tracker.pro_status()
-            
-            # Generate report
-            use_colored_report = progress_tracking_config.get('use_colored_report', True)
-            reporter = DictBasedReportGenerator(use_colors=use_colored_report)
-            report_lines = reporter.export_report(results)
-            report_text = "\n".join(report_lines)
+            results, log_str = order_progress_tracker.pro_status()
 
             # Log report
-            self.logger.info("Validation execution completed:")
-            for line in report_lines:
-                self.logger.info(line)
+            self.logger.info("Tracking execution completed!")
             
             # Return success result
             return ModuleResult(
                 status='success',
                 data={
                     'tracking_results': results,
-                    'report': report_text
+                    'tracking_log': log_str
                 },
                 message='Tracking completed successfully',
                 context_updates={
                     'progress_tracking_result': results,
-                    'progress_tracking_report': report_text,
+                    'progress_tracking_log': log_str,
                     'dataschemas_path': databaseSchemas_path,
                     'annotation_path': f"{source_path}/{annotation_name}",
                     'validation_changlog_path': f"{folder_path}/{target_name}"

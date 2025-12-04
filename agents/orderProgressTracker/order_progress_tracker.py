@@ -1,7 +1,10 @@
 from agents.decorators import validate_init_dataframes
 from pathlib import Path
 from loguru import logger
-from agents.utils import load_annotation_path, save_output_with_versioning, read_change_log
+
+from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning, ConfigReportMixin
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+
 import pandas as pd
 from pandas.api.types import is_object_dtype
 from datetime import datetime, timedelta
@@ -17,7 +20,7 @@ from typing import Dict, List, Any, Optional
     "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
 })
 
-class OrderProgressTracker:
+class OrderProgressTracker(ConfigReportMixin):
 
     """
     Class to track order production progress
@@ -49,6 +52,9 @@ class OrderProgressTracker:
         default_dir: Default directory to save the output
         """
 
+        self._capture_init_args()
+
+        # Initialize logger with class name for better tracking
         self.logger = logger.bind(class_="OrderProgressTracker")
 
         # Mapping shift start times
@@ -193,15 +199,40 @@ class OrderProgressTracker:
         if total_warnings:
             self.data.update(total_warnings)
 
+        # Generate validation summary
+        reporter = DictBasedReportGenerator(use_colors=False)
+        tracking_summary = "\n".join(reporter.export_report(self.data))
+
+        # Generate config header using mixin
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        tracking_log_lines = [config_header]
+        tracking_log_lines.append(f"--Processing Summary--\n")
+        tracking_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
+
         # Step 6: Export Excel file
         logger.info("Start excel file exporting...")
-        save_output_with_versioning(
-            self.data,
-            self.output_dir,
-            self.filename_prefix,
+        output_exporting_log = save_output_with_versioning(
+            data = self.data,
+            output_dir = self.output_dir,
+            filename_prefix = self.filename_prefix,
+            report_text = tracking_summary
         )
+        self.logger.info("Results exported successfully!")
+        tracking_log_lines.append(f"{output_exporting_log}")
 
-        return self.data
+        tracking_log_str = "\n".join(tracking_log_lines)
+
+        try:
+            log_path = self.output_dir / "change_log.txt"
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.write(tracking_log_str)
+            self.logger.info("✓ Updated and saved change log: {}", log_path)
+        except Exception as e:
+            self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+
+        return self.data, tracking_log_str
 
     @staticmethod
     def _get_shift_start(row, shift_start_map,

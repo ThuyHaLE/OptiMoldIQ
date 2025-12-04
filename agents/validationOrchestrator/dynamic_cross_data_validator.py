@@ -218,9 +218,9 @@ class DynamicCrossDataValidator:
             # Export results to Excel with versioning
             self.logger.info("Exporting results to Excel...")
             save_output_with_versioning(
-                self.data,
-                self.output_dir,
-                self.filename_prefix,
+                data = self.data,
+                output_dir = self.output_dir,
+                filename_prefix = self.filename_prefix,
             )
             self.logger.info("Results exported successfully!")
 

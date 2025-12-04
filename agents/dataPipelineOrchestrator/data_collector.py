@@ -8,13 +8,15 @@ import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, List,  Any
 
+from agents.utils import ConfigReportMixin
+
 # Import healing system constants for error handling and recovery
 from agents.dataPipelineOrchestrator.data_collector_healing_rules import check_local_backup_and_update_status
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import (
     ProcessingStatus, ErrorType, AgentType, AgentExecutionInfo, RecoveryAction, get_agent_config)
 
 
-class DataCollector:
+class DataCollector(ConfigReportMixin):
 
     """
     A class responsible for collecting and processing data from various sources.
@@ -33,6 +35,10 @@ class DataCollector:
             source_dir: Directory containing the source Excel files
             default_dir: Base directory for output files
         """
+        self._capture_init_args()
+
+        # Initialize logger for this class
+        self.logger = logger.bind(class_="DataCollector")
 
         self.source_dir = Path(source_dir)
         self.default_dir = Path(default_dir)
@@ -40,9 +46,6 @@ class DataCollector:
 
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
-
-        # Initialize logger for this class
-        self.logger = logger.bind(class_="DataCollector")
 
         # Load configuration for this agent
         self.config = get_agent_config(AgentType.DATA_COLLECTOR)
@@ -54,13 +57,24 @@ class DataCollector:
         Processes both product records and purchase orders.
         
         Returns:
-            Dict containing execution information with status, summary, and details
+            Dict containing execution information with status, summary, details, and log entries
         """
+        
+        start_time = datetime.now()
+        timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Generate config header using mixin
+        config_header = self._generate_config_report(timestamp_str)
+
+        log_entries = [config_header]
+        log_entries.append(f"--Processing Summary--\n")
+        log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
         results = []
         overall_status = ProcessingStatus.SUCCESS
 
         # Process product records from monthly reports
+        log_entries.append(f">>> Processing Product Records <<<\n")
         product_result = self._process_data_type(
             folder_path=self.source_dir / 'monthlyReports_history',
             summary_file_path=self.output_dir / 'productRecords.parquet',
@@ -70,8 +84,11 @@ class DataCollector:
             data_type='productRecords'
         )
         results.append(product_result)
+        log_entries.append(product_result.get('log_entries', ''))
+        log_entries.append(f"\n")
 
         # Process purchase orders from purchase order files
+        log_entries.append(f">>> Processing Purchase Orders <<<\n")
         purchase_result = self._process_data_type(
             folder_path=self.source_dir / 'purchaseOrders_history',
             summary_file_path=self.output_dir / 'purchaseOrders.parquet',
@@ -81,38 +98,88 @@ class DataCollector:
             data_type='purchaseOrders'
         )
         results.append(purchase_result)
+        log_entries.append(purchase_result.get('log_entries', ''))
+        log_entries.append(f"\n")
 
         # Determine overall processing status based on individual results
         if any(r['status'] == ProcessingStatus.ERROR.value for r in results):
             overall_status = ProcessingStatus.ERROR
+            log_entries.append(f"⚠️  Overall Status: ERROR\n")
         elif any(r['status'] == ProcessingStatus.WARNING.value for r in results):
             overall_status = ProcessingStatus.WARNING
+            log_entries.append(f"⚠️  Overall Status: WARNING\n")
         elif any(r['status'] == ProcessingStatus.PARTIAL_SUCCESS.value for r in results):
             overall_status = ProcessingStatus.PARTIAL_SUCCESS
+            log_entries.append(f"⚠️  Overall Status: PARTIAL SUCCESS\n")
+        else:
+            log_entries.append(f"✅ Overall Status: SUCCESS\n")
+
+        # Calculate processing duration
+        end_time = datetime.now()
+        processing_duration = (end_time - start_time).total_seconds()
+        
+        # Get disk usage
+        disk_usage = self._get_disk_usage()
+        
+        # Summary statistics
+        successful_count = len([r for r in results if r['status'] == ProcessingStatus.SUCCESS.value])
+        failed_count = len([r for r in results if r['status'] == ProcessingStatus.ERROR.value])
+        warning_count = len([r for r in results if r['status'] == ProcessingStatus.WARNING.value])
+        
+        log_entries.append(f"\n{'='*80}\n")
+        log_entries.append(f"SUMMARY\n")
+        log_entries.append(f"{'='*80}\n")
+        log_entries.append(f"Total Datasets: {len(results)}\n")
+        log_entries.append(f"  ✅ Successful: {successful_count}\n")
+        log_entries.append(f"  ❌ Failed: {failed_count}\n")
+        log_entries.append(f"  ⚠️  Warnings: {warning_count}\n")
+        log_entries.append(f"Processing Duration: {processing_duration:.2f}s\n")
+        log_entries.append(f"Disk Usage: {disk_usage.get('used_percent', 'N/A')}%\n")
+        log_entries.append(f"{'='*80}\n")
+        log_entries.append(f"[{end_time.strftime('%Y-%m-%d %H:%M:%S')}] Data collection completed\n")
+        log_entries.append(f"{'='*80}\n")
+
+        # Write complete log to master file
+        self._write_log_to_file(log_entries, "data_collection_master_log.txt")
 
         # Create execution information object with comprehensive details
-        execution_info = AgentExecutionInfo(agent_id=AgentType.DATA_COLLECTOR.value,
-                                            status=overall_status.value,
-                                            summary={
-                                                "total_datasets": len(results),
-                                                "successful": len([r for r in results if r['status'] == ProcessingStatus.SUCCESS.value]),
-                                                "failed": len([r for r in results if r['status'] == ProcessingStatus.ERROR.value]),
-                                                "warnings": len([r for r in results if r['status'] == ProcessingStatus.WARNING.value])
-                                            },
-                                            details=results,
-                                            healing_actions=self._get_healing_actions(results),
-                                            trigger_agents=self._get_trigger_agents(results),
-                                            metadata={
-                                                "processing_duration": None,
-                                                "disk_usage": self._get_disk_usage()
-                                            }
-                                        )
+        execution_info = AgentExecutionInfo(
+            agent_id=AgentType.DATA_COLLECTOR.value,
+            status=overall_status.value,
+            summary={
+                "total_datasets": len(results),
+                "successful": successful_count,
+                "failed": failed_count,
+                "warnings": warning_count
+            },
+            details=results,
+            healing_actions=self._get_healing_actions(results),
+            trigger_agents=self._get_trigger_agents(results),
+            metadata={
+                "processing_duration": processing_duration,
+                "processing_duration_formatted": f"{processing_duration:.2f}s",
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "disk_usage": disk_usage,
+                "log_entries": "".join(log_entries),
+                "log_summary": {
+                    "total_files_processed": sum(r.get('files_processed', 0) for r in results),
+                    "total_records_processed": sum(r.get('records_processed', 0) for r in results),
+                    "total_files_failed": sum(r.get('files_failed', 0) for r in results),
+                }
+            }
+        )
 
         return execution_info
 
-    def _process_data_type(self, folder_path, summary_file_path, name_start,
-                          file_extension, sheet_name, data_type) -> Dict[str, Any]:
-        
+    def _process_data_type(self, 
+                           folder_path, 
+                           summary_file_path, 
+                           name_start,
+                           file_extension, 
+                           sheet_name, 
+                           data_type) -> Dict[str, Any]:
+    
         """
         Process a specific data type (product records or purchase orders).
         
@@ -125,16 +192,23 @@ class DataCollector:
             data_type: Type of data being processed (for logging/reporting)
             
         Returns:
-            Dict containing processing results, status, and error information
+            Dict containing processing results, status, error information, and log entries
         """
+        
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entries = [f"[{timestamp_str}] Processing {data_type}...\n"]
 
         try:
             # Check if the source folder exists
             if not os.path.exists(folder_path):
-
+                log_entries.append(f"  ❌ Source folder not found: {folder_path}\n")
+                
                 # Local healing - attempt rollback to backup
                 recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_NOT_FOUND, [])
                 updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
+
+                # Write error log
+                self._write_log_to_file(log_entries, f"{data_type}_processing_log.txt")
 
                 return {
                     "data_type": data_type,
@@ -143,16 +217,23 @@ class DataCollector:
                     "error_message": f"Source folder {folder_path} does not exist",
                     "recovery_actions": updated_recovery_actions,
                     "files_processed": 0,
-                    "records_processed": 0
+                    "records_processed": 0,
+                    "log_entries": "".join(log_entries)
                 }
+
+            log_entries.append(f"  ⤷ Source folder verified: {folder_path}\n")
 
             # Get required fields for validation
             required_fields = self._get_required_fields()
             if name_start not in required_fields:
-
+                log_entries.append(f"  ❌ Unsupported data type: {name_start}\n")
+                
                 # Local healing - attempt rollback to backup for unsupported data type
                 recovery_actions = self.config.recovery_actions.get(ErrorType.UNSUPPORTED_DATA_TYPE, [])
                 updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
+
+                # Write error log
+                self._write_log_to_file(log_entries, f"{data_type}_processing_log.txt")
 
                 return {
                     "data_type": data_type,
@@ -161,42 +242,74 @@ class DataCollector:
                     "error_message": f"Unsupported data type: {name_start}",
                     "recovery_actions": updated_recovery_actions,
                     "files_processed": 0,
-                    "records_processed": 0
+                    "records_processed": 0,
+                    "log_entries": "".join(log_entries)
                 }
+            
+            log_entries.append(f"  ⤷ Data type validated: {name_start}\n")
             
             # Load existing data from parquet file (if exists)
             existing_df = self._load_existing_data(summary_file_path)
+            if not existing_df.empty:
+                log_entries.append(f"  ⤷ Loaded existing data: {len(existing_df)} rows\n")
+            else:
+                log_entries.append(f"  ⤷ No existing data found - creating new file\n")
 
             # Get list of source files to process
             files_result = self._get_source_files(folder_path, name_start, file_extension)
             if files_result['status'] != ProcessingStatus.SUCCESS.value:
-                return files_result
+                log_entries.append(f"  ❌ Failed to get source files\n")
+                log_entries.append(files_result.get('log_entries', ''))
+                
+                # Write error log
+                self._write_log_to_file(log_entries, f"{data_type}_processing_log.txt")
+                
+                return {
+                    **files_result,
+                    "log_entries": "".join(log_entries)
+                }
+
+            log_entries.append(f"  ⤷ Found {len(files_result['files'])} files to process\n")
 
             # Process each file individually
             merged_dfs = [] # Successfully processed dataframes
             failed_files = [] # Files that failed processing
 
-            for file_name in files_result['files']:
+            for idx, file_name in enumerate(files_result['files'], 1):
                 file_path = os.path.join(folder_path, file_name)
+                log_entries.append(f"    [{idx}/{len(files_result['files'])}] Processing: {file_name}\n")
+                
                 file_result = self._process_single_file(
                     file_path, file_name, sheet_name, file_extension,
                     required_fields[name_start]
                 )
 
+                # Append single file logs
+                log_entries.append(file_result.get('log_entries', ''))
+
                 if file_result['status'] == ProcessingStatus.SUCCESS.value:
                     merged_dfs.append(file_result['data'])
+                    log_entries.append(f"      ✅ Success: {len(file_result['data'])} rows\n")
                 else:
                     failed_files.append({
                         "file": file_name,
                         "error": file_result['error_message']
                     })
+                    log_entries.append(f"      ❌ Failed: {file_result['error_message']}\n")
+
+            # Summary of file processing
+            log_entries.append(f"  ⤷ Files processed: {len(merged_dfs)}/{len(files_result['files'])} successful\n")
 
             # Handle case where no files were processed successfully
             if not merged_dfs:
-
+                log_entries.append(f"  ❌ No files could be processed successfully\n")
+                
                 # Local healing - attempt rollback to backup
                 recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
                 updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
+
+                # Write error log
+                self._write_log_to_file(log_entries, f"{data_type}_processing_log.txt")
 
                 return {
                     "data_type": data_type,
@@ -206,22 +319,41 @@ class DataCollector:
                     "failed_files": failed_files,
                     "recovery_actions": updated_recovery_actions,
                     "files_processed": 0,
-                    "records_processed": 0
+                    "records_processed": 0,
+                    "log_entries": "".join(log_entries)
                 }
 
             # Merge successfully processed dataframes and save to parquet
+            log_entries.append(f"  ⤷ Merging {len(merged_dfs)} dataframes...\n")
             merge_result = self._merge_and_process_data(
                 merged_dfs, summary_file_path, existing_df
             )
+            
+            # Append merge logs
+            log_entries.append(merge_result.get('log_entries', ''))
 
             # Determine final status based on processing results
             final_status = ProcessingStatus.SUCCESS
             if failed_files:
                 final_status = ProcessingStatus.PARTIAL_SUCCESS
+                log_entries.append(f"  ⚠️  Partial success: {len(failed_files)} files failed\n")
+            else:
+                log_entries.append(f"  ✅ All files processed successfully\n")
 
             # Prepare recovery actions for potential data processing errors
             recovery_actions = self.config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
+
+            # Final summary
+            log_entries.append(f"  ⤷ Total records: {merge_result.get('records_processed', 0)}\n")
+            log_entries.append(f"  ⤷ Output file: {summary_file_path}\n")
+            if merge_result.get('data_updated', False):
+                log_entries.append(f"  ⤷ File size: {merge_result.get('file_size_mb', 0):.2f}MB\n")
+            
+            log_entries.append(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {data_type} processing completed\n")
+
+            # Write successful log
+            self._write_log_to_file(log_entries, f"{data_type}_processing_log.txt")
 
             return {
                 "data_type": data_type,
@@ -236,16 +368,21 @@ class DataCollector:
                 "data_updated": merge_result.get('data_updated', False),
                 "error_type": ErrorType.DATA_PROCESSING_ERROR.value,
                 "recovery_actions": updated_recovery_actions if failed_files else [],
-                "warnings": merge_result.get('warnings', [])
+                "warnings": merge_result.get('warnings', []),
+                "log_entries": "".join(log_entries)
             }
 
         except Exception as e:
             # Handle unexpected errors during processing
+            log_entries.append(f"  ❌ Unexpected error: {str(e)}\n")
             self.logger.error(f"Unexpected error in {data_type}: {e}")
 
             # Local healing - attempt rollback to backup
             recovery_actions = self.config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
+
+            # Write error log
+            self._write_log_to_file(log_entries, f"{data_type}_processing_log.txt")
 
             return {
                 "data_type": data_type,
@@ -254,12 +391,16 @@ class DataCollector:
                 "error_message": str(e),
                 "recovery_actions": updated_recovery_actions,
                 "files_processed": 0,
-                "records_processed": 0
+                "records_processed": 0,
+                "log_entries": "".join(log_entries)
             }
 
-    def _process_single_file(self, file_path, file_name, sheet_name,
-                           file_extension, required_fields) -> Dict[str, Any]:
-        
+    def _process_single_file(self, 
+                             file_path, 
+                             file_name, 
+                             sheet_name,
+                             file_extension, 
+                             required_fields) -> Dict[str, Any]:
         """
         Process a single Excel file and validate its structure.
         
@@ -271,11 +412,13 @@ class DataCollector:
             required_fields: List of required column names
             
         Returns:
-            Dict containing processing status and data (if successful)
+            Dict containing processing status, data (if successful), and log entries
         """
+        log_entries = []
 
         try:
             self.logger.info(f"Reading file: {file_name}")
+            log_entries.append(f"        ⤷ Reading sheet: {sheet_name}\n")
 
             # Read Excel file based on extension
             if file_extension == '.xlsb':
@@ -283,9 +426,12 @@ class DataCollector:
             else:
                 df = pd.read_excel(file_path, sheet_name=sheet_name)
 
+            log_entries.append(f"        ⤷ Loaded {len(df)} rows, {len(df.columns)} columns\n")
+
             # Validate that all required fields are present
             missing_fields = [col for col in required_fields if col not in df.columns]
             if missing_fields:
+                log_entries.append(f"        ❌ Missing fields: {', '.join(missing_fields)}\n")
                 
                 # Local healing - attempt rollback to backup for missing fields
                 recovery_actions = self.config.recovery_actions.get(ErrorType.MISSING_FIELDS, [])
@@ -296,21 +442,25 @@ class DataCollector:
                     "error_type": ErrorType.MISSING_FIELDS.value,
                     "error_message": f"Missing required fields: {missing_fields}",
                     "recovery_actions": updated_recovery_actions,
-                    "missing_fields": missing_fields
+                    "missing_fields": missing_fields,
+                    "log_entries": "".join(log_entries)
                 }
 
             # Filter dataframe to only include required columns
             df_filtered = df[required_fields].copy()
+            log_entries.append(f"        ⤷ Filtered to {len(required_fields)} required columns\n")
 
             return {
                 "status": ProcessingStatus.SUCCESS.value,
                 "data": df_filtered,
-                "records_count": len(df_filtered)
+                "records_count": len(df_filtered),
+                "log_entries": "".join(log_entries)
             }
 
         except Exception as e:
+            log_entries.append(f"        ❌ Read error: {str(e)}\n")
+            
             # Handle file reading errors
-            # Local healing - attempt rollback to backup
             recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
@@ -319,10 +469,13 @@ class DataCollector:
                 "error_type": ErrorType.FILE_READ_ERROR.value,
                 "error_message": f"Failed to read file {file_name}: {str(e)}",
                 "recovery_actions": updated_recovery_actions,
+                "log_entries": "".join(log_entries)
             }
 
-    def _merge_and_process_data(self, merged_dfs, summary_file_path, existing_df) -> Dict[str, Any]:
-        
+    def _merge_and_process_data(self, 
+                                merged_dfs, 
+                                summary_file_path, 
+                                existing_df) -> Dict[str, Any]:
         """
         Merge multiple dataframes, process the data, and save to parquet format.
         
@@ -332,40 +485,67 @@ class DataCollector:
             existing_df: Previously saved dataframe (if any)
             
         Returns:
-            Dict containing merge results and statistics
+            Dict containing merge results, statistics, and log entries
         """
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entries = [f"[{timestamp_str}] Merging and processing data...\n"]
 
         try:
             # Concatenate all dataframes into one
             merged_df = pd.concat(merged_dfs, ignore_index=True)
             initial_rows = len(merged_df)
+            log_entries.append(f"  ⤷ Concatenated {len(merged_dfs)} dataframes: {initial_rows} rows\n")
 
             # Remove duplicate rows
             merged_df = merged_df.drop_duplicates()
             duplicates_removed = initial_rows - len(merged_df)
+            if duplicates_removed > 0:
+                log_entries.append(f"  ⤷ Removed {duplicates_removed} duplicate rows\n")
+            else:
+                log_entries.append(f"  ⤷ No duplicates found\n")
 
             # Apply data processing and type conversion
             merged_df = self._data_prosesssing(merged_df, summary_file_path)
+            log_entries.append(f"  ⤷ Applied data processing and type conversion\n")
 
             # Check if the data has actually changed compared to existing data
             data_updated = True
             if not existing_df.empty:
                 if self._dataframes_equal_fast(merged_df, existing_df):
                     data_updated = False
+                    log_entries.append(f"  ⤷ No changes detected - data matches existing file\n")
                     self.logger.info("No changes detected in data")
+                else:
+                    log_entries.append(f"  ⤷ Data changes detected - will save new version\n")
+            else:
+                log_entries.append(f"  ⤷ No existing data - creating new file\n")
 
             # Save data only if it has been updated
             file_size_mb = 0
             if data_updated:
                 save_result = self._save_parquet_file(merged_df, summary_file_path)
                 if save_result['status'] != ProcessingStatus.SUCCESS.value:
-                    return save_result
+                    # Append save error logs
+                    log_entries.append(save_result.get('log_entries', ''))
+                    return {
+                        **save_result,
+                        "log_entries": "".join(log_entries)
+                    }
                 file_size_mb = save_result['file_size_mb']
+                # Append successful save logs
+                log_entries.append(save_result.get('log_entries', ''))
+            else:
+                log_entries.append(f"  ⤷ Skipped saving - no changes detected\n")
 
             # Collect warnings about data processing
             warnings = []
             if duplicates_removed > 0:
                 warnings.append(f"Removed {duplicates_removed} duplicate rows")
+
+            log_entries.append(f"  ✅ Processing completed: {len(merged_df)} records\n")
+
+            # Optional: Write to log file
+            self._write_log_to_file(log_entries, "merge_process_log.txt")
 
             return {
                 "status": ProcessingStatus.SUCCESS.value,
@@ -373,24 +553,31 @@ class DataCollector:
                 "data_updated": data_updated,
                 "file_size_mb": file_size_mb,
                 "duplicates_removed": duplicates_removed,
-                "warnings": warnings
+                "warnings": warnings,
+                "log_entries": "".join(log_entries)
             }
 
         except Exception as e:
+            log_entries.append(f"  ❌ Error during merge/process: {str(e)}\n")
+            
             # Handle errors during data merging and processing
             # Local healing - attempt rollback to backup
             recovery_actions = self.config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
+
+            # Write error log
+            self._write_log_to_file(log_entries, "merge_process_log.txt")
 
             return {
                 "status": ProcessingStatus.ERROR.value,
                 "error_type": ErrorType.DATA_PROCESSING_ERROR.value,
                 "error_message": f"Failed to merge and process data: {str(e)}",
                 "recovery_actions": updated_recovery_actions,
+                "log_entries": "".join(log_entries)
             }
 
-    def _save_parquet_file(self, df, summary_file_path) -> Dict[str, Any]:
-        
+    def _save_parquet_file(self, df, 
+                           summary_file_path) -> Dict[str, Any]:
         """
         Save dataframe to parquet format with error handling.
         Uses atomic write (temporary file + move) to prevent corruption.
@@ -400,14 +587,19 @@ class DataCollector:
             summary_file_path: Target path for the parquet file
             
         Returns:
-            Dict containing save results and file size
+            Dict containing save results, file size, and log entries
         """
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entries = [f"    [{timestamp_str}] Saving parquet file...\n"]
 
         try:
             # Convert object columns to string for better parquet compatibility
-            for col in df.columns:
-                if df[col].dtype == 'object':
-                    df[col] = df[col].astype(str)
+            object_cols = [col for col in df.columns if df[col].dtype == 'object']
+            for col in object_cols:
+                df[col] = df[col].astype(str)
+            
+            if object_cols:
+                log_entries.append(f"      ⤷ Converted {len(object_cols)} object columns to string\n")
 
             # Save to temporary file first (atomic write pattern)
             with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
@@ -418,25 +610,33 @@ class DataCollector:
                     compression='snappy',
                     index=False
                 )
+            
+            log_entries.append(f"      ⤷ Created temporary file: {temp_path}\n")
 
             # Move temporary file to final location
             shutil.move(temp_path, summary_file_path)
+            log_entries.append(f"      ⤷ Moved to: {summary_file_path}\n")
             
             # Calculate file size in MB
             file_size_mb = os.path.getsize(summary_file_path) / 1024 / 1024
+            log_entries.append(f"      ⤷ Saved {len(df)} rows, {file_size_mb:.2f}MB\n")
 
             self.logger.info(f"✅ Parquet file saved: {summary_file_path} "
-                           f"({len(df)} rows, {file_size_mb:.2f}MB)")
+                        f"({len(df)} rows, {file_size_mb:.2f}MB)")
 
             return {
                 "status": ProcessingStatus.SUCCESS.value,
-                "file_size_mb": file_size_mb
+                "file_size_mb": file_size_mb,
+                "log_entries": "".join(log_entries)
             }
 
         except Exception as e:
             # Clean up temporary file if it exists
             if 'temp_path' in locals() and os.path.exists(temp_path):
                 os.remove(temp_path)
+                log_entries.append(f"      ⤷ Cleaned up temporary file\n")
+
+            log_entries.append(f"      ❌ Save error: {str(e)}\n")
 
             # Local healing - attempt rollback to backup
             recovery_actions = self.config.recovery_actions.get(ErrorType.PARQUET_SAVE_ERROR, [])
@@ -447,7 +647,24 @@ class DataCollector:
                 "error_type": ErrorType.PARQUET_SAVE_ERROR.value,
                 "error_message": f"Failed to save parquet file: {str(e)}",
                 "recovery_actions": updated_recovery_actions,
+                "log_entries": "".join(log_entries)
             }
+
+    def _write_log_to_file(self, log_entries: list, log_filename: str):
+        """
+        Helper method to write log entries to a file.
+        
+        Args:
+            log_entries: List of log entry strings
+            log_filename: Name of the log file
+        """
+        try:
+            log_path = Path(self.output_dir) / log_filename
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.writelines(log_entries)
+            self.logger.info(f"Updated log file: {log_path}")
+        except Exception as e:
+            self.logger.warning(f"Failed to write to log file {log_filename}: {e}")
 
     def _get_healing_actions(self, results) -> List[str]:
         
@@ -499,34 +716,51 @@ class DataCollector:
 
         return list(set(trigger_agents))  # Remove duplicates
 
-    def _get_disk_usage(self) -> Dict[str, float]:
-        
+    def _get_disk_usage(self) -> Dict[str, Any]:
         """
         Get disk usage information for monitoring purposes.
         
         Returns:
-            Dict containing disk usage statistics in MB
+            Dict containing disk usage statistics
         """
-
         try:
+            # Get disk usage for the output directory
+            disk_stat = shutil.disk_usage(self.output_dir)
+            total_gb = disk_stat.total / (1024 ** 3)
+            used_gb = disk_stat.used / (1024 ** 3)
+            free_gb = disk_stat.free / (1024 ** 3)
+            used_percent = (disk_stat.used / disk_stat.total) * 100
+
             # Calculate total size of parquet files in output directory
-            output_size = sum(
-                os.path.getsize(os.path.join(self.output_dir, f))
-                for f in os.listdir(self.output_dir)
-                if f.endswith('.parquet')
-            ) / 1024 / 1024  # Convert to MB
+            parquet_size_mb = 0
+            try:
+                parquet_size_mb = sum(
+                    os.path.getsize(os.path.join(self.output_dir, f))
+                    for f in os.listdir(self.output_dir)
+                    if f.endswith('.parquet')
+                ) / (1024 ** 2)
+            except:
+                pass
 
             return {
-                "output_directory_mb": output_size,
-                "available_space_mb": shutil.disk_usage(self.output_dir).free / 1024 / 1024
+                "total": f"{total_gb:.2f}GB",
+                "used": f"{used_gb:.2f}GB",
+                "free": f"{free_gb:.2f}GB",
+                "used_percent": round(used_percent, 2),
+                "parquet_files_size_mb": round(parquet_size_mb, 2)
             }
-        except:
-            # Return empty dict if disk usage cannot be calculated
-            return {}
+        except Exception as e:
+            self.logger.warning(f"Failed to get disk usage: {e}")
+            return {
+                "total": "N/A",
+                "used": "N/A",
+                "free": "N/A",
+                "used_percent": "N/A",
+                "parquet_files_size_mb": 0
+            }
 
     # Helper methods for file and data processing
     def _get_source_files(self, folder_path, name_start, file_extension):
-
         """
         Get and validate source files from the specified folder.
         
@@ -536,28 +770,44 @@ class DataCollector:
             file_extension: Required file extension
             
         Returns:
-            Dict containing file list and status
+            Dict containing file list, status, and log entries
         """
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entries = [f"  [{timestamp_str}] Searching for source files...\n"]
 
-        # Find files matching the pattern
-        files = [f for f in os.listdir(folder_path)
-                if f.startswith(name_start) and f.endswith(file_extension)]
+        try:
+            # Find files matching the pattern
+            files = [f for f in os.listdir(folder_path)
+                    if f.startswith(name_start) and f.endswith(file_extension)]
 
-        if not files:
+            if not files:
+                log_entries.append(f"    ❌ No files found matching pattern: {name_start}*{file_extension}\n")
+                return {
+                    "status": ProcessingStatus.ERROR.value,
+                    "error_type": ErrorType.FILE_NOT_FOUND.value,
+                    "error_message": f"No files found matching pattern {name_start}*{file_extension}",
+                    "files": [],
+                    "log_entries": "".join(log_entries)
+                }
+
+            # Sort files by date (extracted from filename)
+            files_sorted = sorted(files, key=lambda x: int(x.split('_')[1][:6]))
+            log_entries.append(f"    ✅ Found {len(files_sorted)} files matching pattern\n")
+
+            return {
+                "status": ProcessingStatus.SUCCESS.value,
+                "files": files_sorted,
+                "log_entries": "".join(log_entries)
+            }
+        except Exception as e:
+            log_entries.append(f"    ❌ Error searching files: {str(e)}\n")
             return {
                 "status": ProcessingStatus.ERROR.value,
                 "error_type": ErrorType.FILE_NOT_FOUND.value,
-                "error_message": f"No files found matching pattern {name_start}*{file_extension}",
-                "files": []
+                "error_message": f"Error searching files: {str(e)}",
+                "files": [],
+                "log_entries": "".join(log_entries)
             }
-
-        # Sort files by date (extracted from filename)
-        files_sorted = sorted(files, key=lambda x: int(x.split('_')[1][:6]))
-
-        return {
-            "status": ProcessingStatus.SUCCESS.value,
-            "files": files_sorted
-        }
 
     def _load_existing_data(self, summary_file_path):
         

@@ -6,7 +6,6 @@ from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 
 from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 class ValidationModule(BaseModule):
     """
@@ -32,7 +31,7 @@ class ValidationModule(BaseModule):
         """Keys that this module writes to context"""
         return [
             'validation_orchestrator_result',
-            'validation_orchestrator_report',
+            'validation_orchestrator_log',
             'dataschemas_path',
             'annotation_path'
         ]
@@ -104,30 +103,21 @@ class ValidationModule(BaseModule):
 
             # Run validations
             self.logger.info("Running validations...")
-            results = orchestrator.run_validations_and_save_results()
-            
-            # Generate report
-            use_colored_report = validation_config.get('use_colored_report', True)
-            reporter = DictBasedReportGenerator(use_colors=use_colored_report)
-            report_lines = reporter.export_report(results)
-            report_text = "\n".join(report_lines)
+            results, log_str = orchestrator.run_validations_and_save_results()
 
-            # Log report
-            self.logger.info("Validation execution completed:")
-            for line in report_lines:
-                self.logger.info(line)
-            
+            self.logger.info("Validation execution completed!")
+ 
             # Return success result
             return ModuleResult(
                 status='success',
                 data={
                     'validation_results': results,
-                    'report': report_text
+                    'validation_log': log_str
                 },
                 message='Validation completed successfully',
                 context_updates={
                     'validation_orchestrator_result': results,
-                    'validation_orchestrator_report': report_text,
+                    'validation_orchestrator_log': log_str,
                     'dataschemas_path': databaseSchemas_path,
                     'annotation_path': f"{source_path}/{annotation_name}"
                 }

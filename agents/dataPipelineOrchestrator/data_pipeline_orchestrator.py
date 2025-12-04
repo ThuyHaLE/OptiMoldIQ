@@ -4,6 +4,8 @@ from loguru import logger
 from datetime import datetime
 import shutil
 
+from agents.utils import ConfigReportMixin
+
 from agents.dataPipelineOrchestrator.data_collector import DataCollector
 from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
 from agents.dataPipelineOrchestrator.data_pipeline_orchestrator_healing_rules import ManualReviewNotifier
@@ -42,7 +44,7 @@ class MockNotificationHandler:
 
         return True
 
-class DataPipelineOrchestrator:
+class DataPipelineOrchestrator(ConfigReportMixin):
 
     """
     Main orchestrator class that coordinates the entire data pipeline process.
@@ -72,6 +74,8 @@ class DataPipelineOrchestrator:
             default_dir: Default directory for shared database operations
         """
         
+        self._capture_init_args()
+
         # Initialize logger with class-specific binding for better log tracking
         self.logger = logger.bind(class_="DataPipelineOrchestrator")
 
@@ -91,15 +95,14 @@ class DataPipelineOrchestrator:
         
         """Save the report to a file and return the filename"""
 
-        output_dir = Path(self.output_dir)
-        log_path = output_dir / "change_log.txt"
         timestamp_now = datetime.now()
         timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+        timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
         log_entries = [f"[{timestamp_str}] Saving new version...\n"]
 
-        newest_dir = output_dir / "newest"
+        newest_dir = self.output_dir / "newest"
         newest_dir.mkdir(parents=True, exist_ok=True)
-        historical_dir = output_dir / "historical_db"
+        historical_dir = self.output_dir / "historical_db"
         historical_dir.mkdir(parents=True, exist_ok=True)
 
         # Move old files to historical_db
@@ -113,11 +116,11 @@ class DataPipelineOrchestrator:
                 except Exception as e:
                     self.logger.error("Failed to move file {}: {}", f.name, e)
                     raise OSError(f"Failed to move file {f.name}: {e}")
-                
+
+        # Save single phase reports        
         for agent_id, info in self.report_collection.items():
             for prefix_name, message in info.items():
                 # Create timestamped output file path
-                timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
                 filename = f"{timestamp_file}_{agent_id}_{prefix_name}.txt"
                 output_path = Path(newest_dir / filename)
 
@@ -133,20 +136,14 @@ class DataPipelineOrchestrator:
                     
                     with open(output_path, 'w', encoding='utf-8') as f:
                         f.write(content)
-                    log_entries.append(f"  ⤷ Saved new file: {newest_dir}/{filename}\n")
-                    self.logger.info("Saved new file: {}/{}", newest_dir, filename)
+                    log_entries.append(f"  ⤷ Saved new file: {output_path}\n")
+                    self.logger.info("Saved new file: {}", output_path)
                 except Exception as e:
-                    self.logger.error("Failed to save file {}: {}", filename, e)
-                    raise OSError(f"Failed to save file {filename}: {e}")
-
-        try:
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.writelines(log_entries)
-            self.logger.info("Updated change log {}", log_path)
-        except Exception as e:
-            self.logger.error("Failed to update change log {}: {}", log_path, e)
-            raise OSError(f"Failed to update change log {log_path}: {e}")  
+                    self.logger.error("Failed to save file {}: {}", output_path, e)
+                    raise OSError(f"Failed to save file {output_path}: {e}")
         
+        return "".join(log_entries)
+    
     def run_pipeline(self, **kwargs) -> Dict[str, Any]:
         
         """
@@ -171,18 +168,28 @@ class DataPipelineOrchestrator:
 
         agent_id = "DataPipelineOrchestrator"
         self.logger.info("🚀 Starting {}...", agent_id)
+
+        # Generate config header using mixin
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        pipeline_log_lines = [config_header]
+        pipeline_log_lines.append(f"--Processing Summary--\n")
+        pipeline_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
         
         # Phase 1: Data Collection
         # Collect raw data from various sources
         collector_result = self._run_data_collector()
-        
+        collector_log = collector_result.metadata['log_entries']
+
         # Phase 2: Data Loading 
         # Process and load data, but only if Phase 1 was successful or rollback succeeded
         loader_result = self._run_data_loader(collector_result)
-        
+        loader_log = loader_result.metadata['log_entries']
+
         # Create comprehensive pipeline result summary
         pipeline_result = self._create_pipeline_result(collector_result, loader_result)
-        
+
         self.logger.info("✅ {} completed", agent_id)
 
         final_report = {
@@ -193,11 +200,28 @@ class DataPipelineOrchestrator:
         
         self.report_collection[agent_id] = {'final_report': final_report}
         
-        self.save_report()
+        output_exporting_log = self.save_report()
+        pipeline_log_lines.append(f"{output_exporting_log}\n")
+
+        pipeline_log_lines.append("--Details--\n")
+        pipeline_log_lines.append(f"⤷ Phase 1: Data Collection\n")
+        pipeline_log_lines.append(f"{collector_log}\n")
+        pipeline_log_lines.append(f"⤷ Phase 2: Data Loading\n")
+        pipeline_log_lines.append(f"{loader_log}\n")
+
+        pipeline_log_str = "\n".join(pipeline_log_lines)
+        
+        try:
+            log_path = self.output_dir / "change_log.txt"
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.write(pipeline_log_str)
+            self.logger.info("✓ Updated and saved change log: {}", log_path)
+        except Exception as e:
+            self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
 
         self.logger.info("✅ All reports saved successfully")
 
-        return pipeline_result
+        return pipeline_result, pipeline_log_str
 
     def _run_data_collector(self) -> Any:
         

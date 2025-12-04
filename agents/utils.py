@@ -8,6 +8,7 @@ import json
 import re
 from tabulate import tabulate
 from typing import Dict, Any, Optional, List, Iterable
+import inspect
 
 def save_output_with_versioning(
     data: dict[str, pd.DataFrame],
@@ -73,14 +74,8 @@ def save_output_with_versioning(
         except Exception as e:
             logger.error("✗ Failed to save dashboard log {}: {}", report_path, e)
             raise OSError(f"Failed to save dashboard log {report_path}: {e}")
-
-    try:
-        with open(log_path, "a", encoding="utf-8") as log_file:
-            log_file.writelines(log_entries)
-        logger.info("Updated change log {}", log_path)
-    except Exception as e:
-        logger.error("Failed to update change log {}: {}", log_path, e)
-        raise OSError(f"Failed to update change log {log_path}: {e}")
+    
+    return "".join(log_entries)
 
 def load_annotation_path(source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
                          annotation_name: str = "path_annotations.json"):
@@ -328,3 +323,64 @@ def validate_multi_level_analyzer_result(
     missing = [k for k in required_keys if k not in data]
     if missing:
         raise KeyError(f"MultiLevelAnalyzer result missing keys: {missing}")
+
+class ConfigReportMixin:
+    """
+    Mixin to add auto-config reporting capability to any class.
+    
+    Usage:
+        class MyOrchestrator(ConfigReportMixin):
+            def __init__(self, arg1, arg2, arg3="default"):
+                self._capture_init_args()
+                # ... rest of init code ...
+            
+            def run(self):
+                config_header = self._generate_config_report()
+                # ... use config_header in reports ...
+    """
+    
+    def _capture_init_args(self):
+        """
+        Capture all __init__ arguments automatically.
+        Must be called as first line in __init__.
+        """
+        frame = inspect.currentframe().f_back  # Get parent frame (__init__)
+        args_info = inspect.getargvalues(frame)
+        self.init_args = {k: v for k, v in args_info.locals.items() if k != 'self'}
+    
+    def _generate_config_report(self, timestamp_str: str = None) -> str:
+        """
+        Generate configuration report header from init arguments.
+        
+        Args:
+            timestamp_str: Optional timestamp string. If None, uses current time.
+            
+        Returns:
+            Formatted configuration report string
+            
+        Example output:
+            [2024-12-04 10:30:00] ValidationOrchestrator Run
+            
+            --Configuration--
+            ⤷ Source Path: agents/shared_db/DataLoaderAgent/newest
+            ⤷ Annotation Name: path_annotations.json
+            ⤷ Default Dir: agents/shared_db
+        """
+        if timestamp_str is None:
+            timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        log_lines = [
+            f"[{timestamp_str}] {self.__class__.__name__} Run",
+            "",
+            "--Configuration--"
+        ]
+        
+        # Auto-generate config lines from init_args
+        if hasattr(self, 'init_args'):
+            for key, value in self.init_args.items():
+                display_name = key.replace('_', ' ').title()
+                log_lines.append(f"⤷ {display_name}: {value}")
+        
+        log_lines.append("")
+        
+        return "\n".join(log_lines)
