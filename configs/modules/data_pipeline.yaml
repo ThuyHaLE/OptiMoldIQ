@@ -3,9 +3,9 @@
 # Project root directory
 project_root: "."
 
-# ========================================
+# ===========================
 # DATA PIPELINE MODULE CONFIG
-# ========================================
+# ===========================
 data_pipeline:
   # Source data directory (dynamic database)
   dynamic_db_source_dir: "tests/mock_database/dynamicDatabase"

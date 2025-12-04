@@ -37,8 +37,8 @@ class DashboardModule(BaseModule):
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
         return [
-            'dashboard_result',
-            'dashboard_log'
+            'dashboard_builder_result',
+            'dashboard_builder_log'
         ]
     
     def execute(self, 
@@ -115,8 +115,8 @@ class DashboardModule(BaseModule):
                 },
                 message='DashboardBuilder completed successfully',
                 context_updates={
-                    'dashboard_result': results,
-                    'dashboard_log': log_entries_str
+                    'dashboard_builder_result': results,
+                    'dashboard_builder_log': log_entries_str
                 }
             )
             

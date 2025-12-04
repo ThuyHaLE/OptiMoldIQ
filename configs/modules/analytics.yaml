@@ -3,7 +3,15 @@
 # Project root directory
 project_root: "."
 
+# =======================
+# ANALYTICS MODULE CONFIG
+# =======================
 analytics:
+
+  # ========================================
+  # PARENT ENABLE FLAGS (Top-level control)
+  # ========================================
+
   # Main enable flags (parent flags)
   enable_hardware_change_analysis: true  # ← Parent flag
   enable_multi_level_analysis: true      # ← Parent flag

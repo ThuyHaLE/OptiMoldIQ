@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Dict, List
 from modules.base_module import BaseModule, ModuleResult
+from loguru import logger
 
 from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import DataPipelineOrchestrator
 from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
@@ -58,11 +59,18 @@ class DataPipelineModule(BaseModule):
             ModuleResult with pipeline execution results
         """
         
+        self.logger = logger.bind(class_="DataPipelineModule")
+
         try:
 
             # Extract self.config
             project_root = Path(self.config.get('project_root', '.'))
             pipeline_config = self.config.get('data_pipeline', {})
+
+            self.logger.debug("Project root: {}", self.project_root)
+            
+            if not pipeline_config:
+                self.logger.debug("Cannot load DataPipelineOrchestrator config")
             
             # Build paths
             dynamic_db_source_dir = str(project_root / pipeline_config.get(
@@ -125,9 +133,7 @@ class DataPipelineModule(BaseModule):
                 status='success',
                 data={
                     'pipeline_results': results,
-                    'report': report_text,
-                    'data_loader_path': data_loader_path,
-                    'annotation_path': annotation_path
+                    'report': report_text
                 },
                 message='DataPipeline completed successfully',
                 context_updates={

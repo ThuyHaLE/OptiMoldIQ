@@ -5,13 +5,15 @@ from modules.data_pipeline_module import DataPipelineModule
 from modules.analytics_module import AnalyticsModule
 from modules.dashboard_module import DashboardModule
 from modules.validation_module import ValidationModule
+from modules.progress_tracking_module import ProgressTrackingModule
 
 # Registry of availble modules
 AVAILABLE_MODULES = {
     'DataPipelineModule': DataPipelineModule,
     'AnalyticsModule': AnalyticsModule,
     'DashboardModule': DashboardModule,
-    'ValidationModule': ValidationModule
+    'ValidationModule': ValidationModule,
+    'ProgressTrackingModule': ProgressTrackingModule
 }
 
 def get_module(name: str, config: dict = None) -> BaseModule:
@@ -45,7 +47,8 @@ __all__ = [
     'DataPipelineModule',
     'AnalyticsModule',
     'DashboardModule',
-    'ValidationModule'
+    'ValidationModule',
+    'ProgressTrackingModule'
     
     'get_module',
     'list_available_modules',

@@ -1,12 +1,12 @@
-# configs/modules/validation.yaml
+# configs/modules/progress_tracking.yaml
 
 # Project root directory
 project_root: "."
 
-# ========================
-# VALIDATION MODULE CONFIG
-# ========================
-validation:
+# ===============================
+# PROGRESS TRACKING MODULE CONFIG
+# ===============================
+progress_tracking:
 
   # Main shared database from DataPipeline
   source_path: 'tests/shared_db/DataLoaderAgent/newest' # Directory
@@ -15,8 +15,12 @@ validation:
   # Database schema definitions
   databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
 
+  # Change log from ValidationOrchestrator
+  folder_path: "tests/shared_db/ValidationOrchestrator"
+  target_name: "change_log.txt"
+
   # Default output directory for processed data
   default_dir: "tests/shared_db"
 
   # Report formatting
-  use_colored_report: true 
+  use_colored_report: true

@@ -17,6 +17,11 @@ ValidationModule:
   enabled: true
   description: Data validation and quality checks
 
+ProgressTrackingModule:
+  config_path: configs/modules/progress_tracking.yaml
+  enabled: true
+  description: Production progess tracking
+
 AnalyticsModule:
   config_path: configs/modules/analytics.yaml
   enabled: true
