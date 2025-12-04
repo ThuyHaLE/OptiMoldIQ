@@ -12,8 +12,8 @@ from typing import Dict, Any, Optional, List, Iterable
 def save_output_with_versioning(
     data: dict[str, pd.DataFrame],
     output_dir: str | Path,
-    filename_prefix: str = "output",
-    file_format: str = 'xlsx',
+    filename_prefix: str,
+    report_text: str | None = None,
 ):  
     if not isinstance(data, dict):
         logger.error("❌ Expected data to be a dict[str, pd.DataFrame] but got: {}", type(data))
@@ -48,7 +48,7 @@ def save_output_with_versioning(
                 raise OSError(f"Failed to move file {f.name}: {e}")
 
     timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
-    new_filename = f"{timestamp_file}_{filename_prefix}.{file_format}"
+    new_filename = f"{timestamp_file}_{filename_prefix}_result.xlsx"
     new_path = newest_dir / new_filename
 
     try:
@@ -60,6 +60,19 @@ def save_output_with_versioning(
     except Exception as e:
         logger.error("Failed to save file {}: {}", new_filename, e)
         raise OSError(f"Failed to save file {new_filename}: {e}")
+
+    # Save report text if provided
+    if report_text is not None:
+        report_filename = f"{timestamp_file}_{filename_prefix}_report.txt"
+        report_path = newest_dir / report_filename
+        try:
+            with open(report_path, "w", encoding="utf-8") as report_file:
+                report_file.write(report_text)
+            log_entries.append(f"  ⤷ Saved report: {newest_dir}/{report_filename}\n")
+            logger.info("✓ Updated and saved dashboard log: {}", report_path)
+        except Exception as e:
+            logger.error("✗ Failed to save dashboard log {}: {}", report_path, e)
+            raise OSError(f"Failed to save dashboard log {report_path}: {e}")
 
     try:
         with open(log_path, "a", encoding="utf-8") as log_file:
