@@ -272,11 +272,19 @@ class MoldStabilityIndexCalculator:
         # Export to Excel file with automatic versioning
         # The versioning system prevents accidental overwrites of previous results
         logger.info("Start excel file exporting...")
-        save_output_with_versioning(
-            self.data,          # Dictionary containing the data to save
-            self.output_dir,    # Directory where the file will be saved
-            self.prefix,        # Prefix for the output filename
+        output_exporting_log =  save_output_with_versioning(
+            data = self.data,          # Dictionary containing the data to save
+            output_dir = self.output_dir,    # Directory where the file will be saved
+            filename_prefix = self.prefix,        # Prefix for the output filename
         )
+
+        try:
+            log_path = self.output_dir / "change_log.txt"
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.write(output_exporting_log)
+            self.logger.info("✓ Updated and saved change log: {}", log_path)
+        except Exception as e:
+            self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
 
     # Static methods for mold stability index calculating phase
 

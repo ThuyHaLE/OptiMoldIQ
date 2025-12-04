@@ -26,7 +26,6 @@ def save_output_with_versioning(
             raise TypeError(f"Expected dict keys to be str and values to be pd.DataFrame, but got key: {type(k)}, value: {type(v)}")
 
     output_dir = Path(output_dir)
-    log_path = output_dir / "change_log.txt"
     timestamp_now = datetime.now()
     timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
     log_entries = [f"[{timestamp_str}] Saving new version...\n"]
