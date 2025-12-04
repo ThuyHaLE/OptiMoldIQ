@@ -14,7 +14,7 @@ def test_initial_planer():
                                                     databaseSchemas_path = 'tests/mock_database/databaseSchemas.json',
                                                     default_dir = "tests/shared_db")
 
-    results = validation_orchestrator.run_validations_and_save_results()
+    results, log_str = validation_orchestrator.run_validations_and_save_results()
 
     # OrderProgressTracker
     order_progress_tracker = OrderProgressTracker(source_path = 'tests/shared_db/DataLoaderAgent/newest',
@@ -24,7 +24,7 @@ def test_initial_planer():
                                                   target_name = "change_log.txt",
                                                   default_dir = "tests/shared_db")
 
-    results = order_progress_tracker.pro_status()
+    results, log_str = order_progress_tracker.pro_status()
 
     # ProducingProcessor
     producing_processor = ProducingProcessor(

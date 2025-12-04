@@ -340,7 +340,9 @@ class AutoPlanner:
 
             return orchestrator.run_pipeline()
 
-        return self._safe_execute("DataPipelineOrchestrator", _execute_data_collection)
+        results, log_str = self._safe_execute("DataPipelineOrchestrator", _execute_data_collection)
+        
+        return results
 
     def _run_validation_orchestrator(self):
         """Run the ValidationOrchestrator"""
@@ -358,7 +360,7 @@ class AutoPlanner:
 
             return validator.run_validations_and_save_results()
 
-        results = self._safe_execute("ValidationOrchestrator", _execute_validation)
+        results, log_str = self._safe_execute("ValidationOrchestrator", _execute_validation)
 
         self.report_manager.add_header(WorkflowConstants.VALIDATION_ORCHESTRATOR_HEADER)
         self.report_manager.add_section(self.dict_based_reporter.export_report(results))
@@ -381,7 +383,7 @@ class AutoPlanner:
 
             return tracker.pro_status()
 
-        results = self._safe_execute("OrderProgressTracker", _execute_tracking)
+        results, log_str = self._safe_execute("OrderProgressTracker", _execute_tracking)
 
         self.report_manager.add_header(WorkflowConstants.ORDER_PROGRESS_TRACKER_HEADER)
         self.report_manager.add_section(self.dict_based_reporter.export_report(results))
