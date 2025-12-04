@@ -67,7 +67,7 @@ class ValidationModule(BaseModule):
             project_root = Path(self.config.get('project_root', '.'))
             validation_config = self.config.get('validation', {})
             
-            self.logger.debug("Project root: {}", self.project_root)
+            self.logger.debug("Project root: {}", project_root)
             
             if not validation_config:
                 self.logger.debug("Cannot load ValidationOrchestrator config")

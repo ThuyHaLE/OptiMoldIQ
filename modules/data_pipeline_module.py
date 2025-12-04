@@ -67,7 +67,7 @@ class DataPipelineModule(BaseModule):
             project_root = Path(self.config.get('project_root', '.'))
             pipeline_config = self.config.get('data_pipeline', {})
 
-            self.logger.debug("Project root: {}", self.project_root)
+            self.logger.debug("Project root: {}", project_root)
             
             if not pipeline_config:
                 self.logger.debug("Cannot load DataPipelineOrchestrator config")

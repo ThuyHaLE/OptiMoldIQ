@@ -70,7 +70,7 @@ class ProgressTrackingModule(BaseModule):
             project_root = Path(self.config.get('project_root', '.'))
             progress_tracking_config = self.config.get('progress_tracking', {})
 
-            self.logger.debug("Project root: {}", self.project_root)
+            self.logger.debug("Project root: {}", project_root)
 
             if not progress_tracking_config:
                 self.logger.debug("Cannot load OrderProgressTracker config")
