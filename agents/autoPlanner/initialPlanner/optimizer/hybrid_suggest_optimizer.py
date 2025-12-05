@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import load_annotation_path, read_change_log, get_latest_change_row
 from loguru import logger
-from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
-from agents.autoPlanner.initialPlanner.historyBasedProcessor.mold_machine_priority_matrix_calculator import MoldMachinePriorityMatrixCalculator
+from agents.autoPlanner.initialPlanner.optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
+from agents.autoPlanner.initialPlanner.optimizer.mold_machine_priority_matrix_calculator import MoldMachinePriorityMatrixCalculator
 
 @dataclass
 class OptimizationResult:

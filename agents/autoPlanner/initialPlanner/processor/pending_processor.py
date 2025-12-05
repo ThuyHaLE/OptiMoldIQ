@@ -11,11 +11,12 @@ from agents.core_helpers import (
 from agents.decorators import validate_init_dataframes, validate_dataframe
 
 from agents.utils import read_change_log, load_annotation_path, save_output_with_versioning
-from agents.autoPlanner.initialPlanner.hist_based_mold_machine_optimizer import HistBasedMoldMachineOptimizer
-from agents.autoPlanner.initialPlanner.compatibility_based_mold_machine_optimizer import (
-    CompatibilityBasedMoldMachineOptimizer, PriorityOrder)
-from agents.autoPlanner.initialPlanner.machine_assignment_processor import MachineAssignmentProcessor
 
+from agents.autoPlanner.initialPlanner.optimizer.hist_based_mold_machine_optimizer import HistBasedMoldMachineOptimizer
+from agents.autoPlanner.initialPlanner.optimizer.compatibility_based_mold_machine_optimizer import (
+    CompatibilityBasedMoldMachineOptimizer, PriorityOrder)
+
+from agents.autoPlanner.initialPlanner.processor.machine_assignment_processor import MachineAssignmentProcessor
 
 @dataclass
 class ProcessingConfig:

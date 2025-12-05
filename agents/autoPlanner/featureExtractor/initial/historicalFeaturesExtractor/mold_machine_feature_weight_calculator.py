@@ -16,7 +16,7 @@ from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import load_annotation_path, log_dict_as_table, read_change_log, ConfigReportMixin
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 
-from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
+from agents.autoPlanner.initialPlanner.optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
 
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.feature_weight_config import FeatureWeightConfig
 

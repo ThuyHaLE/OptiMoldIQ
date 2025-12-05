@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple, Any, Optional, Literal
 from pathlib import Path
 from agents.utils import read_change_log
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import AgentExecutionInfo
-from agents.autoPlanner.initialPlanner.compatibility_based_mold_machine_optimizer import PriorityOrder
+from agents.autoPlanner.initialPlanner.optimizer.compatibility_based_mold_machine_optimizer import PriorityOrder
 from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 @dataclass
@@ -455,7 +455,7 @@ class AutoPlanner:
 
         def _execute_producing():
             # Lazy import
-            from agents.autoPlanner.initialPlanner.producing_processor import ProducingProcessor
+            from agents.autoPlanner.initialPlanner.processor.producing_processor import ProducingProcessor
 
             processor = ProducingProcessor(
                 source_path=self.path_manager.get_data_loader_path(),
@@ -484,7 +484,7 @@ class AutoPlanner:
 
         def _execute_pending():
             # Lazy import
-            from agents.autoPlanner.initialPlanner.pending_processor import PendingProcessor, ProcessingConfig
+            from agents.autoPlanner.initialPlanner.processor.pending_processor import PendingProcessor, ProcessingConfig
 
             config = ProcessingConfig(
                 max_load_threshold=self.config.max_load_threshold,

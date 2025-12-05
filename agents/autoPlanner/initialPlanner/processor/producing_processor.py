@@ -9,7 +9,7 @@ from loguru import logger
 from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning
 from agents.core_helpers import check_newest_machine_layout
 from datetime import datetime
-from agents.autoPlanner.initialPlanner.hybrid_suggest_optimizer import HybridSuggestOptimizer
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer import HybridSuggestOptimizer
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
