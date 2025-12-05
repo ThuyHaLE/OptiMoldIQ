@@ -1,5 +1,5 @@
 from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
-from agents.autoPlanner.initialPlanner.compatibility_based_mold_machine_optimizer import PriorityOrder
+from agents.autoPlanner.initialPlanner.optimizer.compatibility_based_mold_machine_optimizer import PriorityOrder
 from agents.autoPlanner.auto_planner import WorkflowConfig, AutoPlanner
 
 def test_auto_planner():
