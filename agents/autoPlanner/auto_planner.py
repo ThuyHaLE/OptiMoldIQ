@@ -393,7 +393,7 @@ class AutoPlanner:
 
         def _execute_index_calculating():
             # Lazy import
-            from agents.autoPlanner.initialPlanner.historyBasedProcessor.mold_stability_index_calculator import MoldStabilityIndexCalculator
+            from agents.autoPlanner.featureExtractor.initial.historicalFeatures.mold_stability_index_calculator import MoldStabilityIndexCalculator
             calculator = MoldStabilityIndexCalculator(
                 source_path = self.path_manager.get_data_loader_path(),
                 annotation_name = WorkflowConstants.ANNOTATION_FILE,
@@ -418,7 +418,7 @@ class AutoPlanner:
 
         def _execute_weight_calculating():
             # Lazy import
-            from agents.autoPlanner.initialPlanner.historyBasedProcessor.mold_machine_feature_weight_calculator import MoldMachineFeatureWeightCalculator
+            from agents.autoPlanner.featureExtractor.initial.historicalFeatures.mold_machine_feature_weight_calculator import MoldMachineFeatureWeightCalculator
 
             calculator = MoldMachineFeatureWeightCalculator(
                 source_path = self.path_manager.get_data_loader_path(),

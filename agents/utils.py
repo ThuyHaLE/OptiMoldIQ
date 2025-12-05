@@ -9,6 +9,7 @@ import re
 from tabulate import tabulate
 from typing import Dict, Any, Optional, List, Iterable
 import inspect
+from dataclasses import fields, is_dataclass
 
 def save_output_with_versioning(
     data: dict[str, pd.DataFrame],
@@ -97,23 +98,25 @@ def extract_latest_saved_files(log_text: str) -> Optional[List[str]]:
     if not log_text.strip():
         return None
 
-    # Match all log blocks by timestamp
-    pattern = r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\](.*?)(?=\n\[|$)'
+    # Match all log blocks (allow indentation before timestamp)
+    pattern = r'\s*\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\](.*?)(?=\n\s*\[|$)'
     matches = re.findall(pattern, log_text, flags=re.DOTALL)
 
     if not matches:
         return None
 
-    log_blocks = {}
-    for ts_str, content in matches:
-        log_blocks[ts_str] = content.strip()
+    # Map timestamp → block content
+    log_blocks = {
+        ts: content.strip()
+        for ts, content in matches
+    }
 
-    # Get the latest block based on timestamp
-    latest_ts_str = max(log_blocks, key=lambda ts: datetime.strptime(ts, '%Y-%m-%d %H:%M:%S'))
-    latest_block = log_blocks[latest_ts_str]
+    # Get the latest timestamp
+    latest_ts = max(log_blocks, key=lambda t: datetime.strptime(t, "%Y-%m-%d %H:%M:%S"))
+    latest_block = log_blocks[latest_ts]
 
-    # Extract ALL saved file names from the latest block
-    saved_files = re.findall(r'⤷ Saved new file: (.+)', latest_block)
+    # Extract saved files
+    saved_files = re.findall(r'Saved new file:\s*(.+)', latest_block)
 
     return [f.strip() for f in saved_files] if saved_files else None
 
@@ -159,90 +162,6 @@ def read_change_log(folder_path, target_name):
     except Exception as e:
         logger.error("Error reading file '{}': {}", target_name, str(e))
         raise
-
-def save_text_report_with_versioning(
-    text: str,
-    output_dir: str | Path,
-    filename_prefix: str = "confidence_report",
-    weights: dict = None ):
-
-    """
-    Save a formatted text report to a .txt file with versioning,
-    and log any new weights to weights_hist.xlsx.
-    """
-
-    if not isinstance(text, str):
-        logger.error("❌ Expected text to be a string but got: {}", type(text))
-        raise TypeError(f"Expected text to be a string but got: {type(text)}")
-
-    output_dir = Path(output_dir)
-    log_path = output_dir / "change_log.txt"
-    weights_path = output_dir / "weights_hist.xlsx"
-    timestamp_now = datetime.now()
-    timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
-    log_entries = [f"[{timestamp_str}] Saving new version...\n"]
-
-    newest_dir = output_dir / "newest"
-    newest_dir.mkdir(parents=True, exist_ok=True)
-    historical_dir = output_dir / "historical_db"
-    historical_dir.mkdir(parents=True, exist_ok=True)
-
-    # Move old reports to historical_db
-    for f in newest_dir.iterdir():
-        if f.is_file() and f.suffix == '.txt':
-            try:
-                dest = historical_dir / f.name
-                shutil.move(str(f), dest)
-                log_entries.append(f"  ⤷ Moved old file: {f.name} → historical_db/{f.name}\n")
-                logger.info("Moved old file {} to historical_db as {}", f.name, dest.name)
-            except Exception as e:
-                logger.error("Failed to move file {}: {}", f.name, e)
-                raise OSError(f"Failed to move file {f.name}: {e}")
-
-    timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
-    new_filename = f"{timestamp_file}_{filename_prefix}.txt"
-    new_path = newest_dir / new_filename
-
-    try:
-        with open(new_path, "w", encoding="utf-8") as file:
-            file.write(text)
-        log_entries.append(f"  ⤷ Saved new file: {newest_dir}/{new_filename}\n")
-        logger.info("Saved new report: {}/{}", newest_dir, new_filename)
-    except Exception as e:
-        logger.error("Failed to save report {}: {}", new_filename, e)
-        raise OSError(f"Failed to save report {new_filename}: {e}")
-
-    try:
-        with open(log_path, "a", encoding="utf-8") as log_file:
-            log_file.writelines(log_entries)
-        logger.info("Updated change log {}", log_path)
-    except Exception as e:
-        logger.error("Failed to update change log {}: {}", log_path, e)
-        raise OSError(f"Failed to update change log {log_path}: {e}")
-
-    # Append to weights_hist.xlsx if weights provided -> support feature_weight_calculator.py
-    if weights:
-        try:
-            weights_row = {
-                "shiftNGRate": weights.get("shiftNGRate", None),
-                "shiftCavityRate": weights.get("shiftCavityRate", None),
-                "shiftCycleTimeRate": weights.get("shiftCycleTimeRate", None),
-                "shiftCapacityRate": weights.get("shiftCapacityRate", None),
-                "change_timestamp": timestamp_str
-            }
-            weights_df = pd.DataFrame([weights_row])
-
-            if weights_path.exists():
-                old_df = pd.read_excel(weights_path)
-                full_df = pd.concat([old_df, weights_df], ignore_index=True)
-            else:
-                full_df = weights_df
-
-            full_df.to_excel(weights_path, index=False)
-            logger.info("Logged weight change to {}", weights_path)
-        except Exception as e:
-            logger.error("Failed to write weights_hist.xlsx: {}", e)
-            raise OSError(f"Failed to write weights_hist.xlsx: {e}")
 
 def log_dict_as_table(
         data_dict: Dict[str, Any],
@@ -343,9 +262,47 @@ class ConfigReportMixin:
         Capture all __init__ arguments automatically.
         Must be called as first line in __init__.
         """
-        frame = inspect.currentframe().f_back  # Get parent frame (__init__)
+        frame = inspect.currentframe().f_back
         args_info = inspect.getargvalues(frame)
         self.init_args = {k: v for k, v in args_info.locals.items() if k != 'self'}
+    
+    def _format_value(self, value, indent_level: int = 0) -> list:
+        """
+        Format a value for display, handling nested configs and dataclasses.
+        
+        Args:
+            value: The value to format
+            indent_level: Current indentation level
+            
+        Returns:
+            List of formatted strings
+        """
+        indent = "  " * indent_level
+        lines = []
+        
+        # Handle dataclass instances
+        if is_dataclass(value) and not isinstance(value, type):
+            for field in fields(value):
+                field_value = getattr(value, field.name)
+                display_name = field.name.replace('_', ' ').title()
+                
+                # Recursively format nested dataclasses
+                if is_dataclass(field_value) and not isinstance(field_value, type):
+                    lines.append(f"{indent}⤷ {display_name}:")
+                    lines.extend(self._format_value(field_value, indent_level + 1))
+                else:
+                    lines.append(f"{indent}⤷ {display_name}: {field_value}")
+        
+        # Handle dataclass types (not instantiated)
+        elif is_dataclass(value) and isinstance(value, type):
+            lines.append(f"{indent}[Uninstantiated Config Class: {value.__name__}]")
+            lines.append(f"{indent}⚠ Note: Pass an instance instead of class")
+        
+        # Handle regular values
+        else:
+            lines.append(f"{indent}{value}")
+        
+        return lines
     
     def _generate_config_report(self, timestamp_str: str = None) -> str:
         """
@@ -356,14 +313,6 @@ class ConfigReportMixin:
             
         Returns:
             Formatted configuration report string
-            
-        Example output:
-            [2024-12-04 10:30:00] ValidationOrchestrator Run
-            
-            --Configuration--
-            ⤷ Source Path: agents/shared_db/DataLoaderAgent/newest
-            ⤷ Annotation Name: path_annotations.json
-            ⤷ Default Dir: agents/shared_db
         """
         if timestamp_str is None:
             timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -378,7 +327,19 @@ class ConfigReportMixin:
         if hasattr(self, 'init_args'):
             for key, value in self.init_args.items():
                 display_name = key.replace('_', ' ').title()
-                log_lines.append(f"⤷ {display_name}: {value}")
+                
+                # Check if value is a dataclass or config object
+                if is_dataclass(value) and not isinstance(value, type):
+                    # Expanded config display
+                    log_lines.append(f"⤷ {display_name}:")
+                    log_lines.extend(self._format_value(value, indent_level=1))
+                elif is_dataclass(value) and isinstance(value, type):
+                    # Warning for uninstantiated config
+                    log_lines.append(f"⤷ {display_name}: {value.__name__} (Class)")
+                    log_lines.append(f"  ⚠ Warning: Config class not instantiated")
+                else:
+                    # Regular value
+                    log_lines.append(f"⤷ {display_name}: {value}")
         
         log_lines.append("")
         
