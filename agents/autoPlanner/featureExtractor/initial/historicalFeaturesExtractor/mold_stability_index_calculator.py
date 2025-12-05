@@ -7,7 +7,7 @@ from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path, save_output_with_versioning, ConfigReportMixin
 from datetime import datetime
 
-from agents.autoPlanner.featureExtractor.initial.historicalFeatures.configs.mold_stability_config import MoldStabilityConfig
+from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.mold_stability_config import MoldStabilityConfig
 
 # Decorator to validate DataFrames are initialized with the correct schema
 # This ensures that required DataFrames have all necessary columns before processing

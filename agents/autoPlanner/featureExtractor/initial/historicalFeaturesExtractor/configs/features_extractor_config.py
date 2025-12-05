@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from agents.utils import validate_path
 
-from agents.autoPlanner.featureExtractor.initial.historicalFeatures.configs.feature_weight_config import FeatureWeightConfig
-from agents.autoPlanner.featureExtractor.initial.historicalFeatures.configs.mold_stability_config import MoldStabilityConfig
+from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.feature_weight_config import FeatureWeightConfig
+from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.mold_stability_config import MoldStabilityConfig
 
 @dataclass
 class FeaturesExtractorConfig:

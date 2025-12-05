@@ -18,7 +18,7 @@ from agents.core_helpers import check_newest_machine_layout, summarize_mold_mach
 
 from agents.autoPlanner.initialPlanner.historyBasedProcessor.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
 
-from agents.autoPlanner.featureExtractor.initial.historicalFeatures.configs.feature_weight_config import FeatureWeightConfig
+from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.feature_weight_config import FeatureWeightConfig
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {

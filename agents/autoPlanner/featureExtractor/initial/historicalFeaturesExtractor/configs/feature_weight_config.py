@@ -14,10 +14,10 @@ class FeatureWeightConfig:
     folder_path: str = 'agents/shared_db/OrderProgressTracker'
     target_name: str = "change_log.txt"
 
-    default_dir: str = "agents/shared_db/HistoricalFeatures"
+    default_dir: str = "agents/shared_db/HistoricalFeaturesExtractor"
 
-    mold_stability_index_folder = 'agents/shared_db/HistoricalFeatures/MoldStabilityIndexCalculator'
-    mold_stability_index_target_name = "change_log.txt"
+    mold_stability_index_folder: str = 'agents/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator'
+    mold_stability_index_target_name: str = "change_log.txt"
 
     efficiency: float = 0.85
     loss: float = 0.03
