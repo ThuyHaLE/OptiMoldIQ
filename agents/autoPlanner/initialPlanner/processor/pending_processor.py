@@ -4,52 +4,17 @@ from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 import os
 from pathlib import Path
-
-from agents.core_helpers import (
-    check_newest_machine_layout, mold_item_plan_a_matching, create_mold_machine_compatibility_matrix)
+from datetime import datetime
 
 from agents.decorators import validate_init_dataframes, validate_dataframe
-
-from agents.utils import read_change_log, load_annotation_path, save_output_with_versioning
-
+from agents.core_helpers import check_newest_machine_layout, mold_item_plan_a_matching, create_mold_machine_compatibility_matrix
+from agents.utils import read_change_log, load_annotation_path, save_output_with_versioning, ConfigReportMixin
+from agents.autoPlanner.initialPlanner.processor.configs.pending_processor_config import PendingProcessorConfig, ExcelSheetMapping
 from agents.autoPlanner.initialPlanner.optimizer.hist_based_mold_machine_optimizer import HistBasedMoldMachineOptimizer
-from agents.autoPlanner.initialPlanner.optimizer.compatibility_based_mold_machine_optimizer import (
-    CompatibilityBasedMoldMachineOptimizer, PriorityOrder)
-
+from agents.autoPlanner.initialPlanner.optimizer.compatibility_based_mold_machine_optimizer import CompatibilityBasedMoldMachineOptimizer
 from agents.autoPlanner.initialPlanner.processor.machine_assignment_processor import MachineAssignmentProcessor
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
-@dataclass
-class ProcessingConfig:
-    """Configuration for PendingProcessor"""
-    max_load_threshold: int = 30
-    priority_order: PriorityOrder = PriorityOrder.PRIORITY_1
-    log_progress_interval: int = 5
-    verbose: bool = True
-    use_sample_data: bool = False
-
-
-@dataclass
-class ExcelSheetMapping:
-    """Configuration for Excel sheet loading"""
-    producing_status_data: str = 'producing_status_data'
-    pending_status_data: str = 'pending_status_data'
-    mold_machine_priority_matrix: str = 'mold_machine_priority_matrix'
-    mold_estimated_capacity_df: str = 'mold_estimated_capacity_df'
-    invalid_molds: str = 'invalid_molds'
-    
-    def get_sheet_mappings(self) -> Dict[str, str]:
-        """Get dictionary mapping of sheet names to attribute names"""
-        return {
-            self.producing_status_data: 'producing_status_data',
-            self.pending_status_data: 'pending_status_data', 
-            self.mold_machine_priority_matrix: 'mold_machine_priority_matrix',
-            self.mold_estimated_capacity_df: 'mold_estimated_capacity_df',
-            self.invalid_molds: 'invalid_molds'
-        }
-    
-    def get_sheets_requiring_index(self) -> List[str]:
-        """Get list of sheets that need special index processing"""
-        return [self.mold_machine_priority_matrix]
 
 @dataclass
 class ProcessingResult:
@@ -62,7 +27,7 @@ class ProcessingResult:
     compatibility_based_assigned_molds: Optional[List] = None
     compatibility_based_unassigned_molds: Optional[List] = None
     not_matched_pending: Optional[pd.DataFrame] = None
-
+    log: str = ""
 
 class DataValidationError(Exception):
     """Raised when data validation fails"""
@@ -78,48 +43,50 @@ class DataValidationError(Exception):
     "machine_info_df": list(self.sharedDatabaseSchemas_data["machine_info"]['dtypes'].keys()),
 })
 
-class PendingProcessor:
+class PendingProcessor(ConfigReportMixin):
     
     """
     Processor for handling pending production assignments using two-tier optimization:
     1. History-based optimization (primary)
     2. Compatibility-based optimization (fallback for unassigned molds)
     """
-    
+
     def __init__(self, 
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
-                 annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
-                 default_dir: str = "agents/shared_db/AutoPlanner/InitialPlanner",
-                 producing_processor_folder_path: str = 'agents/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor',
-                 producing_processor_target_name: str = "change_log.txt", 
-                 config: ProcessingConfig = None,
-                 sheet_mapping: ExcelSheetMapping = None):
+                 config: PendingProcessorConfig,
+                 sheet_mapping: ExcelSheetMapping):
         
-        """Initialize PendingProcessor"""
+        """
+        Initialize the pending processor
+
+        Args:
+            config: PendingProcessorConfig containing processing parameters
+            sheet_mapping: ExcelSheetMapping containing Excel sheet name mappings for loading
+            production data from the Producing Processor's output file
+        """
+
+        self._capture_init_args()
+
+        # Initialize logger with class context for better debugging and monitoring
         self.logger = logger.bind(class_="PendingProcessor")
 
-        # Set up output configuration
-        self.filename_prefix = "pending_processor"
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "PendingProcessor"
-        
         # Configuration
-        self.config = config or ProcessingConfig()
-        self.sheet_mapping = sheet_mapping or ExcelSheetMapping()
-        self.producing_processor_folder_path = producing_processor_folder_path
-        self.producing_processor_target_name = producing_processor_target_name
-
-        self.databaseSchemas_path = databaseSchemas_path
-        self.sharedDatabaseSchemas_path = sharedDatabaseSchemas_path
+        self.config = config
+        self.sheet_mapping = sheet_mapping
         
         # Load path annotations and base data
-        self.path_annotation = load_annotation_path(source_path, annotation_name)
+        self.path_annotation = load_annotation_path(self.config.source_path, 
+                                                    self.config.annotation_name)
+        
         self._load_base_dataframes()
+
         self._setup_schemas()
+
         self.machine_info_df = check_newest_machine_layout(self.machineInfo_df)
         
+        # Set up output configuration
+        self.filename_prefix = "pending_processor"
+        self.output_dir = Path(self.config.default_dir) / "PendingProcessor"
+
         # Initialize data containers
         self._initialize_data_containers()
 
@@ -138,14 +105,14 @@ class PendingProcessor:
         """Load database schema configuration for column validation."""
         try:
             self.databaseSchemas_data = load_annotation_path(
-                Path(self.databaseSchemas_path).parent,
-                Path(self.databaseSchemas_path).name
+                Path(self.config.databaseSchemas_path).parent,
+                Path(self.config.databaseSchemas_path).name
             )
             self.logger.debug("Database schemas loaded successfully")
 
             self.sharedDatabaseSchemas_data = load_annotation_path(
-                Path(self.sharedDatabaseSchemas_path).parent,
-                Path(self.sharedDatabaseSchemas_path).name
+                Path(self.config.sharedDatabaseSchemas_path).parent,
+                Path(self.config.sharedDatabaseSchemas_path).name
             )
             self.logger.debug("Shared database schemas loaded successfully")
 
@@ -181,8 +148,8 @@ class PendingProcessor:
     def _get_report_path(self) -> str:
         """Get the report path from change log"""
         return read_change_log(
-            self.producing_processor_folder_path, 
-            self.producing_processor_target_name
+            self.config.producing_processor_folder_path, 
+            self.config.producing_processor_target_name
         )
     
     def _validate_excel_sheets(self, report_path: str) -> List[str]:
@@ -260,10 +227,135 @@ class PendingProcessor:
         except Exception as e:
             self.logger.error("Failed to prepare mold lead times: {}", str(e))
             raise
+    
+    def process(self) -> ProcessingResult:
+        """
+        Run the complete pending processing workflow
+        
+        Returns:
+            ProcessingResult: Complete results from processing
+        """
+
+        self.logger.info("Starting PendingProcessor ...")
+
+        # Generate config header using mixin
+        timestamp_start = datetime.now()
+        timestamp_str = timestamp_start.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        processor_log_lines = [config_header]
+        processor_log_lines.append("--Processing Summary--")
+        processor_log_lines.append(f"⤷ {self.__class__.__name__} results:")
+
+        try:
+            # Phase 1: Load and validate data
+            self._load_and_validate_data()
+
+            processor_log_lines.append("=" * 30)
+            processor_log_lines.append("Data is loaded and valid. Starting optimization phases...")
+            processor_log_lines.append("=" * 30)
+            
+            # Phase 2: Execute optimization phases
+            (final_summary, 
+             hist_assigned_molds, 
+             hist_unassigned_molds, 
+             comp_assigned_molds, 
+             comp_unassigned_molds,
+             phase_log) = self._execute_optimization_phases()
+            
+            processor_log_lines.append("Optimization phase completed successfully!")
+            processor_log_lines.append(phase_log)
+
+            # Calculate processing time
+            timestamp_end = datetime.now()
+            processing_time = (timestamp_end - timestamp_start).total_seconds()
+            
+            processor_log_lines.append("\n✓ Manufacturing data processing completed!")
+            processor_log_lines.append(f"⤷ Processing time: {processing_time:.2f}s")
+            processor_log_lines.append(f"⤷ End time: {timestamp_end.strftime('%Y-%m-%d %H:%M:%S')}")
+
+            processor_log_str = "\n".join(processor_log_lines)
+            
+            self.logger.info("✅ Process finished!!!")
+            
+            # Phase 3: Create and return results
+            return ProcessingResult(
+                used_producing_report_name=os.path.basename(self.report_path),
+                final_assignment_summary=final_summary,
+                invalid_molds_dict=self.invalid_molds_dict,
+                hist_based_assigned_molds=hist_assigned_molds,
+                hist_based_unassigned_molds=hist_unassigned_molds,
+                compatibility_based_assigned_molds=comp_assigned_molds,
+                compatibility_based_unassigned_molds=comp_unassigned_molds,
+                not_matched_pending=self.not_matched_pending,
+                log=processor_log_str
+            )
+            
+        except Exception as e:
+            self.logger.error("Processing pipeline failed: {}", str(e))
+            raise
+
+    def process_and_save_results(self):
+        try:
+
+            pending_processor_result = self.process()
+            
+            # Prepare export data
+            final_results = {
+                'initialPlan': pending_processor_result.final_assignment_summary,
+                'invalid_molds': pd.DataFrame([
+                    {"category": k, "mold": v} 
+                    for k, values in pending_processor_result.invalid_molds_dict.items() for v in values])
+                    }
+            
+            # Generate validation summary
+            reporter = DictBasedReportGenerator(use_colors=False)
+            processor_summary = "\n".join(reporter.export_report(final_results))
+
+            # Log data summary
+            export_log_lines = []
+            export_log_lines.append("DATA EXPORT SUMMARY")
+            export_log_lines.append(f"⤷ Producing records: {len(final_results['initialPlan'])}")
+            export_log_lines.append(f"⤷ Pending records: {len(final_results['invalid_molds'])}")
+
+            # Export results to Excel files with versioning
+            self.logger.info("Start excel file exporting...")
+            try:
+                output_exporting_log = save_output_with_versioning(
+                    data = final_results,
+                    output_dir = self.output_dir,
+                    filename_prefix = self.filename_prefix,
+                    report_text = processor_summary
+                    )
+                export_log_lines.append("✓ Results exported successfully!")
+                export_log_lines.append(output_exporting_log)
+                self.logger.info("✓ Results exported successfully!")
+            except Exception as e:
+                self.logger.error("✗ Excel export failed: {}", e)
+                raise
+            
+            # Combine all logs
+            master_log_lines = [pending_processor_result.log, "\n".join(export_log_lines)]
+            master_log_str = "\n".join(master_log_lines)
+
+            try:
+                log_path = self.output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(master_log_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+
+            return final_results, master_log_str
+
+        except Exception as e:
+            self.logger.error("Processing pipeline failed: {}", str(e))
+            raise
 
     def _run_history_based_optimization(self) -> Tuple[pd.DataFrame, List, List]:
         """Run history-based optimization (first tier)"""
-        self.logger.info("Running history-based optimization...")
+        
+        self.logger.info("Starting history-based optimization (first tier) ...")
         
         try:
             optimizer = HistBasedMoldMachineOptimizer(
@@ -282,7 +374,7 @@ class PendingProcessor:
                 len(results.unassigned_molds)
             )
             
-            return results.assigned_matrix, results.assignments, results.unassigned_molds
+            return results.assigned_matrix, results.assignments, results.unassigned_molds, results.log
             
         except Exception as e:
             self.logger.error("History-based optimization failed: {}", str(e))
@@ -433,10 +525,18 @@ class PendingProcessor:
 
     def _process_history_based_phase(self) -> Tuple[pd.DataFrame, pd.DataFrame, List, List]:
         """Process the history-based optimization phase"""
+
+        self.logger.info("Starting history-based optimization phase ...")
+
+        phase_log_lines = []
+        
         # Run history-based optimization
         (assigned_matrix, 
          assigned_molds, 
-         unassigned_molds) = self._run_history_based_optimization()
+         unassigned_molds,
+         optimizer_log) = self._run_history_based_optimization()
+        phase_log_lines.append("History-based optimization completed successfully!")
+        phase_log_lines.append(optimizer_log)
         
         # Process assignments
         assignment_summary = self._process_assignments(
@@ -444,8 +544,13 @@ class PendingProcessor:
             self.mold_lead_times, 
             self.pending_status_data
         )
-        
-        return assigned_matrix, assignment_summary, assigned_molds, unassigned_molds
+        phase_log_lines.append("Assignment summarization completed successfully!")
+
+        phase_log_str = "\n".join(phase_log_lines)
+
+        self.logger.info("✅ Process finished!!!")
+
+        return assigned_matrix, assignment_summary, assigned_molds, unassigned_molds, phase_log_str
 
     def _process_compatibility_based_phase(self, 
                                            hist_assigned_matrix: pd.DataFrame,
@@ -539,29 +644,36 @@ class PendingProcessor:
     
     def _execute_optimization_phases(self) -> Tuple[pd.DataFrame, List, List, Optional[List], Optional[List]]:
         """Execute both optimization phases and return results"""
+
+        self.logger.info("Starting optimization phases ...")
+        phase_log_lines = []
+
         # Phase 1: History-based optimization
         (hist_assigned_matrix, 
          hist_assignment_summary, 
          hist_assigned_molds, 
-         hist_unassigned_molds) = self._process_history_based_phase()
+         hist_unassigned_molds,
+         phase_log) = self._process_history_based_phase()
         
+        phase_log_lines.append("History-based optimization phase completed successfully!")
+        phase_log_lines.append(phase_log)
+
         # Phase 2: Handle unassigned molds
         comp_assigned_molds = None
         comp_unassigned_molds = None
         
         if self._should_run_compatibility_optimization(hist_unassigned_molds):
-            self.logger.info(
-                "Running compatibility-based optimization for {} unassigned molds", 
-                len(hist_unassigned_molds)
-            )
             
+            self.logger.info("Starting compatibility optimization ...")
+            phase_log_lines.append(f"Starting compatibility-based optimization for {len(hist_unassigned_molds)} unassigned molds")
             (comp_assignment_summary, 
              comp_assigned_molds, 
              comp_unassigned_molds) = self._process_compatibility_based_phase(
                 hist_assigned_matrix, 
                 hist_unassigned_molds
             )
-            
+            phase_log_lines.append("Compatibility-based optimization phase completed successfully!")
+
             # Combine results
             final_summary = self._combine_assignments(
                 hist_assignment_summary, 
@@ -571,10 +683,16 @@ class PendingProcessor:
             # All molds assigned by history-based optimization
             final_summary = hist_assignment_summary.copy()
             final_summary['Note'] = 'histBased'
-            self.logger.info("All molds assigned by history-based optimization")
+
+        phase_log_lines.append("Assignment refinement completed successfully!")
+        self.logger.info("All molds assigned by history-based optimization")
         
+        phase_log_str = "\n".join(phase_log_lines)
+
+        self.logger.info("✅ Process finished!!!")
+
         return (final_summary, hist_assigned_molds, hist_unassigned_molds, 
-                comp_assigned_molds, comp_unassigned_molds)
+                comp_assigned_molds, comp_unassigned_molds, phase_log_str)
     
     def _should_run_compatibility_optimization(self, 
                                                unassigned_molds: List) -> bool:
@@ -586,79 +704,3 @@ class PendingProcessor:
             return True
             
         return unassigned_count > 0
-    
-    def _create_processing_result(self, 
-                                  final_summary: pd.DataFrame,
-                                  hist_assigned_molds: List,
-                                  hist_unassigned_molds: List,
-                                  comp_assigned_molds: Optional[List],
-                                  comp_unassigned_molds: Optional[List]) -> ProcessingResult:
-        """Create the final processing result"""
-        return ProcessingResult(
-            used_producing_report_name=os.path.basename(self.report_path),
-            final_assignment_summary=final_summary,
-            invalid_molds_dict=self.invalid_molds_dict,
-            hist_based_assigned_molds=hist_assigned_molds,
-            hist_based_unassigned_molds=hist_unassigned_molds,
-            compatibility_based_assigned_molds=comp_assigned_molds,
-            compatibility_based_unassigned_molds=comp_unassigned_molds,
-            not_matched_pending=self.not_matched_pending
-        )
-
-    def run(self) -> ProcessingResult:
-        """
-        Run the complete pending processing workflow
-        
-        Returns:
-            ProcessingResult: Complete results from processing
-        """
-        try:
-            # Phase 1: Load and validate data
-            self._load_and_validate_data()
-            
-            # Phase 2: Execute optimization phases
-            (final_summary, 
-             hist_assigned_molds, 
-             hist_unassigned_molds, 
-             comp_assigned_molds, 
-             comp_unassigned_molds) = self._execute_optimization_phases()
-            
-            # Phase 3: Create and return results
-            return self._create_processing_result(
-                final_summary,
-                hist_assigned_molds,
-                hist_unassigned_molds,
-                comp_assigned_molds,
-                comp_unassigned_molds
-            )
-            
-        except Exception as e:
-            self.logger.error("Processing pipeline failed: {}", str(e))
-            raise
-
-    def run_and_save_results(self):
-        try:
-            # Phase 1: Load and validate data
-            self._load_and_validate_data()
-            
-            # Phase 2: Execute optimization phases
-            (final_summary, _, _, _, _) = self._execute_optimization_phases()
-            
-            self.data = {
-                'initialPlan': final_summary,
-                'invalid_molds': pd.DataFrame([{"category": k, "mold": v} 
-                                               for k, values in self.invalid_molds_dict.items() for v in values])
-                         }
-
-            self.logger.info("Start excel file exporting...")
-            save_output_with_versioning(
-                self.data,
-                self.output_dir,
-                self.filename_prefix,
-        )
-            
-            return self.data
-        
-        except Exception as e:
-            self.logger.error("Processing pipeline failed: {}", str(e))
-            raise

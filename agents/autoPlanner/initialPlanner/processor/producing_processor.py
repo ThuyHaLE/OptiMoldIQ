@@ -53,7 +53,7 @@ class ProducingProcessor(ConfigReportMixin):
                  config: ProducingProcessorConfig):
 
         """
-        Initialize the processor with default efficiency and loss parameters.
+        Initialize the producing processor.
 
         Args:
             config: ProducingProcessorConfig containing processing parameters
@@ -217,9 +217,7 @@ class ProducingProcessor(ConfigReportMixin):
                 f"⤷ Priority matrix: {optimization_results.mold_machine_priority_matrix.shape}")
             
             # Append detailed optimization log
-            processor_log_lines.append("\n" + "=" * 30)
-            processor_log_lines.append("OPTIMIZATION DETAILED LOG")
-            processor_log_lines.append("=" * 30)
+            processor_log_lines.append("⤷ Details: ")
             processor_log_lines.append(optimization_results.log)
 
         except ValueError as e:
@@ -281,18 +279,18 @@ class ProducingProcessor(ConfigReportMixin):
             priority_matrix.columns.name = None
             return priority_matrix.reset_index()
 
-        production_processing_result = self.process()
+        producing_processor_result = self.process()
 
         # Extract optimization results for cleaner access
-        opt_results = production_processing_result.optimization_results
+        opt_results = producing_processor_result.optimization_results
 
         # Prepare export data
         final_results = {
-            "producing_status_data": production_processing_result.producing_status_data,
-            "producing_pro_plan": production_processing_result.pro_plan,
-            "producing_mold_plan": production_processing_result.mold_plan,
-            "producing_plastic_plan": production_processing_result.plastic_plan,
-            "pending_status_data": production_processing_result.pending_status_data,
+            "producing_status_data": producing_processor_result.producing_status_data,
+            "producing_pro_plan": producing_processor_result.pro_plan,
+            "producing_mold_plan": producing_processor_result.mold_plan,
+            "producing_plastic_plan": producing_processor_result.plastic_plan,
+            "pending_status_data": producing_processor_result.pending_status_data,
             "mold_machine_priority_matrix": priority_matrix_process(opt_results.mold_machine_priority_matrix),
             "mold_estimated_capacity_df": opt_results.mold_estimated_capacity_df,
         }
@@ -339,7 +337,7 @@ class ProducingProcessor(ConfigReportMixin):
             raise
 
         # Combine all logs
-        master_log_lines = [production_processing_result.log, "\n".join(export_log_lines)]
+        master_log_lines = [producing_processor_result.log, "\n".join(export_log_lines)]
         master_log_str = "\n".join(master_log_lines)
 
         try:

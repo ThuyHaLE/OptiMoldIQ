@@ -17,7 +17,6 @@ from agents.utils import load_annotation_path, log_dict_as_table, read_change_lo
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 
 from agents.autoPlanner.initialPlanner.optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
-
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.feature_weight_config import FeatureWeightConfig
 
 # Decorator to validate DataFrames are initialized with the correct schema
@@ -118,6 +117,14 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
         Main method to calculate feature confidence scores and enhanced weights.
         """
 
+        # Generate config header using mixin
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+        
+        calculator_log_lines = [config_header]
+        calculator_log_lines.append(f"--Processing Summary--\n")
+        calculator_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
+
         # Load mold stability index
         mold_stability_index_path = read_change_log(
             self.config.mold_stability_index_folder,
@@ -140,7 +147,8 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
             raise
 
         # Suggest the priority for the item-mold pair based on historical records
-        _, mold_estimated_capacity_df = ItemMoldCapacityOptimizer(
+        self.logger.info("Starting ItemMoldCapacityOptimizer ...")
+        _, mold_estimated_capacity_df, optimization_log = ItemMoldCapacityOptimizer(
             mold_stability_index,
             self.moldSpecificationSummary_df,
             self.moldInfo_df,
@@ -150,12 +158,15 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
             self.sharedDatabaseSchemas_data
             ).process()
         
+        calculator_log_lines.append("Optimization phase completed successfully!")
+        calculator_log_lines.append(optimization_log)
+
         try:
             cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
-            logger.info('Validation for mold_estimated_capacity...')
             validate_dataframe(mold_estimated_capacity_df, cols)
+            calculator_log_lines.append("\n✓ Validation for mold_estimated_capacity: PASSED!")
         except Exception as e:
-            logger.error("Validation failed for mold_estimated_capacity (expected cols: %s): %s", cols, e)
+            logger.error("Validation for mold_estimated_capacity: FAILED! (expected cols: %s): %s", cols, e)
             raise
 
         # Rename columns for compatibility
@@ -218,10 +229,14 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
             self.config.n_bootstrap,
             self.config.confidence_level,
             self.config.min_sample_size)
-        logger.debug('Enhanced Weights (with confidence): \n{}', 
-                     log_dict_as_table(enhanced_weights, transpose = False))
 
-        return confidence_scores, overall_confidence, enhanced_weights
+        calculator_log_lines.append(f'Enhanced Weights (with confidence): \n{log_dict_as_table(enhanced_weights, transpose = False)}')
+        
+        calculator_log_str = "\n".join(calculator_log_lines)
+        
+        self.logger.info("✅ Process finished!!!")
+        
+        return confidence_scores, overall_confidence, enhanced_weights, calculator_log_str
 
     def save_output_with_versioning(self, 
                                     confidence_report_text: str,
@@ -296,39 +311,34 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
         """
 
         # Calculate feature weight
-        confidence_scores, overall_confidence, enhanced_weights = self.calculate()
+        confidence_scores, overall_confidence, enhanced_weights, calculator_log = self.calculate()
         
         #Generate confidence report
         confidence_report_text = generate_confidence_report(confidence_scores, overall_confidence)
 
-        # Generate config header using mixin
-        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
-        
-        calculator_log_lines = [config_header]
-        calculator_log_lines.append(f"--Processing Summary--\n")
-        calculator_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
-
+        export_log_lines = []
         # Export to outputs with automatic versioning
         logger.info("Start outputs exporting...")
         output_exporting_log =  self.save_output_with_versioning(
             confidence_report_text,
             enhanced_weights)
         self.logger.info("Results exported successfully!")
+        export_log_lines.append("✓ Results exported successfully!")
+        export_log_lines.append(output_exporting_log)
 
-        calculator_log_lines.append(f"{output_exporting_log}")
-
-        calculator_log_str = "\n".join(calculator_log_lines)
+        # Combine all logs
+        master_log_lines = [calculator_log, "\n".join(export_log_lines)]
+        master_log_str = "\n".join(master_log_lines)
 
         try:
             log_path = self.output_dir / "change_log.txt"
             with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write(calculator_log_str)
+                log_file.write(master_log_str)
             self.logger.info("✓ Updated and saved change log: {}", log_path)
         except Exception as e:
             self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
 
-        return (confidence_scores, overall_confidence, enhanced_weights), calculator_log_str
+        return (confidence_scores, overall_confidence, enhanced_weights), master_log_str
 
     def _load_dataframes(self) -> None:
 

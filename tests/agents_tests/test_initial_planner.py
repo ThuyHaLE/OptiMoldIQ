@@ -7,7 +7,11 @@ from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.con
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
     HistoricalFeaturesExtractor, FeaturesExtractorConfig)
 
-def test_producing_processor():
+from agents.autoPlanner.initialPlanner.processor.pending_processor import (
+    ExcelSheetMapping, PendingProcessorConfig, PendingProcessor)
+from agents.autoPlanner.initialPlanner.optimizer.compatibility_based_mold_machine_optimizer import PriorityOrder
+
+def test_initial_planner():
     
     # ----------------------------- #
     # HISTORICAL FEATURES EXTRACTOR
@@ -99,6 +103,34 @@ def test_producing_processor():
         loss = 0.03
     )
     processor = ProducingProcessor(config = config)
+    results, log_str = processor.process_and_save_results()
+
+    # ----------------- #
+    # PENDING PROCESSOR
+    # ----------------- #
+
+    config = PendingProcessorConfig(
+        source_path = 'tests/shared_db/DataLoaderAgent/newest',
+        annotation_name = "path_annotations.json",
+        databaseSchemas_path = 'database/databaseSchemas.json',
+        sharedDatabaseSchemas_path = 'database/sharedDatabaseSchemas.json',
+
+        default_dir = "tests/shared_db/AutoPlanner/InitialPlanner",
+
+        producing_processor_folder_path = 'tests/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor',
+        producing_processor_target_name = "change_log.txt",
+
+        max_load_threshold = 30,
+        priority_order = PriorityOrder.PRIORITY_1,
+        log_progress_interval = 5,
+        verbose = True,
+        use_sample_data = False
+    )
+
+    processor = PendingProcessor(
+        config = config,
+        sheet_mapping = ExcelSheetMapping())
+
     results, log_str = processor.process_and_save_results()
 
     assert True
