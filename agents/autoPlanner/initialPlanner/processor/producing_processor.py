@@ -2,14 +2,34 @@ import pandas as pd
 import numpy as np
 import os
 from typing import Tuple
+from dataclasses import dataclass
 
 from agents.decorators import validate_init_dataframes, validate_dataframe
 from pathlib import Path
 from loguru import logger
-from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning
+from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning, ConfigReportMixin
 from agents.core_helpers import check_newest_machine_layout
 from datetime import datetime
-from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer import HybridSuggestOptimizer
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer import HybridSuggestOptimizer, OptimizationResult
+from agents.autoPlanner.initialPlanner.processor.configs.producing_processor_config import ProducingProcessorConfig
+
+@dataclass
+class ProductionProcessingResult:
+    """Container for production processing results."""
+    optimization_results: OptimizationResult
+    pending_status_data: pd.DataFrame
+    producing_status_data: pd.DataFrame
+    pro_plan: pd.DataFrame
+    mold_plan: pd.DataFrame
+    plastic_plan: pd.DataFrame
+    log: str = ""
+
+class RequiredColumns:
+    # Select available columns
+    PRODUCING_BASE_COLS = ['poNo', 'itemCode', 'itemName', 'poETA', 'moldNo',
+                           'itemQuantity', 'itemRemain', 'machineNo', 'startedDate']
+    PENDING_BASE_COLS = ['poNo', 'itemCode', 'itemName', 'poETA', 'itemRemain']
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
@@ -22,13 +42,7 @@ from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer import
     "machine_info_df": list(self.sharedDatabaseSchemas_data["machine_info"]['dtypes'].keys()),
 })
 
-class RequiredColumns:
-    # Select available columns
-    PRODUCING_BASE_COLS = ['poNo', 'itemCode', 'itemName', 'poETA', 'moldNo',
-                           'itemQuantity', 'itemRemain', 'machineNo', 'startedDate']
-    PENDING_BASE_COLS = ['poNo', 'itemCode', 'itemName', 'poETA', 'itemRemain']
-
-class ProducingProcessor:
+class ProducingProcessor(ConfigReportMixin):
 
     """
     A comprehensive class for processing manufacturing/molding/producing data including mold capacity,
@@ -36,45 +50,33 @@ class ProducingProcessor:
     """
 
     def __init__(self,
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
-                 annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json',
-                 folder_path: str = 'agents/shared_db/OrderProgressTracker',
-                 target_name: str = "change_log.txt",
-                 default_dir: str = "agents/shared_db/AutoPlanner/InitialPlanner",
-                 mold_stability_index_folder = "agents/shared_db/HistoricalInsights/MoldStabilityIndexCalculator/mold_stability_index",
-                 mold_stability_index_target_name = "change_log.txt",
-                 mold_machine_weights_hist_path = "agents/shared_db/HistoricalInsights/MoldMachineFeatureWeightCalculator/weights_hist.xlsx",
-                 efficiency: float = 0.85,
-                 loss: float = 0.03):
+                 config: ProducingProcessorConfig):
 
         """
         Initialize the processor with default efficiency and loss parameters.
 
         Args:
-            efficiency: Machine efficiency rate (default 85%)
-            loss: Expected production loss (default 3%)
+            config: ProducingProcessorConfig containing processing parameters
         """
 
+        self._capture_init_args()
+
+        # Initialize logger with class context for better debugging and monitoring
         self.logger = logger.bind(class_="ProducingProcessor")
 
-        self.efficiency = efficiency
-        self.loss = loss
-
-        self.databaseSchemas_path = databaseSchemas_path
-        self.sharedDatabaseSchemas_path = sharedDatabaseSchemas_path
+        # Store configuration
+        self.config = config
 
         # Load path annotations that map logical names to actual file paths
-        self.path_annotation = load_annotation_path(source_path, annotation_name)
+        self.path_annotation = load_annotation_path(self.config.source_path, 
+                                                    self.config.annotation_name)
 
         # Set up output configuration
         self.filename_prefix = "producing_processor"
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "ProducingProcessor"
+        self.output_dir = Path(self.config.default_dir) / "ProducingProcessor"
 
         # Load production report
-        proStatus_path = read_change_log(folder_path, target_name)
+        proStatus_path = read_change_log(self.config.folder_path, self.config.target_name)
         self.proStatus_df = pd.read_excel(proStatus_path)
 
         # Load all required DataFrames from parquet files
@@ -86,29 +88,29 @@ class ProducingProcessor:
         self.optimizer = HybridSuggestOptimizer(  
             self.databaseSchemas_data,
             self.sharedDatabaseSchemas_data,
-            source_path,
-            annotation_name,
-            self.default_dir,
-            folder_path,
-            target_name,
-            mold_stability_index_folder,
-            mold_stability_index_target_name,
-            mold_machine_weights_hist_path,
-            self.efficiency,
-            self.loss)
+            self.config.source_path,
+            self.config.annotation_name,
+            self.config.default_dir,
+            self.config.folder_path,
+            self.config.target_name,
+            self.config.mold_stability_index_folder,
+            self.config.mold_stability_index_target_name,
+            self.config.mold_machine_weights_hist_path,
+            self.config.efficiency,
+            self.config.loss)
 
     def _setup_schemas(self) -> None:
         """Load database schema configuration for column validation."""
         try:
             self.databaseSchemas_data = load_annotation_path(
-                Path(self.databaseSchemas_path).parent,
-                Path(self.databaseSchemas_path).name
+                Path(self.config.databaseSchemas_path).parent,
+                Path(self.config.databaseSchemas_path).name
             )
             self.logger.debug("Database schemas loaded successfully")
 
             self.sharedDatabaseSchemas_data = load_annotation_path(
-                Path(self.sharedDatabaseSchemas_path).parent,
-                Path(self.sharedDatabaseSchemas_path).name
+                Path(self.config.sharedDatabaseSchemas_path).parent,
+                Path(self.config.sharedDatabaseSchemas_path).name
             )
             self.logger.debug("Shared database schemas loaded successfully")
 
@@ -150,33 +152,6 @@ class ProducingProcessor:
                 self.logger.error("Failed to load {}: {}", path_key, str(e))
                 raise
 
-    def execute_hybrid_suggest_optimization(self):
-        
-        # Validate configuration before processing
-        if self.optimizer.validate_configuration():
-            logger.info("Configuration is valid. Starting optimization...")
-
-            # Run optimization
-            result = self.optimizer.process()
-            logger.info("Optimization completed successfully!")
-            logger.info("Invalid molds: {}", len(result.estimated_capacity_invalid_molds + result.priority_matrix_invalid_molds))
-            logger.info("Capacity data shape: {}", result.mold_estimated_capacity_df.shape)
-            logger.info("Priority matrix shape: {}", result.mold_machine_priority_matrix.shape)
-
-        else:
-            logger.info("Configuration validation failed. Please check the logs.")
-
-        # Process results for production planning
-        optimization_results = {
-            'estimated_capacity_invalid_molds': result.estimated_capacity_invalid_molds,
-            'priority_matrix_invalid_molds': result.priority_matrix_invalid_molds,
-            'capacity_data': result.mold_estimated_capacity_df,
-            'priority_matrix': result.mold_machine_priority_matrix,
-            'timestamp': datetime.now()
-        }
-
-        return optimization_results
-
     @staticmethod
     def _split_producing_and_pending_orders(proStatus_df, 
                                             producing_base_cols,
@@ -209,19 +184,58 @@ class ProducingProcessor:
 
     def process(self):
         
+        self.logger.info("Starting ProducingProcessor ...")
+
+        # Generate config header using mixin
+        timestamp_start = datetime.now()
+        timestamp_str = timestamp_start.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        processor_log_lines = [config_header]
+        processor_log_lines.append("--Processing Summary--")
+        processor_log_lines.append(f"⤷ {self.__class__.__name__} results:")
+
         try:
-            optimization_results = self.execute_hybrid_suggest_optimization()
-        except Exception as e:
-            logger.error("Hybrid suggest optimizer failed")
+            # Validate configuration
+            if not self.optimizer.validate_configuration():
+                raise ValueError("Configuration validation failed. Optimization aborted!")
+    
+            processor_log_lines.append("=" * 30)
+            processor_log_lines.append("Configuration is valid. Starting hybrid suggest optimization...")
+            processor_log_lines.append("=" * 30)
+
+            # Execute optimization
+            optimization_results = self.optimizer.process()
+
+            # Log optimization summary
+            processor_log_lines.append("✓ Optimization completed successfully!")
+            processor_log_lines.append(
+                f"⤷ Invalid molds: {len(optimization_results.estimated_capacity_invalid_molds + optimization_results.priority_matrix_invalid_molds)}")
+            processor_log_lines.append(
+                f"⤷ Capacity data: {optimization_results.mold_estimated_capacity_df.shape}")
+            processor_log_lines.append(
+                f"⤷ Priority matrix: {optimization_results.mold_machine_priority_matrix.shape}")
+            
+            # Append detailed optimization log
+            processor_log_lines.append("\n" + "=" * 30)
+            processor_log_lines.append("OPTIMIZATION DETAILED LOG")
+            processor_log_lines.append("=" * 30)
+            processor_log_lines.append(optimization_results.log)
+
+        except ValueError as e:
+            logger.error("Configuration validation failed: {}", e)
             raise
-        
-        try:
-            mold_estimated_capacity_df = optimization_results['capacity_data']
-            cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
-            logger.info('Validation for mold_estimated_capacity...')
-            validate_dataframe(mold_estimated_capacity_df, cols)
         except Exception as e:
-            logger.error("Validation failed for mold_estimated_capacity (expected cols: %s): %s", cols, e)
+            logger.error("Optimization failed: {}", e)
+            raise
+            
+        try:
+            mold_estimated_capacity_df = optimization_results.mold_estimated_capacity_df
+            cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
+            validate_dataframe(mold_estimated_capacity_df, cols)
+            processor_log_lines.append("\n✓ Validation for mold_estimated_capacity: PASSED!")
+        except Exception as e:
+            self.logger.error("Validation for mold_estimated_capacity: FAILED! (expected cols: {}): {}", cols, e)
             raise
 
         # Process the data
@@ -232,8 +246,29 @@ class ProducingProcessor:
             mold_plan,
             plastic_plan) = self._process_production_data(self.proStatus_df,
                                                           mold_estimated_capacity_df)
-            self.logger.info("Manufacturing data processing completed successfully!")
-            return optimization_results, pending_status_data, producing_status_data, pro_plan, mold_plan, plastic_plan
+            
+
+            # Calculate processing time
+            timestamp_end = datetime.now()
+            processing_time = (timestamp_end - timestamp_start).total_seconds()
+            
+            processor_log_lines.append("\n✓ Manufacturing data processing completed!")
+            processor_log_lines.append(f"⤷ Processing time: {processing_time:.2f}s")
+            processor_log_lines.append(f"⤷ End time: {timestamp_end.strftime('%Y-%m-%d %H:%M:%S')}")
+
+            processor_log_str = "\n".join(processor_log_lines)
+            
+            self.logger.info("✅ Process finished!!!")
+
+            return ProductionProcessingResult(
+                optimization_results = optimization_results,
+                pending_status_data=pending_status_data,
+                producing_status_data=producing_status_data,
+                pro_plan=pro_plan,
+                mold_plan=mold_plan,
+                plastic_plan=plastic_plan,
+                log=processor_log_str
+            )
 
         except FileNotFoundError as e:
             self.logger.debug("File not found: {}. \nPlease ensure all required data files are available.", e)
@@ -246,47 +281,76 @@ class ProducingProcessor:
             priority_matrix.columns.name = None
             return priority_matrix.reset_index()
 
-        self.data = {}
-        (optimization_results, 
-         pending_status_data, 
-         producing_status_data, 
-         pro_plan, mold_plan, plastic_plan) = self.process()
+        production_processing_result = self.process()
+
+        # Extract optimization results for cleaner access
+        opt_results = production_processing_result.optimization_results
+
+        # Prepare export data
+        final_results = {
+            "producing_status_data": production_processing_result.producing_status_data,
+            "producing_pro_plan": production_processing_result.pro_plan,
+            "producing_mold_plan": production_processing_result.mold_plan,
+            "producing_plastic_plan": production_processing_result.plastic_plan,
+            "pending_status_data": production_processing_result.pending_status_data,
+            "mold_machine_priority_matrix": priority_matrix_process(opt_results.mold_machine_priority_matrix),
+            "mold_estimated_capacity_df": opt_results.mold_estimated_capacity_df,
+        }
+
+        # Create invalid molds DataFrame
+        estimated_invalid = opt_results.estimated_capacity_invalid_molds
+        priority_invalid = opt_results.priority_matrix_invalid_molds
+        max_len = max(len(estimated_invalid), len(priority_invalid))
         
-        estimated_capacity_invalid_molds = optimization_results['estimated_capacity_invalid_molds']
-        priority_matrix_invalid_molds = optimization_results['priority_matrix_invalid_molds']
-        mold_machine_priority_matrix = optimization_results['priority_matrix']
-        mold_estimated_capacity_df = optimization_results['capacity_data']
-
-        # Prepare data for saving (matching PORequiredCriticalValidator format)
-        self.data["producing_status_data"] = producing_status_data
-        self.data["producing_pro_plan"] = pro_plan 
-        self.data["producing_mold_plan"] = mold_plan
-        self.data["producing_plastic_plan"] = plastic_plan
-
-        self.data["pending_status_data"] = pending_status_data
-
-        self.data["mold_machine_priority_matrix"] = priority_matrix_process(mold_machine_priority_matrix)
-        self.data["mold_estimated_capacity_df"] = mold_estimated_capacity_df
-
-         # Create a proper DataFrame structure for invalid molds
-        max_len = max(len(estimated_capacity_invalid_molds), len(priority_matrix_invalid_molds))
-        # Pad shorter lists with None values
-        estimated_padded = estimated_capacity_invalid_molds + [""] * (max_len - len(estimated_capacity_invalid_molds))
-        priority_padded = priority_matrix_invalid_molds + [""] * (max_len - len(priority_matrix_invalid_molds))
-        
-        self.data["invalid_molds"] = pd.DataFrame({
-            "estimated_capacity_invalid_molds": estimated_padded,
-            "priority_matrix_invalid_molds": priority_padded
+        final_results["invalid_molds"] = pd.DataFrame({
+            "estimated_capacity_invalid_molds": estimated_invalid + [""] * (max_len - len(estimated_invalid)),
+            "priority_matrix_invalid_molds": priority_invalid + [""] * (max_len - len(priority_invalid))
         })
 
-        self.logger.info("Start excel file exporting...")
-        save_output_with_versioning(
-            self.data,
-            self.output_dir,
-            self.filename_prefix,
-        )
+        # Generate validation summary
+        reporter = DictBasedReportGenerator(use_colors=False)
+        processor_summary = "\n".join(reporter.export_report(final_results))
 
-        return self.data
+        # Log data summary
+        export_log_lines = []
+        export_log_lines.append("DATA EXPORT SUMMARY")
+        export_log_lines.append(f"⤷ Producing records: {len(final_results['producing_status_data'])}")
+        export_log_lines.append(f"⤷ Pending records: {len(final_results['pending_status_data'])}")
+        export_log_lines.append(f"⤷ Production plan: {len(final_results['producing_pro_plan'])}")
+        export_log_lines.append(f"⤷ Mold plan: {len(final_results['producing_mold_plan'])}")
+        export_log_lines.append(f"⤷ Plastic plan: {len(final_results['producing_plastic_plan'])}")
+        export_log_lines.append(f"⤷ Priority matrix: {final_results['mold_machine_priority_matrix'].shape}")
+        export_log_lines.append(f"⤷ Invalid molds: {len(estimated_invalid) + len(priority_invalid)} total")
+
+        # Export results to Excel files with versioning
+        self.logger.info("Start excel file exporting...")
+        try:
+            output_exporting_log = save_output_with_versioning(
+                data = final_results,
+                output_dir = self.output_dir,
+                filename_prefix = self.filename_prefix,
+                report_text = processor_summary
+            )
+            export_log_lines.append("✓ Results exported successfully!")
+            export_log_lines.append(output_exporting_log)
+            self.logger.info("✓ Results exported successfully!")
+        except Exception as e:
+            self.logger.error("✗ Excel export failed: {}", e)
+            raise
+
+        # Combine all logs
+        master_log_lines = [production_processing_result.log, "\n".join(export_log_lines)]
+        master_log_str = "\n".join(master_log_lines)
+
+        try:
+            log_path = self.output_dir / "change_log.txt"
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.write(master_log_str)
+            self.logger.info("✓ Updated and saved change log: {}", log_path)
+        except Exception as e:
+            self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+        
+        return final_results, master_log_str
 
     def _process_production_data(self,
                                  proStatus_df: pd.DataFrame,

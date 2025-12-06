@@ -4,6 +4,8 @@ import warnings
 from typing import List, Dict
 from loguru import logger
 from agents.decorators import validate_init_dataframes
+from datetime import datetime
+from agents.utils import ConfigReportMixin
 
 # Decorator to validate DataFrames are initialized with the correct schema
 # This ensures that required DataFrames have all necessary columns before processing
@@ -16,7 +18,7 @@ from agents.decorators import validate_init_dataframes
     "mold_stability_index": list(self.sharedDatabaseSchemas_data["mold_stability_index"]['dtypes'].keys()),
 })
 
-class ItemMoldCapacityOptimizer:
+class ItemMoldCapacityOptimizer(ConfigReportMixin):
 
     """
     Optimize mold production capacity using historical stability data.
@@ -58,6 +60,9 @@ class ItemMoldCapacityOptimizer:
 
         """
         
+        self._capture_init_args()
+
+        # Initialize logger with class name for better tracking
         self.logger = logger.bind(class_="ItemMoldCapacityOptimizer")
 
         # Load database schema configuration for column validation
@@ -78,22 +83,31 @@ class ItemMoldCapacityOptimizer:
         Process and combine mold information from specification and detail datasets.
         """
 
+        self.logger.info("Starting ItemMoldCapacityOptimizer ...")
+
         if self.moldSpecificationSummary_df.empty or self.moldInfo_df.empty:
             self.logger.error("Invalid dataframe with moldSpecificationSummary or moldInfo !!!")
             raise
+        
+        # Generate config header using mixin
+        timestamp_start = datetime.now()
+        timestamp_str = timestamp_start.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        optimization_log_lines = [config_header]
+        optimization_log_lines.append(f"--Processing Summary--")
+        optimization_log_lines.append(f"⤷ {self.__class__.__name__} results:")
 
         # Identify invalid molds (in historical records but not in moldInfo)
         invalid_molds = self.mold_stability_index[~self.mold_stability_index['moldNo'].isin(self.moldInfo_df['moldNo'])]['moldNo'].to_list()
-        self.logger.info("Found {} mold(s) not in moldInfo (need double-check or update information): {}",
-                         len(invalid_molds), invalid_molds)
+        optimization_log_lines.append(f"Found {len(invalid_molds)} mold(s) not in moldInfo (need double-check or update information): {invalid_molds}")
 
         # Identify unused molds (in moldInfo but not in historical records)
         unused_molds = self.moldInfo_df[~self.moldInfo_df['moldNo'].isin(self.mold_stability_index['moldNo'])]['moldNo'].tolist()
-        self.logger.info("Found {} mold(s) not in historical data (never used): {}",
-                         len(unused_molds), unused_molds)
+        optimization_log_lines.append(f"Found {len(unused_molds)} mold(s) not in historical data (never used): {unused_molds}")
 
         # Merge used and unused molds with capacity calculations
-        self.logger.info("Start process with efficiency: {} - loss: {}", self.efficiency, self.loss)
+        optimization_log_lines.append(f"Start process with efficiency: {self.efficiency} - loss: {self.loss}")
         updated_capacity_moldInfo_df = ItemMoldCapacityOptimizer.merge_with_unused_molds(
             self.moldInfo_df, unused_molds, self.mold_stability_index, self.efficiency, self.loss
         )
@@ -136,9 +150,27 @@ class ItemMoldCapacityOptimizer:
         # Assign priority molds for each item code
         result_df = ItemMoldCapacityOptimizer.assign_priority_mold(merged_df)
 
-        self.logger.info("Process finished!!!")
+        self.logger.info("✅ Process finished!!!")
+        
+        # Calculate processing time
+        timestamp_end = datetime.now()
+        processing_time = (timestamp_end - timestamp_start).total_seconds()
 
-        return invalid_molds, result_df
+        # Add summary statistics
+        optimization_log_lines.append(f"--Assignment Results--")
+        optimization_log_lines.append(f"⤷ Processing time: {processing_time:.2f} seconds")
+        optimization_log_lines.append(f"⤷ End time: {timestamp_end.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        optimization_log_lines.append(f"--Priority Mold Assignment--")
+        optimization_log_lines.append(f"⤷ Total: {len(result_df)} records, {result_df['itemCode'].nunique()} items")
+        optimization_log_lines.append(f"⤷ Priority molds: {result_df['isPriority'].sum()}/{len(result_df)}")
+        optimization_log_lines.append(f"⤷ Coverage: {(result_df.groupby('itemCode')['isPriority'].sum() > 0).sum()}/{result_df['itemCode'].nunique()} items")
+        
+        optimization_log_lines.append("Process finished!!!")
+
+        optimization_log_str = "\n".join(optimization_log_lines)
+
+        return invalid_molds, result_df, optimization_log_str
 
     @staticmethod
     def compute_hourly_capacity(df: pd.DataFrame, 

@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 from loguru import logger
 from agents.decorators import validate_init_dataframes, validate_dataframe
-
-from agents.utils import (load_annotation_path, read_change_log, rank_nonzero)
+from datetime import datetime
+from agents.utils import load_annotation_path, read_change_log, rank_nonzero, ConfigReportMixin
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 
 # Decorator to validate DataFrames are initialized with the correct schema
@@ -20,7 +20,7 @@ from agents.core_helpers import check_newest_machine_layout, summarize_mold_mach
     "mold_estimated_capacity_df": list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys()),
 })
 
-class MoldMachinePriorityMatrixCalculator:
+class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
 
     """
     This class responsible for processing historical production data in order to process:
@@ -70,6 +70,8 @@ class MoldMachinePriorityMatrixCalculator:
             weights_hist_path (str): Path to Excel file containing feature weights history
             default_dir (str): Default directory for output files
         """
+
+        self._capture_init_args()
 
         # Initialize logger with class context for better debugging
         self.logger = logger.bind(class_="MoldMachinePriorityMatrixCalculator")
@@ -179,9 +181,20 @@ class MoldMachinePriorityMatrixCalculator:
             FileNotFoundError: If weights history file is missing
         """
 
+        self.logger.info("Starting MoldMachinePriorityMatrixCalculator ...")
+
         # Valid inputs
         if not self._check_series_columns(self.mold_machine_feature_weights) and self._check_mold_dataframe_columns(self.mold_estimated_capacity_df):
             self.logger.error(f"Error: Invalid input!!!")
+
+        # Generate config header using mixin
+        timestamp_start = datetime.now()
+        timestamp_str = timestamp_start.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        optimization_log_lines = [config_header]
+        optimization_log_lines.append(f"--Processing Summary--")
+        optimization_log_lines.append(f"⤷ {self.__class__.__name__} results:")
 
         # Rename columns for consistency across the system
         # Standardize column names to match expected schema
@@ -202,8 +215,9 @@ class MoldMachinePriorityMatrixCalculator:
             raise
 
         # Calculate performance metrics
-        mold_machine_history_summary, invalid_molds = summarize_mold_machine_history(historical_data, 
-                                                                                     self.mold_estimated_capacity_df)
+        mold_machine_history_summary, invalid_molds = summarize_mold_machine_history(
+            historical_data, 
+            self.mold_estimated_capacity_df)
         try:
             cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
             logger.info('Validation for mold_machine_history_summary...')
@@ -216,8 +230,35 @@ class MoldMachinePriorityMatrixCalculator:
         priority_matrix = MoldMachinePriorityMatrixCalculator._create_mold_machine_priority_matrix(
             mold_machine_history_summary, 
             self.mold_machine_feature_weights)
+        
+        self.logger.info("✅ Process finished!!!")
+        
+        # Calculate processing time
+        timestamp_end = datetime.now()
+        processing_time = (timestamp_end - timestamp_start).total_seconds()
 
-        return priority_matrix, invalid_molds
+        # Add summary statistics
+        optimization_log_lines.append(f"--Assignment Results--")
+        optimization_log_lines.append(f"⤷ Processing time: {processing_time:.2f} seconds")
+        optimization_log_lines.append(f"⤷ End time: {timestamp_end.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        if invalid_molds:
+            optimization_log_lines.append(f"--Invalid molds detected!--")
+            optimization_log_lines.append(f"⤷ Found {len(invalid_molds)} invalid molds with NaN values: {invalid_molds}")
+        
+        optimization_log_lines.append(f"--Priority Matrix Info--")
+        optimization_log_lines.append(f"⤷ Matrix dimensions: {priority_matrix.shape[0]} molds × {priority_matrix.shape[1]} machines")
+        optimization_log_lines.append(f"⤷ Total cells: {priority_matrix.size}")
+        optimization_log_lines.append(f"⤷ Valid priorities (non-zero): {(priority_matrix > 0).sum().sum()}")
+        optimization_log_lines.append(f"⤷ Coverage rate: {(priority_matrix > 0).sum().sum() / priority_matrix.size * 100:.1f}%")
+        optimization_log_lines.append(f"⤷ Avg priorities per mold: {(priority_matrix > 0).sum(axis=1).mean():.1f}")
+        optimization_log_lines.append(f"⤷ Max priority level: {int(priority_matrix.max().max())}")
+        
+        optimization_log_lines.append("Process finished!!!")
+
+        optimization_log_str = "\n".join(optimization_log_lines)
+        
+        return priority_matrix, invalid_molds, optimization_log_str
     
     def _check_mold_dataframe_columns(self, df: pd.DataFrame) -> bool:
 

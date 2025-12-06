@@ -8,6 +8,8 @@ from agents.utils import load_annotation_path, read_change_log, get_latest_chang
 from loguru import logger
 from agents.autoPlanner.initialPlanner.optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
 from agents.autoPlanner.initialPlanner.optimizer.mold_machine_priority_matrix_calculator import MoldMachinePriorityMatrixCalculator
+from datetime import datetime
+from agents.utils import ConfigReportMixin
 
 @dataclass
 class OptimizationResult:
@@ -16,8 +18,8 @@ class OptimizationResult:
     priority_matrix_invalid_molds: List[str]
     mold_estimated_capacity_df: pd.DataFrame
     mold_machine_priority_matrix: pd.DataFrame
-
-
+    log: str = ""
+    
 class FeatureWeights:
     """Constants for feature weights used in optimization."""
     
@@ -58,7 +60,7 @@ class MoldCapacityColumns:
     "mold_stability_index": list(self.sharedDatabaseSchemas_data["mold_stability_index"]['dtypes'].keys()),
 })
 
-class HybridSuggestOptimizer:
+class HybridSuggestOptimizer(ConfigReportMixin):
     """
     A hybrid optimization system that combines historical data analysis with mold-machine
     compatibility matching to suggest optimal production configurations.
@@ -79,9 +81,9 @@ class HybridSuggestOptimizer:
                  default_dir: str = "agents/shared_db",
                  folder_path: str = "agents/OrderProgressTracker",
                  target_name: str = "change_log.txt",
-                 mold_stability_index_folder: str = "agents/MoldStabilityIndexCalculator/mold_stability_index",
+                 mold_stability_index_folder: str = "agents/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator",
                  mold_stability_index_target_name: str = "change_log.txt",
-                 mold_machine_weights_hist_path: str = "agents/MoldMachineFeatureWeightCalculator/weights_hist.xlsx",
+                 mold_machine_weights_hist_path: str = "agents/shared_db/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx",
                  efficiency: float = 0.85,
                  loss: float = 0.03,
                  ):
@@ -102,6 +104,9 @@ class HybridSuggestOptimizer:
             efficiency (float): Expected production efficiency (default 0.85 = 85%)
             loss (float): Expected production loss rate (default 0.03 = 3%)
         """
+
+        self._capture_init_args()
+
         # Initialize logger with class context for better debugging and monitoring
         self.logger = logger.bind(class_="HybridSuggestOptimizer")
 
@@ -207,38 +212,63 @@ class HybridSuggestOptimizer:
             OptimizationResult: Container with invalid_molds, estimated_capacity_df, 
                               and priority_matrix
         """
+
+        self.logger.info("Starting HybridSuggestOptimizer ...")
+
+        # Generate config header using mixin
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        optimization_log_lines = [config_header]
+        optimization_log_lines.append(f"--Processing Summary--")
+        optimization_log_lines.append(f"⤷ {self.__class__.__name__} results:")
+
         try:
             # Estimate mold capacities using historical-based optimization
-            self.logger.info("Starting mold capacity estimation...")
-            estimated_capacity_invalid_molds, mold_estimated_capacity_df = self._estimate_mold_capacities(
-                self.mold_stability_index
-            )
+            optimization_log_lines.append("=" * 30)
+            optimization_log_lines.append("Starting mold capacity estimation...")
+            optimization_log_lines.append("=" * 30)
+
+            (estimated_capacity_invalid_molds, 
+             mold_estimated_capacity_df,
+             estimation_log) = self._estimate_mold_capacities(
+                self.mold_stability_index)
+            
+            optimization_log_lines.append(f"{estimation_log}")
+            
             try:
                 cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
-                logger.info('Validation for mold_estimated_capacity...')
                 validate_dataframe(mold_estimated_capacity_df, cols)
+                optimization_log_lines.append("Validation for mold_estimated_capacity: PASSED!")
             except Exception as e:
-                logger.error("Validation failed for mold_estimated_capacity (expected cols: %s): %s", cols, e)
+                self.logger.error("Validation for mold_estimated_capacity: FAILED! Details: (expected cols: %s): %s", cols, e)
                 raise
 
-            self.logger.info("Mold capacity estimation completed. Found {} invalid molds.", 
-                           len(estimated_capacity_invalid_molds))
-
             # Calculate mold-machine priority matrix using historical performance data
-            self.logger.info("Starting mold-machine priority matrix calculation...")
-            mold_machine_priority_matrix, priority_matrix_invalid_molds = self._calculate_priority_matrix(
+            optimization_log_lines.append("=" * 30)
+            optimization_log_lines.append("Starting mold-machine priority matrix calculation...")
+            optimization_log_lines.append("=" * 30)
+
+            (mold_machine_priority_matrix, 
+             priority_matrix_invalid_molds,
+             calculator_log) = self._calculate_priority_matrix(
                 self.mold_machine_feature_weights, 
                 mold_estimated_capacity_df
             )
-            self.logger.info("Priority matrix calculation completed. Found {} invalid molds.", 
-                           len(priority_matrix_invalid_molds))
+
+            optimization_log_lines.append(f"{calculator_log}")
+
+            optimization_log_str = "\n".join(optimization_log_lines)
+
+            self.logger.info("✅ Process finished!!!")
 
             # Return structured optimization results
             return OptimizationResult(
                 estimated_capacity_invalid_molds = estimated_capacity_invalid_molds,
                 priority_matrix_invalid_molds=priority_matrix_invalid_molds,
                 mold_estimated_capacity_df=mold_estimated_capacity_df,
-                mold_machine_priority_matrix=mold_machine_priority_matrix
+                mold_machine_priority_matrix=mold_machine_priority_matrix,
+                log=optimization_log_str
             )
 
         except Exception as e:

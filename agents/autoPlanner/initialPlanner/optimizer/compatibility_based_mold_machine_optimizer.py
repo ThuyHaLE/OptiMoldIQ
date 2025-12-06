@@ -4,7 +4,7 @@ from typing import List, Dict, Optional, Union
 from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
-
+from agents.utils import ConfigReportMixin
 
 class PriorityOrder(Enum):
     """Enumeration for priority orders"""
@@ -35,6 +35,7 @@ class OptimizationResult:
     unassigned_molds: List[str]
     stats: OptimizationStats
     overloaded_machines: set
+    log: str = ""
 
 class PriorityOrdersConfig:
     """Configuration for priority orders"""
@@ -56,10 +57,15 @@ class PriorityOrdersConfig:
         
         return cls.PRIORITY_ORDERS[order]
 
-class CompatibilityBasedMoldMachineOptimizer:
+class CompatibilityBasedMoldMachineOptimizer(ConfigReportMixin):
 
     def __init__(self, log_progress_interval: int = 10):
+
+        self._capture_init_args()
+
+        # Initialize logger with class name for better tracking
         self.logger = logger.bind(class_="CompatibilityBasedMoldMachineOptimizer")
+
         self.log_progress_interval = log_progress_interval
         
     def run_optimization(self,
@@ -67,8 +73,7 @@ class CompatibilityBasedMoldMachineOptimizer:
                          unassigned_mold_lead_times: Union[Dict[str, int], pd.DataFrame],
                          compatibility_matrix: pd.DataFrame,
                          priority_order: Union[str, PriorityOrder] = "priority_order_1",
-                         max_load_threshold: Optional[int] = 30,
-                         verbose: bool = True) -> OptimizationResult:
+                         max_load_threshold: Optional[int] = 30) -> OptimizationResult:
         
         """
         Assign molds using optimized algorithm with optional load constraint
@@ -85,8 +90,6 @@ class CompatibilityBasedMoldMachineOptimizer:
             Priority ordering strategy
         max_load_threshold : Optional[int], default=30
             Maximum allowed load threshold. If None, no load constraint is applied
-        verbose : bool, default=True
-            Enable verbose logging
 
         Returns:
         --------
@@ -94,9 +97,19 @@ class CompatibilityBasedMoldMachineOptimizer:
             Complete optimization results
         """
 
+        self.logger.info("Starting CompatibilityBasedMoldMachineOptimizer ...")
+
         stats = OptimizationStats(start_time=datetime.now())
         
         try:
+            # Generate config header using mixin
+            timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            config_header = self._generate_config_report(timestamp_str)
+
+            optimization_log_lines = [config_header]
+            optimization_log_lines.append(f"--Processing Summary--")
+            optimization_log_lines.append(f"⤷ {self.__class__.__name__} results:")
+
             # Input validation and preprocessing
             mold_lead_times_df = self._preprocess_mold_data(unassigned_mold_lead_times)
             priority_criteria = PriorityOrdersConfig.get_priority_order(priority_order)
@@ -108,10 +121,11 @@ class CompatibilityBasedMoldMachineOptimizer:
             
             # Calculate mold priorities
             mold_priorities = self._calculate_mold_priorities_flexible(
-                mold_lead_times_df, compatibility_matrix, priority_criteria, verbose=verbose)
-            
-            if verbose:
-                self.logger.info('Processing {} molds in priority order', len(mold_priorities))
+                mold_lead_times_df, 
+                compatibility_matrix, 
+                priority_criteria)
+            self.logger.info('Processing {} molds in priority order', 
+                             len(mold_priorities))
 
             # Convert lead time data to dictionary for faster lookup
             mold_lead_times_dict = dict(zip(mold_lead_times_df['moldNo'], 
@@ -120,9 +134,11 @@ class CompatibilityBasedMoldMachineOptimizer:
             # Calculate initial machine load
             machine_df = mold_machine_assigned_matrix.copy()
             current_load = self._calculate_machine_load(machine_df)
-            
-            if verbose:
-                self._log_machine_load("INITIAL", current_load, max_load_threshold)
+            machine_load_log_str = self._log_machine_load(
+                "INITIAL", 
+                current_load, 
+                max_load_threshold)
+            optimization_log_lines.append(f"{machine_load_log_str}")
 
             # Initialize result matrix
             assigned_matrix = pd.DataFrame(columns=machine_df.columns)
@@ -131,14 +147,17 @@ class CompatibilityBasedMoldMachineOptimizer:
             for i, mold_id in enumerate(mold_priorities):
                 stats.iterations += 1
                 
-                if verbose and i % self.log_progress_interval == 0:
+                if i % self.log_progress_interval == 0:
                     self.logger.info("Processing mold {}/{}: {}", 
-                                    i+1, len(mold_priorities), mold_id)
+                                     i+1, len(mold_priorities), mold_id)
 
                 # Process individual mold assignment
                 result = self._process_mold_assignment(
-                    mold_id, i, compatibility_matrix, current_load, 
-                    mold_lead_times_dict, max_load_threshold, verbose)
+                    mold_id, i, 
+                    compatibility_matrix, 
+                    current_load, 
+                    mold_lead_times_dict, 
+                    max_load_threshold)
                 
                 if result['assigned']:
                     best_machine = result['machine']
@@ -151,10 +170,16 @@ class CompatibilityBasedMoldMachineOptimizer:
 
                     # Update matrices
                     machine_df = self._update_machine_dataframe_optimized(
-                        machine_df, best_machine, mold_id, mold_lead_time)
+                        machine_df, 
+                        best_machine, 
+                        mold_id, 
+                        mold_lead_time)
                     
                     assigned_matrix = self._update_machine_dataframe_optimized(
-                        assigned_matrix, best_machine, mold_id, mold_lead_time)
+                        assigned_matrix, 
+                        best_machine, 
+                        mold_id, 
+                        mold_lead_time)
                 else:
                     unassigned_molds.append(mold_id)
                     if result['overloaded_machines']:
@@ -165,16 +190,26 @@ class CompatibilityBasedMoldMachineOptimizer:
             stats.end_time = datetime.now()
             stats.unique_matches = len(assignments)
 
-            if verbose:
-                self._log_final_results(stats, mold_priorities, assignments, 
-                                      unassigned_molds, current_load, 
-                                      overloaded_machines, max_load_threshold)
+            final_results_log = self._log_final_results(
+                stats, mold_priorities, 
+                assignments, 
+                unassigned_molds, 
+                current_load, 
+                overloaded_machines, 
+                max_load_threshold)
+            
+            optimization_log_lines.append(f"{final_results_log}")
+
+            optimization_log_str = "\n".join(optimization_log_lines)
+
+            self.logger.info("✅ Process finished!!!")
 
             return OptimizationResult(assigned_matrix=assigned_matrix,
                                       assignments=assignments,
                                       unassigned_molds=unassigned_molds,
                                       stats=stats,
-                                      overloaded_machines=overloaded_machines)
+                                      overloaded_machines=overloaded_machines,
+                                      log=optimization_log_str)
             
         except Exception as e:
             self.logger.error("Optimization failed: {}", str(e))
@@ -215,14 +250,13 @@ class CompatibilityBasedMoldMachineOptimizer:
                                  compatibility_matrix: pd.DataFrame,
                                  current_load: Dict[str, int],
                                  mold_lead_times_dict: Dict[str, int],
-                                 max_load_threshold: Optional[int],
-                                 verbose: bool) -> Dict:
+                                 max_load_threshold: Optional[int]) -> Dict:
         
         """Process assignment for a single mold"""
         
         # Check compatibility
         if mold_id not in compatibility_matrix.index:
-            if verbose and iteration < 5:
+            if iteration < 5:
                 self.logger.info("❌ {} not found in compatibility matrix", mold_id)
             return {'assigned': False, 'overloaded_machines': set()}
 
@@ -231,12 +265,14 @@ class CompatibilityBasedMoldMachineOptimizer:
         suitable_machines = compatible_machines[compatible_machines == 1].index.tolist()
 
         if not suitable_machines:
-            if verbose and iteration < 5:
+            if iteration < 5:
                 self.logger.info("❌ {} has no compatible machines", mold_id)
             return {'assigned': False, 'overloaded_machines': set()}
 
         # Find best machine
-        best_machine = self._find_best_machine(suitable_machines, current_load, max_load_threshold)
+        best_machine = self._find_best_machine(suitable_machines, 
+                                               current_load, 
+                                               max_load_threshold)
 
         if best_machine is None:
             overloaded = set()
@@ -244,7 +280,7 @@ class CompatibilityBasedMoldMachineOptimizer:
                 overloaded = {m for m in suitable_machines 
                             if current_load.get(m, 0) > max_load_threshold}
                 
-                if verbose and iteration < 10:
+                if iteration < 10:
                     self.logger.info("⚠️ {} cannot be assigned - all compatible machines overloaded", mold_id)
                     for machine in overloaded:
                         self.logger.info("- {}: load = {} > {}", 
@@ -264,8 +300,7 @@ class CompatibilityBasedMoldMachineOptimizer:
     def _calculate_mold_priorities_flexible(self, 
                                             mold_lead_times_df: pd.DataFrame,
                                             compatibility_matrix: pd.DataFrame,
-                                            priority_order: List[str],
-                                            verbose: bool = False) -> List[str]:
+                                            priority_order: List[str]) -> List[str]:
         
         """Calculate mold priorities based on flexible priority order"""
 
@@ -306,11 +341,11 @@ class CompatibilityBasedMoldMachineOptimizer:
 
         # Sort by priority
         priority_df_sorted = priority_df.sort_values(
-            by=sort_keys, ascending=ascending_flags
-        ).reset_index(drop=True)
+            by=sort_keys, 
+            ascending=ascending_flags).reset_index(drop=True)
 
-        if verbose:
-            self._log_priority_order(priority_df_sorted, priority_order)
+        self._log_priority_order(priority_df_sorted, 
+                                 priority_order)
 
         return priority_df_sorted['moldNo'].tolist()
 
@@ -339,17 +374,27 @@ class CompatibilityBasedMoldMachineOptimizer:
         
         """Log machine load information"""
 
-        self.logger.info("=== {} MACHINE LOAD ===", phase)
+        timestamp_now = datetime.now()
+        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+        log_entries = [f"[{timestamp_str}] Log machine load information...\n"]
+
+        log_entries.append(f"=== {phase} MACHINE LOAD ===\n")
         
         for machine, load in sorted(current_load.items()):
             if max_load_threshold is not None:
                 status = "⚠️ OVERLOAD" if load > max_load_threshold else "✅ OK"
-                self.logger.info("{}: {} {}", machine, load, status)
+                log_entries.append(f"{machine}: {load} {status}\n")  
             else:
-                self.logger.info("{}: {}", machine, load)
+                log_entries.append(f"{machine}: {load}\n")
 
         if max_load_threshold is not None:
-            self.logger.info("Maximum allowed load: {}", max_load_threshold)
+            log_entries.append(f"Maximum allowed load: {max_load_threshold}\n")
+
+        log_entries_str = "".join(log_entries)
+
+        self.logger.info("{}", log_entries_str)
+
+        return log_entries_str
 
     def _log_final_results(self, 
                            stats: OptimizationStats, 
@@ -362,22 +407,36 @@ class CompatibilityBasedMoldMachineOptimizer:
         
         """Log final optimization results"""
 
-        self.logger.info("=" * 50)
-        self.logger.info("ROUND 3 - OPTIMIZATION RESULTS SUMMARY")
-        self.logger.info("=" * 50)
-        self.logger.info("Successfully assigned molds: {}. \nDetails: {}", len(assignments), assignments)
-        self.logger.info("Unassigned molds: {}. \nDetail: {}", len(unassigned_molds), unassigned_molds)
-        self.logger.info("Total molds processed: {}", mold_priorities)
-        self.logger.info("Success rate: {:.1f}%", len(assignments)/len(mold_priorities))
-        self.logger.info("Total execution time: {:.2f} seconds", stats.duration or 0)
-        self.logger.info("=" * 50)
+        timestamp_now = datetime.now()
+        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+        log_entries = [f"[{timestamp_str}] Log final optimization results...\n"]
+
+        log_entries.append("\n")
+        log_entries.append("=" * 50 + "\n")
+        log_entries.append("ROUND 3 - OPTIMIZATION RESULTS SUMMARY\n")
+        log_entries.append("=" * 50 + "\n")
+        log_entries.append(f"Successfully assigned molds: {len(assignments)}. \nDetails: {assignments}\n")
+        log_entries.append(f"Unassigned molds: {len(unassigned_molds)}. \nDetail: {unassigned_molds}\n")
+        log_entries.append(f"Total molds processed: {mold_priorities}\n")
+        log_entries.append(f"Success rate: {len(assignments)/len(mold_priorities):.1f}%\n")
+        log_entries.append(f"Total execution time: {stats.duration or 0:.2f} seconds\n")
+        log_entries.append("=" * 50 + "\n")
 
         if max_load_threshold is not None and overloaded_machines:
             self.logger.info("=== MACHINES SKIPPED DUE TO HIGH LOAD ===")
             for machine in sorted(overloaded_machines):
-                self.logger.info("{}: load = {}", machine, current_load.get(machine, 0))
+                log_entries.append(f"{machine}: load = {current_load.get(machine, 0)}")
 
-        self._log_machine_load("FINAL", current_load, max_load_threshold)
+        machine_load_log_str = self._log_machine_load("FINAL", 
+                                                      current_load, 
+                                                      max_load_threshold)
+        log_entries.append(f"{machine_load_log_str}\n")
+
+        log_entries_str = "".join(log_entries)
+
+        self.logger.info("{}", log_entries_str)
+
+        return log_entries_str
 
     @staticmethod
     def _calculate_machine_load(machine_df: pd.DataFrame) -> Dict[str, int]:

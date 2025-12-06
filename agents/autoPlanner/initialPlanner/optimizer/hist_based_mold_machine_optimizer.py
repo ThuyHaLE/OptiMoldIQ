@@ -4,6 +4,8 @@ from loguru import logger
 from typing import Tuple, List, Dict
 import time
 from dataclasses import dataclass
+from agents.utils import ConfigReportMixin
+from datetime import datetime
 
 @dataclass
 class HistBasedOptimizationResult:
@@ -11,8 +13,9 @@ class HistBasedOptimizationResult:
     assigned_matrix: pd.DataFrame
     assignments: List[str]
     unassigned_molds: List[str]
+    log: str = ""
 
-class HistBasedMoldMachineOptimizer:
+class HistBasedMoldMachineOptimizer(ConfigReportMixin):
 
     """
     Optimized mold-machine assignment algorithm with improved performance and logging.
@@ -28,6 +31,9 @@ class HistBasedMoldMachineOptimizer:
                  machine_info_df: pd.DataFrame,
                  max_load_threshold: int = 30):
 
+        self._capture_init_args()
+
+        # Initialize logger with class name for better tracking
         self.logger = logger.bind(class_="HistBasedMoldMachineOptimizer")
 
         self.mold_machine_priority_matrix = mold_machine_priority_matrix
@@ -61,9 +67,19 @@ class HistBasedMoldMachineOptimizer:
             Complete optimization results
         """
 
-        self.logger.info("=" * 50)
-        self.logger.info("Starting Mold-Machine Optimization Process")
-        self.logger.info("=" * 50)
+        self.logger.info("Starting HistBasedMoldMachineOptimizer ...")
+
+        # Generate config header using mixin
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+
+        optimization_log_lines = [config_header]
+        optimization_log_lines.append(f"--Processing Summary--")
+        optimization_log_lines.append(f"⤷ {self.__class__.__name__} results:")
+        
+        optimization_log_lines.append("=" * 50)
+        optimization_log_lines.append("Starting Mold-Machine Optimization Process")
+        optimization_log_lines.append("=" * 50)
 
         # Round 1
         round_one_start_time = time.time()
@@ -79,25 +95,29 @@ class HistBasedMoldMachineOptimizer:
         round_one_success_rate = (len(round_one_assigned_molds) / round_one_total_molds * 100) if round_one_total_molds > 0 else 0
         round_one_total_time = time.time() - round_one_start_time
 
-        self.logger.info("=" * 50)
-        self.logger.info("ROUND 1 - OPTIMIZATION RESULTS SUMMARY")
-        self.logger.info("=" * 50)
-        self.logger.info("Total molds processed: {}", round_one_total_molds)
-        self.logger.info("Unique matches found: {}", self.stats['unique_matches'])
-        self.logger.info("Optimization iterations: {}", self.stats['iterations'])
-        self.logger.info("Successfully assigned molds: {}. \nDetails: {}", len(round_one_assigned_molds), round_one_assigned_molds)
-        self.logger.info("Unassigned molds: {}. \nDetail: {}", len(round_one_unassigned_molds), round_one_unassigned_molds)
-        self.logger.info("Success rate: {:.1f}%", round_one_success_rate)
-        self.logger.info("Total execution time: {:.2f} seconds", round_one_total_time)
-        self.logger.info("=" * 50)
+        optimization_log_lines.append("=" * 30)
+        optimization_log_lines.append("ROUND 1 - OPTIMIZATION RESULTS SUMMARY")
+        optimization_log_lines.append("=" * 30)
+        optimization_log_lines.append(f"Total molds processed: {round_one_total_molds}")
+        optimization_log_lines.append(f"Unique matches found: {self.stats['unique_matches']}")
+        optimization_log_lines.append(f"Optimization iterations: {self.stats['iterations']}")
+        optimization_log_lines.append(f"Successfully assigned molds: {len(round_one_assigned_molds)}. \nDetails: {round_one_assigned_molds}")
+        optimization_log_lines.append(f"Unassigned molds: {len(round_one_unassigned_molds)}. \nDetail: {round_one_unassigned_molds}")
+        optimization_log_lines.append(f"Success rate: {round_one_success_rate:.1f}%")
+        optimization_log_lines.append(f"Total execution time: {round_one_total_time:.2f} seconds")
+        optimization_log_lines.append("=" * 30)
 
         # Round 2 (if any unassigned molds remain)
         if len(round_one_unassigned_molds) == 0:
-            self.logger.info("Optimization completed")
+            optimization_log_lines.append("Optimization completed")
+            optimization_log_str = "\n".join(optimization_log_lines)
+            self.logger.info("✅ Process finished!!!")
             round_one_assigned_matrix.index.name = 'moldNo'
-            return HistBasedOptimizationResult(assigned_matrix=round_one_assigned_matrix,
-                                      assignments=round_one_assigned_molds,
-                                      unassigned_molds=round_one_unassigned_molds)
+            return HistBasedOptimizationResult(
+                assigned_matrix=round_one_assigned_matrix,
+                assignments=round_one_assigned_molds,
+                unassigned_molds=round_one_unassigned_molds,
+                log=optimization_log_str)
         else:
             round_two_start_time = time.time()
             self.logger.info("Starting optimization process round 2")
@@ -116,19 +136,25 @@ class HistBasedMoldMachineOptimizer:
             round_two_success_rate = (len(round_two_assigned_molds) / round_two_total_molds * 100) if round_two_total_molds > 0 else 0
             round_two_total_time = time.time() - round_two_start_time
 
-            self.logger.info("=" * 50)
-            self.logger.info("ROUND 2 - OPTIMIZATION RESULTS SUMMARY")
-            self.logger.info("=" * 50)
-            self.logger.info("Successfully assigned molds: {}. \nDetails: {}", len(round_two_assigned_molds), round_two_assigned_molds)
-            self.logger.info("Unassigned molds: {}. \nDetail: {}", len(round_two_unassigned_molds), round_two_unassigned_molds)
-            self.logger.info("Total molds processed: {}", round_two_total_molds)
-            self.logger.info("Success rate: {:.1f}%", round_two_success_rate)
-            self.logger.info("Total execution time: {:.2f} seconds", round_two_total_time)
-            self.logger.info("=" * 50)
+            optimization_log_lines.append("=" * 30)
+            optimization_log_lines.append("ROUND 2 - OPTIMIZATION RESULTS SUMMARY")
+            optimization_log_lines.append("=" * 30)
+            optimization_log_lines.append(f"Successfully assigned molds: {len(round_two_assigned_molds)}. \nDetails: {round_two_assigned_molds}")
+            optimization_log_lines.append(f"Unassigned molds: {len(round_two_unassigned_molds)}. \nDetail: {round_two_unassigned_molds}")
+            optimization_log_lines.append(f"Total molds processed: {round_two_total_molds}")
+            optimization_log_lines.append(f"Success rate: {round_two_success_rate:.1f}%")
+            optimization_log_lines.append(f"Total execution time: {round_two_total_time:.2f} seconds")
+            optimization_log_lines.append("=" * 30)
+
+            optimization_log_str = "\n".join(optimization_log_lines)
+
+            self.logger.info("✅ Process finished!!!")
             
-            return HistBasedOptimizationResult(assigned_matrix=final_assigned_matrix,
-                                      assignments=all_assigned_molds,
-                                      unassigned_molds=round_two_unassigned_molds)   
+            return HistBasedOptimizationResult(
+                assigned_matrix=final_assigned_matrix,
+                assignments=all_assigned_molds,
+                unassigned_molds=round_two_unassigned_molds,
+                log=optimization_log_str)   
     
     ###############################################
     # Round 1: Constraint-Based Greedy Assignment #
