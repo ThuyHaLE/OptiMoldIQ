@@ -1,7 +1,7 @@
 {
     "dynamicDB": {
         "productRecords": {
-            "path": "agents/shared_db/dynamicDatabase/productRecords.parquet",
+            "path": "agents/shared_db/DataPipelineOrchestrator/dynamicDatabase/productRecords.parquet",
             "dtypes": {
                 "recordDate": "datetime64[ns]",
                 "workingShift": "string",
@@ -38,7 +38,7 @@
             }
         },
         "purchaseOrders": {
-            "path": "agents/shared_db/dynamicDatabase/purchaseOrders.parquet",
+            "path": "agents/shared_db/DataPipelineOrchestrator/dynamicDatabase/purchaseOrders.parquet",
             "dtypes": {
                 "poReceivedDate": "datetime64[ns]",
                 "poNo": "string",
