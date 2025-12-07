@@ -1,12 +1,13 @@
-from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import DataPipelineOrchestrator
+from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import SharedSourceConfig, DataPipelineOrchestrator
 
 def test_data_pipeline_orchestrator():
-    data_pipeline_orchestrator = DataPipelineOrchestrator(
-        dynamic_db_source_dir="tests/mock_database/dynamicDatabase",
-        databaseSchemas_path = "tests/mock_database/databaseSchemas.json",
-        annotation_path = 'tests/shared_db/DataLoaderAgent/newest/path_annotations.json"',
-        default_dir= "tests/shared_db")
+    shared_source_config = SharedSourceConfig(
+        db_dir = 'tests/mock_database',
+        default_dir = 'tests/shared_db'
+    )
 
-    results, log_str = data_pipeline_orchestrator.run_pipeline()
+    data_pipeline_orchestrator = DataPipelineOrchestrator(
+        config = shared_source_config)
+    result, log_str = data_pipeline_orchestrator.run_pipeline()
 
     assert True

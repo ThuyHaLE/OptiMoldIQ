@@ -15,6 +15,8 @@ class SharedSourceConfig:
     dynamic_db_dir: Optional[str] = None
     databaseSchemas_path: Optional[str] = None
     sharedDatabaseSchemas_path: Optional[str] = None
+
+    data_pipeline_dir: Optional[str] = None
     annotation_path: Optional[str] = None
 
     validation_dir: Optional[str] = None
@@ -40,8 +42,10 @@ class SharedSourceConfig:
         self.sharedDatabaseSchemas_path = (
             self.sharedDatabaseSchemas_path or f"{self.db_dir}/sharedDatabaseSchemas.json")
 
+        self.data_pipeline_dir = (
+            self.data_pipeline_dir or f"{self.default_dir}/DataPipelineOrchestrator")
         self.annotation_path = (
-            self.annotation_path or f"{self.default_dir}/DataLoaderAgent/newest/path_annotations.json")
+            self.annotation_path or f"{self.data_pipeline_dir}/DataLoaderAgent/newest/path_annotations.json")
         
         self.validation_dir = (
             self.validation_dir or f"{self.default_dir}/ValidationOrchestrator")

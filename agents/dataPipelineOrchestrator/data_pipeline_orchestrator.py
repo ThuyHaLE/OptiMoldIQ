@@ -3,8 +3,10 @@ from typing import Dict, Any
 from loguru import logger
 from datetime import datetime
 import shutil
+import os
 
 from agents.utils import ConfigReportMixin
+from configs.shared.shared_source_config import SharedSourceConfig
 
 from agents.dataPipelineOrchestrator.data_collector import DataCollector
 from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
@@ -57,21 +59,26 @@ class DataPipelineOrchestrator(ConfigReportMixin):
     to ensure pipeline reliability and proper error reporting.
     """
 
-    def __init__(self, 
-                 dynamic_db_source_dir: str = "database/dynamicDatabase",
-                 databaseSchemas_path: str = "database/databaseSchemas.json",
-                 annotation_path: str = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
-                 default_dir: str = "agents/shared_db"
-                 ):
+    # Define requirements
+    REQUIRED_FIELDS = {
+        'dynamic_db_dir': str,
+        'databaseSchemas_path': str,
+        'annotation_path': str,
+        'data_pipeline_dir': str
+    }
+    
+    def __init__(self, config: SharedSourceConfig):
         
         """
-        Initialize the DataPipelineOrchestrator with configuration paths.
+        Initialize the DataPipelineOrchestrator.
         
         Args:
-            dynamic_db_source_dir: Directory containing dynamic database source files
-            databaseSchemas_path: Path to the database schemas JSON file
-            annotation_path: Path to the data annotations file used by DataLoaderAgent
-            default_dir: Default directory for shared database operations
+            config: SharedSourceConfig containing processing parameters
+            Including:
+                - dynamic_db_dir: Directory containing dynamic database source files
+                - databaseSchemas_path: Path to the database schemas JSON file
+                - annotation_path: Path to the data annotations file used by DataLoaderAgent
+                - data_pipeline_dir: Default directory for shared database operations
         """
         
         self._capture_init_args()
@@ -79,13 +86,21 @@ class DataPipelineOrchestrator(ConfigReportMixin):
         # Initialize logger with class-specific binding for better log tracking
         self.logger = logger.bind(class_="DataPipelineOrchestrator")
 
-        # Store configuration paths
-        self.dynamic_db_source_dir = dynamic_db_source_dir
-        self.databaseSchemas_path = databaseSchemas_path
-        self.annotation_path = annotation_path
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "DataPipelineOrchestrator"
-        
+        # Validate required configs
+        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for config requirements: PASSED!")
+        self.config = config
+
+        # Set up directory paths
+        self.output_dir = Path(self.config.data_pipeline_dir)
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+    
         # Initialize notification system for error reporting and manual review alerts
         self.notification_handler = MockNotificationHandler()
         self.notifier = ManualReviewNotifier(self.notification_handler)
@@ -171,7 +186,8 @@ class DataPipelineOrchestrator(ConfigReportMixin):
 
         # Generate config header using mixin
         timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
+        config_header = self._generate_config_report(timestamp_str,
+                                                     required_only=True)
 
         pipeline_log_lines = [config_header]
         pipeline_log_lines.append(f"--Processing Summary--\n")
@@ -243,7 +259,7 @@ class DataPipelineOrchestrator(ConfigReportMixin):
         
         try:
             # Initialize DataCollector with source directory and output directory
-            collector = DataCollector(self.dynamic_db_source_dir, self.default_dir)
+            collector = DataCollector(config = self.config)
             result = collector.process_all_data()
 
             # Check collection result and log appropriate message
@@ -298,7 +314,7 @@ class DataPipelineOrchestrator(ConfigReportMixin):
         
         try:
             # Initialize DataLoaderAgent with schema and annotation paths
-            loader = DataLoaderAgent(self.databaseSchemas_path, self.annotation_path, self.default_dir)
+            loader = DataLoaderAgent(config = self.config)
             result = loader.process_all_data()
             
             # Check loading result and log appropriate message

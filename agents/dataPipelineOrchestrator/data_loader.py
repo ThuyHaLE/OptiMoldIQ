@@ -9,6 +9,8 @@ import os
 from typing import Dict, List, Any
 
 from agents.utils import ConfigReportMixin
+from configs.shared.shared_source_config import SharedSourceConfig
+
 # Import healing system constants for error handling and recovery
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import (
     ProcessingStatus, ErrorType, AgentType, AgentExecutionInfo, RecoveryAction, get_agent_config)
@@ -23,45 +25,62 @@ class DataLoaderAgent(ConfigReportMixin):
     and provides comprehensive error handling with recovery mechanisms.
     """
 
-    def __init__(self,
-                 databaseSchemas_path: str = "database/databaseSchemas.json",
-                 annotation_path: str = 'agents/shared_db/DataLoaderAgent/newest/path_annotations.json',
-                 default_dir: str = "agents/shared_db"
-                 ):
+    # Define requirements
+    REQUIRED_FIELDS = {
+        'databaseSchemas_path': str,
+        'annotation_path': str,
+        'data_pipeline_dir': str
+    }
+
+    def __init__(self, config: SharedSourceConfig):
         
         """
-        Initialize the DataLoaderAgent with configuration paths and directories.
+        Initialize the DataLoaderAgent.
         
         Args:
-            databaseSchemas_path: Path to database schema configuration file
-            annotation_path: Path to file storing database path annotations
-            default_dir: Default directory for shared database files
+            config: SharedSourceConfig containing processing parameters
+            Including:
+                - databaseSchemas_path: Path to database schema configuration file
+                - annotation_path: Path to file storing database path annotations
+                - data_pipeline_dir: Default directory for shared database files
         """
         self._capture_init_args()
         
         # Initialize logger for this class
         self.logger = logger.bind(class_="DataLoaderAgent")
-
-        # Set up directory paths
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "DataLoaderAgent"
         
-        # Store configuration paths
-        self.annotation_path = annotation_path
-        self.config = get_agent_config(AgentType.DATA_LOADER)
+        # Validate required configs
+        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for config requirements: PASSED!")
+    
+        self.config = config
 
         # Load database schema configuration
-        with open(databaseSchemas_path, "r", encoding="utf-8") as f:
-            self.databaseSchemas_data = json.load(f)
-
+        if os.path.exists(self.config.databaseSchemas_path):
+            with open(self.config.databaseSchemas_path, "r", encoding="utf-8") as f:
+                self.databaseSchemas_data = json.load(f)
+  
         # Load existing path annotations if available, otherwise create empty dict
-        if os.path.exists(self.annotation_path):
-            with open(self.annotation_path, "r", encoding="utf-8") as f:
+        if os.path.exists(self.config.annotation_path):
+            with open(self.config.annotation_path, "r", encoding="utf-8") as f:
                 self.path_annotation = json.load(f)
             logger.debug("Loaded existing annotation file: {}", self.path_annotation)
         else:
             self.path_annotation = {}
             logger.info("First time for initial - creating new annotation file...")
+
+        # Set up directory paths
+        self.output_dir = Path(self.config.data_pipeline_dir) / "DataLoaderAgent"
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Load healing configuration for this agent
+        self.healing_config = get_agent_config(AgentType.DATA_LOADER)
 
     def process_all_data(self) -> Dict[str, Any]:
         """
@@ -71,13 +90,16 @@ class DataLoaderAgent(ConfigReportMixin):
             Dict containing execution information including status, results, and metadata
         """
         
+        self.logger.info("Starting DataLoaderAgent ...")
+
         start_time = datetime.now()
         results = []
         overall_status = ProcessingStatus.SUCCESS
 
         # Generate config header using mixin
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
+        config_header = self._generate_config_report(timestamp_str, 
+                                                     required_only=True)
 
         # Initialize combined log entries for entire processing run
         combined_log_entries = [config_header]
@@ -165,6 +187,7 @@ class DataLoaderAgent(ConfigReportMixin):
         
         # Combine all log entries
         full_log = "".join(combined_log_entries)
+        self._write_log_to_file(full_log, "data_loader_master_log.txt")
 
         # Create comprehensive execution information
         execution_info = AgentExecutionInfo(
@@ -188,10 +211,11 @@ class DataLoaderAgent(ConfigReportMixin):
                 "memory_usage": self._get_memory_usage(),
                 "disk_usage": self._get_disk_usage(),
                 "log_entries": full_log,
-                "log_entry_count": len(combined_log_entries),
-                "log_file_path": log_file_path if 'log_file_path' in locals() else None
+                "log_entry_count": len(combined_log_entries)
             }
         )
+
+        self.logger.info("✅ Process finished!!!")
 
         return execution_info
 
@@ -266,8 +290,8 @@ class DataLoaderAgent(ConfigReportMixin):
                 log_entries.append(f"  ⤷ ❌ Comparison failed: {comparison_result['error_message']}\n")
                 
                 # Local healing - attempt rollback to backup
-                recovery_actions = self.config.recovery_actions.get(ErrorType.HASH_COMPARISON_ERROR, [])
-                updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+                recovery_actions = self.healing_config.recovery_actions.get(ErrorType.HASH_COMPARISON_ERROR, [])
+                updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
                 
                 log_entries.append(f"  ⤷ Initiated {len(updated_recovery_actions)} recovery action(s)\n")
 
@@ -318,8 +342,8 @@ class DataLoaderAgent(ConfigReportMixin):
             self.logger.error(f"Unexpected error processing {db_name}: {e}")
 
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.DATA_CORRUPTION, [])
-            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.DATA_CORRUPTION, [])
+            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
             
             log_entries.append(f"  ⤷ Initiated {len(updated_recovery_actions)} recovery action(s)\n")
 
@@ -356,8 +380,8 @@ class DataLoaderAgent(ConfigReportMixin):
             if not os.path.exists(db_current_path):
 
                 # Local healing - attempt rollback to backup
-                recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_NOT_FOUND, [])
-                updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+                recovery_actions = self.healing_config.recovery_actions.get(ErrorType.FILE_NOT_FOUND, [])
+                updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
 
                 return {
                     "status": ProcessingStatus.ERROR.value,
@@ -378,8 +402,8 @@ class DataLoaderAgent(ConfigReportMixin):
         except Exception as e:
 
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
-            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
+            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
 
             return {
                 "status": ProcessingStatus.ERROR.value,
@@ -413,8 +437,8 @@ class DataLoaderAgent(ConfigReportMixin):
         except Exception as e:
 
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.SCHEMA_MISMATCH, [])
-            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.SCHEMA_MISMATCH, [])
+            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
 
             return {
                 "status": ProcessingStatus.ERROR.value,
@@ -440,8 +464,8 @@ class DataLoaderAgent(ConfigReportMixin):
             if not file_path or not os.path.exists(file_path):
 
                 # Local healing - attempt rollback to backup
-                recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_NOT_FOUND, [])
-                updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+                recovery_actions = self.healing_config.recovery_actions.get(ErrorType.FILE_NOT_FOUND, [])
+                updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
 
                 return {
                     "status": ProcessingStatus.WARNING.value,
@@ -462,8 +486,8 @@ class DataLoaderAgent(ConfigReportMixin):
         except Exception as e:
 
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
-            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
+            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
 
             return {
                 "status": ProcessingStatus.WARNING.value,
@@ -498,8 +522,8 @@ class DataLoaderAgent(ConfigReportMixin):
         except Exception as e:
 
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.HASH_COMPARISON_ERROR, [])
-            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.HASH_COMPARISON_ERROR, [])
+            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
 
             return {
                 "status": ProcessingStatus.ERROR.value,
@@ -569,8 +593,8 @@ class DataLoaderAgent(ConfigReportMixin):
             self.logger.error(f"Failed to save changed files: {e}")
 
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.PARQUET_SAVE_ERROR, [])
-            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.annotation_path)
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.PARQUET_SAVE_ERROR, [])
+            updated_recovery_actions = check_annotation_paths_and_update_status(recovery_actions, self.config.annotation_path)
             
             log_entries.append(f"  ⤷ Initiated recovery actions: {len(updated_recovery_actions)} action(s)\n")
 
@@ -628,11 +652,11 @@ class DataLoaderAgent(ConfigReportMixin):
         for result in results:
             if result['status'] == ProcessingStatus.SUCCESS.value and result.get('data_updated'):
                 # Trigger downstream agents when data is updated
-                trigger_list = self.config.trigger_on_status.get(ProcessingStatus.SUCCESS, [])
+                trigger_list = self.healing_config.trigger_on_status.get(ProcessingStatus.SUCCESS, [])
                 trigger_agents.extend([agent.value for agent in trigger_list])
             elif result['status'] == ProcessingStatus.ERROR.value:
                 # Trigger admin notification
-                trigger_list = self.config.trigger_on_status.get(ProcessingStatus.ERROR, [])
+                trigger_list = self.healing_config.trigger_on_status.get(ProcessingStatus.ERROR, [])
                 trigger_agents.extend([agent.value for agent in trigger_list])
 
         return list(set(trigger_agents))  # Remove duplicates
@@ -741,7 +765,6 @@ class DataLoaderAgent(ConfigReportMixin):
 
         # Set up directory structure
         output_dir = Path(output_dir)
-        log_path = output_dir / "change_log.txt"
         timestamp_now = datetime.now()
         timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
         log_entries = [f"[{timestamp_str}] Saving new version...\n"]
@@ -785,15 +808,6 @@ class DataLoaderAgent(ConfigReportMixin):
         except Exception as e:
             logger.error("Failed to save file {}: {}", new_path, e)
             raise OSError(f"Failed to save file {new_path}: {e}")
-
-        # Update change log
-        try:
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.writelines(log_entries)
-            logger.info("Updated change log {}", log_path)
-        except Exception as e:
-            logger.error("Failed to update change log {}: {}", log_path, e)
-            raise OSError(f"Failed to update change log {log_path}: {e}")
 
         # Update path annotations file
         try:
@@ -885,3 +899,19 @@ class DataLoaderAgent(ConfigReportMixin):
         df.fillna(pd.NA, inplace=True)
         
         return df
+    
+    def _write_log_to_file(self, log_entries: list, log_filename: str):
+        """
+        Helper method to write log entries to a file.
+        
+        Args:
+            log_entries: List of log entry strings
+            log_filename: Name of the log file
+        """
+        try:
+            log_path = Path(self.output_dir) / log_filename
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.writelines(log_entries)
+            self.logger.info(f"Updated log file: {log_path}")
+        except Exception as e:
+            self.logger.warning(f"Failed to write to log file {log_filename}: {e}")

@@ -9,12 +9,12 @@ from datetime import datetime, timedelta
 from typing import Dict, List,  Any
 
 from agents.utils import ConfigReportMixin
+from configs.shared.shared_source_config import SharedSourceConfig
 
 # Import healing system constants for error handling and recovery
 from agents.dataPipelineOrchestrator.data_collector_healing_rules import check_local_backup_and_update_status
 from configs.recovery.dataPipelineOrchestrator.data_pipeline_orchestrator_configs import (
     ProcessingStatus, ErrorType, AgentType, AgentExecutionInfo, RecoveryAction, get_agent_config)
-
 
 class DataCollector(ConfigReportMixin):
 
@@ -22,33 +22,47 @@ class DataCollector(ConfigReportMixin):
     A class responsible for collecting and processing data from various sources.
     Handles product records and purchase orders from Excel files and converts them to Parquet format.
     """
+    # Define requirements
+    REQUIRED_FIELDS = {
+        'dynamic_db_dir': str,
+        'data_pipeline_dir': str
+    }
 
-    def __init__(self,
-                 source_dir: str = "database/dynamicDatabase",
-                 default_dir: str = "agents/shared_db"
-                 ):
+    def __init__(self, config: SharedSourceConfig):
         
         """
-        Initialize the DataCollector with source and output directories.
+        Initialize the DataCollector.
         
         Args:
-            source_dir: Directory containing the source Excel files
-            default_dir: Base directory for output files
+            config: SharedSourceConfig containing processing parameters
+            Including:
+                - dynamic_db_dir: Directory containing the source Excel files
+                - data_pipeline_dir: Base directory for output files
         """
+
         self._capture_init_args()
 
         # Initialize logger for this class
         self.logger = logger.bind(class_="DataCollector")
 
-        self.source_dir = Path(source_dir)
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "dynamicDatabase"
+        # Validate required configs
+        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for config requirements: PASSED!")
+    
+        self.config = config
 
+        # Setup output dir
+        self.output_dir = Path(self.config.data_pipeline_dir) / "dynamicDatabase"
         # Create output directory if it doesn't exist
         os.makedirs(self.output_dir, exist_ok=True)
 
-        # Load configuration for this agent
-        self.config = get_agent_config(AgentType.DATA_COLLECTOR)
+        # Load healing configuration for this agent
+        self.healing_config = get_agent_config(AgentType.DATA_COLLECTOR)
 
     def process_all_data(self) -> Dict[str, Any]:
 
@@ -60,11 +74,14 @@ class DataCollector(ConfigReportMixin):
             Dict containing execution information with status, summary, details, and log entries
         """
         
+        self.logger.info("Starting DataCollector ...")
+
         start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
 
         # Generate config header using mixin
-        config_header = self._generate_config_report(timestamp_str)
+        config_header = self._generate_config_report(timestamp_str, 
+                                                     required_only=True)
 
         log_entries = [config_header]
         log_entries.append(f"--Processing Summary--\n")
@@ -76,7 +93,7 @@ class DataCollector(ConfigReportMixin):
         # Process product records from monthly reports
         log_entries.append(f">>> Processing Product Records <<<\n")
         product_result = self._process_data_type(
-            folder_path=self.source_dir / 'monthlyReports_history',
+            folder_path=Path(self.config.dynamic_db_dir) / 'monthlyReports_history',
             summary_file_path=self.output_dir / 'productRecords.parquet',
             name_start='monthlyReports_',
             file_extension='.xlsb',
@@ -90,7 +107,7 @@ class DataCollector(ConfigReportMixin):
         # Process purchase orders from purchase order files
         log_entries.append(f">>> Processing Purchase Orders <<<\n")
         purchase_result = self._process_data_type(
-            folder_path=self.source_dir / 'purchaseOrders_history',
+            folder_path=Path(self.config.dynamic_db_dir) / 'purchaseOrders_history',
             summary_file_path=self.output_dir / 'purchaseOrders.parquet',
             name_start='purchaseOrder_',
             file_extension='.xlsx',
@@ -170,6 +187,8 @@ class DataCollector(ConfigReportMixin):
             }
         )
 
+        self.logger.info("✅ Process finished!!!")
+
         return execution_info
 
     def _process_data_type(self, 
@@ -204,7 +223,7 @@ class DataCollector(ConfigReportMixin):
                 log_entries.append(f"  ❌ Source folder not found: {folder_path}\n")
                 
                 # Local healing - attempt rollback to backup
-                recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_NOT_FOUND, [])
+                recovery_actions = self.healing_config.recovery_actions.get(ErrorType.FILE_NOT_FOUND, [])
                 updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
                 # Write error log
@@ -229,7 +248,7 @@ class DataCollector(ConfigReportMixin):
                 log_entries.append(f"  ❌ Unsupported data type: {name_start}\n")
                 
                 # Local healing - attempt rollback to backup for unsupported data type
-                recovery_actions = self.config.recovery_actions.get(ErrorType.UNSUPPORTED_DATA_TYPE, [])
+                recovery_actions = self.healing_config.recovery_actions.get(ErrorType.UNSUPPORTED_DATA_TYPE, [])
                 updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
                 # Write error log
@@ -305,7 +324,7 @@ class DataCollector(ConfigReportMixin):
                 log_entries.append(f"  ❌ No files could be processed successfully\n")
                 
                 # Local healing - attempt rollback to backup
-                recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
+                recovery_actions = self.healing_config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
                 updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
                 # Write error log
@@ -341,7 +360,7 @@ class DataCollector(ConfigReportMixin):
                 log_entries.append(f"  ✅ All files processed successfully\n")
 
             # Prepare recovery actions for potential data processing errors
-            recovery_actions = self.config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
             # Final summary
@@ -378,7 +397,7 @@ class DataCollector(ConfigReportMixin):
             self.logger.error(f"Unexpected error in {data_type}: {e}")
 
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
             # Write error log
@@ -434,7 +453,7 @@ class DataCollector(ConfigReportMixin):
                 log_entries.append(f"        ❌ Missing fields: {', '.join(missing_fields)}\n")
                 
                 # Local healing - attempt rollback to backup for missing fields
-                recovery_actions = self.config.recovery_actions.get(ErrorType.MISSING_FIELDS, [])
+                recovery_actions = self.healing_config.recovery_actions.get(ErrorType.MISSING_FIELDS, [])
                 updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
                 return {
@@ -461,7 +480,7 @@ class DataCollector(ConfigReportMixin):
             log_entries.append(f"        ❌ Read error: {str(e)}\n")
             
             # Handle file reading errors
-            recovery_actions = self.config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.FILE_READ_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
             return {
@@ -562,7 +581,7 @@ class DataCollector(ConfigReportMixin):
             
             # Handle errors during data merging and processing
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.DATA_PROCESSING_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
             # Write error log
@@ -639,7 +658,7 @@ class DataCollector(ConfigReportMixin):
             log_entries.append(f"      ❌ Save error: {str(e)}\n")
 
             # Local healing - attempt rollback to backup
-            recovery_actions = self.config.recovery_actions.get(ErrorType.PARQUET_SAVE_ERROR, [])
+            recovery_actions = self.healing_config.recovery_actions.get(ErrorType.PARQUET_SAVE_ERROR, [])
             updated_recovery_actions = check_local_backup_and_update_status(recovery_actions, self.output_dir)
 
             return {
@@ -707,11 +726,11 @@ class DataCollector(ConfigReportMixin):
         for result in results:
             if result['status'] == ProcessingStatus.SUCCESS.value:
                 # Trigger data loader agents when data is successfully processed
-                trigger_list = self.config.trigger_on_status.get(ProcessingStatus.SUCCESS, [])
+                trigger_list = self.healing_config.trigger_on_status.get(ProcessingStatus.SUCCESS, [])
                 trigger_agents.extend([agent.value for agent in trigger_list])
             elif result['status'] == ProcessingStatus.ERROR.value:
                 # Trigger admin notification agents for errors
-                trigger_list = self.config.trigger_on_status.get(ProcessingStatus.ERROR, [])
+                trigger_list = self.healing_config.trigger_on_status.get(ProcessingStatus.ERROR, [])
                 trigger_agents.extend([agent.value for agent in trigger_list])
 
         return list(set(trigger_agents))  # Remove duplicates

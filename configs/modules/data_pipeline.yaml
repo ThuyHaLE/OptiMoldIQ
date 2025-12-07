@@ -7,19 +7,14 @@ project_root: "."
 # DATA PIPELINE MODULE CONFIG
 # ===========================
 data_pipeline:
+  #REQUIRED_FIELDS = {'dynamic_db_dir': str, 'databaseSchemas_path': str, 'annotation_path': str, 'data_pipeline_dir': str}
+
   # Source data directory (dynamic database)
-  dynamic_db_source_dir: "tests/mock_database/dynamicDatabase"
+  db_dir: "tests/mock_database" 
+  # => dynamic_db_dir = f"{self.db_dir}/dynamicDatabase"
+  # => databaseSchemas_path = f"{self.db_dir}/databaseSchemas.json"
 
-  # Database schema definitions
-  databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
-
-  # Annotation file path (optional)
-  # If not provided, will use: {default_dir}/DataLoaderAgent/newest/path_annotations.json
-  annotation_path: tests/shared_db/DataLoaderAgent/newest/path_annotations.json  
-  # or specify: "tests/shared_db/DataLoaderAgent/newest/path_annotations.json"
-
-  # Default output directory for processed data
-  default_dir: "tests/shared_db"
-
-  # Report formatting
-  use_colored_report: true 
+  default_dir: 'tests/shared_db'
+  #data_pipeline_dir = f"{default_dir}/DataPipelineOrchestrator"
+  #annotation_path = f"{data_pipeline_dir}/DataLoaderAgent/newest/path_annotations.json" 
+  
