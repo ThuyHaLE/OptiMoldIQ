@@ -2,7 +2,7 @@ from agents.validationOrchestrator.validation_orchestrator import ValidationOrch
 
 def test_validation_orchestrator():
     validation_orchestrator = ValidationOrchestrator(
-    source_path = 'tests/shared_db/DataLoaderAgent/newest',
+    source_path = 'tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest',
     annotation_name = "path_annotations.json",
     databaseSchemas_path = 'tests/mock_database/databaseSchemas.json',
     default_dir = "tests/shared_db")

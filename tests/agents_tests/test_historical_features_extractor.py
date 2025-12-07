@@ -7,7 +7,7 @@ def test_historical_features_extractor():
     
     # MoldStabilityConfig
     mold_stability_config = MoldStabilityConfig(
-        source_path = 'tests/shared_db/DataLoaderAgent/newest',
+        source_path = 'tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest',
         annotation_name = "path_annotations.json",
         databaseSchemas_path = 'database/databaseSchemas.json',
         default_dir = "tests/shared_db/HistoricalFeaturesExtractor",
@@ -19,7 +19,7 @@ def test_historical_features_extractor():
 
     # FeatureWeightConfig
     feature_weight_config = FeatureWeightConfig(
-        source_path = 'tests/shared_db/DataLoaderAgent/newest',
+        source_path = 'tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest',
         annotation_name = "path_annotations.json",
         databaseSchemas_path = 'database/databaseSchemas.json',
         sharedDatabaseSchemas_path = 'database/sharedDatabaseSchemas.json',
@@ -56,7 +56,7 @@ def test_historical_features_extractor():
         mold_stability_config = mold_stability_config,
 
         # Phase 2 - OrderProgressTracker configs
-        source_path = 'tests/shared_db/DataLoaderAgent/newest',
+        source_path = 'tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest',
         annotation_name = "path_annotations.json",
         databaseSchemas_path = 'tests/mock_database/databaseSchemas.json',
 
