@@ -4,6 +4,7 @@ from loguru import logger
 
 from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning, ConfigReportMixin
 from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+from configs.shared.shared_source_config import SharedSourceConfig
 
 import pandas as pd
 from pandas.api.types import is_object_dtype
@@ -32,24 +33,27 @@ class OrderProgressTracker(ConfigReportMixin):
     - Export Excel report
     """
 
-    def __init__(self,
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
-                 annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 folder_path: str = 'agents/shared_db/ValidationOrchestrator',
-                 target_name: str = "change_log.txt",
-                 default_dir: str = "agents/shared_db"):
+    REQUIRED_FIELDS = {
+        'annotation_path': str,
+        'databaseSchemas_path': str,
+        'validation_change_log_path': str,
+        'progress_tracker_dir': str
+        }
 
+    DEFAUTL_SCHEMA_PATH = "agents/orderProgressTracker/pro_status_schema.json"
+
+    def __init__(self, config: SharedSourceConfig):
+        
         """
-        Initialize OrderProgressTracker
-
+        Initialize the OrderProgressTracker.
+        
         Args:
-        source_path: Path to the directory containing the source data
-        annotation_name: Name of the annotation file containing the paths of the data files
-        databaseSchemas_path: Path to the database schema file
-        folder_path: Path to the directory containing the change log
-        target_name: Name of the change log file
-        default_dir: Default directory to save the output
+            config: SharedSourceConfig containing processing parameters
+            Including:
+                - annotation_path: Path to the JSON file containing path annotations
+                - databaseSchemas_path: Path to database schemas JSON file for validation
+                - validation_change_log_path: Path to the directory containing the validation change log
+                - progress_tracker_dir: Default directory for saving output files
         """
 
         self._capture_init_args()
@@ -57,87 +61,75 @@ class OrderProgressTracker(ConfigReportMixin):
         # Initialize logger with class name for better tracking
         self.logger = logger.bind(class_="OrderProgressTracker")
 
-        # Mapping shift start times
-        self.shift_start_map = {"1": "06:00", # Shift 1: 6:00 AM
-                                "2": "14:00", # Shift 2: 2:00 PM
-                                "3": "22:00", # Shift 3: 10:00 PM
-                                "HC": "08:00"} # Administrative shift: 8:00 AM
+        # Validate required configs
+        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for config requirements: PASSED!")
+    
+        self.config = config
 
-        # Define data types for columns in the production status table
-        self.pro_status_dtypes = {
-            'poReceivedDate': "datetime64[ns]",        # Date the PO was received
-            'poNo': "string",                          # Purchase Order number
-            'itemCode': "string",                      # Product code
-            'itemName': "string",                      # Product name
-            'itemType': "string",                      # Product type
-            'poETA': "datetime64[ns]",                 # Estimated delivery date
-            'itemQuantity': "Int64",                   # Ordered quantity
-            'itemRemain': "Int64",                     # Remaining quantity to be produced
-            'startedDate': "datetime64[ns]",           # Production start date
-            'actualFinishedDate': "datetime64[ns]",    # Actual production completion date
-            'proStatus': "string",                     # Production status
-            'etaStatus': 'string',                     # Status compared to ETA
-            'machineHist': 'object',                   # Production machine history
-            'moldList': 'object',                      # List of molds used
-            'moldHist': 'object',                      # Mold usage history
-            'moldCavity': 'object',                    # Mold cavity count
-            'plasticResinCode': 'object',              # Raw plastic resin code
-            'colorMasterbatchCode': 'object',          # Color masterbatch code
-            'additiveMasterbatchCode': 'object',       # Additive masterbatch code
-            'totalMoldShot': "Int64",                  # Total mold shots
-            'totalDay': "Int64",                       # Total production days
-            'totalShift': "Int64",                     # Total production shifts
-            'moldShotMap': 'object',                   # Mapping of mold shots by mold
-            'machineQuantityMap': 'object',            # Quantity mapping by machine
-            'dayQuantityMap': 'object',                # Quantity mapping by day
-            'shiftQuantityMap': 'object',              # Quantity mapping by shift
-            'materialComponentMap': 'object'           # Mapping of material components
-        }
-
-        # List of fields to output the final result
-        self.pro_status_fields = ['poReceivedDate', 'poNo', 'itemCode', 'itemName', 'poETA', 'itemQuantity',
-                                  'itemRemain', 'startedDate', 'actualFinishedDate','proStatus', 'etaStatus',
-                                  'machineHist', 'itemType', 'moldList', 'moldHist', 'moldCavity', 'totalMoldShot' , 'totalDay', 'totalShift',
-                                  'plasticResinCode', 'colorMasterbatchCode', 'additiveMasterbatchCode',
-                                  'moldShotMap', 'machineQuantityMap', 'dayQuantityMap', 'shiftQuantityMap','materialComponentMap']
+        # Load database schema for productRecords_df
+        self.pro_status_schema = load_annotation_path(
+            Path(self.DEFAUTL_SCHEMA_PATH).parent,
+            Path(self.DEFAUTL_SCHEMA_PATH).name)
 
         # Load database schema and database paths annotation
-        self.databaseSchemas_data = load_annotation_path(Path(databaseSchemas_path).parent,
-                                                         Path(databaseSchemas_path).name)
-        self.path_annotation = load_annotation_path(source_path,
-                                                    annotation_name)
+        self.databaseSchemas_data = load_annotation_path(
+            Path(self.config.databaseSchemas_path).parent,
+            Path(self.config.databaseSchemas_path).name)
+        
+        self.path_annotation = load_annotation_path(
+            Path(self.config.annotation_path).parent,
+            Path(self.config.annotation_path).name)
 
-        # ===== Load productRecords DataFrame =====
-        productRecords_path = self.path_annotation.get('productRecords')
-        if not productRecords_path or not os.path.exists(productRecords_path):
-            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
-            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
-        self.productRecords_df = pd.read_parquet(productRecords_path)
-        logger.debug("productRecords: {} - {}", self.productRecords_df.shape, self.productRecords_df.columns)
-
-        # ===== Load purchaseOrders DataFrame =====
-        purchaseOrders_path = self.path_annotation.get('purchaseOrders')
-        if not purchaseOrders_path or not os.path.exists(purchaseOrders_path):
-            self.logger.error("❌ Path to 'purchaseOrders' not found or does not exist.")
-            raise FileNotFoundError("Path to 'purchaseOrders' not found or does not exist.")
-        self.purchaseOrders_df = pd.read_parquet(purchaseOrders_path)
-        logger.debug("purchaseOrders: {} - {}", self.purchaseOrders_df.shape, self.purchaseOrders_df.columns)
-
-        # ===== Load moldSpecificationSummary DataFrame =====
-        moldSpecificationSummary_path = self.path_annotation.get('moldSpecificationSummary')
-        if not moldSpecificationSummary_path or not os.path.exists(moldSpecificationSummary_path):
-            self.logger.error("❌ Path to 'moldSpecificationSummary' not found or does not exist.")
-            raise FileNotFoundError("Path to 'moldSpecificationSummary' not found or does not exist.")
-        self.moldSpecificationSummary_df = pd.read_parquet(moldSpecificationSummary_path)
-        logger.debug("moldSpecificationSummary: {} - {}", self.moldSpecificationSummary_df.shape, self.moldSpecificationSummary_df.columns)
-
-        # Set output file paths and names
-        self.folder_path = folder_path
-        self.target_name = target_name
+        # Load all required DataFrames from parquet files
+        self._load_dataframes()
+        
+        # Set up output configuration for saving results
         self.filename_prefix= "auto_status"
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "OrderProgressTracker"
+        self.output_dir = Path(self.config.progress_tracker_dir)
 
+    def _load_dataframes(self) -> None:
+        
+        """
+        Load all required DataFrames from parquet files with consistent error handling.
+        
+        This method loads the following DataFrames:
+        - productRecords_df: Production records with item, mold, machine data
+        - machineInfo_df: Machine specifications and tonnage information
+        - moldSpecificationSummary_df: Mold specifications and compatible items
+        - moldInfo_df: Detailed mold information including tonnage requirements
+        - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
+        """
+
+        # Define the mapping between path annotation keys and DataFrame attribute names
+        dataframes_to_load = [
+            ('productRecords', 'productRecords_df'),
+            ('purchaseOrders', 'purchaseOrders_df'),
+            ('moldSpecificationSummary', 'moldSpecificationSummary_df')
+        ]
+        
+        # Load each DataFrame with error handling
+        for path_key, attr_name in dataframes_to_load:
+            path = self.path_annotation.get(path_key)
+
+            # Validate path exists
+            if not path or not os.path.exists(path):
+                self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
+                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
+
+            try:
+                # Load DataFrame from parquet file
+                df = pd.read_parquet(path)
+                setattr(self, attr_name, df)
+                self.logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
+            except Exception as e:
+                self.logger.error("Failed to load {}: {}", path_key, str(e))
+                raise
 
     def pro_status(self, **kwargs) -> None:
 
@@ -152,90 +144,125 @@ class OrderProgressTracker(ConfigReportMixin):
         5. Export Excel file
         """
 
-        # Step 1: Merge order data with mold information
-        ordersInfo_df = pd.merge(self.purchaseOrders_df[['poNo', 'poReceivedDate', 'poETA', 'itemCode',	'itemName', 'itemQuantity']],
-                                 self.moldSpecificationSummary_df[['itemCode', 'itemType', 'moldList']],
-                                 on='itemCode', how='left')
+        self.logger.info("Starting OrderProgressTracker ...")
 
-        # Step 2: Extract and summarize production data
-        agg_df, producing_po_list, notWorking_productRecords_df = OrderProgressTracker._extract_product_records(self.productRecords_df, self.shift_start_map)
-
-        # Step 3: Process production status
-        pro_status_df = OrderProgressTracker._pro_status_processing(pd.merge(ordersInfo_df,
-                                                                             agg_df,
-                                                                             on='poNo', how='left'),
-                                              self.pro_status_fields,
-                                              producing_po_list,
-                                              self.pro_status_dtypes)
-        pro_status_df = OrderProgressTracker._mark_paused_pending_pos(self.productRecords_df,
-                                                                      pro_status_df,
-                                                                      self.shift_start_map)
-
-        # Get the latest machine information for each po on working shift timestamp
-        lastest_info_df = OrderProgressTracker._get_latest_po_info(self.productRecords_df,
-                                                                    self.shift_start_map,
-                                                                    keys=['machineNo', 'moldNo'])
-        updated_lastest_info_df = pro_status_df.merge(lastest_info_df, how='left', on='poNo')
-
-        # Step 4: Get and add warning information from validationOrchestrator's output
-        warning_merge_dict, total_warnings = OrderProgressTracker._get_change(self.folder_path, self.target_name)
-        updated_pro_status_df = OrderProgressTracker._add_warning_notes_column(updated_lastest_info_df, warning_merge_dict)
-
-        # Step 5: Prepare output data
-        self.data = {
-                    "productionStatus": updated_pro_status_df,
-                    'materialComponentMap': OrderProgressTracker._pro_status_fattening(updated_pro_status_df,
-                                                                                       field_name = 'materialComponentMap'),
-                    'moldShotMap': OrderProgressTracker._pro_status_fattening(updated_pro_status_df,
-                                                                              field_name = 'moldShotMap'),
-                    'machineQuantityMap': OrderProgressTracker._pro_status_fattening(updated_pro_status_df,
-                                                                                     field_name = 'machineQuantityMap'),
-                    'dayQuantityMap': OrderProgressTracker._pro_status_fattening(updated_pro_status_df,
-                                                                                 field_name = 'dayQuantityMap'),
-                    "notWorkingStatus": notWorking_productRecords_df,
-                    }
-
-        # Add warning information into output data if any
-        if total_warnings:
-            self.data.update(total_warnings)
-
-        # Generate validation summary
-        reporter = DictBasedReportGenerator(use_colors=False)
-        tracking_summary = "\n".join(reporter.export_report(self.data))
-
+        start_time = datetime.now()
         # Generate config header using mixin
-        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
-
+        timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, 
+                                                     required_only=True)
+        
+        # Initialize validation log entries for entire processing run
         tracking_log_lines = [config_header]
         tracking_log_lines.append(f"--Processing Summary--\n")
         tracking_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
 
-        # Step 6: Export Excel file
-        logger.info("Start excel file exporting...")
-        output_exporting_log = save_output_with_versioning(
-            data = self.data,
-            output_dir = self.output_dir,
-            filename_prefix = self.filename_prefix,
-            report_text = tracking_summary
-        )
-        self.logger.info("Results exported successfully!")
-        tracking_log_lines.append(f"{output_exporting_log}")
-
-        tracking_log_str = "\n".join(tracking_log_lines)
-
         try:
-            log_path = self.output_dir / "change_log.txt"
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write(tracking_log_str)
-            self.logger.info("✓ Updated and saved change log: {}", log_path)
-        except Exception as e:
-            self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+            # Step 1: Merge order data with mold information
+            ordersInfo_df = pd.merge(
+                self.purchaseOrders_df[['poNo', 'poReceivedDate', 'poETA', 'itemCode',	'itemName', 'itemQuantity']],
+                self.moldSpecificationSummary_df[['itemCode', 'itemType', 'moldList']],
+                on='itemCode',
+                how='left')
 
-        return self.data, tracking_log_str
+            # Step 2: Extract and summarize production data
+            agg_df, producing_po_list, notWorking_productRecords_df = OrderProgressTracker._extract_product_records(
+                self.productRecords_df, 
+                self.pro_status_schema['shift_start_map'])
+
+            # Step 3: Process production status
+            pro_status_df = OrderProgressTracker._pro_status_processing(
+                pd.merge(ordersInfo_df,
+                         agg_df,
+                         on='poNo', 
+                         how='left'),
+                self.pro_status_schema['pro_status_fields'],
+                producing_po_list,
+                self.pro_status_schema['pro_status_dtypes']
+                )
+            
+            pro_status_df = OrderProgressTracker._mark_paused_pending_pos(
+                self.productRecords_df,
+                pro_status_df,
+                self.pro_status_schema['shift_start_map']
+                )
+
+            # Get the latest machine information for each po on working shift timestamp
+            lastest_info_df = OrderProgressTracker._get_latest_po_info(
+                self.productRecords_df,
+                self.pro_status_schema['shift_start_map'],
+                keys=['machineNo', 'moldNo']
+                )
+            updated_lastest_info_df = pro_status_df.merge(lastest_info_df, 
+                                                          how='left', 
+                                                          on='poNo')
+
+            # Step 4: Get and add warning information from validationOrchestrator's output
+            warning_merge_dict, total_warnings = OrderProgressTracker._get_change(
+                self.config.validation_change_log_path)
+            updated_pro_status_df = OrderProgressTracker._add_warning_notes_column(
+                updated_lastest_info_df, 
+                warning_merge_dict)
+
+            # Step 5: Prepare output data
+            self.data = {
+                        "productionStatus": updated_pro_status_df,
+                        'materialComponentMap': OrderProgressTracker._pro_status_fattening(
+                            updated_pro_status_df,
+                            field_name = 'materialComponentMap'),
+                        'moldShotMap': OrderProgressTracker._pro_status_fattening(
+                            updated_pro_status_df,
+                            field_name = 'moldShotMap'),
+                        'machineQuantityMap': OrderProgressTracker._pro_status_fattening(
+                            updated_pro_status_df,
+                            field_name = 'machineQuantityMap'),
+                        'dayQuantityMap': OrderProgressTracker._pro_status_fattening(
+                            updated_pro_status_df,
+                            field_name = 'dayQuantityMap'),
+                        "notWorkingStatus": notWorking_productRecords_df,
+                        }
+
+            # Add warning information into output data if any
+            if total_warnings:
+                self.data.update(total_warnings)
+
+            # Generate validation summary
+            reporter = DictBasedReportGenerator(use_colors=False)
+            tracking_summary = "\n".join(reporter.export_report(self.data))
+            tracking_log_lines.append(f"{tracking_summary}")
+
+            # Step 6: Export Excel file
+            logger.info("Start excel file exporting...")
+            output_exporting_log = save_output_with_versioning(
+                data = self.data,
+                output_dir = self.output_dir,
+                filename_prefix = self.filename_prefix,
+                report_text = tracking_summary
+            )
+            self.logger.info("Results exported successfully!")
+            tracking_log_lines.append(f"{output_exporting_log}\n")
+
+            tracking_log_str = "\n".join(tracking_log_lines)
+
+            try:
+                log_path = self.output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(tracking_log_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+
+            self.logger.info("✅ Process finished!!!")
+
+            return self.data, tracking_log_str
+        
+        except Exception as e:
+            self.logger.error("❌ Validation failed: {}", str(e))
+            raise
 
     @staticmethod
-    def _get_shift_start(row, shift_start_map,
+    def _get_shift_start(row, 
+                         shift_start_map,
                          date_field_name='recordDate',
                          shift_field_name='workingShift'):
 
@@ -267,7 +294,9 @@ class OrderProgressTracker(ConfigReportMixin):
             hour, minute = map(int, start_time_str.split(":"))
 
             # Create datetime combining shift start date and time
-            start_datetime = datetime.combine(date.date(), datetime.min.time()) + timedelta(hours=hour, minutes=minute)
+            start_datetime = datetime.combine(
+                date.date(), 
+                datetime.min.time()) + timedelta(hours=hour, minutes=minute)
 
             return pd.Timestamp(start_datetime)
 
@@ -668,7 +697,7 @@ class OrderProgressTracker(ConfigReportMixin):
         return None
 
     @staticmethod
-    def _get_change(folder_path, target_name):
+    def _get_change(change_log_path: str):
 
         """
         Process the log file and summarize mismatch warnings if available.
@@ -679,7 +708,9 @@ class OrderProgressTracker(ConfigReportMixin):
         """
 
         try:
-            excel_file = read_change_log(folder_path, target_name)
+            excel_file = read_change_log(
+                Path(change_log_path).parent, 
+                Path(change_log_path).name)
 
             if excel_file is None:
                 logger.info("No change log file found, returning empty warnings")

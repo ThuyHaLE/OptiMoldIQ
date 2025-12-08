@@ -7,20 +7,17 @@ project_root: "."
 # PROGRESS TRACKING MODULE CONFIG
 # ===============================
 progress_tracking:
+# REQUIRED_FIELDS = {
+# 'annotation_path': str, 
+# 'databaseSchemas_path': str, 
+# 'validation_change_log_path': str, 
+# 'progress_tracker_dir': str}
 
-  # Main shared database from DataPipeline
-  source_path: 'tests/shared_db/DataLoaderAgent/newest' # Directory
-  annotation_name: "path_annotations.json"              # Annotation name
+  # Source data directory (dynamic database)
+  db_dir: "tests/mock_database" 
+  # => databaseSchemas_path = f"{self.db_dir}/databaseSchemas.json"
 
-  # Database schema definitions
-  databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
-
-  # Change log from ValidationOrchestrator
-  folder_path: "tests/shared_db/ValidationOrchestrator"
-  target_name: "change_log.txt"
-
-  # Default output directory for processed data
-  default_dir: "tests/shared_db"
-
-  # Report formatting
-  use_colored_report: true
+  default_dir: 'tests/shared_db'
+  #annotation_path = f"{default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json" 
+  #validation_change_log_path = f"{self.default_dir}/ValidationOrchestrator/change_log.txt"
+  #progress_tracker_dir = f"{self.default_dir}/OrderProgressTracker"

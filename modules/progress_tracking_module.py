@@ -1,11 +1,11 @@
 # modules/progress_tracking_module.py
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 
-from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
+from agents.orderProgressTracker.order_progress_tracker import SharedSourceConfig, OrderProgressTracker
 
 class ProgressTrackingModule(BaseModule):
     """
@@ -16,6 +16,42 @@ class ProgressTrackingModule(BaseModule):
     
     DEFAULT_CONFIG_PATH = 'configs/modules/progress_tracking.yaml'
 
+    def __init__(self, config_path: Optional[str] = None):
+        # Load YAML as dict (via BaseModule)
+        super().__init__(config_path)
+        
+        # Convert dict to SharedSourceConfig
+        self.shared_config = self._build_shared_config()
+
+    def _build_shared_config(self) -> SharedSourceConfig:
+        """Build SharedSourceConfig from loaded YAML dict"""
+        
+        # Extract values from YAML structure
+        project_root = Path(self.config.get('project_root', '.'))
+        progress_tracking_config = self.config.get('progress_tracking', {})
+        if not progress_tracking_config:
+            self.logger.debug("ProgressTrackingModule config not found in loaded YAML dict")
+        
+        # Helper function to join paths with project_root
+        def resolve_path(path_value: Optional[str]) -> Optional[str]:
+            """Join path with project_root if provided, else return None"""
+            if path_value is None:
+                return None
+            return str(project_root / path_value)
+        
+        # Map YAML fields to SharedSourceConfig
+        return SharedSourceConfig(
+            # Required fields
+            db_dir=resolve_path(progress_tracking_config.get('db_dir')) or 'database',
+            default_dir=resolve_path(progress_tracking_config.get('default_dir')) or 'agents/shared_db',
+            
+            # Optional fields
+            databaseSchemas_path=resolve_path(progress_tracking_config.get('databaseSchemas_path')),
+            annotation_path=resolve_path(progress_tracking_config.get('annotation_path')),
+            validation_change_log_path=resolve_path(progress_tracking_config.get('validation_change_log_path')),
+            progress_tracker_dir=resolve_path(progress_tracking_config.get('progress_tracker_dir'))
+        )
+    
     @property
     def module_name(self) -> str:
         """Unique module name"""
@@ -48,13 +84,10 @@ class ProgressTrackingModule(BaseModule):
             self.config: Configuration containing:
                 - project_root: Project root directory
                 - progress_tracking:
-                    - source_path: Main shared database (from DataPipeline) directory
-                    - annotation_name: Annotation name
+                    - annotation_path: Path to annotations
                     - databaseSchemas_path: Path to database schemas
-                    - folder_path: Change log (from ValidationOrchestrator) directory
-                    - target_name: Change log name
-                    - default_dir: Default directory for outputs
-                    - use_colored_report: Whether to use colored output (default: True)
+                    - validation_change_log_path: Change log path (from ValidationOrchestrator)
+                    - progress_tracker_dir: Default directory for outputs
             dependencies: Empty dict (no dependencies)
             
         Returns:
@@ -64,57 +97,8 @@ class ProgressTrackingModule(BaseModule):
         self.logger = logger.bind(class_="ProgressTrackingModule")
 
         try:
-
-            # Extract self.config
-            project_root = Path(self.config.get('project_root', '.'))
-            progress_tracking_config = self.config.get('progress_tracking', {})
-
-            self.logger.debug("Project root: {}", project_root)
-
-            if not progress_tracking_config:
-                self.logger.debug("Cannot load OrderProgressTracker config")
-            
-            # Main shared database from DataPipeline
-            source_path = str(project_root / progress_tracking_config.get(
-                'source_path', 
-                'agents/shared_db/DataLoaderAgent/newest'))
-            annotation_name = progress_tracking_config.get(
-                'annotation_name',
-                'path_annotations.json')
-            
-            databaseSchemas_path = str(project_root / progress_tracking_config.get(
-                'databaseSchemas_path',
-                'database/databaseSchemas.json'
-            ))
-            
-            # Change log from ValidationOrchestrator
-            folder_path = str(project_root / progress_tracking_config.get(
-                'folder_path',
-                'agents/shared_db/ValidationOrchestrator'
-            ))
-            target_name = progress_tracking_config.get(
-                'target_name',
-                'change_log.txt')
-            
-            default_dir = str(project_root / progress_tracking_config.get(
-                'default_dir',
-                'agents/shared_db' 
-            ))
-            
-            self.logger.info("OrderProgressTracker configuration:")
-            self.logger.info(f"  - Annotation Path: {source_path}/{annotation_name}")
-            self.logger.info(f"  - Database Schemas: {databaseSchemas_path}")
-            self.logger.info(f"  - ValidationOrchestrator Change Log Path: {folder_path}/{target_name}")
-            self.logger.info(f"  - Default Dir: {default_dir}")
-            
             # Create tracker
-            order_progress_tracker = OrderProgressTracker(
-                source_path = source_path,
-                annotation_name = annotation_name,
-                databaseSchemas_path = databaseSchemas_path,
-                folder_path = folder_path,
-                target_name = target_name,
-                default_dir = default_dir)
+            order_progress_tracker = OrderProgressTracker(config = self.shared_config)
             
             # Run validations
             self.logger.info("Running tracking...")
@@ -134,9 +118,9 @@ class ProgressTrackingModule(BaseModule):
                 context_updates={
                     'progress_tracking_result': results,
                     'progress_tracking_log': log_str,
-                    'dataschemas_path': databaseSchemas_path,
-                    'annotation_path': f"{source_path}/{annotation_name}",
-                    'validation_changlog_path': f"{folder_path}/{target_name}"
+                    'dataschemas_path': self.config.databaseSchemas_path,
+                    'annotation_path': self.config.annotation_path,
+                    'validation_changlog_path': self.config.validation_change_log_path
                 }
             )
             
