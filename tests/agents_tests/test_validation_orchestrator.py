@@ -1,12 +1,15 @@
-from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
+from agents.validationOrchestrator.validation_orchestrator import SharedSourceConfig, ValidationOrchestrator
 
 def test_validation_orchestrator():
-    validation_orchestrator = ValidationOrchestrator(
-    source_path = 'tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest',
-    annotation_name = "path_annotations.json",
-    databaseSchemas_path = 'tests/mock_database/databaseSchemas.json',
-    default_dir = "tests/shared_db")
 
-    results, log_str = validation_orchestrator.run_validations_and_save_results()
+    shared_source_config = SharedSourceConfig(
+        db_dir = 'tests/mock_database',
+        default_dir = 'tests/shared_db'
+    )
 
+    final_report, validation_log_str = ValidationOrchestrator(
+        shared_source_config=shared_source_config,
+        enable_parallel = False,
+        max_workers = None).run_validations_and_save_results()
+    
     assert True

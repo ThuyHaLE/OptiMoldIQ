@@ -7,16 +7,27 @@ project_root: "."
 # VALIDATION MODULE CONFIG
 # ========================
 validation:
+  #REQUIRED_FIELDS = 
+  #'shared_source_config': {
+  #   'validation_df_name': List[str],
+  #   'databaseSchemas_path': str,
+  #   'annotation_path': str,
+  #   'validation_dir': str,
+  #   },
+  #'enable_parallel': bool,
+  #'max_workers': Optional[int]
 
-  # Main shared database from DataPipeline
-  source_path: 'tests/shared_db/DataLoaderAgent/newest' # Directory
-  annotation_name: "path_annotations.json"              # Annotation name
+  shared_source_config:
+    # Source data directory (dynamic database)
+    db_dir: "tests/mock_database" 
+    # => dynamic_db_dir = f"{self.db_dir}/dynamicDatabase"
+    # => databaseSchemas_path = f"{self.db_dir}/databaseSchemas.json"
 
-  # Database schema definitions
-  databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+    default_dir: 'tests/shared_db'
+    #annotation_path = f"{default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json" 
+    #validation_dir = f"{self.default_dir}/ValidationOrchestrator"
+    #validation_df_name = ["productRecords", "purchaseOrders"]
 
-  # Default output directory for processed data
-  default_dir: "tests/shared_db"
+  enable_parallel: true
 
-  # Report formatting
-  use_colored_report: true 
+  max_workers: null

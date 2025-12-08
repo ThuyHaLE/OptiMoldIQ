@@ -5,12 +5,17 @@ from agents.utils import load_annotation_path, save_output_with_versioning
 import pandas as pd
 import os
 
+from datetime import datetime
+from agents.utils import ConfigReportMixin
+from configs.shared.shared_source_config import SharedSourceConfig
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
     "purchaseOrders_df": list(self.databaseSchemas_data['dynamicDB']['purchaseOrders']['dtypes'].keys()),
 })
-class PORequiredCriticalValidator:
+class PORequiredCriticalValidator(ConfigReportMixin):
 
     """
     A validator class that checks Purchase Order (PO) data consistency between 
@@ -22,55 +27,243 @@ class PORequiredCriticalValidator:
     3. Generates warnings for any mismatches or invalid records
     """
 
-    def __init__(self, 
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
-                 annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db"):
+    # Define requirements
+    REQUIRED_FIELDS = {
+        'databaseSchemas_path': str,
+        'annotation_path': str,
+        'validation_dir': str
+    }
+
+    def __init__(self, config: SharedSourceConfig):
         
         """
-        Initialize the PO validator with database paths and schemas.
+        Initialize the PORequiredCriticalValidator.
         
         Args:
-            source_path: Path to the directory containing data file annotations
-            annotation_name: Name of the JSON file containing data file paths
-            databaseSchemas_path: Path to the database schema configuration file
-            default_dir: Default directory for output files
+            config: SharedSourceConfig containing processing parameters
+            Including:
+                - annotation_path: Path to the JSON file containing path annotations
+                - databaseSchemas_path: Path to database schemas JSON file for validation
+                - validation_dir: Default directory for saving output files
         """
+
+        self._capture_init_args()
         
+        # Initialize logger for this class
         self.logger = logger.bind(class_="PORequiredCriticalValidator")
 
+        # Validate required configs
+        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for config requirements: PASSED!")
+    
+        self.config = config
+
         # Load database schema configuration to understand data structure
-        self.databaseSchemas_data = load_annotation_path(Path(databaseSchemas_path).parent, 
-                                                         Path(databaseSchemas_path).name)
+        self.databaseSchemas_data = load_annotation_path(Path(self.config.databaseSchemas_path).parent, 
+                                                         Path(self.config.databaseSchemas_path).name)
         
         # Load path annotations that contain actual file paths to data
-        self.path_annotation = load_annotation_path(source_path, 
-                                                    annotation_name)
+        self.path_annotation = load_annotation_path(Path(self.config.annotation_path).parent, 
+                                                    Path(self.config.annotation_path).name)
 
-        # Load and validate productRecords DataFrame
-        productRecords_path = self.path_annotation.get('productRecords')
-        if not productRecords_path or not os.path.exists(productRecords_path):
-            self.logger.error("❌ Path to 'productRecords' not found or does not exist.")
-            raise FileNotFoundError("Path to 'productRecords' not found or does not exist.")
-        self.productRecords_df = pd.read_parquet(productRecords_path)
-        self.logger.debug("productRecords: {} - {}", self.productRecords_df.shape, self.productRecords_df.columns)
-
-        # Load and validate purchaseOrders DataFrame
-        purchaseOrders_path = self.path_annotation.get('purchaseOrders')
-        if not purchaseOrders_path or not os.path.exists(purchaseOrders_path):
-            self.logger.error("❌ Path to 'purchaseOrders' not found or does not exist.")
-            raise FileNotFoundError("Path to 'purchaseOrders' not found or does not exist.")
-        self.purchaseOrders_df = pd.read_parquet(purchaseOrders_path)
-        self.logger.debug("purchaseOrders: {} - {}", self.purchaseOrders_df.shape, self.purchaseOrders_df.columns)
-        
-        # Clean and preprocess productRecords DataFrame for validation
-        self.rm_null_productRecords_df = self._process_product_records()
+        # Load all required DataFrames from parquet files
+        self._load_dataframes()
         
         # Set up output configuration for saving results
         self.filename_prefix = "po_required_critical_validator"
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "PORequiredCriticalValidator"
+        self.output_dir = Path(self.config.validation_dir) / "PORequiredCriticalValidator"
+
+    def _load_dataframes(self) -> None:
+        
+        """
+        Load all required DataFrames from parquet files with consistent error handling.
+        
+        This method loads the following DataFrames:
+        - productRecords_df: Production records
+        - purchaseOrders_df: Purchase order records
+        """
+
+        # Define the mapping between path annotation keys and DataFrame attribute names
+        dataframes_to_load = [
+            ('productRecords', 'productRecords_df'),
+            ('purchaseOrders', 'purchaseOrders_df')
+        ]
+        
+        # Load each DataFrame with error handling
+        for path_key, attr_name in dataframes_to_load:
+            path = self.path_annotation.get(path_key)
+
+            # Validate path exists
+            if not path or not os.path.exists(path):
+                self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
+                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
+
+            try:
+                # Load DataFrame from parquet file
+                df = pd.read_parquet(path)
+                setattr(self, attr_name, df)
+                self.logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
+            except Exception as e:
+                self.logger.error("Failed to load {}: {}", path_key, str(e))
+                raise
+    
+    def run_validations(self, 
+                        save_results: bool = False,
+                        **kwargs):
+
+        """
+        Run comprehensive PO validation checks.
+        
+        This method performs the following validations:
+        1. Identifies overlapping fields between product records and purchase orders
+        2. Finds invalid PO numbers (exist in product records but not in purchase orders)
+        3. Validates data consistency for valid PO numbers
+        4. Generates detailed warnings for all validation failures
+        
+        Returns:
+            pd.DataFrame: DataFrame containing all validation warnings and errors
+        """
+
+        self.logger.info("Starting PORequiredCriticalValidator ...")
+
+        start_time = datetime.now()
+        # Generate config header using mixin
+        timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, 
+                                                     required_only=True)
+        
+        # Initialize validation log entries for entire processing run
+        validation_log_entries = [config_header]
+        validation_log_entries.append(f"--Processing Summary--\n")
+        validation_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
+
+        try:
+            # Clean and preprocess productRecords DataFrame for validation
+            rm_null_productRecords_df = self._process_product_records()
+
+            # Find common columns between both DataFrames for comparison
+            overlap_field_list = list(set(rm_null_productRecords_df.columns) & set(self.purchaseOrders_df.columns))
+
+            # Get unique PO numbers from both datasets for comparison
+            productRecords_poNo_set = set(rm_null_productRecords_df['poNo'])
+            purchaseOrders_poNo_set = set(self.purchaseOrders_df['poNo'])
+
+            # Find PO numbers that exist in product records but not in purchase orders (invalid)
+            invalid_poNo_list = list(productRecords_poNo_set - purchaseOrders_poNo_set)
+            invalid_productRecords = rm_null_productRecords_df[
+                rm_null_productRecords_df['poNo'].isin(invalid_poNo_list)
+                ].copy()
+            self.logger.info("Invalid PO list: {}", invalid_poNo_list)
+
+            # Find PO numbers that exist in both datasets (valid for further validation)
+            valid_poNo_list = list(productRecords_poNo_set & purchaseOrders_poNo_set)
+            
+            # Filter both DataFrames to include only valid PO numbers
+            productRecords_df_filtered = rm_null_productRecords_df[
+                rm_null_productRecords_df['poNo'].isin(valid_poNo_list)
+            ].copy()
+            purchaseOrders_df_filtered = self.purchaseOrders_df[
+                self.purchaseOrders_df['poNo'].isin(valid_poNo_list)
+            ].copy()
+
+            # Merge DataFrames on PO number to compare field values
+            # Include additional context fields from product records for reporting
+            merged = pd.merge(
+                productRecords_df_filtered[overlap_field_list+['recordDate', 'workingShift', 'machineNo']], 
+                purchaseOrders_df_filtered[overlap_field_list], 
+                on='poNo', 
+                suffixes=('_productRecords', '_purchaseOrders')
+            )
+
+            # Get list of fields to compare (excluding 'poNo' which is the join key)
+            comparison_cols = [c for c in overlap_field_list if c != 'poNo']
+
+            # Perform vectorized comparison for all fields
+            # Create boolean columns indicating whether each field matches
+            for col in comparison_cols:
+                col_pr = f'{col}_productRecords' # Column name from product records
+                col_po = f'{col}_purchaseOrders' # Column name from purchase orders
+                
+                # Vectorized comparison that properly handles NaN values
+                # Two values match if both are NaN OR both are equal
+                merged[f'{col}_match'] = (
+                    (merged[col_pr].isna() & merged[col_po].isna()) | 
+                    (merged[col_pr] == merged[col_po])
+                )
+
+            # Calculate final match status: all fields must match for a record to be valid
+            field_match_columns = [f'{col}_match' for col in comparison_cols]
+            merged['final_match'] = merged[field_match_columns].all(axis=1)
+
+            self.logger.debug("Merged data with match results: {} - {}", 
+                              merged.shape, merged.columns)
+
+            # Generate warnings for field mismatches in valid PO numbers
+            invalid_field_warnings = PORequiredCriticalValidator._process_warnings(
+                merged, comparison_cols)
+            
+            # Generate warnings for invalid PO numbers (if any exist)
+            invalid_po_warnings = (
+                [] if not invalid_poNo_list
+                else PORequiredCriticalValidator._process_invalid_po_warnings(invalid_productRecords)
+            )
+
+            # Combine all warnings into a single list
+            all_invalid_warnings = invalid_field_warnings + invalid_po_warnings
+
+            # Calculate and log summary statistics
+            total_processed = len(merged) + len(invalid_poNo_list)
+            total_valid = len(merged) - len(invalid_field_warnings)
+            total_invalid = len(all_invalid_warnings)
+
+            # Return warnings as DataFrame, or empty DataFrame with expected columns if no warnings
+            final_result = (
+                pd.DataFrame(all_invalid_warnings) if all_invalid_warnings 
+                else pd.DataFrame(columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
+            )
+
+            # Log summary information for user review
+            validation_log_entries.append("Validation Summary:")
+            validation_log_entries.append(f"⤷ Total processed POs: {total_processed}")
+            validation_log_entries.append(f"⤷ Valid POs: {total_valid}")
+            validation_log_entries.append(f"⤷ Invalid POs: {total_invalid} (Field mismatches: {len(invalid_field_warnings)}, Non-existent orders: {len(invalid_po_warnings)})")
+
+            reporter = DictBasedReportGenerator(use_colors=False)
+            validation_summary = "\n".join(reporter.export_report({'Warning details': final_result}))
+            validation_log_entries.append(f"{validation_summary}") 
+
+            if save_results:
+                try:
+                    # Export results to Excel with versioning
+                    self.logger.info("Exporting results to Excel...")
+
+                    # Prepare data for saving
+                    output_exporting_log = save_output_with_versioning(
+                        data = {"Sheet1": final_result},
+                        output_dir = self.output_dir,
+                        filename_prefix = self.filename_prefix,
+                        report_text = validation_summary
+                    )
+                    self.logger.info("Results exported successfully!")
+                    validation_log_entries.append(f"{output_exporting_log}")
+
+                except Exception as e:
+                    self.logger.error("Failed to save results: {}", str(e))
+                    raise
+            
+            validation_log_str = "\n".join(validation_log_entries)
+            self.logger.info("✅ Process finished!!!")
+
+            return final_result, validation_log_str
+
+        except Exception as e:
+            self.logger.error("❌ Validation failed: {}", str(e))
+            raise
 
     def _process_product_records(self, **kwargs):
         
@@ -91,129 +284,6 @@ class PORequiredCriticalValidator:
                          len(self.productRecords_df), len(rm_null_productRecords_df))
         return rm_null_productRecords_df
     
-    def run_validations(self, **kwargs):
-
-        """
-        Run comprehensive PO validation checks.
-        
-        This method performs the following validations:
-        1. Identifies overlapping fields between product records and purchase orders
-        2. Finds invalid PO numbers (exist in product records but not in purchase orders)
-        3. Validates data consistency for valid PO numbers
-        4. Generates detailed warnings for all validation failures
-        
-        Returns:
-            pd.DataFrame: DataFrame containing all validation warnings and errors
-        """
-
-        # Find common columns between both DataFrames for comparison
-        overlap_field_list = list(set(self.rm_null_productRecords_df.columns) & 
-                                  set(self.purchaseOrders_df.columns))
-
-        # Get unique PO numbers from both datasets for comparison
-        productRecords_poNo_set = set(self.rm_null_productRecords_df['poNo'])
-        purchaseOrders_poNo_set = set(self.purchaseOrders_df['poNo'])
-
-        # Find PO numbers that exist in product records but not in purchase orders (invalid)
-        invalid_poNo_list = list(productRecords_poNo_set - purchaseOrders_poNo_set)
-        invalid_productRecords = self.rm_null_productRecords_df[
-            self.rm_null_productRecords_df['poNo'].isin(invalid_poNo_list)
-            ].copy()
-        self.logger.info("Invalid PO list: {}", invalid_poNo_list)
-
-        # Find PO numbers that exist in both datasets (valid for further validation)
-        valid_poNo_list = list(productRecords_poNo_set & purchaseOrders_poNo_set)
-        
-        # Filter both DataFrames to include only valid PO numbers
-        productRecords_df_filtered = self.rm_null_productRecords_df[
-            self.rm_null_productRecords_df['poNo'].isin(valid_poNo_list)
-        ].copy()
-        purchaseOrders_df_filtered = self.purchaseOrders_df[
-            self.purchaseOrders_df['poNo'].isin(valid_poNo_list)
-        ].copy()
-
-        # Merge DataFrames on PO number to compare field values
-        # Include additional context fields from product records for reporting
-        merged = pd.merge(
-            productRecords_df_filtered[overlap_field_list+['recordDate', 'workingShift', 'machineNo']], 
-            purchaseOrders_df_filtered[overlap_field_list], 
-            on='poNo', 
-            suffixes=('_productRecords', '_purchaseOrders')
-        )
-
-        # Get list of fields to compare (excluding 'poNo' which is the join key)
-        comparison_cols = [c for c in overlap_field_list if c != 'poNo']
-
-        # Perform vectorized comparison for all fields
-        # Create boolean columns indicating whether each field matches
-        for col in comparison_cols:
-            col_pr = f'{col}_productRecords' # Column name from product records
-            col_po = f'{col}_purchaseOrders' # Column name from purchase orders
-            
-            # Vectorized comparison that properly handles NaN values
-            # Two values match if both are NaN OR both are equal
-            merged[f'{col}_match'] = (
-                (merged[col_pr].isna() & merged[col_po].isna()) | 
-                (merged[col_pr] == merged[col_po])
-            )
-
-        # Calculate final match status: all fields must match for a record to be valid
-        field_match_columns = [f'{col}_match' for col in comparison_cols]
-        merged['final_match'] = merged[field_match_columns].all(axis=1)
-
-        self.logger.debug("Merged data with match results: {} - {}", merged.shape, merged.columns)
-
-        # Generate warnings for field mismatches in valid PO numbers
-        invalid_field_warnings = PORequiredCriticalValidator._process_warnings(merged, comparison_cols)
-        
-        # Generate warnings for invalid PO numbers (if any exist)
-        invalid_po_warnings = []
-        if invalid_poNo_list:
-            invalid_po_warnings = PORequiredCriticalValidator._process_invalid_po_warnings(invalid_productRecords)
-
-        # Combine all warnings into a single list
-        all_invalid_warnings = invalid_field_warnings + invalid_po_warnings
-
-        # Calculate and log summary statistics
-        total_processed = len(merged) + len(invalid_poNo_list)
-        total_valid = len(merged) - len(invalid_field_warnings)
-        total_invalid = len(all_invalid_warnings)
-
-        self.logger.info("Summary: Total processed POs: {} - Valid POs: {} - Invalid POs: {} (Field mismatches: {}, Non-existent orders: {})",
-                        total_processed, 
-                        total_valid,
-                        total_invalid,
-                        len(invalid_field_warnings),
-                        len(invalid_po_warnings))
-
-        # Return warnings as DataFrame, or empty DataFrame with expected columns if no warnings
-        return pd.DataFrame(all_invalid_warnings) if all_invalid_warnings else pd.DataFrame(columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
-
-    def run_validations_and_save_results(self, **kwargs):
-
-        """
-        Run validations and save results to Excel file.
-        
-        This method:
-        1. Executes all validation checks
-        2. Formats results for Excel export
-        3. Saves results with versioning to prevent overwrites
-        """
-
-        self.data = {}
-
-        # Run all validations and get results
-        final_results = self.run_validations()
-        self.data[f"Sheet1"] = final_results
-        
-        # Export results to Excel file with versioning
-        self.logger.info("Start excel file exporting...")
-        save_output_with_versioning(
-            data = self.data,
-            output_dir = self.output_dir,
-            filename_prefix = self.filename_prefix,
-        )
-
     @staticmethod
     def _process_warnings(merged_df, comparison_cols):
 

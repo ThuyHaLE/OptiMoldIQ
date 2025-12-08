@@ -6,6 +6,11 @@ import pandas as pd
 import os
 from typing import Dict, Tuple, Any, List
 
+from datetime import datetime
+from agents.utils import ConfigReportMixin
+from configs.shared.shared_source_config import SharedSourceConfig
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
@@ -15,7 +20,7 @@ from typing import Dict, Tuple, Any, List
     "itemCompositionSummary_df": list(self.databaseSchemas_data['staticDB']['itemCompositionSummary']['dtypes'].keys()),
 })
 
-class DynamicCrossDataValidator:
+class DynamicCrossDataValidator(ConfigReportMixin):
     
     """
     A validator class for cross-referencing production records with standard reference data.
@@ -30,39 +35,59 @@ class DynamicCrossDataValidator:
     - Exporting results to Excel files for review
     """
 
-    def __init__(self,
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest',
-                 annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db"):
+    # Define requirements
+    REQUIRED_FIELDS = {
+        'databaseSchemas_path': str,
+        'annotation_path': str,
+        'validation_dir': str
+    }
+
+    def __init__(self, config: SharedSourceConfig):
         
         """
-        Initialize the validator with data paths and load required dataframes.
-
+        Initialize the DynamicCrossDataValidator.
+        
         Args:
-            source_path: Path to the data source directory containing parquet files
-            annotation_name: Name of the JSON file containing path annotations
-            databaseSchemas_path: Path to database schemas JSON file for validation
-            default_dir: Default directory for saving output files
+            config: SharedSourceConfig containing processing parameters
+            Including:
+                - annotation_path: Path to the JSON file containing path annotations
+                - databaseSchemas_path: Path to database schemas JSON file for validation
+                - validation_dir: Default directory for saving output files
         """
 
+        self._capture_init_args()
+
+        # Initialize logger for this class
         self.logger = logger.bind(class_="DynamicCrossDataValidator")
+
+        # Validate required configs
+        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for config requirements: PASSED!")
+    
+        self.config = config
 
         # Load database schema configuration for column validation
         self.databaseSchemas_data = load_annotation_path(
-            Path(databaseSchemas_path).parent,
-            Path(databaseSchemas_path).name
+            Path(self.config.databaseSchemas_path).parent,
+            Path(self.config.databaseSchemas_path).name
         )
         # Load path annotations that map logical names to actual file paths
-        self.path_annotation = load_annotation_path(source_path, annotation_name)
+        self.path_annotation = load_annotation_path(
+            Path(self.config.annotation_path).parent, 
+            Path(self.config.annotation_path).name
+        )
 
         # Load all required DataFrames from parquet files
         self._load_dataframes()
 
         # Set up output configuration
         self.filename_prefix = "dynamic_cross_validator"
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "DynamicCrossDataValidator"
+        self.output_dir = Path(self.config.validation_dir) / "DynamicCrossDataValidator"
 
     def _load_dataframes(self) -> None:
         
@@ -104,7 +129,9 @@ class DynamicCrossDataValidator:
                 self.logger.error("Failed to load {}: {}", path_key, str(e))
                 raise
 
-    def run_validations(self, **kwargs) -> Dict[str, Any]:
+    def run_validations(self, 
+                        save_results: bool = False,
+                        **kwargs) -> Dict[str, Any]:
 
         """
         Run all validation checks and return comprehensive results.
@@ -121,7 +148,18 @@ class DynamicCrossDataValidator:
             - invalid_warnings: DataFrame with invalid/missing reference data
         """
 
-        self.logger.info("Starting dynamic cross data validation...")
+        self.logger.info("Starting DynamicCrossDataValidator ...")
+
+        start_time = datetime.now()
+        # Generate config header using mixin
+        timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, 
+                                                     required_only=True)
+        
+        # Initialize validation log entries for entire processing run
+        validation_log_entries = [config_header]
+        validation_log_entries.append(f"--Processing Summary--\n")
+        validation_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
         try:
             # Step 1: Prepare production data by merging product records with machine info
@@ -152,8 +190,39 @@ class DynamicCrossDataValidator:
             results['mismatch_warnings'] = mismatch_warnings
             results['invalid_warnings'] = invalid_warnings
 
-            return DynamicCrossDataValidator._convert_results(results)
+            final_result = DynamicCrossDataValidator._convert_results(results)
 
+            # Log summary information for user review
+            validation_log_entries.append("Validation Summary:")
+            validation_log_entries.append(f"- Invalid warnings: {len(final_result['invalid_warnings'])} items")
+            validation_log_entries.append(f"- Mismatch warnings: {len(final_result['mismatch_warnings'])} items")
+            
+            reporter = DictBasedReportGenerator(use_colors=False)
+            validation_summary = "\n".join(reporter.export_report(final_result))
+            validation_log_entries.append(f"{validation_summary}")
+
+            if save_results:
+                try:
+                    # Export results to Excel with versioning
+                    self.logger.info("Exporting results to Excel...")
+                    output_exporting_log = save_output_with_versioning(
+                        data = final_result,
+                        output_dir = self.output_dir,
+                        filename_prefix = self.filename_prefix,
+                        report_text = validation_summary
+                    )
+                    self.logger.info("Results exported successfully!")
+                    validation_log_entries.append(f"{output_exporting_log}")
+
+                except Exception as e:
+                    self.logger.error("Failed to save results: {}", str(e))
+                    raise
+            
+            validation_log_str = "\n".join(validation_log_entries)
+            self.logger.info("✅ Process finished!!!")
+
+            return final_result, validation_log_str
+        
         except Exception as e:
             self.logger.error("❌ Validation failed: {}", str(e))
             raise
@@ -194,39 +263,6 @@ class DynamicCrossDataValidator:
             final_results['mismatch_warnings'] = DynamicCrossDataValidator._create_empty_warning_dataframe('mismatch')
 
         return final_results
-
-    def run_validations_and_save_results(self, **kwargs) -> None:
-        
-        """
-        Run validations and save results to Excel files with versioning.
-        
-        This method:
-        1. Executes the full validation pipeline
-        2. Logs summary statistics
-        3. Saves results to Excel files with automatic versioning
-        """
-
-        try:
-            # Run the validation pipeline
-            self.data = self.run_validations(**kwargs)
-
-            # Log summary information for user review
-            self.logger.info("Validation Summary:")
-            self.logger.info("- Invalid warnings: {} items", len(self.data['invalid_warnings']))
-            self.logger.info("- Mismatch warnings: {} items", len(self.data['mismatch_warnings']))
-
-            # Export results to Excel with versioning
-            self.logger.info("Exporting results to Excel...")
-            save_output_with_versioning(
-                data = self.data,
-                output_dir = self.output_dir,
-                filename_prefix = self.filename_prefix,
-            )
-            self.logger.info("Results exported successfully!")
-
-        except Exception as e:
-            self.logger.error("Failed to save results: {}", str(e))
-            raise
 
     @staticmethod
     def _check_invalid(df: pd.DataFrame) -> Dict[str, List[str]]:

@@ -29,6 +29,8 @@ class DataPipelineModule(BaseModule):
         # Extract values from YAML structure
         project_root = Path(self.config.get('project_root', '.'))
         pipeline_config = self.config.get('data_pipeline', {})
+        if not pipeline_config:
+            self.logger.debug("DataPipelineModule config not found in loaded YAML dict")
         
         # Helper function to join paths with project_root
         def resolve_path(path_value: Optional[str]) -> Optional[str]:

@@ -1,11 +1,11 @@
 # modules/validation_module.py
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 
-from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
+from agents.validationOrchestrator.validation_orchestrator import SharedSourceConfig, ValidationOrchestrator
 
 class ValidationModule(BaseModule):
     """
@@ -16,6 +16,46 @@ class ValidationModule(BaseModule):
     
     DEFAULT_CONFIG_PATH = 'configs/modules/validation.yaml'
 
+    def __init__(self, config_path: Optional[str] = None):
+        # Load YAML as dict (via BaseModule)
+        super().__init__(config_path)
+        
+        # Extract values from YAML structure
+        self.project_root = Path(self.config.get('project_root', '.'))
+        self.validation_config = self.config.get('validation', {})
+        if not self.validation_config:
+            self.logger.debug("ValidationModule config not found in loaded YAML dict")
+
+        # Convert dict to SharedSourceConfig
+        self.shared_config = self._build_shared_config()
+
+    def _build_shared_config(self) -> SharedSourceConfig:
+        """Build SharedSourceConfig from loaded YAML dict""" 
+        
+        shared_source_config = self.validation_config.get('shared_source_config', {})
+        if not shared_source_config:
+            self.logger.debug("Shared source config not found in ValidationModule config. Using default SharedSourceConfig.")
+        
+        # Helper function to join paths with project_root
+        def resolve_path(path_value: Optional[str]) -> Optional[str]:
+            """Join path with project_root if provided, else return None"""
+            if path_value is None:
+                return None
+            return str(self.project_root / path_value)
+        
+        # Map YAML fields to SharedSourceConfig
+        return SharedSourceConfig(
+            # Required fields
+            db_dir=resolve_path(shared_source_config.get('db_dir')) or 'database',
+            default_dir=resolve_path(shared_source_config.get('default_dir')) or 'agents/shared_db',
+            
+            # Optional fields
+            validation_df_name=shared_source_config.get('validation_df_name'),
+            databaseSchemas_path=resolve_path(shared_source_config.get('databaseSchemas_path')),
+            annotation_path=resolve_path(shared_source_config.get('annotation_path')),
+            validation_dir=resolve_path(shared_source_config.get('validation_dir'))
+        )
+    
     @property
     def module_name(self) -> str:
         """Unique module name"""
@@ -33,7 +73,9 @@ class ValidationModule(BaseModule):
             'validation_orchestrator_result',
             'validation_orchestrator_log',
             'dataschemas_path',
-            'annotation_path'
+            'annotation_path',
+            'enable_parallel',
+            'max_workers'
         ]
 
     def execute(self, 
@@ -47,11 +89,12 @@ class ValidationModule(BaseModule):
             self.config: Configuration containing:
                 - project_root: Project root directory
                 - validation:
-                    - source_path: Main shared database (from DataPipeline) directory
-                    - annotation_name: # Annotation name
+                    - validation_df_name: List df name for validation (default: ["productRecords", "purchaseOrders"])
+                    - annotation_path: Path to annotations
                     - databaseSchemas_path: Path to database schemas
-                    - default_dir: Default directory for outputs
-                    - use_colored_report: Whether to use colored output (default: True)
+                    - validation_dir: Default directory for outputs
+                - enable_parallel: enable parallel process (default: False)
+                - max_workers: max workers for parallel process (default: None - auto)
             dependencies: Empty dict (no dependencies)
             
         Returns:
@@ -61,45 +104,12 @@ class ValidationModule(BaseModule):
         self.logger = logger.bind(class_="ValidationModule")
 
         try:
-
-            # Extract self.config
-            project_root = Path(self.config.get('project_root', '.'))
-            validation_config = self.config.get('validation', {})
-            
-            self.logger.debug("Project root: {}", project_root)
-            
-            if not validation_config:
-                self.logger.debug("Cannot load ValidationOrchestrator config")
-
-            # Main shared database from DataPipeline
-            source_path = str(project_root / validation_config.get(
-                'source_path', 
-                'agents/shared_db/DataLoaderAgent/newest'))
-            annotation_name = validation_config.get(
-                'annotation_name',
-                'path_annotations.json')
-            
-            databaseSchemas_path = str(project_root / validation_config.get(
-                'databaseSchemas_path',
-                'database/databaseSchemas.json'
-            ))
-            
-            default_dir = str(project_root / validation_config.get(
-                'default_dir',
-                'agents/shared_db' 
-            ))
-            
-            self.logger.info("ValidationOrchestrator configuration:")
-            self.logger.info(f"  - Annotation Path: {source_path}/{annotation_name}")
-            self.logger.info(f"  - Database Schemas: {databaseSchemas_path}")
-            self.logger.info(f"  - Default Dir: {default_dir}")
             
             # Create orchestrator
             orchestrator = ValidationOrchestrator(
-                source_path = source_path,
-                annotation_name = annotation_name,
-                databaseSchemas_path = databaseSchemas_path,
-                default_dir = default_dir)
+                shared_source_config=self.shared_config,
+                enable_parallel = self.validation_config.enable_parallel,
+                max_workers = self.validation_config.max_workers)
 
             # Run validations
             self.logger.info("Running validations...")
@@ -118,8 +128,10 @@ class ValidationModule(BaseModule):
                 context_updates={
                     'validation_orchestrator_result': results,
                     'validation_orchestrator_log': log_str,
-                    'dataschemas_path': databaseSchemas_path,
-                    'annotation_path': f"{source_path}/{annotation_name}"
+                    'dataschemas_path': self.shared_config.databaseSchemas_path,
+                    'annotation_path': self.shared_config.annotation_path,
+                    'enable_parallel': self.validation_config.enable_parallel,
+                    'max_workers': self.validation_config.max_workers
                 }
             )
             

@@ -6,6 +6,11 @@ import pandas as pd
 from typing import List
 import os
 
+from datetime import datetime
+from agents.utils import ConfigReportMixin
+from configs.shared.shared_source_config import SharedSourceConfig
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
@@ -15,7 +20,7 @@ import os
     "itemCompositionSummary_df": list(self.databaseSchemas_data['staticDB']['itemCompositionSummary']['dtypes'].keys()),
 })
 
-class StaticCrossDataChecker:
+class StaticCrossDataChecker(ConfigReportMixin):
     
     """
     A class for cross-referencing and validating data consistency between 
@@ -28,48 +33,67 @@ class StaticCrossDataChecker:
     3. Item compositions match the itemCompositionSummary reference table
     """
 
-    def __init__(self, 
-                 checking_df_name: List[str],
-                 source_path: str = 'agents/shared_db/DataLoaderAgent/newest', 
-                 annotation_name: str = "path_annotations.json",
-                 databaseSchemas_path: str = 'database/databaseSchemas.json',
-                 default_dir: str = "agents/shared_db"):
+    # Define requirements
+    REQUIRED_FIELDS = {
+        'validation_df_name': List[str],
+        'databaseSchemas_path': str,
+        'annotation_path': str,
+        'validation_dir': str
+    }
+
+    def __init__(self, config: SharedSourceConfig):
         
         """
-        Initialize the StaticCrossDataChecker with configuration and data loading.
+        Initialize the StaticCrossDataChecker.
         
         Args:
-            checking_df_name: List of dataframe names to validate ("productRecords", "purchaseOrders")
-            source_path: Path to the directory containing data files
-            annotation_name: Name of the JSON file containing path annotations
-            databaseSchemas_path: Path to the database schema definition file
-            default_dir: Default directory for output files
+            config: SharedSourceConfig containing processing parameters
+            Including:
+                - validation_df_name: List of dataframe names to validate ("productRecords", "purchaseOrders")
+                - annotation_path: Path to the JSON file containing path annotations
+                - databaseSchemas_path: Path to database schemas JSON file for validation
+                - validation_dir: Default directory for saving output files
         """
 
+        self._capture_init_args()
+
+        # Initialize logger for this class
         self.logger = logger.bind(class_="StaticCrossDataChecker")
+
+        # Validate required configs
+        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for config requirements: PASSED!")
+    
+        self.config = config
 
         # Validate that only allowed dataframe names are provided
         allowed_names = ["productRecords", "purchaseOrders"]
-        invalid_names = [name for name in checking_df_name if name not in allowed_names]
+        invalid_names = [name for name in self.config.validation_df_name if name not in allowed_names]
         if invalid_names:
-            self.logger.error("Invalid checking_df_name values: {}. Must be within {}.",
+            self.logger.error("Invalid validation_df_name values: {}. Must be within {}.",
                               invalid_names, allowed_names)
-            raise ValueError(f"Invalid checking_df_name values: {invalid_names}. Must be within {allowed_names}")
-        self.checking_df_name = checking_df_name
+            raise ValueError(f"Invalid validation_df_name values: {invalid_names}. Must be within {allowed_names}")
 
         # Load database schema configuration and file path annotations
-        self.databaseSchemas_data = load_annotation_path(Path(databaseSchemas_path).parent, 
-                                                         Path(databaseSchemas_path).name)
-        self.path_annotation = load_annotation_path(source_path, 
-                                                    annotation_name)
+        self.databaseSchemas_data = load_annotation_path(
+            Path(self.config.databaseSchemas_path).parent, 
+            Path(self.config.databaseSchemas_path).name)
+        
+        self.path_annotation = load_annotation_path(
+            Path(self.config.annotation_path).parent, 
+            Path(self.config.annotation_path).name)
 
         # Load all required DataFrames from parquet files
         self._load_dataframes()
         
         # Set up output configuration
         self.filename_prefix = "static_cross_checker"
-        self.default_dir = Path(default_dir)
-        self.output_dir = self.default_dir / "StaticCrossDataChecker"
+        self.output_dir = Path(self.config.validation_dir) / "StaticCrossDataChecker"
 
     def _load_dataframes(self):
         
@@ -125,7 +149,9 @@ class StaticCrossDataChecker:
             raise ValueError(f"Unknown checking_df_name: {checking_df_name}")
         return checking_df
 
-    def run_validations(self, **kwargs):
+    def run_validations(self, 
+                        save_results: bool = False,
+                        **kwargs):
         
         """
         Run all validation checks following PORequiredCriticalValidator pattern.
@@ -139,57 +165,83 @@ class StaticCrossDataChecker:
             dict: Dictionary containing validation results for each dataframe
         """
 
-        self.logger.info("Starting static cross data validation...")
-        
-        final_results = {}
+        self.logger.info("Starting StaticCrossDataChecker ...")
 
-        # Process each dataframe specified in checking_df_name
-        for df_name in self.checking_df_name:
-            self.logger.info("Processing validations for: {}", df_name)
-            checking_df = self._process_checking_data(df_name)
-            
-            # Run all three validation checks
-            item_warnings = self._check_item_info_matches(df_name, checking_df)
-            resin_warnings = self._check_resin_info_matches(df_name, checking_df)
-            composition_warnings = self._check_composition_matches(df_name, checking_df)
-            
-            # Combine all warnings following PORequiredCriticalValidator pattern
-            all_warnings = item_warnings + resin_warnings + composition_warnings
-            
-            # Calculate summary statistics for reporting
-            total_warnings = len(all_warnings)
-            
-            self.logger.info("Summary for {}: Total warnings: {} (Item: {}, Resin: {}, Composition: {})",
-                            df_name, total_warnings, len(item_warnings), 
-                            len(resin_warnings), len(composition_warnings))
-            
-            # Store results as DataFrame with standardized column structure
-            final_results[df_name] = pd.DataFrame(all_warnings) if all_warnings else pd.DataFrame(
-                columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
+        start_time = datetime.now()
+        # Generate config header using mixin
+        timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, 
+                                                     required_only=True)
+        
+        # Initialize validation log entries for entire processing run
+        validation_log_entries = [config_header]
+        validation_log_entries.append(f"--Processing Summary--\n")
+        validation_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
-        return final_results
+        try:
+            final_results = {}
+            # Process each dataframe specified in checking_df_name
+            for df_name in self.config.validation_df_name:
+                self.logger.info("Processing validations for: {}", df_name)
+                checking_df = self._process_checking_data(df_name)
+                
+                # Run all three validation checks
+                item_warnings = self._check_item_info_matches(df_name, checking_df)
+                resin_warnings = self._check_resin_info_matches(df_name, checking_df)
+                composition_warnings = self._check_composition_matches(df_name, checking_df)
+                
+                # Combine all warnings following PORequiredCriticalValidator pattern
+                all_warnings = item_warnings + resin_warnings + composition_warnings
+                
+                # Calculate summary statistics for reporting
+                total_warnings = len(all_warnings)
+                
+                # Store results as DataFrame with standardized column structure
+                final_results[df_name] = pd.DataFrame(all_warnings) if all_warnings else pd.DataFrame(
+                    columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
+                
+                # Log summary information for user review
+                validation_log_entries.append(f"Validation Summary for {df_name}:")
+                validation_log_entries.append(f"⤷ Total warnings: {total_warnings}")
+                validation_log_entries.append(f"⤷ Item: {len(item_warnings)}")
+                validation_log_entries.append(f"⤷ Resin: {len(resin_warnings)}")
+                validation_log_entries.append(f"⤷ Composition: {len(composition_warnings)}")
 
-    def run_validations_and_save_results(self, **kwargs):
-        
-        """
-        Run validations and save results to Excel file following PORequiredCriticalValidator pattern.
-        
-        This method executes all validations and exports the results to a versioned Excel file.
-        """
+                reporter = DictBasedReportGenerator(use_colors=False)
+                validation_summary = "\n".join(reporter.export_report(final_results))
+                validation_log_entries.append(f"{validation_summary}") 
 
-        self.data = {}
-        final_results = self.run_validations()
-        
-        # Prepare data for saving (matching PORequiredCriticalValidator format)
-        for df_name, results_df in final_results.items():
-            self.data[f"{df_name}"] = results_df
-        
-        self.logger.info("Start excel file exporting...")
-        save_output_with_versioning(
-            data = self.data,
-            output_dir = self.output_dir,
-            filename_prefix = self.filename_prefix,
-        )
+                if save_results:
+                    try:
+                        # Export results to Excel with versioning
+                        self.logger.info("Exporting results to Excel...")
+
+                        # Prepare data for saving (matching PORequiredCriticalValidator format)
+                        data = {}
+                        for df_name, results_df in final_results.items():
+                            data[f"{df_name}"] = results_df
+
+                        output_exporting_log = save_output_with_versioning(
+                            data = data,
+                            output_dir = self.output_dir,
+                            filename_prefix = self.filename_prefix,
+                            report_text = validation_summary
+                        )
+                        self.logger.info("Results exported successfully!")
+                        validation_log_entries.append(f"{output_exporting_log}")
+
+                    except Exception as e:
+                        self.logger.error("Failed to save results: {}", str(e))
+                        raise
+            
+            validation_log_str = "\n".join(validation_log_entries)
+            self.logger.info("✅ Process finished!!!")
+
+            return final_results, validation_log_str
+
+        except Exception as e:
+            self.logger.error("❌ Validation failed: {}", str(e))
+            raise
 
     def _check_item_info_matches(self, df_name, checking_df):
         
