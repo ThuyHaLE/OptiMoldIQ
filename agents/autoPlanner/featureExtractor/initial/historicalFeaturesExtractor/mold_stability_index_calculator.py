@@ -5,8 +5,9 @@ from pathlib import Path
 from loguru import logger
 from agents.decorators import validate_init_dataframes
 from agents.utils import load_annotation_path, save_output_with_versioning, ConfigReportMixin
+from configs.shared.shared_source_config import SharedSourceConfig
 from datetime import datetime
-
+from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.mold_stability_config import MoldStabilityConfig
 
 # Decorator to validate DataFrames are initialized with the correct schema
@@ -25,43 +26,47 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
     - Apply criteria such as accuracy, consistency, compliance with standard limits, and data completeness.
     - Calculate key indicators: theoretical output, actual output, efficiency, and normalized productivity.
     """
+    
+    REQUIRED_FIELDS = {
+        'shared_source_config': {
+            'databaseSchemas_path': str,
+            'annotation_path': str,
+            'mold_stability_index_dir': str,
+            },
+        'mold_stability_config': {
+            'efficiency': float,
+            'loss': float,
+            'cavity_stability_threshold': float,
+            'cycle_stability_threshold': float,
+            'total_records_threshold': int
+            }
+        }
 
-    # Configuration constants
-    SECONDS_PER_HOUR = 3600
-    CYCLE_TIME_TOLERANCE = 0.2
-    EXTREME_DEVIATION_THRESHOLD = 1.0
-
-    CYCLE_STABILITY_WEIGHTS = {'accuracy_score_weight': 0.3,
-                               'consistency_score_weight': 0.25,
-                               'range_compliance_weight': 0.25,
-                               'outlier_penalty_weight': 0.1,
-                               'data_completeness_weight': 0.1}
-
-    CAVITY_STABILITY_WEIGHTS = {'accuracy_rate_weight': 0.4,
-                                'consistency_score_weight': 0.3,
-                                'utilization_rate_weight': 0.2,
-                                'data_completeness_weight': 0.1}
-
+    CONSTANT_CONFIG_PATH = (
+        "agents/autoPlanner/featureExtractor/initial/historicalFeaturesExtractor/configs/constant_configurations.json")
+    
     def __init__(self, 
-                 config: MoldStabilityConfig):
-
+                 shared_source_config: SharedSourceConfig, 
+                 mold_stability_config: MoldStabilityConfig):
+        
         """
-        Initialize the MoldStabilityIndexCalculator with configuration paths and parameters.
-
+        Initialize the MoldStabilityIndexCalculator.
+        
         Args:
-            config: MoldStabilityConfig containing processing parameters
-            Including:
-                - source_path (str): Path to the data source directory containing parquet files.
-                - annotation_name (str): Name of the JSON file containing path annotations.
-                - databaseSchemas_path (str): Path to the database schema configuration file.
-                - default_dir (str): Default directory for output and temporary files.
-
-                - efficiency (float): Production efficiency score.
-                - loss (float): Production loss value.
-                - cavity_stability_threshold (float): Weight assigned to the cavity-stability feature.
-                - cycle_stability_threshold (float): Weight assigned to the cycle-stability feature.
-                - total_records_threshold (int): Minimum number of valid production records required
+            shared_source_config: SharedSourceConfig containing processing parameters
+                Including:
+                    - annotation_path: Path to the JSON file containing path annotations
+                    - databaseSchemas_path (str): Path to the database schema configuration file.
+                    - mold_stability_index_dir (str): Default directory for output and temporary files.
+            mold_stability_config: MoldStabilityConfig containing processing parameters
+                Including:
+                    - efficiency (float): Production efficiency score.
+                    - loss (float): Production loss value.
+                    - cavity_stability_threshold (float): Weight assigned to the cavity-stability feature.
+                    - cycle_stability_threshold (float): Weight assigned to the cycle-stability feature.
+                    - total_records_threshold (int): Minimum number of valid production records required
                     for processing (must be at least 30 records per day).
+
         """
 
         self._capture_init_args()
@@ -69,28 +74,43 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
         # Initialize logger with class context for better debugging
         self.logger = logger.bind(class_="MoldStabilityIndexCalculator")
 
-        self.config = config 
-        
+        # Validate required configs
+        is_valid, errors = shared_source_config.validate_requirements(self.REQUIRED_FIELDS['shared_source_config'])
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
+
         # Load database schema configuration for column validation
         # This ensures all DataFrames have the expected structure
         self.databaseSchemas_data = load_annotation_path(
-            Path(self.config.databaseSchemas_path).parent,
-            Path(self.config.databaseSchemas_path).name
+            Path(shared_source_config.databaseSchemas_path).parent,
+            Path(shared_source_config.databaseSchemas_path).name
         )
 
         # Load path annotations that map logical names to actual file paths
         # This allows flexible configuration of data source locations
         self.path_annotation = load_annotation_path(
-            self.config.source_path, 
-            self.config.annotation_name)
-
-        # Set up output configuration for saving results
-        self.default_dir = Path(self.config.default_dir)  # Base directory for outputs
-        self.output_dir = self.default_dir / "MoldStabilityIndexCalculator"  # Specific output directory
-        self.prefix = "mold_stability_index"
-
+            Path(shared_source_config.annotation_path).parent, 
+            Path(shared_source_config.annotation_path).name)
+        
         # Load all required DataFrames from parquet files
         self._load_dataframes()
+
+        # Load constant configurations
+        self.constant_config = load_annotation_path(
+            Path(self.CONSTANT_CONFIG_PATH).parent,
+            Path(self.CONSTANT_CONFIG_PATH).name).get('MoldStabilityIndexCalculator', {})
+        if not self.constant_config:
+            self.logger.debug("MoldStabilityIndexCalculator constant config not found in loaded YAML dict")
+
+        # Set up output configuration for saving results
+        self.filename_prefix = "mold_stability_index"
+        self.output_dir = Path(shared_source_config.mold_stability_index_dir) # Specific output directory
+        
+        self.config = mold_stability_config
 
     def _load_dataframes(self) -> None:
 
@@ -146,29 +166,37 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
     # Calculates cavity and cycle stability indices for molds based on historical production data
     # and will be used to estimate mold capacity in planning steps
 
-    def process(self) -> pd.DataFrame:
+    def process(self,
+                save_results: bool = False) -> tuple[pd.DataFrame, str]:
+        """
+        Calculates cavity and cycle stability indices for molds based on historical production data.
 
-            """
-            Calculates cavity and cycle stability indices for molds based on historical production data.
+        Args:
+            df: A DataFrame containing production records with columns:
+                - moldNo: Mold identifier
+                - recordDate: Date of record
+                - moldCavity: Actual cavity values (list of integers)
+                - moldCavityStandard: Standard number of cavities
+                - moldCycle: Actual cycle times (list of floats)
+                - moldSettingCycle: Target (standard) cycle time
 
-            Args:
-                df: A DataFrame containing production records with columns:
-                    - moldNo: Mold identifier
-                    - recordDate: Date of record
-                    - moldCavity: Actual cavity values (list of integers)
-                    - moldCavityStandard: Standard number of cavities
-                    - moldCycle: Actual cycle times (list of floats)
-                    - moldSettingCycle: Target (standard) cycle time
+        Returns:
+            A DataFrame with additional columns:
+                - cavity_stability_index: Stability index of mold cavity (0-1)
+                - cycle_stability_index: Stability index of mold cycle (0-1)
+        """
 
-            Returns:
-                A DataFrame with additional columns:
-                    - cavity_stability_index: Stability index of mold cavity (0-1)
-                    - cycle_stability_index: Stability index of mold cycle (0-1)
-            """
+        self.logger.info("Starting MoldStabilityIndexCalculator ...")
 
-            # Stability calculation results
-            stability_results = []
+        # Generate config header using mixin
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, required_only=True)
+        
+        calculator_log_entries = [config_header]
+        calculator_log_entries.append(f"--Processing Summary--\n")
+        calculator_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
+        try:
             # Iterate through each mold
             df = MoldStabilityIndexCalculator._stability_index_input_processing(self.productRecords_df, 
                                                                                 self.moldInfo_df)
@@ -195,16 +223,16 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                     all_cycle_values.extend(row['moldCycle'])
 
                 # Calculate stability scores
-                cavity_stability = MoldStabilityIndexCalculator._calculate_cavity_stability(
+                cavity_stability = self._calculate_cavity_stability(
                     all_cavity_values, standard_cavity, total_records, self.config.total_records_threshold
                 )
-                cycle_stability = MoldStabilityIndexCalculator._calculate_cycle_stability(
+                cycle_stability = self._calculate_cycle_stability(
                     all_cycle_values, standard_cycle, total_records, self.config.total_records_threshold
                 )
                 if standard_cycle > 0:
-                  theoretical_hour_capacity = MoldStabilityIndexCalculator.SECONDS_PER_HOUR / standard_cycle * standard_cavity
+                    theoretical_hour_capacity = self.constant_config["SECONDS_PER_HOUR"] / standard_cycle * standard_cavity
                 else:
-                  theoretical_hour_capacity = 0
+                    theoretical_hour_capacity = 0
 
                 # Weighted stability
                 overall_stability = (
@@ -220,7 +248,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                 balanced_hour_capacity = alpha * effective_hour_capacity + (1 - alpha) * estimated_hour_capacity
 
                 # Append to result list
-                stability_results.append({
+                stability_results = {
                     'moldNo': mold_no,
                     'moldName': moldName,
                     'acquisitionDate': acquisitionDate,
@@ -241,89 +269,52 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                     'totalCycleMeasurements': len(all_cycle_values),
                     'firstRecordDate': mold_data['recordDate'].min(),
                     'lastRecordDate': mold_data['recordDate'].max(),
-                })
+                }
 
             # Return result as DataFrame
-            result_df = pd.DataFrame(stability_results)
+            stability_df = pd.DataFrame([stability_results])
 
-            return result_df
-    
-    # Calculates cavity and cycle stability indices for molds based on historical production data
-    # and save it as monthly reports
-    def process_and_save_result(self):
+            # Generate report
+            reporter = DictBasedReportGenerator(use_colors=False)
+            calculation_summary = "\n".join(reporter.export_report(stability_results))
+            calculator_log_entries.append(f"{calculation_summary}\n") 
 
-        """
-        Calculate the mold stability index and save it to an Excel file with versioning.
+            if save_results:
+                try:
+                    # Export results to Excel with versioning
+                    self.logger.info("Exporting results to Excel...")
+                    output_exporting_log =  save_output_with_versioning(
+                        data = {"moldStabilityIndex": stability_df},  # Dictionary containing the data to save
+                        output_dir = self.output_dir,                 # Directory where the file will be saved
+                        filename_prefix = self.filename_prefix,       # Prefix for the output filename
+                        report_text = calculation_summary
+                    )
+                    self.logger.info("Results exported successfully!")
+                    calculator_log_entries.append(f"{output_exporting_log}")
+                except Exception as e:
+                    self.logger.error("Failed to save results: {}", str(e))
+                    raise
 
-        This method combines calculation and output functionality:
-        1. Calculates the priority matrix using historical data and weights
-        2. Formats the data for export
-        3. Saves to Excel file with automatic versioning
+            calculator_log_str = "\n".join(calculator_log_entries)
 
-        The output file will be saved in the configured output directory with
-        a timestamp-based version number to prevent overwrites.
-        """
+            try:
+                log_path = self.output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(calculator_log_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
 
-        # Calculate the priority matrix using the main calculation method
-        mold_stability_index = self.process()
+            self.logger.info("✅ Process finished!!!")
 
-        # Generate config header using mixin
-        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
-        
-        calculator_log_lines = [config_header]
-        calculator_log_lines.append(f"--Processing Summary--\n")
-        calculator_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
-        
-        # Export to Excel file with automatic versioning
-        # The versioning system prevents accidental overwrites of previous results
-        logger.info("Start excel file exporting...")
-        # Prepare data for export by resetting index to include moldNo as a regular column
-        # This makes the Excel output more readable and easier to work with
+            return stability_df, calculator_log_str
 
-        output_exporting_log =  save_output_with_versioning(
-            data = {"moldStabilityIndex": mold_stability_index},  # Dictionary containing the data to save
-            output_dir = self.output_dir,                         # Directory where the file will be saved
-            filename_prefix = self.prefix,                        # Prefix for the output filename
-        )
-        self.logger.info("Results exported successfully!")
-        calculator_log_lines.append(f"{output_exporting_log}")
-
-        calculator_log_str = "\n".join(calculator_log_lines)
-
-        try:
-            log_path = self.output_dir / "change_log.txt"
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write(calculator_log_str)
-            self.logger.info("✓ Updated and saved change log: {}", log_path)
         except Exception as e:
-            self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+            self.logger.error("❌ {} failed: {}", agent_id, str(e))
+            raise
 
-        return mold_stability_index, calculator_log_str
-
-    # Static methods for mold stability index calculating phase
-    @staticmethod
-    def _stability_index_input_processing(productRecords_df, 
-                                          moldInfo_df):
-        filter_df = productRecords_df[productRecords_df['moldShot'] > 0].copy()
-        filter_df['moldCycle'] = (28800 / filter_df['moldShot']).round(2)
-
-        df = filter_df.groupby(['moldNo', 'recordDate'])[['moldCavity', 'moldCycle']].agg(list).reset_index()
-        df['moldCavity'] = df['moldCavity'].apply(lambda lst: [int(x) for x in lst])
-        df['moldCycle'] = df['moldCycle'].apply(lambda lst: [float(x) for x in lst])
-
-        field_list = ['moldNo', 'moldName', 'recordDate',
-                        'moldCavity', 'moldCavityStandard', 'moldCycle', 'moldSettingCycle',
-                        'acquisitionDate', 'machineTonnage']
-
-        merged_df = df.merge(moldInfo_df[['moldNo', 'moldName',
-                                            'moldCavityStandard', 'moldSettingCycle',
-                                            'acquisitionDate', 'machineTonnage']], how='left', on='moldNo')
-
-        return merged_df[field_list]
-
-    @staticmethod
-    def _calculate_cavity_stability(cavity_values, 
+    def _calculate_cavity_stability(self,
+                                    cavity_values, 
                                     standard_cavity, 
                                     total_records, 
                                     total_records_threshold):
@@ -353,16 +344,16 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
 
         # Final weighted score
         stability_score = (
-            accuracy_rate * MoldStabilityIndexCalculator.CAVITY_STABILITY_WEIGHTS['accuracy_rate_weight'] +           # 40% - Accuracy
-            consistency_score * MoldStabilityIndexCalculator.CAVITY_STABILITY_WEIGHTS['consistency_score_weight'] +   # 30% - Consistency
-            utilization_rate * MoldStabilityIndexCalculator.CAVITY_STABILITY_WEIGHTS['utilization_rate_weight'] +     # 20% - Utilization
-            data_completeness * MoldStabilityIndexCalculator.CAVITY_STABILITY_WEIGHTS['data_completeness_weight']     # 10% - Data completeness
+            accuracy_rate * self.constant_config['CAVITY_STABILITY_WEIGHTS']['accuracy_rate_weight'] +           # 40% - Accuracy
+            consistency_score * self.constant_config['CAVITY_STABILITY_WEIGHTS']['consistency_score_weight'] +   # 30% - Consistency
+            utilization_rate * self.constant_config['CAVITY_STABILITY_WEIGHTS']['utilization_rate_weight'] +     # 20% - Utilization
+            data_completeness * self.constant_config['CAVITY_STABILITY_WEIGHTS']['data_completeness_weight']     # 10% - Data completeness
         )
 
         return min(1.0, max(0.0, stability_score))
 
-    @staticmethod
-    def _calculate_cycle_stability(cycle_values, 
+    def _calculate_cycle_stability(self, 
+                                   cycle_values, 
                                    standard_cycle, 
                                    total_records, 
                                    total_records_threshold):
@@ -374,7 +365,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
 
         # 1. Deviation from standard
         deviations = [abs(val - standard_cycle) / standard_cycle for val in cycle_values]
-        avg_deviation = np.mean(deviations) if deviations else MoldStabilityIndexCalculator.EXTREME_DEVIATION_THRESHOLD
+        avg_deviation = np.mean(deviations) if deviations else self.constant_config['EXTREME_DEVIATION_THRESHOLD']
         accuracy_score = max(0, 1 - avg_deviation)
 
         # 2. Consistency: variation of cycle time
@@ -383,7 +374,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
 
         # 3. Compliance within ±20% range
         in_range_count = sum(1 for val in cycle_values
-                            if abs(val - standard_cycle) / standard_cycle <= MoldStabilityIndexCalculator.CYCLE_TIME_TOLERANCE)
+                            if abs(val - standard_cycle) / standard_cycle <= self.constant_config['CYCLE_TIME_TOLERANCE'])
         range_compliance = in_range_count / len(cycle_values) if cycle_values else 0
 
         # 4. Penalty for extreme outliers (deviation > 100%)
@@ -396,11 +387,32 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
 
         # Final weighted score
         stability_score = (
-            accuracy_score * MoldStabilityIndexCalculator.CYCLE_STABILITY_WEIGHTS['accuracy_score_weight'] +         # 30% - Accuracy
-            consistency_score * MoldStabilityIndexCalculator.CYCLE_STABILITY_WEIGHTS['consistency_score_weight'] +   # 25% - Consistency
-            range_compliance * MoldStabilityIndexCalculator.CYCLE_STABILITY_WEIGHTS['range_compliance_weight'] +     # 25% - Range compliance
-            outlier_penalty * MoldStabilityIndexCalculator.CYCLE_STABILITY_WEIGHTS['outlier_penalty_weight'] +       # 10% - Outlier penalty
-            data_completeness * MoldStabilityIndexCalculator.CYCLE_STABILITY_WEIGHTS['data_completeness_weight']     # 10% - Data completeness
+            accuracy_score * self.constant_config['CYCLE_STABILITY_WEIGHTS']['accuracy_score_weight'] +         # 30% - Accuracy
+            consistency_score * self.constant_config['CYCLE_STABILITY_WEIGHTS']['consistency_score_weight'] +   # 25% - Consistency
+            range_compliance * self.constant_config['CYCLE_STABILITY_WEIGHTS']['range_compliance_weight'] +     # 25% - Range compliance
+            outlier_penalty * self.constant_config['CYCLE_STABILITY_WEIGHTS']['outlier_penalty_weight'] +       # 10% - Outlier penalty
+            data_completeness * self.constant_config['CYCLE_STABILITY_WEIGHTS']['data_completeness_weight']     # 10% - Data completeness
         )
 
         return min(1.0, max(0.0, stability_score))
+    
+    # Static methods for mold stability index calculating phase
+    @staticmethod
+    def _stability_index_input_processing(productRecords_df, 
+                                          moldInfo_df):
+        filter_df = productRecords_df[productRecords_df['moldShot'] > 0].copy()
+        filter_df['moldCycle'] = (28800 / filter_df['moldShot']).round(2)
+
+        df = filter_df.groupby(['moldNo', 'recordDate'])[['moldCavity', 'moldCycle']].agg(list).reset_index()
+        df['moldCavity'] = df['moldCavity'].apply(lambda lst: [int(x) for x in lst])
+        df['moldCycle'] = df['moldCycle'].apply(lambda lst: [float(x) for x in lst])
+
+        field_list = ['moldNo', 'moldName', 'recordDate',
+                        'moldCavity', 'moldCavityStandard', 'moldCycle', 'moldSettingCycle',
+                        'acquisitionDate', 'machineTonnage']
+
+        merged_df = df.merge(moldInfo_df[['moldNo', 'moldName',
+                                            'moldCavityStandard', 'moldSettingCycle',
+                                            'acquisitionDate', 'machineTonnage']], how='left', on='moldNo')
+
+        return merged_df[field_list]

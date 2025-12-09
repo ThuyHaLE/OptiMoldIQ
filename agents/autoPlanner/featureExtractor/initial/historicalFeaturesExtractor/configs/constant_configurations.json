@@ -1,0 +1,20 @@
+{
+    "MoldStabilityIndexCalculator": {
+        "SECONDS_PER_HOUR": 3600,
+        "CYCLE_TIME_TOLERANCE": 0.2,
+        "EXTREME_DEVIATION_THRESHOLD": 1.0,
+        "CYCLE_STABILITY_WEIGHTS": {
+            "accuracy_score_weight": 0.3,
+            "consistency_score_weight": 0.25,
+            "range_compliance_weight": 0.25,
+            "outlier_penalty_weight": 0.1,
+            "data_completeness_weight": 0.1
+        },
+        "CAVITY_STABILITY_WEIGHTS": {
+            "accuracy_rate_weight": 0.4,
+            "consistency_score_weight": 0.3,
+            "utilization_rate_weight": 0.2,
+            "data_completeness_weight": 0.1
+        }
+    }
+}

@@ -5,11 +5,11 @@ from datetime import datetime
 import shutil
 
 from agents.utils import ConfigReportMixin
+from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
 
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.features_extractor_config import FeaturesExtractorConfig
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.mold_machine_feature_weight_calculator import MoldMachineFeatureWeightCalculator
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.mold_stability_index_calculator import MoldStabilityIndexCalculator
-from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
 from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 
@@ -25,6 +25,39 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
     The orchestrator includes error handling and comprehensive reporting.
     """
 
+    REQUIRED_FIELDS = {
+        'config': {
+            'shared_source_config': {
+                'databaseSchemas_path': str,
+                'sharedDatabaseSchemas_path': str,
+                'annotation_path': str,
+                'progress_tracker_change_log_path': str,
+                'mold_stability_index_change_log_path': str,
+                'mold_machine_weights_dir': str,
+                'mold_stability_index_dir': str,
+                'features_extractor_dir': str
+                },
+            'feature_weight_config': {
+                'efficiency': float,
+                'loss': float,
+                'scaling': str,
+                'confidence_weight': float,
+                'n_bootstrap': int,
+                'confidence_level': float,
+                'min_sample_size': int,
+                'feature_weights': dict,
+                'targets': dict
+                },
+            'mold_stability_config': {
+                'efficiency': float,
+                'loss': float,
+                'cavity_stability_threshold': float,
+                'cycle_stability_threshold': float,
+                'total_records_threshold': int
+                }
+            }
+    }
+    
     def __init__(self, config: FeaturesExtractorConfig):
         """
         Initialize HistoricalFeaturesExtractor with configuration.
@@ -36,16 +69,24 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         
         # Initialize logger with class-specific binding
         self.logger = logger.bind(class_="HistoricalFeaturesExtractor")
+
+        # Validate required configs
+        is_valid, errors = shared_source_config.validate_requirements(self.REQUIRED_FIELDS['config']['shared_source_config'])
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
         
         # Store configuration
         self.config = config
-        self.default_dir = Path(config.default_dir)
-        self.output_dir = self.default_dir / "HistoricalFeaturesExtractor"
+
+        # Set up output configuration for saving results
+        self.output_dir = Path(self.config.shared_source_config.features_extractor_dir)
         
         # Initialize report collection
         self.report_collection = {}
-        
-        self.logger.info("Initialized HistoricalFeaturesExtractor")
 
     def save_report(self) -> str:
         """
@@ -120,7 +161,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
 
         # Generate config header using mixin
         timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
+        config_header = self._generate_config_report(timestamp_str, required_only=True)
 
         pipeline_log_lines = [config_header]
         pipeline_log_lines.append("--Processing Summary--\n")
@@ -202,10 +243,9 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         
         try:
             calculator = MoldStabilityIndexCalculator(
-                config=self.config.mold_stability_config
-            )
-            results, log_str = calculator.process_and_save_result()
-            
+                shared_source_config = self.config.shared_source_config, 
+                mold_stability_config = self.config.mold_stability_config)
+            results, log_str = calculator.process(save_results = True)
             self.logger.info("✅ Phase 1: {} completed successfully", agent_id)
             
             success_report = {
@@ -235,16 +275,8 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         self.logger.info("📋 Phase 2: Running {}...", agent_id)
         
         try:
-            tracker = OrderProgressTracker(
-                source_path=self.config.source_path,
-                annotation_name=self.config.annotation_name,
-                databaseSchemas_path=self.config.databaseSchemas_path,
-                folder_path=self.config.folder_path,
-                target_name=self.config.target_name,
-                default_dir=self.config.default_dir
-            )
+            tracker = OrderProgressTracker(config = self.config.shared_source_config)
             results, log_str = tracker.pro_status()
-            
             self.logger.info("✅ Phase 2: {} completed successfully", agent_id)
             
             success_report = {
@@ -275,10 +307,9 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         
         try:
             calculator = MoldMachineFeatureWeightCalculator(
-                config=self.config.feature_weight_config
-            )
-            results, log_str = calculator.calculate_and_save_report()
-            
+                shared_source_config = self.config.shared_source_config, 
+                feature_weight_config = self.config.feature_weight_config)
+            results, log_str = calculator.process(save_results = True)
             self.logger.info("✅ Phase 3: {} completed successfully", agent_id)
             
             success_report = {

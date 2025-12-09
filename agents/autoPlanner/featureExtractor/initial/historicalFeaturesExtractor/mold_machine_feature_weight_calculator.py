@@ -14,6 +14,7 @@ import shutil
 from agents.autoPlanner.reportFormatters.report_text_formatter import generate_confidence_report
 from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import load_annotation_path, log_dict_as_table, read_change_log, ConfigReportMixin
+from configs.shared.shared_source_config import SharedSourceConfig
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 
 from agents.autoPlanner.initialPlanner.optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
@@ -41,38 +42,55 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
     generate a priority matrix to support optimal production planning)
     """
 
+    REQUIRED_FIELDS = {
+        'shared_source_config': {
+            'databaseSchemas_path': str,
+            'sharedDatabaseSchemas_path': str,
+            'annotation_path': str,
+            'progress_tracker_change_log_path': str,
+            'mold_stability_index_change_log_path': str,
+            'mold_machine_weights_dir': str
+            },
+        'feature_weight_config': {
+            'efficiency': float,
+            'loss': float,
+            'scaling': str,
+            'confidence_weight': float,
+            'n_bootstrap': int,
+            'confidence_level': float,
+            'min_sample_size': int,
+            'feature_weights': dict,
+            'targets': dict
+            }
+        }
+
     def __init__(self,
-                 config: FeatureWeightConfig):
+                 shared_source_config: SharedSourceConfig, 
+                 feature_weight_config: FeatureWeightConfig):
 
         """
-        Initialize the MoldMachineFeatureWeightCalculator with configuration paths and parameters.
-
+        Initialize the MoldMachineFeatureWeightCalculator.
+        
         Args:
-            config: FeatureWeightConfig containing processing parameters
-            Including:
-                source_path (str): Path to the annotation data.
-                annotation_name (str): File name of the path annotation.
-                databaseSchemas_path (str): Path to database schema for validation.
-                sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
-
-                folder_path (str): Path to folder containing the production status log.
-                target_name (str): Filename of the production status log.
-
-                mold_stability_index_folder (str): Path to folder containing the mold stability index log.
-                mold_stability_index_target_name (str): Filename of the mold stability index log.
-
-                default_dir (str): Base directory for storing reports.
-
-                efficiency (float): Efficiency threshold to classify good/bad records.
-                loss (float): Allowable production loss threshold.
-
-                scaling (str): Method to scale feature impacts ('absolute' or 'relative').
-                confidence_weight (float): Weight assigned to confidence scores in final weight calculation.
-                n_bootstrap (int): Number of bootstrap samples for confidence interval estimation.
-                confidence_level (float): Desired confidence level for statistical tests.
-                min_sample_size (int): Minimum sample size required for reliable estimation.
-                feature_weights (dict): Optional preset weights for features.
-                targets (dict): Target metrics and their optimization directions or goals.
+            shared_source_config: SharedSourceConfig containing processing parameters
+                Including:
+                    - annotation_path: Path to the JSON file containing path annotations
+                    - databaseSchemas_path (str): Path to database schema for validation.
+                    - sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
+                    - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log.
+                    - mold_stability_index_change_log_path: Path to the MoldStabilityIndexCalculator change log.
+                    - mold_machine_weights_dir: Base directory for storing reports.
+            feature_weight_config: FeatureWeightConfig containing processing parameters
+                Including:
+                    - efficiency (float): Efficiency threshold to classify good/bad records.
+                    - loss (float): Allowable production loss threshold.
+                    - scaling (str): Method to scale feature impacts ('absolute' or 'relative').
+                    - confidence_weight (float): Weight assigned to confidence scores in final weight calculation.
+                    - n_bootstrap (int): Number of bootstrap samples for confidence interval estimation.
+                    - confidence_level (float): Desired confidence level for statistical tests.
+                    - min_sample_size (int): Minimum sample size required for reliable estimation.
+                    - feature_weights (dict): Optional preset weights for features.
+                    - targets (dict): Target metrics and their optimization directions or goals.
         """
 
         self._capture_init_args()
@@ -80,163 +98,258 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
         # Initialize logger with class context for better debugging
         self.logger = logger.bind(class_="MoldMachineFeatureWeightCalculator")
 
-        self.config = config 
+        # Validate required configs
+        is_valid, errors = shared_source_config.validate_requirements(self.REQUIRED_FIELDS['shared_source_config'])
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
+        
+        self.shared_source_config = shared_source_config
+        self.feature_weight_config = feature_weight_config
 
-        # Load database schema configuration for column validation
-        self.databaseSchemas_data = load_annotation_path(
-            Path(self.config.databaseSchemas_path).parent,
-            Path(self.config.databaseSchemas_path).name
-        )
-
-        # Load shared database schema configuration for column validation
-        self.sharedDatabaseSchemas_data = load_annotation_path(
-            Path(self.config.sharedDatabaseSchemas_path).parent,
-            Path(self.config.sharedDatabaseSchemas_path).name
-        )
-
-        # Load path annotations that map logical names to actual file paths
-        self.path_annotation = load_annotation_path(self.config.source_path, self.config.annotation_name)
-
-        # Set up output configuration
-        self.filename_prefix = "confidence_report"
-        self.default_dir = Path(self.config.default_dir)
-        self.output_dir = self.default_dir / "MoldMachineFeatureWeightCalculator"
-
-        # Load production report
-        proStatus_path = read_change_log(self.config.folder_path, self.config.target_name)
-        self.proStatus_df = pd.read_excel(proStatus_path)
+        self.load_schema_and_annotations()
 
         # Load all required DataFrames from parquet files
         self._load_dataframes()
 
         self.machine_info_df = check_newest_machine_layout(self.machineInfo_df)
 
-    def calculate(self):
+        # Load production report
+        self.proStatus_df = self._load_latest_path(
+            self.shared_source_config.progress_tracker_change_log_path)
+
+        # Load mold stability index
+        self.mold_stability_index = self._load_latest_path(
+            self.shared_source_config.mold_stability_index_change_log_path
+        )
+
+        # Set up output configuration
+        self.filename_prefix = "confidence_report"
+        self.output_dir = Path(self.shared_source_config.mold_machine_weights_dir)
+        
+    def _read_change_log(self, change_log_path):
+        """Helper function to get latest file path from a change log."""
+        latest_path = read_change_log(
+            Path(change_log_path).parent,
+            Path(change_log_path).name
+        )
+        return latest_path
+
+    def _load_latest_path(self, change_log_path):
+        """Load Excel file from latest path in change log."""
+        latest_path = self._read_change_log(change_log_path)
+        if latest_path is None:
+            self.logger.error("Cannot find file {}", change_log_path)
+            raise FileNotFoundError(f"Cannot find file {change_log_path}")
+        return pd.read_excel(latest_path)
+
+    def _load_annotation_from_config(self, config_path):
+        """Helper function to load annotation from a config path."""
+        return load_annotation_path(
+            Path(config_path).parent,
+            Path(config_path).name
+        )
+
+    def load_schema_and_annotations(self):
+        """Load database schemas and path annotations from configuration files."""
+        self.databaseSchemas_data = self._load_annotation_from_config(
+            self.shared_source_config.databaseSchemas_path
+        )
+        self.sharedDatabaseSchemas_data = self._load_annotation_from_config(
+            self.shared_source_config.sharedDatabaseSchemas_path
+        )
+        self.path_annotation = self._load_annotation_from_config(
+            self.shared_source_config.annotation_path
+        )
+
+    def _load_dataframes(self) -> None:
+
+        """
+        Load all required DataFrames from parquet files with consistent error handling.
+
+        This method loads the following DataFrames:
+        - productRecords_df: Production records with item, mold, machine data
+        - machineInfo_df: Machine specifications and tonnage information
+        - moldSpecificationSummary_df: Mold specifications and compatible items
+        - moldInfo_df: Detailed mold information including tonnage requirements
+        """
+
+        # Define the mapping between path annotation keys and DataFrame attribute names
+        dataframes_to_load = [
+            ('moldSpecificationSummary', 'moldSpecificationSummary_df'),
+            ('moldInfo', 'moldInfo_df'),
+            ('machineInfo', 'machineInfo_df'),
+            ('productRecords', 'productRecords_df'),
+        ]
+
+        # Load each DataFrame with error handling
+        for path_key, attr_name in dataframes_to_load:
+            path = self.path_annotation.get(path_key)
+
+            # Validate path exists
+            if not path or not os.path.exists(path):
+                self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
+                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
+
+            try:
+                # Load DataFrame from parquet file
+                df = pd.read_parquet(path)
+                setattr(self, attr_name, df)
+                self.logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
+            except Exception as e:
+                self.logger.error("Failed to load {}: {}", path_key, str(e))
+                raise
+
+    def process(self,
+                save_results: bool = False) -> tuple[pd.DataFrame, str]:
 
         """
         Main method to calculate feature confidence scores and enhanced weights.
         """
 
-        # Generate config header using mixin
-        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
-        
-        calculator_log_lines = [config_header]
-        calculator_log_lines.append(f"--Processing Summary--\n")
-        calculator_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
-
-        # Load mold stability index
-        mold_stability_index_path = read_change_log(
-            self.config.mold_stability_index_folder,
-            self.config.mold_stability_index_target_name)
-        
-        if mold_stability_index_path is None:
-            self.logger.error("Cannot find file {}/{}", 
-                              self.config.mold_stability_index_folder, 
-                              self.config.mold_stability_index_target_name)
-            raise FileNotFoundError(f"Cannot find file {self.config.mold_stability_index_folder}/{self.config.mold_stability_index_target_name}")
-            
-        mold_stability_index = pd.read_excel(mold_stability_index_path)
-        
         try:
             cols = list(self.sharedDatabaseSchemas_data["mold_stability_index"]['dtypes'].keys())
-            logger.info('Validation for mold_stability_index...')
-            validate_dataframe(mold_stability_index, cols)
+            validate_dataframe(self.mold_stability_index, cols)
+            self.logger.info("✓ Validation for mold_stability_index requirements: PASSED!")
         except Exception as e:
             logger.error("Validation failed for mold_stability_index (expected cols: %s): %s", cols, e)
             raise
 
-        # Suggest the priority for the item-mold pair based on historical records
-        self.logger.info("Starting ItemMoldCapacityOptimizer ...")
-        _, mold_estimated_capacity_df, optimization_log = ItemMoldCapacityOptimizer(
-            mold_stability_index,
-            self.moldSpecificationSummary_df,
-            self.moldInfo_df,
-            self.config.efficiency,
-            self.config.loss,
-            self.databaseSchemas_data,
-            self.sharedDatabaseSchemas_data
-            ).process()
+        self.logger.info("Starting MoldMachineFeatureWeightCalculator ...")
+
+        # Generate config header using mixin
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, required_only=True)
         
-        calculator_log_lines.append("Optimization phase completed successfully!")
-        calculator_log_lines.append(optimization_log)
+        calculator_log_entries = [config_header]
+        calculator_log_entries.append(f"--Processing Summary--\n")
+        calculator_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
         try:
-            cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
-            validate_dataframe(mold_estimated_capacity_df, cols)
-            calculator_log_lines.append("\n✓ Validation for mold_estimated_capacity: PASSED!")
-        except Exception as e:
-            logger.error("Validation for mold_estimated_capacity: FAILED! (expected cols: %s): %s", cols, e)
-            raise
+            # Suggest the priority for the item-mold pair based on historical records
+            self.logger.info("Starting ItemMoldCapacityOptimizer ...")
+            _, mold_estimated_capacity_df, optimization_log = ItemMoldCapacityOptimizer(
+                self.mold_stability_index,
+                self.moldSpecificationSummary_df,
+                self.moldInfo_df,
+                self.feature_weight_config.efficiency,
+                self.feature_weight_config.loss,
+                self.databaseSchemas_data,
+                self.sharedDatabaseSchemas_data
+                ).process()
+            
+            calculator_log_entries.append("Optimization phase completed successfully!")
+            calculator_log_entries.append(optimization_log)
 
-        # Rename columns for compatibility
-        self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
+            try:
+                cols = list(self.sharedDatabaseSchemas_data["mold_estimated_capacity"]['dtypes'].keys())
+                validate_dataframe(mold_estimated_capacity_df, cols)
+                calculator_log_entries.append("\n✓ Validation for mold_estimated_capacity: PASSED!")
+            except Exception as e:
+                logger.error("Validation for mold_estimated_capacity: FAILED! (expected cols: %s): %s", cols, e)
+                raise
 
-        # Rename columns for consistency
-        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
-                                          'lastestMoldNo': 'moldNo'
-                                          }, inplace=True)
-        
-        # Separate good and bad production records based on efficiency/loss
-        good_hist, bad_hist = MoldMachineFeatureWeightCalculator._group_hist_by_performance(
-            self.proStatus_df,
-            self.productRecords_df,
-            self.moldInfo_df,
-            self.config.efficiency,
-            self.config.loss)
+            # Rename columns for compatibility
+            self.productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
 
-        good_sample, _ = summarize_mold_machine_history(good_hist,
+            # Rename columns for consistency
+            self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
+                                            'lastestMoldNo': 'moldNo'
+                                            }, inplace=True)
+            
+            # Separate good and bad production records based on efficiency/loss
+            good_hist, bad_hist = MoldMachineFeatureWeightCalculator._group_hist_by_performance(
+                self.proStatus_df,
+                self.productRecords_df,
+                self.moldInfo_df,
+                self.feature_weight_config.efficiency,
+                self.feature_weight_config.loss)
+
+            good_sample, _ = summarize_mold_machine_history(good_hist,
+                                                            mold_estimated_capacity_df)
+            try:
+                cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
+                logger.debug('Validation for mold_machine_history_summary (good sample)...')
+                validate_dataframe(good_sample, cols)
+            except Exception as e:
+                logger.error("Validation failed for mold_machine_history_summary (expected cols: %s): %s", cols, e)
+                raise
+
+            bad_sample, _ = summarize_mold_machine_history(bad_hist,
                                                         mold_estimated_capacity_df)
-        try:
-            cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
-            logger.debug('Validation for mold_machine_history_summary (good sample)...')
-            validate_dataframe(good_sample, cols)
+            try:
+                cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
+                logger.debug('Validation for mold_machine_history_summary (bad sample)...')
+                validate_dataframe(bad_sample, cols)
+            except Exception as e:
+                logger.error("Validation failed for mold_machine_history_summary (expected cols: %s): %s", cols, e)
+                raise
+
+            # Calculate confidence scores
+            confidence_scores = MoldMachineFeatureWeightCalculator._calculate_confidence_scores(
+                good_sample,
+                bad_sample,
+                self.feature_weight_config.targets,
+                self.feature_weight_config.n_bootstrap,
+                self.feature_weight_config.confidence_level,
+                self.feature_weight_config.min_sample_size)
+
+            # Calculate overall confidence
+            overall_confidence = MoldMachineFeatureWeightCalculator._calculate_overall_confidence(
+                confidence_scores,
+                self.feature_weight_config.feature_weights)
+
+            # Enhanced weights với confidence
+            enhanced_weights = MoldMachineFeatureWeightCalculator._suggest_weights_with_confidence(
+                good_sample,
+                bad_sample,
+                self.feature_weight_config.targets,
+                self.feature_weight_config.scaling,
+                self.feature_weight_config.confidence_weight,
+                self.feature_weight_config.n_bootstrap,
+                self.feature_weight_config.confidence_level,
+                self.feature_weight_config.min_sample_size)
+
+            calculator_log_entries.append(
+                f'Enhanced Weights (with confidence): \n{log_dict_as_table(enhanced_weights, transpose = False)}')
+            
+            #Generate confidence report
+            confidence_report_text = generate_confidence_report(confidence_scores, overall_confidence)
+            calculator_log_entries.append(f"{confidence_report_text}\n")
+
+            if save_results:
+                try:
+                    # Export to outputs with automatic versioning
+                    logger.info("Start outputs exporting...")
+                    output_exporting_log =  self.save_output_with_versioning(
+                        confidence_report_text,
+                        enhanced_weights)
+                    self.logger.info("Results exported successfully!")  
+                    calculator_log_entries.append(f"{output_exporting_log}")
+                except Exception as e:
+                    self.logger.error("Failed to save results: {}", str(e))
+                    raise
+            
+            calculator_log_str = "\n".join(calculator_log_entries)
+
+            try:
+                log_path = self.output_dir / "change_log.txt"
+                with open(log_path, "a", encoding="utf-8") as log_file:
+                    log_file.write(calculator_log_str)
+                self.logger.info("✓ Updated and saved change log: {}", log_path)
+            except Exception as e:
+                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
+
+            self.logger.info("✅ Process finished!!!")
+
+            return (confidence_scores, overall_confidence, enhanced_weights), calculator_log_str
+
         except Exception as e:
-            logger.error("Validation failed for mold_machine_history_summary (expected cols: %s): %s", cols, e)
+            self.logger.error("❌ {} failed: {}", agent_id, str(e))
             raise
-
-        bad_sample, _ = summarize_mold_machine_history(bad_hist,
-                                                       mold_estimated_capacity_df)
-        try:
-            cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
-            logger.debug('Validation for mold_machine_history_summary (bad sample)...')
-            validate_dataframe(bad_sample, cols)
-        except Exception as e:
-            logger.error("Validation failed for mold_machine_history_summary (expected cols: %s): %s", cols, e)
-            raise
-
-        # Calculate confidence scores
-        confidence_scores = MoldMachineFeatureWeightCalculator._calculate_confidence_scores(
-            good_sample,
-            bad_sample,
-            self.config.targets,
-            self.config.n_bootstrap,
-            self.config.confidence_level,
-            self.config.min_sample_size)
-
-        # Calculate overall confidence
-        overall_confidence = MoldMachineFeatureWeightCalculator._calculate_overall_confidence(
-            confidence_scores,
-            self.config.feature_weights)
-
-        # Enhanced weights với confidence
-        enhanced_weights = MoldMachineFeatureWeightCalculator._suggest_weights_with_confidence(
-            good_sample,
-            bad_sample,
-            self.config.targets,
-            self.config.scaling,
-            self.config.confidence_weight,
-            self.config.n_bootstrap,
-            self.config.confidence_level,
-            self.config.min_sample_size)
-
-        calculator_log_lines.append(f'Enhanced Weights (with confidence): \n{log_dict_as_table(enhanced_weights, transpose = False)}')
-        
-        calculator_log_str = "\n".join(calculator_log_lines)
-        
-        self.logger.info("✅ Process finished!!!")
-        
-        return confidence_scores, overall_confidence, enhanced_weights, calculator_log_str
 
     def save_output_with_versioning(self, 
                                     confidence_report_text: str,
@@ -303,80 +416,6 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
                 raise OSError(f"Failed to write weights_hist.xlsx: {e}")
 
         return "".join(log_entries)
-    
-    def calculate_and_save_report(self):
-
-        """
-        Wrapper function to calculate weights and save the result as a report.
-        """
-
-        # Calculate feature weight
-        confidence_scores, overall_confidence, enhanced_weights, calculator_log = self.calculate()
-        
-        #Generate confidence report
-        confidence_report_text = generate_confidence_report(confidence_scores, overall_confidence)
-
-        export_log_lines = []
-        # Export to outputs with automatic versioning
-        logger.info("Start outputs exporting...")
-        output_exporting_log =  self.save_output_with_versioning(
-            confidence_report_text,
-            enhanced_weights)
-        self.logger.info("Results exported successfully!")
-        export_log_lines.append("✓ Results exported successfully!")
-        export_log_lines.append(output_exporting_log)
-
-        # Combine all logs
-        master_log_lines = [calculator_log, "\n".join(export_log_lines)]
-        master_log_str = "\n".join(master_log_lines)
-
-        try:
-            log_path = self.output_dir / "change_log.txt"
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write(master_log_str)
-            self.logger.info("✓ Updated and saved change log: {}", log_path)
-        except Exception as e:
-            self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
-
-        return (confidence_scores, overall_confidence, enhanced_weights), master_log_str
-
-    def _load_dataframes(self) -> None:
-
-        """
-        Load all required DataFrames from parquet files with consistent error handling.
-
-        This method loads the following DataFrames:
-        - productRecords_df: Production records with item, mold, machine data
-        - machineInfo_df: Machine specifications and tonnage information
-        - moldSpecificationSummary_df: Mold specifications and compatible items
-        - moldInfo_df: Detailed mold information including tonnage requirements
-        """
-
-        # Define the mapping between path annotation keys and DataFrame attribute names
-        dataframes_to_load = [
-            ('moldSpecificationSummary', 'moldSpecificationSummary_df'),
-            ('moldInfo', 'moldInfo_df'),
-            ('machineInfo', 'machineInfo_df'),
-            ('productRecords', 'productRecords_df'),
-        ]
-
-        # Load each DataFrame with error handling
-        for path_key, attr_name in dataframes_to_load:
-            path = self.path_annotation.get(path_key)
-
-            # Validate path exists
-            if not path or not os.path.exists(path):
-                self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
-                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
-
-            try:
-                # Load DataFrame from parquet file
-                df = pd.read_parquet(path)
-                setattr(self, attr_name, df)
-                self.logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
-            except Exception as e:
-                self.logger.error("Failed to load {}: {}", path_key, str(e))
-                raise
 
     @staticmethod
     def _group_hist_by_performance(proStatus_df: pd.DataFrame,
