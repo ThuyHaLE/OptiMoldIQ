@@ -55,7 +55,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
         Args:
             shared_source_config: SharedSourceConfig containing processing parameters
                 Including:
-                    - annotation_path: Path to the JSON file containing path annotations
+                    - annotation_path (str): Path to the JSON file containing path annotations
                     - databaseSchemas_path (str): Path to the database schema configuration file.
                     - mold_stability_index_dir (str): Default directory for output and temporary files.
             mold_stability_config: MoldStabilityConfig containing processing parameters

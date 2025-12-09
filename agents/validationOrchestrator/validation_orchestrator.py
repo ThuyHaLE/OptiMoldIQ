@@ -53,7 +53,7 @@ class ValidationOrchestrator(ConfigReportMixin):
         Initialize the ValidationOrchestrator.
         
         Args:
-            config: SharedSourceConfig containing processing parameters
+            shared_source_config: SharedSourceConfig containing processing parameters
             enable_parallel: Whether to enable parallel processing (default: True, auto-detected)
             max_workers: Maximum number of workers for parallel processing (None = auto-detect)
         """
@@ -69,7 +69,7 @@ class ValidationOrchestrator(ConfigReportMixin):
                 f"{self.__class__.__name__} config validation failed:\n" +
                 "\n".join(f"  - {e}" for e in errors)
             )
-        self.logger.info("✓ Validation for config requirements: PASSED!")
+        self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
     
         self.config = shared_source_config
         self.enable_parallel = enable_parallel

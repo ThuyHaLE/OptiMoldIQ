@@ -25,32 +25,22 @@ class ProgressTrackingModule(BaseModule):
 
     def _build_shared_config(self) -> SharedSourceConfig:
         """Build SharedSourceConfig from loaded YAML dict"""
-        
-        # Extract values from YAML structure
         project_root = Path(self.config.get('project_root', '.'))
-        progress_tracking_config = self.config.get('progress_tracking', {})
-        if not progress_tracking_config:
-            self.logger.debug("ProgressTrackingModule config not found in loaded YAML dict")
-        
-        # Helper function to join paths with project_root
-        def resolve_path(path_value: Optional[str]) -> Optional[str]:
-            """Join path with project_root if provided, else return None"""
-            if path_value is None:
-                return None
-            return str(project_root / path_value)
-        
-        # Map YAML fields to SharedSourceConfig
-        return SharedSourceConfig(
-            # Required fields
-            db_dir=resolve_path(progress_tracking_config.get('db_dir')) or 'database',
-            default_dir=resolve_path(progress_tracking_config.get('default_dir')) or 'agents/shared_db',
-            
-            # Optional fields
-            databaseSchemas_path=resolve_path(progress_tracking_config.get('databaseSchemas_path')),
-            annotation_path=resolve_path(progress_tracking_config.get('annotation_path')),
-            validation_change_log_path=resolve_path(progress_tracking_config.get('validation_change_log_path')),
-            progress_tracker_dir=resolve_path(progress_tracking_config.get('progress_tracker_dir'))
-        )
+        pipeline_config = self.config.get('progress_tracking', {})
+        if not pipeline_config:
+            self.logger.debug("Using default SharedSourceConfig")
+        resolved_config = self._resolve_paths(shared_source_config)
+        return SharedSourceConfig(**resolved_config)
+
+    def _resolve_paths(self, config: dict) -> dict:
+        """Resolve relative paths with project_root"""
+        resolved = {}
+        for key, value in config.items():
+            if value and isinstance(value, str) and ('_dir' in key or '_path' in key):
+                resolved[key] = str(self.project_root / value)
+            else:
+                resolved[key] = value
+        return resolved
     
     @property
     def module_name(self) -> str:

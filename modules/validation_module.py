@@ -25,36 +25,27 @@ class ValidationModule(BaseModule):
         self.validation_config = self.config.get('validation', {})
         if not self.validation_config:
             self.logger.debug("ValidationModule config not found in loaded YAML dict")
-
+    
         # Convert dict to SharedSourceConfig
         self.shared_config = self._build_shared_config()
 
     def _build_shared_config(self) -> SharedSourceConfig:
-        """Build SharedSourceConfig from loaded YAML dict""" 
-        
+        """Build SharedSourceConfig from loaded YAML dict"""
         shared_source_config = self.validation_config.get('shared_source_config', {})
         if not shared_source_config:
-            self.logger.debug("Shared source config not found in ValidationModule config. Using default SharedSourceConfig.")
-        
-        # Helper function to join paths with project_root
-        def resolve_path(path_value: Optional[str]) -> Optional[str]:
-            """Join path with project_root if provided, else return None"""
-            if path_value is None:
-                return None
-            return str(self.project_root / path_value)
-        
-        # Map YAML fields to SharedSourceConfig
-        return SharedSourceConfig(
-            # Required fields
-            db_dir=resolve_path(shared_source_config.get('db_dir')) or 'database',
-            default_dir=resolve_path(shared_source_config.get('default_dir')) or 'agents/shared_db',
-            
-            # Optional fields
-            validation_df_name=shared_source_config.get('validation_df_name'),
-            databaseSchemas_path=resolve_path(shared_source_config.get('databaseSchemas_path')),
-            annotation_path=resolve_path(shared_source_config.get('annotation_path')),
-            validation_dir=resolve_path(shared_source_config.get('validation_dir'))
-        )
+            self.logger.debug("Using default SharedSourceConfig")
+        resolved_config = self._resolve_paths(shared_source_config)
+        return SharedSourceConfig(**resolved_config)
+
+    def _resolve_paths(self, config: dict) -> dict:
+        """Resolve relative paths with project_root"""
+        resolved = {}
+        for key, value in config.items():
+            if value and isinstance(value, str) and ('_dir' in key or '_path' in key):
+                resolved[key] = str(self.project_root / value)
+            else:
+                resolved[key] = value
+        return resolved
     
     @property
     def module_name(self) -> str:

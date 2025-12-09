@@ -1,0 +1,173 @@
+# modules/validation_module.py
+
+from pathlib import Path
+from typing import Dict, List, Optional
+from modules.base_module import BaseModule, ModuleResult
+from loguru import logger
+
+from configs.shared.shared_source_config import SharedSourceConfig
+from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.feature_weight_config import FeatureWeightConfig
+from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.mold_stability_config import MoldStabilityConfig
+from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
+    HistoricalFeaturesExtractor, FeaturesExtractorConfig)
+
+class FeaturesExtractingModule(BaseModule):
+    """
+    Module wrapper for FeaturesExtractingModule.
+    
+    Handles validation pipeline.
+    """
+    
+    DEFAULT_CONFIG_PATH = 'configs/modules/features_extracting.yaml'
+
+    def __init__(self, config_path: Optional[str] = None):
+        # Load YAML as dict (via BaseModule)
+        super().__init__(config_path)
+        
+        # Extract values from YAML structure
+        self.project_root = Path(self.config.get('project_root', '.'))
+        self.extracting_config = self.config.get('features_extracting', {})
+        if not self.extracting_config:
+            self.logger.debug("FeaturesExtractingModule config not found in loaded YAML dict")
+
+        # Convert dict to FeaturesExtractorConfig
+        self.extractor_config = self._build_extractor_config()
+
+    def _build_extractor_config(self) -> FeaturesExtractorConfig:
+        return FeaturesExtractorConfig(
+            shared_source_config = self._build_shared_config(),
+            mold_stability_config = self._build_stability_config(),
+            feature_weight_config = self._build_weight_config())
+
+    def _build_stability_config(self) -> MoldStabilityConfig:
+        """Build FeatureWeightConfig from YAML config"""
+        config = self.extracting_config.get('mold_stability_config', {})
+        if not config:
+            self.logger.debug("Using default FeatureWeightConfig")
+        return MoldStabilityConfig(**config)
+
+    def _build_weight_config(self) -> FeatureWeightConfig:
+        """Build FeatureWeightConfig from YAML config"""
+        config = self.extracting_config.get('feature_weight_config', {})
+        if not config:
+            self.logger.debug("Using default FeatureWeightConfig")
+        return FeatureWeightConfig(**config)
+
+    def _build_shared_config(self) -> SharedSourceConfig:
+        """Build SharedSourceConfig from loaded YAML dict"""
+        shared_source_config = self.extracting_config.get('shared_source_config', {})
+        if not shared_source_config:
+            self.logger.debug("Using default SharedSourceConfig")
+        resolved_config = self._resolve_paths(shared_source_config)
+        return SharedSourceConfig(**resolved_config)
+
+    def _resolve_paths(self, config: dict) -> dict:
+        """Resolve relative paths with project_root"""
+        resolved = {}
+        for key, value in config.items():
+            if value and isinstance(value, str) and ('_dir' in key or '_path' in key):
+                resolved[key] = str(self.project_root / value)
+            else:
+                resolved[key] = value
+        return resolved
+
+    @property
+    def module_name(self) -> str:
+        """Unique module name"""
+        return "FeaturesExtractingModule"
+    
+    @property
+    def dependencies(self) -> List[str]:
+        """No dependencies - this is typically the first module"""
+        return []
+    
+    @property
+    def context_outputs(self) -> List[str]:
+        """Keys that this module writes to context"""
+        return [
+            'features_extractor_result',
+            'features_extractor_log',
+            'dataschemas_path',
+            'sharedschemas_path',
+            'annotation_path'
+        ]
+
+    def execute(self, 
+                context: Dict, 
+                dependencies: Dict) -> ModuleResult:
+        """
+        Execute FeaturesExtractingModule.
+        
+        Args:
+            context: Shared context (empty for first module)
+            self.config: Configuration containing:
+                - project_root: Project root directory
+                - shared_source_config: 
+                    - features_extractor_dir (str): Base directory for storing reports.
+                    - mold_stability_index_dir (str): Default directory for output and temporary files.
+                    - annotation_path (str): Path to the JSON file containing path annotations
+                    - databaseSchemas_path (str): Path to database schema for validation.
+                    - sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
+                    - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log.
+                    - mold_stability_index_change_log_path (str): Path to the MoldStabilityIndexCalculator change log.
+                    - mold_machine_weights_dir (str): Base directory for storing reports.
+                - feature_weight_config
+                    - efficiency (float): Efficiency threshold to classify good/bad records.
+                    - loss (float): Allowable production loss threshold.
+                    - scaling (str): Method to scale feature impacts ('absolute' or 'relative').
+                    - confidence_weight (float): Weight assigned to confidence scores in final weight calculation.
+                    - n_bootstrap (int): Number of bootstrap samples for confidence interval estimation.
+                    - confidence_level (float): Desired confidence level for statistical tests.
+                    - min_sample_size (int): Minimum sample size required for reliable estimation.
+                    - feature_weights (dict): Optional preset weights for features.
+                    - targets (dict): Target metrics and their optimization directions or goals.
+                - mold_stability_config
+                    - efficiency (float): Production efficiency score.
+                    - loss (float): Production loss value.
+                    - cavity_stability_threshold (float): Weight assigned to the cavity-stability feature.
+                    - cycle_stability_threshold (float): Weight assigned to the cycle-stability feature.
+                    - total_records_threshold (int): Minimum number of valid production records required
+                    for processing (must be at least 30 records per day).
+            dependencies: Empty dict (no dependencies)
+            
+        Returns:
+            ModuleResult with pipeline execution results
+        """
+        
+        self.logger = logger.bind(class_="FeaturesExtractingModule")
+
+        try:
+            # Create extractor
+            extractor = HistoricalFeaturesExtractor(config = self.extractor_config)
+
+            # Run extracting
+            self.logger.info("Running extracting...")
+            results, log_str = extractor.run_extraction()
+
+            self.logger.info("Features extraction execution completed!")
+ 
+            # Return success result
+            return ModuleResult(
+                status='success',
+                data={
+                    'extraction_results': results,
+                    'extraction_log': log_str
+                },
+                message='Features extraction completed successfully',
+                context_updates={
+                    'features_extractor_result': results,
+                    'features_extractor_log': log_str,
+                    'dataschemas_path': self.extractor_config.shared_source_config.databaseSchemas_path,
+                    'sharedschemas_path': self.extractor_config.shared_source_config.sharedDatabaseSchemas_path,
+                    'annotation_path': self.extractor_config.shared_source_config.annotation_path
+                }
+            )
+
+        except Exception as e:
+            self.logger.error(f"Features extraction failed: {e}", exc_info=True)
+            return ModuleResult(
+                status='failed',
+                data=None,
+                message=f"Features extraction execution failed: {str(e)}",
+                errors=[str(e)]
+            )

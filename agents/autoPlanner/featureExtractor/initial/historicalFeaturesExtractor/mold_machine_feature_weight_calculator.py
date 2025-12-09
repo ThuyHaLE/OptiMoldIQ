@@ -74,12 +74,12 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
         Args:
             shared_source_config: SharedSourceConfig containing processing parameters
                 Including:
-                    - annotation_path: Path to the JSON file containing path annotations
+                    - annotation_path (str): Path to the JSON file containing path annotations
                     - databaseSchemas_path (str): Path to database schema for validation.
                     - sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
                     - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log.
-                    - mold_stability_index_change_log_path: Path to the MoldStabilityIndexCalculator change log.
-                    - mold_machine_weights_dir: Base directory for storing reports.
+                    - mold_stability_index_change_log_path (str): Path to the MoldStabilityIndexCalculator change log.
+                    - mold_machine_weights_dir (str): Base directory for storing reports.
             feature_weight_config: FeatureWeightConfig containing processing parameters
                 Including:
                     - efficiency (float): Efficiency threshold to classify good/bad records.

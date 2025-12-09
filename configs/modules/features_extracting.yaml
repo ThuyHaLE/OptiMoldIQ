@@ -1,0 +1,69 @@
+# configs/modules/features_extracting.yaml
+
+# Project root directory
+project_root: "."
+
+# =================================
+# FEATURES EXTRACTING MODULE CONFIG
+# =================================
+features_extracting:
+  #REQUIRED_FIELDS = {'config': {
+  #          'shared_source_config': {
+  #              'databaseSchemas_path': str,
+  #              'sharedDatabaseSchemas_path': str,
+  #              'annotation_path': str,
+  #              'progress_tracker_change_log_path': str,
+  #              'mold_stability_index_change_log_path': str,
+  #              'mold_machine_weights_dir': str,
+  #              'mold_stability_index_dir': str,
+  #              'features_extractor_dir': str},
+  #          'feature_weight_config': {
+  #              'efficiency': float,
+  #              'loss': float,
+  #              'scaling': str,
+  #              'confidence_weight': float,
+  #              'n_bootstrap': int,
+  #              'confidence_level': float,
+  #              'min_sample_size': int,
+  #              'feature_weights': dict,
+  #              'targets': dict},
+  #          'mold_stability_config': {
+  #              'efficiency': float,
+  #              'loss': float,
+  #              'cavity_stability_threshold': float,
+  #              'cycle_stability_threshold': float,
+  #              'total_records_threshold': int}}}
+  shared_source_config:
+    # Source data directory (dynamic database)
+    db_dir: "tests/mock_database" 
+    #=> databaseSchemas_path = f"{self.db_dir}/databaseSchemas.json"
+    #=> sharedDatabaseSchemas_path = f"{self.db_dir}/sharedDatabaseSchemas.json"
+    default_dir: 'tests/shared_db'
+    #=> annotation_path = f"{default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json" 
+    #=> progress_tracker_change_log_path = f"{self.default_dir}/OrderProgressTracker/change_log.txt"
+    #=> mold_stability_index_change_log_path = f"{self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt"
+    #=> mold_machine_weights_dir = f"{self.default_dir}/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator"
+    #=> mold_stability_index_dir = f"{self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator"
+    #=> features_extractor_dir = f"{self.default_dir}/HistoricalFeaturesExtractor"
+  
+  #feature_weight_config:
+  #  efficiency: 0.85
+  #  loss: 0.03
+  #  scaling: 'absolute'
+  #  confidence_weight: 0.3
+  #  n_bootstrap: 500
+  #  confidence_level: 0.95
+  #  min_sample_size: 10
+  #  feature_weights: null
+  #  targets:
+  #    shiftNGRate: 'minimize'
+  #    shiftCavityRate: 1.0
+  #    shiftCycleTimeRate: 1.0
+  #    shiftCapacityRate: 1.0
+  
+  #mold_stability_config:
+  #  efficiency: 0.85
+  #  loss: 0.03
+  #  cavity_stability_threshold: 0.6
+  #  cycle_stability_threshold: 0.4
+  #  total_records_threshold: 30

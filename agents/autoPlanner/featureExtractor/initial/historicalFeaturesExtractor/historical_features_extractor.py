@@ -64,14 +64,44 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         
         Args:
             config: FeaturesExtractorConfig containing processing parameters
+            including:
+                - shared_source_config: 
+                    - features_extractor_dir (str): Base directory for storing reports.
+                    - mold_stability_index_dir (str): Default directory for output and temporary files.
+                    - annotation_path (str): Path to the JSON file containing path annotations
+                    - databaseSchemas_path (str): Path to database schema for validation.
+                    - sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
+                    - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log.
+                    - mold_stability_index_change_log_path (str): Path to the MoldStabilityIndexCalculator change log.
+                    - mold_machine_weights_dir (str): Base directory for storing reports.
+                - feature_weight_config
+                    - efficiency (float): Efficiency threshold to classify good/bad records.
+                    - loss (float): Allowable production loss threshold.
+                    - scaling (str): Method to scale feature impacts ('absolute' or 'relative').
+                    - confidence_weight (float): Weight assigned to confidence scores in final weight calculation.
+                    - n_bootstrap (int): Number of bootstrap samples for confidence interval estimation.
+                    - confidence_level (float): Desired confidence level for statistical tests.
+                    - min_sample_size (int): Minimum sample size required for reliable estimation.
+                    - feature_weights (dict): Optional preset weights for features.
+                    - targets (dict): Target metrics and their optimization directions or goals.
+                - mold_stability_config
+                    - efficiency (float): Production efficiency score.
+                    - loss (float): Production loss value.
+                    - cavity_stability_threshold (float): Weight assigned to the cavity-stability feature.
+                    - cycle_stability_threshold (float): Weight assigned to the cycle-stability feature.
+                    - total_records_threshold (int): Minimum number of valid production records required
+                    for processing (must be at least 30 records per day).
         """
         self._capture_init_args()
         
         # Initialize logger with class-specific binding
         self.logger = logger.bind(class_="HistoricalFeaturesExtractor")
 
+        # Store configuration
+        self.config = config
+
         # Validate required configs
-        is_valid, errors = shared_source_config.validate_requirements(self.REQUIRED_FIELDS['config']['shared_source_config'])
+        is_valid, errors = self.config.shared_source_config.validate_requirements(self.REQUIRED_FIELDS['config']['shared_source_config'])
         if not is_valid:
             raise ValueError(
                 f"{self.__class__.__name__} config validation failed:\n" +
@@ -79,9 +109,6 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
             )
         self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
         
-        # Store configuration
-        self.config = config
-
         # Set up output configuration for saving results
         self.output_dir = Path(self.config.shared_source_config.features_extractor_dir)
         
