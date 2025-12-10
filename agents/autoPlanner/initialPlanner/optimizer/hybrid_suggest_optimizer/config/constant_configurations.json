@@ -1,0 +1,17 @@
+{
+    "MoldMachinePriorityMatrixCalculator": {
+        "ESTIMATED_MOLD_REQUIRED_COLUMNS": [
+            "moldNo", "moldName", "acquisitionDate", "machineTonnage",
+            "moldCavityStandard", "moldSettingCycle", "cavityStabilityIndex",
+            "cycleStabilityIndex", "theoreticalMoldHourCapacity",
+            "effectiveMoldHourCapacity", "estimatedMoldHourCapacity",
+            "balancedMoldHourCapacity", "totalRecords", "totalCavityMeasurements",
+            "totalCycleMeasurements", "firstRecordDate", "lastRecordDate",
+            "itemCode", "itemName", "itemType", "moldNum", "isPriority"
+        ],
+
+        "FEATURE_WEIGHTS_REQUIRED_COLUMNS": [
+            "shiftNGRate", "shiftCavityRate", "shiftCycleTimeRate", "shiftCapacityRate"
+        ]
+    }
+}

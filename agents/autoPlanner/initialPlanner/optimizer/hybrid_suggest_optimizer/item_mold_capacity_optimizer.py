@@ -1,11 +1,17 @@
 import pandas as pd
 import numpy as np
 import warnings
-from typing import List, Dict
+from typing import List
 from loguru import logger
 from agents.decorators import validate_init_dataframes
 from datetime import datetime
+from pathlib import Path
+import os
+
 from agents.utils import ConfigReportMixin
+from agents.utils import load_annotation_path, read_change_log
+from configs.shared.shared_source_config import SharedSourceConfig
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer.config.hybrid_suggest_config import MoldCapacityColumns
 
 # Decorator to validate DataFrames are initialized with the correct schema
 # This ensures that required DataFrames have all necessary columns before processing
@@ -22,7 +28,6 @@ class ItemMoldCapacityOptimizer(ConfigReportMixin):
 
     """
     Optimize mold production capacity using historical stability data.
-
     Workflow:
     1. Identify molds that have been used before (from the Mold Stability Index).
     2. Determine molds that have never been used by comparing against the full mold list.
@@ -34,30 +39,37 @@ class ItemMoldCapacityOptimizer(ConfigReportMixin):
 
     This process helps select the most efficient mold for production,
     balancing proven historical performance with potential unused mold capacity.
-
-    Parameters:
-        mold_stability_index: Historical mold stability index
-        moldSpecificationSummary_df: Summary table mapping product codes to mold lists
-        moldInfo_df: Detailed table with mold technical information
-        efficiency: Production efficiency factor (0.0 to 1.0)
-        loss: Production loss factor (0.0 to 1.0)
-        databaseSchemas_data: database schema for validation.
-        sharedDatabaseSchemas_data: shared database schema for validation.
     """
 
+    REQUIRED_FIELDS = {
+        'shared_source_config': {
+            'mold_stability_index_change_log_path': str,
+            'annotation_path': str,
+            'databaseSchemas_path': str,
+            'sharedDatabaseSchemas_path': str
+            },
+        'efficiency': float,
+        'loss': float
+        }
+
     def __init__(self,
-                 mold_stability_index: pd.DataFrame,
-                 moldSpecificationSummary_df: pd.DataFrame,
-                 moldInfo_df: pd.DataFrame,
-                 efficiency: float,
-                 loss: float,
-                 databaseSchemas_data: Dict,
-                 sharedDatabaseSchemas_data: Dict
+                 shared_source_config: SharedSourceConfig, 
+                 efficiency: float = 0.85,
+                 loss: float = 0.03
                  ):
         
         """
-        Process and combine mold information from specification and detail datasets.
-
+        Initialize the ItemMoldCapacityOptimizer.
+        
+        Args:
+            shared_source_config: SharedSourceConfig containing processing parameters
+            Including:
+                - mold_stability_index_change_log_path: Path to the MoldStabilityIndexCalculator change log
+                - annotation_path: Path to the JSON file containing path annotations
+                - databaseSchemas_path: Path to database schemas JSON file for validation
+                - sharedDatabaseSchemas_path: Path to shared database schemas JSON file for validation
+            efficiency: Production efficiency factor (0.0 to 1.0)
+            loss: Production loss factor (0.0 to 1.0)
         """
         
         self._capture_init_args()
@@ -65,18 +77,123 @@ class ItemMoldCapacityOptimizer(ConfigReportMixin):
         # Initialize logger with class name for better tracking
         self.logger = logger.bind(class_="ItemMoldCapacityOptimizer")
 
-        # Load database schema configuration for column validation
-        self.databaseSchemas_data = databaseSchemas_data
+        # Validate required configs
+        is_valid, errors = shared_source_config.validate_requirements(self.REQUIRED_FIELDS['shared_source_config'])
+        if not is_valid:
+            raise ValueError(
+                f"{self.__class__.__name__} config validation failed:\n" +
+                "\n".join(f"  - {e}" for e in errors)
+            )
+        self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
 
-        # Load shared database schema configuration for column validation
-        self.sharedDatabaseSchemas_data = sharedDatabaseSchemas_data
-
-        self.mold_stability_index = mold_stability_index
-        self.moldSpecificationSummary_df = moldSpecificationSummary_df
-        self.moldInfo_df = moldInfo_df
+        self.config = shared_source_config
         self.efficiency = efficiency
         self.loss = loss
 
+        # Load database schema configuration for column validation
+        self.load_schema_and_annotations()
+        self._load_dataframes()
+
+        # Load mold stability index containing performance consistency metrics
+        self.mold_stability_index = self._load_mold_stability_index(self.config.mold_stability_index_change_log_path)
+
+    def load_schema_and_annotations(self):
+        """Load database schemas and path annotations from configuration files."""
+        self.databaseSchemas_data = self._load_annotation_from_config(
+            self.config.databaseSchemas_path
+        )
+        self.sharedDatabaseSchemas_data = self._load_annotation_from_config(
+            self.config.sharedDatabaseSchemas_path
+        )
+        self.path_annotation = self._load_annotation_from_config(
+            self.config.annotation_path
+        )
+    
+    def _load_annotation_from_config(self, config_path):
+        """Helper function to load annotation from a config path."""
+        return load_annotation_path(
+            Path(config_path).parent,
+            Path(config_path).name
+        )
+    
+    def _load_dataframes(self) -> None:
+
+        """
+        Load all required DataFrames from parquet files with consistent error handling.
+
+        This method loads the following DataFrames:
+        - productRecords_df: Production records with item, mold, machine data
+        - machineInfo_df: Machine specifications and tonnage information
+        - moldSpecificationSummary_df: Mold specifications and compatible items
+        - moldInfo_df: Detailed mold information including tonnage requirements
+        """
+
+        # Define the mapping between path annotation keys and DataFrame attribute names
+        dataframes_to_load = [
+            ('moldSpecificationSummary', 'moldSpecificationSummary_df'),
+            ('moldInfo', 'moldInfo_df')
+        ]
+
+        # Load each DataFrame with error handling
+        for path_key, attr_name in dataframes_to_load:
+            path = self.path_annotation.get(path_key)
+
+            # Validate path exists
+            if not path or not os.path.exists(path):
+                self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
+                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
+
+            try:
+                # Load DataFrame from parquet file
+                df = pd.read_parquet(path)
+                setattr(self, attr_name, df)
+                self.logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
+            except Exception as e:
+                self.logger.error("Failed to load {}: {}", path_key, str(e))
+                raise
+    
+    def _load_mold_stability_index(self,
+                                   mold_stability_index_change_log_path) -> pd.DataFrame:
+        """
+        Load mold stability index data from the nearest monthly report or create initial structure.
+
+        The mold stability index contains metrics about how consistently each mold performs,
+        including cavity stability, cycle time consistency, and overall reliability measures.
+
+        Returns:
+            pd.DataFrame: Mold stability index with performance consistency metrics
+        """
+        # Attempt to find the latest mold stability index file from change log
+
+        self.logger.info("Loading mold stability index...")
+        stability_path = read_change_log(
+            Path(mold_stability_index_change_log_path).parent,
+            Path(mold_stability_index_change_log_path).name
+        )
+
+        # Handle case where no historical stability index exists
+        if stability_path is None:
+            self.logger.warning("Cannot find stability index file {}",
+                                mold_stability_index_change_log_path
+                                )
+            self.logger.info("Creating initial mold stability index structure...")
+            return self._create_initial_stability_index()
+        
+        # Load existing stability index from Excel file
+        try:
+            self.logger.info("Loading existing mold stability index from: {}", stability_path)
+            stability_index = pd.read_excel(stability_path)
+            self.logger.debug("Loaded stability index with shape: {}", stability_index.shape)
+            return stability_index
+        except Exception as e:
+            self.logger.error("Failed to load stability index from {}: {}", stability_path, str(e))
+            self.logger.info("Falling back to initial stability index structure...")
+            return self._create_initial_stability_index()
+
+    def _create_initial_stability_index(self) -> pd.DataFrame:
+        """Create an empty DataFrame with the required column structure."""
+        return pd.DataFrame(columns=MoldCapacityColumns.REQUIRED)
+    
     def process(self) -> pd.DataFrame:
 
         """
@@ -92,7 +209,7 @@ class ItemMoldCapacityOptimizer(ConfigReportMixin):
         # Generate config header using mixin
         timestamp_start = datetime.now()
         timestamp_str = timestamp_start.strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
+        config_header = self._generate_config_report(timestamp_str, required_only=True)
 
         optimization_log_lines = [config_header]
         optimization_log_lines.append(f"--Processing Summary--")
