@@ -11,7 +11,7 @@ import os
 from agents.utils import ConfigReportMixin
 from agents.utils import load_annotation_path, read_change_log
 from configs.shared.shared_source_config import SharedSourceConfig
-from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer.config.hybrid_suggest_config import MoldCapacityColumns
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.config.hybrid_suggest_config import MoldCapacityColumns
 
 # Decorator to validate DataFrames are initialized with the correct schema
 # This ensures that required DataFrames have all necessary columns before processing

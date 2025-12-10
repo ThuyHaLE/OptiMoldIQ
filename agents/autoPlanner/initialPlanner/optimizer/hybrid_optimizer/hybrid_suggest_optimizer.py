@@ -2,11 +2,11 @@ import pandas as pd
 from typing import Tuple, List
 from dataclasses import dataclass
 from loguru import logger
-from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
-from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer.mold_machine_priority_matrix_calculator import MoldMachinePriorityMatrixCalculator
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.mold_machine_priority_matrix_calculator import MoldMachinePriorityMatrixCalculator
 from datetime import datetime
 from agents.utils import ConfigReportMixin
-from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer.config.hybrid_suggest_config import HybridSuggestConfig
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.config.hybrid_suggest_config import HybridSuggestConfig
 
 @dataclass
 class OptimizationResult:

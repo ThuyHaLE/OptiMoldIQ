@@ -8,7 +8,7 @@ from agents.utils import load_annotation_path, read_change_log, rank_nonzero, Co
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 from agents.utils import get_latest_change_row
 from configs.shared.shared_source_config import SharedSourceConfig
-from agents.autoPlanner.initialPlanner.optimizer.hybrid_suggest_optimizer.config.hybrid_suggest_config import FeatureWeights
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.config.hybrid_suggest_config import FeatureWeights
 
 # Decorator to validate DataFrames are initialized with the correct schema
 # This ensures that required DataFrames have all necessary columns before processing
