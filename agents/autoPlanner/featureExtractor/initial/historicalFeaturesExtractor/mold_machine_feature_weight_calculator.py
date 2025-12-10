@@ -17,7 +17,7 @@ from agents.utils import load_annotation_path, log_dict_as_table, read_change_lo
 from configs.shared.shared_source_config import SharedSourceConfig
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 
-from agents.autoPlanner.initialPlanner.optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
+from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.item_mold_capacity_optimizer import ItemMoldCapacityOptimizer
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.feature_weight_config import FeatureWeightConfig
 
 # Decorator to validate DataFrames are initialized with the correct schema
