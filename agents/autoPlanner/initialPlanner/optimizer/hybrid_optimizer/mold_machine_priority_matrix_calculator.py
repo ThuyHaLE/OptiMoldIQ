@@ -46,7 +46,7 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
         }
 
     CONSTANT_CONFIG_PATH = (
-        "agents/autoPlanner/initialPlanner/optimizer/hybrid_suggest_optimizer/config/constant_configurations.json")
+        "agents/autoPlanner/initialPlanner/optimizer/hybrid_optimizer/config/constant_configurations.json")
     
     def __init__(self,
                  shared_source_config: SharedSourceConfig, 
