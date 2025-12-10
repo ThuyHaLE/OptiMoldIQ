@@ -232,13 +232,9 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
             # Suggest the priority for the item-mold pair based on historical records
             self.logger.info("Starting ItemMoldCapacityOptimizer ...")
             _, mold_estimated_capacity_df, optimization_log = ItemMoldCapacityOptimizer(
-                self.mold_stability_index,
-                self.moldSpecificationSummary_df,
-                self.moldInfo_df,
-                self.feature_weight_config.efficiency,
-                self.feature_weight_config.loss,
-                self.databaseSchemas_data,
-                self.sharedDatabaseSchemas_data
+                shared_source_config=self.shared_source_config,
+                efficiency=self.feature_weight_config.efficiency,
+                loss=self.feature_weight_config.loss
                 ).process()
             
             calculator_log_entries.append("Optimization phase completed successfully!")
