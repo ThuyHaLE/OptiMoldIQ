@@ -24,6 +24,7 @@ class ProductionProcessingResult:
     mold_plan: pd.DataFrame
     plastic_plan: pd.DataFrame
     log: str = ""
+    status: str = "UNKNOWN"
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
@@ -228,7 +229,8 @@ class ProducingProcessor(ConfigReportMixin):
                     pro_plan=None,
                     mold_plan=None,
                     plastic_plan=None,
-                    log=processor_log_str
+                    log=processor_log_str,
+                    status="FAILED"
                 )
             
             elif optimization_results.status == "PHASE_2_FAILED":
@@ -289,7 +291,8 @@ class ProducingProcessor(ConfigReportMixin):
                 pro_plan=pro_plan,
                 mold_plan=mold_plan,
                 plastic_plan=plastic_plan,
-                log=processor_log_str
+                log=processor_log_str,
+                status="SUCCESS"
             )
 
         except FileNotFoundError as e:
@@ -310,25 +313,23 @@ class ProducingProcessor(ConfigReportMixin):
 
         producing_processor_result = self.process()
 
+        # Prepare export data
+        if producing_processor_result.status != "SUCCESS":
+            self.logger.warning("ProducingProcessor did not complete successfully - skipping export")
+            return producing_processor_result, producing_processor_result.log
+        
         # Extract optimization results for cleaner access
         opt_results = producing_processor_result.optimization_results
 
-        # Prepare export data
+        # Prepare final results to export
         final_results = {
-            "producing_status_data": (
-                producing_processor_result.producing_status_data or pd.DataFrame()),
-            "producing_pro_plan": (
-                producing_processor_result.pro_plan or pd.DataFrame()),
-            "producing_mold_plan": (
-                producing_processor_result.mold_plan or pd.DataFrame()),
-            "producing_plastic_plan": (
-                producing_processor_result.plastic_plan or pd.DataFrame()),
-            "pending_status_data": (
-                producing_processor_result.pending_status_data or pd.DataFrame()),
-            "mold_machine_priority_matrix": priority_matrix_process(
-                opt_results.mold_machine_priority_matrix),
-            "mold_estimated_capacity_df": (
-                opt_results.mold_estimated_capacity_df or pd.DataFrame()),
+            "producing_status_data": producing_processor_result.producing_status_data,
+            "producing_pro_plan": producing_processor_result.pro_plan,
+            "producing_mold_plan": producing_processor_result.mold_plan,
+            "producing_plastic_plan": producing_processor_result.plastic_plan,
+            "pending_status_data": producing_processor_result.pending_status_data,
+            "mold_machine_priority_matrix": priority_matrix_process(opt_results.mold_machine_priority_matrix),
+            "mold_estimated_capacity_df": opt_results.mold_estimated_capacity_df,
         }
 
         # Create invalid molds DataFrame
