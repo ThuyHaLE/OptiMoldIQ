@@ -11,6 +11,7 @@ from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.config.hybrid_
 @dataclass
 class OptimizationResult:
     """Container for optimization results."""
+    proStatus_df: pd.DataFrame | None
     estimated_capacity_invalid_molds: List[str]
     priority_matrix_invalid_molds: List[str]
     mold_estimated_capacity_df: pd.DataFrame | None
@@ -152,6 +153,7 @@ class HybridSuggestOptimizer(ConfigReportMixin):
             
             # Return early with failure state
             return OptimizationResult(
+                proStatus_df=None,
                 estimated_capacity_invalid_molds=[],
                 priority_matrix_invalid_molds=[],
                 mold_estimated_capacity_df=None,
@@ -163,7 +165,7 @@ class HybridSuggestOptimizer(ConfigReportMixin):
         # Phase 2: Dependent on Phase 1
         try:
             optimization_log_lines.append("Starting Phase 2: MoldMachinePriorityMatrixCalculator...")
-            (mold_machine_priority_matrix, priority_matrix_invalid_molds,
+            (proStatus_df, mold_machine_priority_matrix, priority_matrix_invalid_molds,
             calculator_log) = self._calculate_priority_matrix(mold_estimated_capacity_df)
             optimization_log_lines.append("⤷ MoldMachinePriorityMatrixCalculator results:")
             optimization_log_lines.append(f"{calculator_log}")
@@ -176,6 +178,7 @@ class HybridSuggestOptimizer(ConfigReportMixin):
             
             # Return partial results (Phase 1 OK, Phase 2 failed)
             return OptimizationResult(
+                proStatus_df=None,
                 estimated_capacity_invalid_molds=estimated_capacity_invalid_molds,
                 priority_matrix_invalid_molds=[],
                 mold_estimated_capacity_df=mold_estimated_capacity_df,
@@ -187,6 +190,7 @@ class HybridSuggestOptimizer(ConfigReportMixin):
         # Both phases succeeded
         self.logger.info("✅ Process finished successfully!")
         return OptimizationResult(
+            proStatus_df=proStatus_df,
             estimated_capacity_invalid_molds=estimated_capacity_invalid_molds,
             priority_matrix_invalid_molds=priority_matrix_invalid_molds,
             mold_estimated_capacity_df=mold_estimated_capacity_df,
