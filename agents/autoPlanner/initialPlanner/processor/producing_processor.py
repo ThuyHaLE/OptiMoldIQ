@@ -32,8 +32,7 @@ class ProductionProcessingResult:
 })
 
 @validate_init_dataframes(lambda self: {
-    "proStatus_df": list(self.sharedDatabaseSchemas_data["pro_status"]['dtypes'].keys()),
-    "machine_info_df": list(self.sharedDatabaseSchemas_data["machine_info"]['dtypes'].keys()),
+    "machine_info_df": list(self.sharedDatabaseSchemas_data["machine_info"]['dtypes'].keys())
 })
 
 class ProducingProcessor(ConfigReportMixin):
