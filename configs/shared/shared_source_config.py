@@ -34,7 +34,9 @@ class SharedSourceConfig:
 
     initial_planner_dir: Optional[str] = None
     producing_processor_dir: Optional[str] = None
+    producing_processor_change_log_path: Optional[str] = None
     pending_processor_dir: Optional[str] = None
+    pending_processor_change_log_path: Optional[str] = None
 
     # Control validation behavior
     strict_validation: bool = False  # If True, validate all paths exist
@@ -89,8 +91,12 @@ class SharedSourceConfig:
             self.initial_planner_dir or f'{self.default_dir}/AutoPlanner/InitialPlanner')
         self.producing_processor_dir = (
             self.producing_processor_dir or f'{self.initial_planner_dir}/ProducingProcessor')
+        self.producing_processor_change_log_path = (
+            self.producing_processor_change_log_path or f'{self.producing_processor_dir}/change_log.txt')
         self.pending_processor_dir = (
             self.pending_processor_dir or f'{self.initial_planner_dir}/PendingProcessor')
+        self.pending_processor_change_log_path = (
+            self.pending_processor_change_log_path or f'{self.pending_processor_dir}/change_log.txt')
 
     def _validate_all_paths(self):
         """Validate all path fields"""

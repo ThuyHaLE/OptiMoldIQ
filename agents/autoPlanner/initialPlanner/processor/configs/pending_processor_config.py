@@ -1,7 +1,8 @@
-from dataclasses import dataclass
-from agents.utils import validate_path
 from agents.autoPlanner.initialPlanner.optimizer.compatibility_based_mold_machine_optimizer import PriorityOrder
 from typing import Dict, List
+from dataclasses import dataclass, field
+from typing import Optional
+from configs.shared.shared_source_config import SharedSourceConfig
 
 @dataclass
 class ExcelSheetMapping:
@@ -31,23 +32,26 @@ class ExcelSheetMapping:
 class PendingProcessorConfig:
     """Configuration class for pending processor parameters"""
 
-    source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
-    annotation_name: str = "path_annotations.json"
-    databaseSchemas_path: str = 'database/databaseSchemas.json'
-    sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json'
-
-    default_dir: str = "agents/shared_db/AutoPlanner/InitialPlanner"
-
-    producing_processor_folder_path: str = 'agents/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor'
-    producing_processor_target_name: str = "change_log.txt"
-
-    max_load_threshold: int = 30
+    # Shared source configs
+    shared_source_config: SharedSourceConfig = field(default_factory=SharedSourceConfig)
+  
     priority_order: PriorityOrder = PriorityOrder.PRIORITY_1
-    log_progress_interval: int = 5
-    verbose: bool = True
-    use_sample_data: bool = False
+    max_load_threshold: Optional[int] = None
+    log_progress_interval: Optional[int] = None
+    use_sample_data: Optional[bool] = None
+
+    # Default values
+    MAX_LOAD_THRESHOLD = 30
+    LOG_PROGRESS_INTERVAL = 5
+    USE_SAMPLE_DATA = False
 
     def __post_init__(self):
-        """Validate directory settings when saving is enabled."""
-        validate_path("source_path", self.source_path)
-        validate_path("producing_processor_folder_path", self.producing_processor_folder_path)
+        """Apply default values for None fields"""
+        self.max_load_threshold = self._get_default(self.max_load_threshold, self.MAX_LOAD_THRESHOLD)
+        self.log_progress_interval = self._get_default(self.log_progress_interval, self.LOG_PROGRESS_INTERVAL)
+        self.use_sample_data = self._get_default(self.use_sample_data, self.USE_SAMPLE_DATA)    
+
+    @staticmethod
+    def _get_default(value, default):
+        """Return default if value is None"""
+        return default if value is None else value
