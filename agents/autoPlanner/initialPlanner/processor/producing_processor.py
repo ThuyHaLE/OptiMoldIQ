@@ -197,8 +197,14 @@ class ProducingProcessor(ConfigReportMixin):
                 f"⤷ Invalid molds: {len(optimization_results.estimated_capacity_invalid_molds + optimization_results.priority_matrix_invalid_molds)}")
             processor_log_lines.append(
                 f"⤷ Capacity data: {optimization_results.mold_estimated_capacity_df.shape}")
-            processor_log_lines.append(
-                f"⤷ Priority matrix: {optimization_results.mold_machine_priority_matrix.shape}")
+            
+            # Safe logging for priority matrix (might be None)
+            if optimization_results.mold_machine_priority_matrix is not None:
+                processor_log_lines.append(
+                    f"⤷ Priority matrix: {optimization_results.mold_machine_priority_matrix.shape}")
+            else:
+                processor_log_lines.append(
+                    f"⤷ Priority matrix: None (Phase 2 failed)")
             
             # Append detailed optimization log
             processor_log_lines.append("⤷ Details: ")
@@ -309,13 +315,20 @@ class ProducingProcessor(ConfigReportMixin):
 
         # Prepare export data
         final_results = {
-            "producing_status_data": producing_processor_result.producing_status_data,
-            "producing_pro_plan": producing_processor_result.pro_plan,
-            "producing_mold_plan": producing_processor_result.mold_plan,
-            "producing_plastic_plan": producing_processor_result.plastic_plan,
-            "pending_status_data": producing_processor_result.pending_status_data,
-            "mold_machine_priority_matrix": priority_matrix_process(opt_results.mold_machine_priority_matrix),
-            "mold_estimated_capacity_df": opt_results.mold_estimated_capacity_df,
+            "producing_status_data": (
+                producing_processor_result.producing_status_data or pd.DataFrame()),
+            "producing_pro_plan": (
+                producing_processor_result.pro_plan or pd.DataFrame()),
+            "producing_mold_plan": (
+                producing_processor_result.mold_plan or pd.DataFrame()),
+            "producing_plastic_plan": (
+                producing_processor_result.plastic_plan or pd.DataFrame()),
+            "pending_status_data": (
+                producing_processor_result.pending_status_data or pd.DataFrame()),
+            "mold_machine_priority_matrix": priority_matrix_process(
+                opt_results.mold_machine_priority_matrix),
+            "mold_estimated_capacity_df": (
+                opt_results.mold_estimated_capacity_df or pd.DataFrame()),
         }
 
         # Create invalid molds DataFrame
