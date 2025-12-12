@@ -380,11 +380,14 @@ class PendingProcessor(ConfigReportMixin):
         self.logger.info("Loading producing processor report...")
         
         try:
-            self.report_path = self._get_report_path()
-            if not os.path.isfile(self.report_path):
-                self.logger.warning(f"Producing processor report not found at: {self.report_path}")
+            if not os.path.isfile(self.config.shared_source_config.producing_processor_change_log_path):
+                self.logger.warning("Producing processor report not found at: {}",
+                                    self.config.shared_source_config.producing_processor_change_log_path)
                 self.logger.info("Retrying ProducingProcessor to execute the report...")
                 self.retry_producing_processor_if_needed()
+
+            # Get report path
+            self.report_path = self._get_report_path()
 
             # Validate sheets
             self._validate_excel_sheets(self.report_path)
