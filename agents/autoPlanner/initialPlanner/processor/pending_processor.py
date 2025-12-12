@@ -29,6 +29,10 @@ class ProcessingResult:
     not_matched_pending: Optional[pd.DataFrame] = None
     log: str = ""
 
+class DataValidationError(Exception):
+    """Raised when data validation fails"""
+    pass
+
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
@@ -65,12 +69,16 @@ class PendingProcessor(ConfigReportMixin):
             }
         }
 
-    def __init__(self, config: PendingProcessorConfig):
+    def __init__(self, 
+                 sheet_mapping: ExcelSheetMapping,
+                 config: PendingProcessorConfig
+                 ):
         
         """
         Initialize PendingProcessor with configuration.
         
         Args:
+            sheet_mapping: ExcelSheetMapping containing Excel sheet name mappings for loading
             config: PendingProcessorConfig containing processing parameters
             including:
                 - shared_source_config: 
@@ -93,6 +101,7 @@ class PendingProcessor(ConfigReportMixin):
         self.logger = logger.bind(class_="PendingProcessor")
 
         # Store configuration
+        self.sheet_mapping = sheet_mapping
         self.config = config
 
         # Validate required configs
@@ -381,7 +390,7 @@ class PendingProcessor(ConfigReportMixin):
             self._validate_excel_sheets(self.report_path)
             
             # Load all sheets
-            sheet_mappings = ExcelSheetMapping.get_sheet_mappings()
+            sheet_mappings = self.sheet_mapping.get_sheet_mappings()
             for sheet_name, attr_name in sheet_mappings.items():
                 self._load_excel_sheet(self.report_path, sheet_name, attr_name)
             
@@ -418,11 +427,11 @@ class PendingProcessor(ConfigReportMixin):
         available_sheets = pd.ExcelFile(report_path).sheet_names
         self.logger.info("Available sheets: {}", available_sheets)
         
-        sheet_mappings = ExcelSheetMapping.get_sheet_mappings()
+        sheet_mappings = self.sheet_mapping.get_sheet_mappings()
         missing_sheets = [sheet for sheet in sheet_mappings.keys() if sheet not in available_sheets]
         
         if missing_sheets:
-            raise ValueError(f"Missing required sheets: {missing_sheets}")
+            raise DataValidationError(f"Missing required sheets: {missing_sheets}")
         
         return available_sheets
 
@@ -431,7 +440,7 @@ class PendingProcessor(ConfigReportMixin):
         df = pd.read_excel(report_path, sheet_name=sheet_name)
         
         # Apply special processing if needed
-        if sheet_name in ExcelSheetMapping.get_sheets_requiring_index():
+        if sheet_name in self.sheet_mapping.get_sheets_requiring_index():
             df = self._apply_sheet_specific_processing(df, sheet_name)
         
         setattr(self, attr_name, df)
@@ -439,7 +448,7 @@ class PendingProcessor(ConfigReportMixin):
     
     def _apply_sheet_specific_processing(self, df: pd.DataFrame, sheet_name: str) -> pd.DataFrame:
         """Apply sheet-specific processing (e.g., setting index)"""
-        if sheet_name == ExcelSheetMapping.mold_machine_priority_matrix:
+        if sheet_name == self.sheet_mapping.mold_machine_priority_matrix:
             return df.set_index('moldNo')
         return df
 
@@ -815,12 +824,12 @@ class PendingProcessor(ConfigReportMixin):
             # Check required columns
             missing_cols = [col for col in required_cols if col not in df.columns]
             if missing_cols:
-                raise ValueError(f"{name} DataFrame missing columns: {missing_cols}")
+                raise DataValidationError(f"{name} DataFrame missing columns: {missing_cols}")
             
             # Check for duplicate priorities within machines
             duplicates = df.duplicated(subset=['Machine No.', 'Priority in Machine'])
             if duplicates.any():
-                raise ValueError(f"{name} DataFrame has duplicate priorities within machines")
+                raise DataValidationError(f"{name} DataFrame has duplicate priorities within machines")
 
     @staticmethod
     def _create_sample_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
