@@ -240,13 +240,16 @@ class PendingProcessor(ConfigReportMixin):
                     unassigned_molds
                 )
 
+                final_summary = comp_assignment_summary.copy()
+                final_summary['Note'] = 'compatibilityBased'
+
                 processor_log_lines.append("Compatibility-based optimization phase completed successfully!")
                 processor_log_str = "\n".join(processor_log_lines)
                 self.logger.info("✅ Process finished!!!")
 
                 return ProcessingResult(
                     used_producing_report_name=os.path.basename(self.report_path),
-                    final_assignment_summary=comp_assignment_summary,
+                    final_assignment_summary=final_summary,
                     invalid_molds_dict=self.invalid_molds_dict,
                     hist_based_assigned_molds=assigned_matrix,
                     hist_based_unassigned_molds=unassigned_molds,

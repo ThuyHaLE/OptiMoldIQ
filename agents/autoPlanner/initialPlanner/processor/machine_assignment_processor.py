@@ -74,25 +74,23 @@ class MachineAssignmentProcessor:
         return self._machine_info_mapping
 
     def get_assignment_summary(self) -> pd.DataFrame:
-
         """
         Convert detailed assignment matrix into readable summary format.
         Optimized with vectorized operations.
         """
-
-        self.logger.info("Generating assignment summary...")
+        logger.info("Generating assignment summary...")
 
         # Handle duplicate moldNo in lead_times by taking first occurrence
         lead_times_unique = self.mold_lead_times[['itemCode', 'moldNo']].drop_duplicates(subset=['itemCode', 'moldNo'])
 
         # Check if there are still duplicates and warn
         if len(lead_times_unique) < len(self.mold_lead_times[['itemCode', 'moldNo']]):
-            self.logger.warning("Found duplicate moldNo in lead_times. Using first occurrence for each moldNo.")
+            logger.warning("Found duplicate moldNo in lead_times. Using first occurrence for each moldNo.")
 
         # Merge without validation first, then check manually if needed
         df = (self.assigned_matrix
-              .reset_index()
-              .merge(lead_times_unique,
+            .reset_index()
+            .merge(lead_times_unique,
                     how='left', on='moldNo'))
 
         # Vectorized string operations
@@ -103,16 +101,19 @@ class MachineAssignmentProcessor:
         df.columns.name = 'machineCode'
         df_t = df.T
 
-        # Optimized assignment generation using list comprehension
-        df_t['assignedMolds'] = [
-            ','.join(col for col in df_t.columns if df_t.loc[idx, col] != 0)
-            for idx in df_t.index
-        ]
+        # Store column names before adding new column
+        mold_columns = df_t.columns.tolist()
+        
+        # Optimized assignment generation using apply (fully vectorized)
+        df_t['assignedMolds'] = df_t[mold_columns].apply(
+            lambda row: ','.join(row[row != 0].index.astype(str)), 
+            axis=1
+        )
 
         result = df_t.reset_index()[['machineCode', 'assignedMolds']]
         result.columns.name = None
 
-        self.logger.info("Generated summary for {} machines", len(result))
+        logger.info("Generated summary for {} machines", len(result))
         return result
 
     def convert_itemcode_to_pono(self, assignment_df: pd.DataFrame) -> pd.DataFrame:
