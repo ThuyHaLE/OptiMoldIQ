@@ -272,7 +272,7 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
 
         optimization_log_str = "\n".join(optimization_log_lines)
         
-        return self.proStatus_df, priority_matrix, invalid_molds, optimization_log_str
+        return priority_matrix, invalid_molds, optimization_log_str
     
     def _check_mold_dataframe_columns(self, df: pd.DataFrame) -> bool:
 
