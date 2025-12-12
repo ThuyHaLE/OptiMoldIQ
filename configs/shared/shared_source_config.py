@@ -31,7 +31,11 @@ class SharedSourceConfig:
     mold_stability_index_change_log_path: Optional[str] = None
     mold_machine_weights_dir: Optional[str] = None
     mold_machine_weights_hist_path: Optional[str] = None
-    
+
+    initial_planner_dir: Optional[str] = None
+    producing_processor_dir: Optional[str] = None
+    pending_processor_dir: Optional[str] = None
+
     # Control validation behavior
     strict_validation: bool = False  # If True, validate all paths exist
     auto_create_dirs: bool = False   # If True, create missing directories
@@ -80,6 +84,13 @@ class SharedSourceConfig:
             self.mold_machine_weights_dir or f"{self.features_extractor_dir}/MoldMachineFeatureWeightCalculator")
         self.mold_machine_weights_hist_path = (
             self.mold_machine_weights_hist_path or f"{self.mold_machine_weights_dir}/weights_hist.xlsx")
+        
+        self.initial_planner_dir = (
+            self.initial_planner_dir or f'{self.default_dir}/AutoPlanner/InitialPlanner')
+        self.producing_processor_dir = (
+            self.producing_processor_dir or f'{self.initial_planner_dir}/ProducingProcessor')
+        self.pending_processor_dir = (
+            self.pending_processor_dir or f'{self.initial_planner_dir}/PendingProcessor')
 
     def _validate_all_paths(self):
         """Validate all path fields"""

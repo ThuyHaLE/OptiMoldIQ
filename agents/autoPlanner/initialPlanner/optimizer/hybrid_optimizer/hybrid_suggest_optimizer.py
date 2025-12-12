@@ -132,7 +132,7 @@ class HybridSuggestOptimizer(ConfigReportMixin):
         self.logger.info("Starting HybridSuggestOptimizer ...")
         
         timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str)
+        config_header = self._generate_config_report(timestamp_str, required_only=True)
         
         optimization_log_lines = [config_header, "--Processing Summary--"]
         

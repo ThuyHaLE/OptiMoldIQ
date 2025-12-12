@@ -1,30 +1,32 @@
-from dataclasses import dataclass
-from agents.utils import validate_path
+from dataclasses import dataclass, field
+from typing import Optional
+from configs.shared.shared_source_config import SharedSourceConfig
 
+class RequiredColumns:
+    # Select available columns
+    PRODUCING_BASE_COLS = ['poNo', 'itemCode', 'itemName', 'poETA', 'moldNo',
+                           'itemQuantity', 'itemRemain', 'machineNo', 'startedDate']
+    PENDING_BASE_COLS = ['poNo', 'itemCode', 'itemName', 'poETA', 'itemRemain']
+    
 @dataclass
 class ProducingProcessorConfig:
     """Configuration class for producing processor parameters"""
 
-    source_path: str = 'agents/shared_db/DataLoaderAgent/newest'
-    annotation_name: str = "path_annotations.json"
-    databaseSchemas_path: str = 'database/databaseSchemas.json'
-    sharedDatabaseSchemas_path: str = 'database/sharedDatabaseSchemas.json'
+    # Shared source configs
+    shared_source_config: SharedSourceConfig = field(default_factory=SharedSourceConfig)
+    efficiency: Optional[float] = None
+    loss: Optional[float] = None
 
-    folder_path: str = 'agents/shared_db/OrderProgressTracker'
-    target_name: str = "change_log.txt"
-
-    default_dir: str = "agents/shared_db/AutoPlanner/InitialPlanner"
-
-    mold_stability_index_folder: str = "agents/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator"
-    mold_stability_index_target_name: str = "change_log.txt"
-
-    mold_machine_weights_hist_path: str = "agents/shared_db/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx"
-
-    efficiency: float = 0.85
-    loss: float = 0.03
+    # Default values
+    DEFAULT_EFFICIENCY = 0.85
+    DEFAULT_LOSS = 0.03
 
     def __post_init__(self):
-        """Validate directory settings when saving is enabled."""
-        validate_path("source_path", self.source_path)
-        validate_path("folder_path", self.folder_path)
-        validate_path("mold_stability_index_folder", self.mold_stability_index_folder)
+        """Apply default values for None fields"""
+        self.efficiency = self._get_default(self.efficiency, self.DEFAULT_EFFICIENCY)
+        self.loss = self._get_default(self.loss, self.DEFAULT_LOSS)
+
+    @staticmethod
+    def _get_default(value, default):
+        """Return default if value is None"""
+        return default if value is None else value
