@@ -12,6 +12,7 @@ class FeatureWeightConfig:
     n_bootstrap: Optional[int] = None
     confidence_level: Optional[float] = None
     min_sample_size: Optional[int] = None
+    sample_size_threshold: Optional[int] = None
     feature_weights: Optional[Dict[str, float]] = None
     targets: Optional[Dict[str, float]] = None
     
@@ -23,6 +24,7 @@ class FeatureWeightConfig:
         'n_bootstrap': 500,
         'confidence_level': 0.95,
         'min_sample_size': 10,
+        'sample_size_threshold': 50,
         'feature_weights': None,
         'targets': {
             'shiftNGRate': 'minimize',

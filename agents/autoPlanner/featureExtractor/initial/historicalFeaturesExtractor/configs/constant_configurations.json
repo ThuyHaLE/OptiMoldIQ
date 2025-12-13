@@ -15,6 +15,12 @@
             "consistency_score_weight": 0.3,
             "utilization_rate_weight": 0.2,
             "data_completeness_weight": 0.1
-        }
+        },
+        "PRODUCTION_WINDOW_SECONDS": 28800,
+        "REQUIRED_DF_FIELDS": [
+            "moldNo", "moldName", "recordDate",
+            "moldCavity", "moldCavityStandard", "moldCycle", 
+            "moldSettingCycle", "acquisitionDate", "machineTonnage"
+        ]
     }
 }

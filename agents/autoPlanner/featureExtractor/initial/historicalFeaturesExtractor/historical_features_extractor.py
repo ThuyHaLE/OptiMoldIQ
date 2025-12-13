@@ -190,6 +190,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         config_header = self._generate_config_report(timestamp_str, required_only=True)
 
+        # Initialize log lines
         pipeline_log_lines = [config_header]
         pipeline_log_lines.append("--Processing Summary--\n")
         pipeline_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
@@ -197,16 +198,12 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         # Phase 1: Mold Stability Index Calculation
         stability_result = self._run_mold_stability_calculator()
 
-        # Phase 2: Order Progress Tracking
-        progress_result = self._run_order_progress_tracker()
-
-        # Phase 3: Feature Weight Calculation
+        # Phase 2: Feature Weight Calculation
         weight_result = self._run_feature_weight_calculator()
 
         # Create comprehensive pipeline result summary
         pipeline_result = self._create_pipeline_result(
             stability_result, 
-            progress_result, 
             weight_result
         )
 
@@ -229,18 +226,13 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         pipeline_log_lines.append("--Details--\n")
         
         if stability_result:
-            stability_log = stability_result.get('log_entries', 'No log available')
+            stability_log = stability_result.metadata.get('log_entries', 'No log available')
             pipeline_log_lines.append("⤷ Phase 1: Mold Stability Index Calculation\n")
             pipeline_log_lines.append(f"{stability_log}\n")
         
-        if progress_result:
-            progress_log = progress_result.get('log_entries', 'No log available')
-            pipeline_log_lines.append("⤷ Phase 2: Order Progress Tracking\n")
-            pipeline_log_lines.append(f"{progress_log}\n")
-        
         if weight_result:
-            weight_log = weight_result.get('log_entries', 'No log available')
-            pipeline_log_lines.append("⤷ Phase 3: Feature Weight Calculation\n")
+            weight_log = weight_result.metadata.get('log_entries', 'No log available')
+            pipeline_log_lines.append("⤷ Phase 2: Feature Weight Calculation\n")
             pipeline_log_lines.append(f"{weight_log}\n")
 
         pipeline_log_str = "\n".join(pipeline_log_lines)
@@ -272,83 +264,80 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
             calculator = MoldStabilityIndexCalculator(
                 shared_source_config = self.config.shared_source_config, 
                 mold_stability_config = self.config.mold_stability_config)
-            results, log_str = calculator.process(save_results = True)
+            result = calculator.process(save_results = True)
             self.logger.info("✅ Phase 1: {} completed successfully", agent_id)
             
-            success_report = {
-                'Agent ID': agent_id,
-                'Timestamp': self._get_timestamp(),
-                'Content': results,
-                'log_entries': log_str
-            }
-            self.report_collection[agent_id] = {'success_report': success_report}
+            # Check loading result and log appropriate message
+            if result.status == 'success':
+                self.logger.info("✅ Phase 1: {} completed successfully", agent_id)
+                success_report = {
+                    'Agent ID' : agent_id,
+                    'Timestamp': self._get_timestamp(),
+                    'Content'  : result,
+                    'Details': result.details,
+                    'Log entries': result.metadata['log_entries']
+                    }
+                self.report_collection[agent_id] = {'success_report': success_report}
+            else:
+                self.logger.warning("⚠️ Phase 2: {} failed", agent_id)
+                failed_report = {
+                    'Agent ID' : agent_id,
+                    'Timestamp': self._get_timestamp(),
+                    'Content'  : result,
+                    'Details': result.details,
+                    'Log entries': result.metadata['log_entries']
+                    }
+                self.report_collection[agent_id] = {'failed_report': failed_report}
             
-            return success_report
-            
+            return result
+
         except Exception as e:
             self.logger.error("❌ Phase 1: {} error: {}", agent_id, str(e))
             error_result = self._create_error_result(agent_id, str(e))
             self.report_collection[agent_id] = {'error_report': error_result}
             return error_result
 
-    def _run_order_progress_tracker(self) -> Dict[str, Any]:
-        """
-        Execute Phase 2: OrderProgressTracker.
-        
-        Returns:
-            Dict[str, Any]: Tracking result with status and details
-        """
-        agent_id = 'OrderProgressTracker'
-        self.logger.info("📋 Phase 2: Running {}...", agent_id)
-        
-        try:
-            tracker = OrderProgressTracker(config = self.config.shared_source_config)
-            results, log_str = tracker.pro_status()
-            self.logger.info("✅ Phase 2: {} completed successfully", agent_id)
-            
-            success_report = {
-                'Agent ID': agent_id,
-                'Timestamp': self._get_timestamp(),
-                'Content': results,
-                'log_entries': log_str
-            }
-            self.report_collection[agent_id] = {'success_report': success_report}
-            
-            return success_report
-            
-        except Exception as e:
-            self.logger.error("❌ Phase 2: {} error: {}", agent_id, str(e))
-            error_result = self._create_error_result(agent_id, str(e))
-            self.report_collection[agent_id] = {'error_report': error_result}
-            return error_result
-
     def _run_feature_weight_calculator(self) -> Dict[str, Any]:
         """
-        Execute Phase 3: MoldMachineFeatureWeightCalculator.
+        Execute Phase 2: MoldMachineFeatureWeightCalculator.
         
         Returns:
             Dict[str, Any]: Calculation result with status and details
         """
         agent_id = 'MoldMachineFeatureWeightCalculator'
-        self.logger.info("🔢 Phase 3: Running {}...", agent_id)
+        self.logger.info("🔢 Phase 2: Running {}...", agent_id)
         
         try:
             calculator = MoldMachineFeatureWeightCalculator(
                 shared_source_config = self.config.shared_source_config, 
                 feature_weight_config = self.config.feature_weight_config)
-            results, log_str = calculator.process(save_results = True)
-            self.logger.info("✅ Phase 3: {} completed successfully", agent_id)
+            result = calculator.process(save_results = True)
+            self.logger.info("✅ Phase 2: {} completed successfully", agent_id)
             
-            success_report = {
-                'Agent ID': agent_id,
-                'Timestamp': self._get_timestamp(),
-                'Content': results,
-                'log_entries': log_str
-            }
-            self.report_collection[agent_id] = {'success_report': success_report}
+            # Check loading result and log appropriate message
+            if result.status == 'success':
+                self.logger.info("✅ Phase 2: {} completed successfully", agent_id)
+                success_report = {
+                    'Agent ID' : agent_id,
+                    'Timestamp': self._get_timestamp(),
+                    'Content'  : result,
+                    'Details': result.details,
+                    'Log entries': result.metadata['log_entries']
+                    }
+                self.report_collection[agent_id] = {'success_report': success_report}
+            else:
+                self.logger.warning("⚠️ Phase 2: {} failed", agent_id)
+                failed_report = {
+                    'Agent ID' : agent_id,
+                    'Timestamp': self._get_timestamp(),
+                    'Content'  : result,
+                    'Details': result.details,
+                    'Log entries': result.metadata['log_entries']
+                    }
+                self.report_collection[agent_id] = {'failed_report': failed_report}
             
-            return success_report
-            
+            return result
+    
         except Exception as e:
             self.logger.error("❌ Phase 3: {} error: {}", agent_id, str(e))
             error_result = self._create_error_result(agent_id, str(e))
@@ -376,33 +365,25 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
 
     def _create_pipeline_result(self, 
                                 stability_result: Dict[str, Any],
-                                progress_result: Dict[str, Any],
                                 weight_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create comprehensive pipeline result summary.
         
         Args:
             stability_result: Results from Phase 1
-            progress_result: Results from Phase 2
-            weight_result: Results from Phase 3
+            weight_result: Results from Phase 2
             
         Returns:
             Dict[str, Any]: Complete pipeline result summary
         """
-        # Determine overall status
-        phase_statuses = []
         
-        if stability_result:
-            phase_statuses.append(stability_result.get('status', 'success'))
-        if progress_result:
-            phase_statuses.append(progress_result.get('status', 'success'))
-        if weight_result:
-            phase_statuses.append(weight_result.get('status', 'success'))
-        
-        # Overall status logic
-        if all(status == 'success' for status in phase_statuses):
+        # Determine overall pipeline status based on phase results
+        if (stability_result.status == 'success' and 
+            weight_result and weight_result.status == 'success'):
             overall_status = 'success'
-        elif any(status == 'success' for status in phase_statuses):
+        elif (stability_result.status != 'success' and 
+              weight_result and weight_result.status == 'success'):
+            # Collector failed but loader succeeded due to successful rollback
             overall_status = 'partial_success'
         else:
             overall_status = 'failed'
@@ -410,7 +391,6 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         return {
             'overall_status': overall_status,
             'stability_result': stability_result,
-            'progress_result': progress_result,
             'weight_result': weight_result,
             'timestamp': self._get_timestamp()
         }
