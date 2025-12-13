@@ -55,6 +55,7 @@ class StaticCrossDataChecker(ConfigReportMixin):
                 - validation_dir: Default directory for saving output files
         """
 
+        # Capture initialization arguments for reporting
         self._capture_init_args()
 
         # Initialize logger for this class
@@ -69,6 +70,7 @@ class StaticCrossDataChecker(ConfigReportMixin):
             )
         self.logger.info("✓ Validation for config requirements: PASSED!")
     
+        # Store config
         self.config = config
 
         # Validate that only allowed dataframe names are provided
@@ -102,6 +104,11 @@ class StaticCrossDataChecker(ConfigReportMixin):
         
         This method loads both static reference data (itemInfo, resinInfo, itemCompositionSummary)
         and dynamic data (productRecords, purchaseOrders) from parquet files.
+        - itemInfo_df: Item master data
+        - resinInfo_df: Resin master data
+        - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
+        - productRecords_df: Production records with item, mold, machine data
+        - purchaseOrders_df: Purchase order records
         """
 
         # Define mapping of path annotation keys to DataFrame attribute names
@@ -124,31 +131,6 @@ class StaticCrossDataChecker(ConfigReportMixin):
             setattr(self, attr_name, df)
             self.logger.debug("{}: {} - {}", path_key, df.shape, df.columns)
 
-    def _process_checking_data(self, checking_df_name):
-        
-        """
-        Process and prepare checking data based on the dataframe type.
-        
-        Args:
-            checking_df_name: Name of the dataframe to process ("productRecords" or "purchaseOrders")
-            
-        Returns:
-            pd.DataFrame: Processed dataframe ready for validation
-        """
-
-        if checking_df_name == "productRecords":
-            checking_df = self.productRecords_df.copy()
-            # Remove records with null poNote and rename column to poNo for consistency
-            checking_df = checking_df[checking_df['poNote'].notna()].copy()
-            checking_df = checking_df.rename(columns={"poNote": "poNo"})
-            self.logger.info('Processed productRecords: removed null poNote, {} rows remaining', len(checking_df))
-        elif checking_df_name == "purchaseOrders":
-            checking_df = self.purchaseOrders_df.copy()
-            self.logger.info('Processed purchaseOrders: {} rows', len(checking_df))
-        else:
-            raise ValueError(f"Unknown checking_df_name: {checking_df_name}")
-        return checking_df
-
     def run_validations(self, 
                         save_results: bool = False,
                         **kwargs):
@@ -167,8 +149,8 @@ class StaticCrossDataChecker(ConfigReportMixin):
 
         self.logger.info("Starting StaticCrossDataChecker ...")
 
-        start_time = datetime.now()
         # Generate config header using mixin
+        start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
         config_header = self._generate_config_report(timestamp_str, 
                                                      required_only=True)
@@ -182,7 +164,10 @@ class StaticCrossDataChecker(ConfigReportMixin):
             final_results = {}
             # Process each dataframe specified in checking_df_name
             for df_name in self.config.validation_df_name:
+
                 self.logger.info("Processing validations for: {}", df_name)
+
+                # Preprocess the checking dataframe
                 checking_df = self._process_checking_data(df_name)
                 
                 # Run all three validation checks
@@ -190,13 +175,13 @@ class StaticCrossDataChecker(ConfigReportMixin):
                 resin_warnings = self._check_resin_info_matches(df_name, checking_df)
                 composition_warnings = self._check_composition_matches(df_name, checking_df)
                 
-                # Combine all warnings following PORequiredCriticalValidator pattern
+                # Combine all warnings (PORequiredCriticalValidator pattern)
                 all_warnings = item_warnings + resin_warnings + composition_warnings
                 
-                # Calculate summary statistics for reporting
+                # Calculate total warnings
                 total_warnings = len(all_warnings)
                 
-                # Store results as DataFrame with standardized column structure
+                # Store results in final_results dictionary
                 final_results[df_name] = pd.DataFrame(all_warnings) if all_warnings else pd.DataFrame(
                     columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
                 
@@ -207,10 +192,12 @@ class StaticCrossDataChecker(ConfigReportMixin):
                 validation_log_entries.append(f"⤷ Resin: {len(resin_warnings)}")
                 validation_log_entries.append(f"⤷ Composition: {len(composition_warnings)}")
 
+                # Generate detailed report using DictBasedReportGenerator
                 reporter = DictBasedReportGenerator(use_colors=False)
                 validation_summary = "\n".join(reporter.export_report(final_results))
                 validation_log_entries.append(f"{validation_summary}") 
 
+                # Save results if specified
                 if save_results:
                     try:
                         # Export results to Excel with versioning
@@ -234,6 +221,7 @@ class StaticCrossDataChecker(ConfigReportMixin):
                         self.logger.error("Failed to save results: {}", str(e))
                         raise
             
+            # Compile final validation log
             validation_log_str = "\n".join(validation_log_entries)
             self.logger.info("✅ Process finished!!!")
 
@@ -242,7 +230,45 @@ class StaticCrossDataChecker(ConfigReportMixin):
         except Exception as e:
             self.logger.error("❌ Validation failed: {}", str(e))
             raise
+    
+    #-------------------------------------------------#
+    # SELECT AND PREPROCESS THE APPROPRIATE DATAFRAME #
+    #-------------------------------------------------#
+    def _process_checking_data(self, checking_df_name):
+        
+        """
+        Process and prepare checking data based on the dataframe type.
+        
+        Args:
+            checking_df_name: Name of the dataframe to process ("productRecords" or "purchaseOrders")
+            
+        Returns:
+            pd.DataFrame: Processed dataframe ready for validation
+        """
+        
+        if checking_df_name == "productRecords":
+            checking_df = self.productRecords_df.copy()
+            # Remove records with null poNote and rename column to poNo for consistency
+            checking_df = checking_df[checking_df['poNote'].notna()].copy()
+            checking_df = checking_df.rename(columns={"poNote": "poNo"})
+            self.logger.info('Processed productRecords: removed null poNote, {} rows remaining', len(checking_df))
 
+        elif checking_df_name == "purchaseOrders":
+            checking_df = self.purchaseOrders_df.copy()
+            self.logger.info('Processed purchaseOrders: {} rows', len(checking_df))
+
+        else:
+            raise ValueError(f"Unknown checking_df_name: {checking_df_name}")
+        
+        return checking_df
+    
+    #-------------------------------------------------#
+    # THREE VALIDATION CHECK IMPLEMENTATIONS          #
+    #-------------------------------------------------#
+
+    #-------------------------------------------------#
+    # 1. ITEM INFO MATCHING                           #
+    #-------------------------------------------------#
     def _check_item_info_matches(self, df_name, checking_df):
         
         """
@@ -288,7 +314,68 @@ class StaticCrossDataChecker(ConfigReportMixin):
         
         # Process and format warnings
         return self._process_item_warnings(mismatches, df_name)
+    
+    @staticmethod
+    def _process_item_warnings(mismatches_df, df_name):
+        
+        """
+        Process item info warnings following PORequiredCriticalValidator pattern.
+        
+        Converts item mismatch data into standardized warning format with
+        contextual information and recommended actions.
+        
+        Args:
+            mismatches_df: DataFrame containing mismatched item records
+            df_name: Name of the source dataframe
+            
+        Returns:
+            list: List of formatted warning dictionaries
+        """
 
+        results = []
+        
+        for _, row in mismatches_df.iterrows():
+            # Build context information based on dataframe type
+            if df_name == "productRecords":
+              poNo = row['poNo']
+              recordDate = row['recordDate'].strftime('%Y-%m-%d')
+              workingShift = row['workingShift']
+              machineNo = row['machineNo']
+              itemCode = row['itemCode']
+              itemName = row['itemName']
+              context_info = f"{poNo}, {recordDate}, {workingShift}, {machineNo}, {itemCode}, {itemName}"
+            elif df_name == "purchaseOrders":
+              poNo = row['poNo']
+              itemCode = row['itemCode']
+              itemName = row['itemName']
+              context_info = f"{poNo}, {itemCode}, {itemName}"
+            else:
+              logger.error("Unknown df_name: {}", df_name)
+              raise ValueError(f"Unknown df_name: {df_name}")
+            
+            # Define mismatch type and required action
+            mismatch_type = f'{itemCode}_and_{itemName}_not_matched'
+            required_action = f'update_itemInfo_or_double_check_{df_name}'
+            
+            # Create comprehensive warning message
+            message = f"({context_info}) - Mismatch: {mismatch_type}. Please {required_action}"
+            
+            # Create standardized warning entry
+            entry = {
+                'poNo': poNo,
+                'warningType': 'item_info_warnings',
+                'mismatchType': 'item_code_and_name_not_matched',
+                'requiredAction': required_action,
+                'message': message
+            }
+            
+            results.append(entry)
+        
+        return results
+
+    #-------------------------------------------------#
+    # 2. RESIN INFO MATCHING                          #
+    #-------------------------------------------------#
     def _check_resin_info_matches(self, df_name, checking_df):
         
         """
@@ -357,117 +444,6 @@ class StaticCrossDataChecker(ConfigReportMixin):
         
         return all_resin_warnings
 
-    def _check_composition_matches(self, df_name, checking_df):
-        
-        """
-        Check for complete item composition matches in itemCompositionSummary reference table.
-        
-        This validation ensures that the complete combination of item and resin information
-        exists as a valid composition in the reference table.
-        
-        Args:
-            df_name: Name of the dataframe being checked
-            checking_df: DataFrame to validate
-            
-        Returns:
-            list: List of warning dictionaries for mismatched compositions
-        """
-
-        self.logger.debug("Checking composition matches for {}", df_name)
-        
-        # Define all composition fields that must match together
-        composition_cols = [
-            'itemCode', 'itemName', 'plasticResinCode', 'plasticResin',
-            'colorMasterbatchCode', 'colorMasterbatch', 
-            'additiveMasterbatchCode', 'additiveMasterbatch'
-        ]
-
-        # Define required fields based on dataframe type
-        if df_name == "productRecords":
-          subset_fields = ['poNo', 'recordDate', 'workingShift', 'machineNo']
-        elif df_name == "purchaseOrders":
-          subset_fields = ['poNo']
-        else:
-          logger.error("Unknown df_name: {}", df_name)
-          raise ValueError(f"Unknown df_name: {df_name}")
-          
-        # Extract composition data, excluding records with all null composition fields
-        po_subset = checking_df[subset_fields + composition_cols].dropna(subset=composition_cols, how='all').copy()
-        
-        if po_subset.empty:
-            return []
-        
-        # Create reference lookup from itemCompositionSummary table
-        composition_pairs = self.itemCompositionSummary_df[composition_cols].drop_duplicates()
-        
-        # Find mismatches using left join
-        merged = po_subset.merge(composition_pairs, on=composition_cols, how='left', indicator=True)
-        mismatches = merged[merged['_merge'] == 'left_only'].drop('_merge', axis=1)
-        
-        if mismatches.empty:
-            return []
-        
-        # Process and format composition warnings
-        return self._process_composition_warnings(mismatches, df_name, composition_cols)
-
-    @staticmethod
-    def _process_item_warnings(mismatches_df, df_name):
-        
-        """
-        Process item info warnings following PORequiredCriticalValidator pattern.
-        
-        Converts item mismatch data into standardized warning format with
-        contextual information and recommended actions.
-        
-        Args:
-            mismatches_df: DataFrame containing mismatched item records
-            df_name: Name of the source dataframe
-            
-        Returns:
-            list: List of formatted warning dictionaries
-        """
-
-        results = []
-        
-        for _, row in mismatches_df.iterrows():
-            # Build context information based on dataframe type
-            if df_name == "productRecords":
-              poNo = row['poNo']
-              recordDate = row['recordDate'].strftime('%Y-%m-%d')
-              workingShift = row['workingShift']
-              machineNo = row['machineNo']
-              itemCode = row['itemCode']
-              itemName = row['itemName']
-              context_info = f"{poNo}, {recordDate}, {workingShift}, {machineNo}, {itemCode}, {itemName}"
-            elif df_name == "purchaseOrders":
-              poNo = row['poNo']
-              itemCode = row['itemCode']
-              itemName = row['itemName']
-              context_info = f"{poNo}, {itemCode}, {itemName}"
-            else:
-              logger.error("Unknown df_name: {}", df_name)
-              raise ValueError(f"Unknown df_name: {df_name}")
-            
-            # Define mismatch type and required action
-            mismatch_type = f'{itemCode}_and_{itemName}_not_matched'
-            required_action = f'update_itemInfo_or_double_check_{df_name}'
-            
-            # Create comprehensive warning message
-            message = f"({context_info}) - Mismatch: {mismatch_type}. Please {required_action}"
-            
-            # Create standardized warning entry
-            entry = {
-                'poNo': poNo,
-                'warningType': 'item_info_warnings',
-                'mismatchType': 'item_code_and_name_not_matched',
-                'requiredAction': required_action,
-                'message': message
-            }
-            
-            results.append(entry)
-        
-        return results
-
     @staticmethod
     def _process_resin_warnings(mismatches_df, df_name):
         
@@ -526,6 +502,62 @@ class StaticCrossDataChecker(ConfigReportMixin):
         
         return results
 
+    #-------------------------------------------------#
+    # 3. COMPOSITION MATCHING                         #
+    #-------------------------------------------------#
+    def _check_composition_matches(self, df_name, checking_df):
+        
+        """
+        Check for complete item composition matches in itemCompositionSummary reference table.
+        
+        This validation ensures that the complete combination of item and resin information
+        exists as a valid composition in the reference table.
+        
+        Args:
+            df_name: Name of the dataframe being checked
+            checking_df: DataFrame to validate
+            
+        Returns:
+            list: List of warning dictionaries for mismatched compositions
+        """
+
+        self.logger.debug("Checking composition matches for {}", df_name)
+        
+        # Define all composition fields that must match together
+        composition_cols = [
+            'itemCode', 'itemName', 'plasticResinCode', 'plasticResin',
+            'colorMasterbatchCode', 'colorMasterbatch', 
+            'additiveMasterbatchCode', 'additiveMasterbatch'
+        ]
+
+        # Define required fields based on dataframe type
+        if df_name == "productRecords":
+          subset_fields = ['poNo', 'recordDate', 'workingShift', 'machineNo']
+        elif df_name == "purchaseOrders":
+          subset_fields = ['poNo']
+        else:
+          logger.error("Unknown df_name: {}", df_name)
+          raise ValueError(f"Unknown df_name: {df_name}")
+          
+        # Extract composition data, excluding records with all null composition fields
+        po_subset = checking_df[subset_fields + composition_cols].dropna(subset=composition_cols, how='all').copy()
+        
+        if po_subset.empty:
+            return []
+        
+        # Create reference lookup from itemCompositionSummary table
+        composition_pairs = self.itemCompositionSummary_df[composition_cols].drop_duplicates()
+        
+        # Find mismatches using left join
+        merged = po_subset.merge(composition_pairs, on=composition_cols, how='left', indicator=True)
+        mismatches = merged[merged['_merge'] == 'left_only'].drop('_merge', axis=1)
+        
+        if mismatches.empty:
+            return []
+        
+        # Process and format composition warnings
+        return self._process_composition_warnings(mismatches, df_name, composition_cols)
+    
     @staticmethod
     def _process_composition_warnings(mismatches_df, df_name, composition_fields):
         

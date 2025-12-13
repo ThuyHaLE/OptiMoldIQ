@@ -2,7 +2,7 @@ from loguru import logger
 from agents.utils import save_output_with_versioning, ConfigReportMixin
 from pathlib import Path
 import pandas as pd
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import time
@@ -57,6 +57,8 @@ class ValidationOrchestrator(ConfigReportMixin):
             enable_parallel: Whether to enable parallel processing (default: True, auto-detected)
             max_workers: Maximum number of workers for parallel processing (None = auto-detect)
         """
+
+        # Capture initialization arguments for reporting
         self._capture_init_args()
 
         # Initialize logger with class name for better tracking
@@ -70,7 +72,8 @@ class ValidationOrchestrator(ConfigReportMixin):
                 "\n".join(f"  - {e}" for e in errors)
             )
         self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
-    
+
+        # Store configuration and parallel settings
         self.config = shared_source_config
         self.enable_parallel = enable_parallel
         self.max_workers = max_workers
@@ -160,14 +163,14 @@ class ValidationOrchestrator(ConfigReportMixin):
                 - final_report: Dict with standardized structure containing Agent ID, Timestamp, and Content
                 - validation_log_str: String containing full validation log
         """
+
         agent_id = "ValidationOrchestrator"
         execution_mode = "PARALLEL" if self.enable_parallel else "SEQUENTIAL"
         self.logger.info("🚀 Starting {} in {} mode...", agent_id, execution_mode)
 
+        # Generate config header using mixin
         start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Generate config header using mixin
         config_header = self._generate_config_report(timestamp_str, required_only=True)
         
         # Initialize validation log entries for entire processing run
@@ -197,6 +200,7 @@ class ValidationOrchestrator(ConfigReportMixin):
             execution_time = (datetime.now() - start_time).total_seconds()
             validation_log_entries.append(f"\n⏱️  Total execution time: {execution_time:.2f}s\n")
 
+            # Combine log entries into a single string
             validation_log_str = "\n".join(validation_log_entries)
             self.logger.info("✅ {} completed in {:.2f}s!", agent_id, execution_time)
 
@@ -311,12 +315,12 @@ class ValidationOrchestrator(ConfigReportMixin):
         Raises:
             Exception: If validation execution or file saving fails
         """
-        agent_id = "ValidationOrchestrator"
-        
+
         try:
             # Execute validations
             final_report, validation_log_str = self.run_validations(**kwargs)
             
+            # Extract validation results for exporting
             validation_results = final_report['Content']
 
             # Generate validation summary

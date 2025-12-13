@@ -81,6 +81,7 @@ class DataPipelineOrchestrator(ConfigReportMixin):
                 - data_pipeline_dir: Default directory for shared database operations
         """
         
+        # Capture initialization arguments for reporting
         self._capture_init_args()
 
         # Initialize logger with class-specific binding for better log tracking
@@ -110,11 +111,13 @@ class DataPipelineOrchestrator(ConfigReportMixin):
         
         """Save the report to a file and return the filename"""
 
+        # Prepare timestamped filenames and log entries
         timestamp_now = datetime.now()
         timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
         timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
         log_entries = [f"[{timestamp_str}] Saving new version...\n"]
 
+        # Ensure output directories exist
         newest_dir = self.output_dir / "newest"
         newest_dir.mkdir(parents=True, exist_ok=True)
         historical_dir = self.output_dir / "historical_db"
@@ -149,6 +152,7 @@ class DataPipelineOrchestrator(ConfigReportMixin):
                             message, 
                             title = f"{agent_id} - {prefix_name} Report"))
                     
+                    # Write content to output file
                     with open(output_path, 'w', encoding='utf-8') as f:
                         f.write(content)
                     log_entries.append(f"  ⤷ Saved new file: {output_path}\n")
@@ -188,7 +192,8 @@ class DataPipelineOrchestrator(ConfigReportMixin):
         timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         config_header = self._generate_config_report(timestamp_str,
                                                      required_only=True)
-
+        
+        # Initialize log lines for pipeline execution details
         pipeline_log_lines = [config_header]
         pipeline_log_lines.append(f"--Processing Summary--\n")
         pipeline_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
@@ -205,28 +210,29 @@ class DataPipelineOrchestrator(ConfigReportMixin):
 
         # Create comprehensive pipeline result summary
         pipeline_result = self._create_pipeline_result(collector_result, loader_result)
-
         self.logger.info("✅ {} completed", agent_id)
 
+        # Save final report
         final_report = {
             'Agent ID' : agent_id,
             'Timestamp': self._get_timestamp(),
             'Content'  : pipeline_result
             }
         
+        # Update report collection with final report and save
         self.report_collection[agent_id] = {'final_report': final_report}
-        
         output_exporting_log = self.save_report()
-        pipeline_log_lines.append(f"{output_exporting_log}\n")
 
-        pipeline_log_lines.append("--Details--\n")
-        pipeline_log_lines.append(f"⤷ Phase 1: Data Collection\n")
-        pipeline_log_lines.append(f"{collector_log}\n")
-        pipeline_log_lines.append(f"⤷ Phase 2: Data Loading\n")
-        pipeline_log_lines.append(f"{loader_log}\n")
-
+        # Compile pipeline log
+        pipeline_log_lines.append(f"{output_exporting_log}")
+        pipeline_log_lines.append("--Details--")
+        pipeline_log_lines.append(f"⤷ Phase 1: Data Collection")
+        pipeline_log_lines.append(f"{collector_log}")
+        pipeline_log_lines.append(f"⤷ Phase 2: Data Loading")
+        pipeline_log_lines.append(f"{loader_log}")
         pipeline_log_str = "\n".join(pipeline_log_lines)
         
+        # Save change log to output directory
         try:
             log_path = self.output_dir / "change_log.txt"
             with open(log_path, "a", encoding="utf-8") as log_file:
@@ -365,6 +371,7 @@ class DataPipelineOrchestrator(ConfigReportMixin):
         if hasattr(collector_result, 'healing_actions') or hasattr(collector_result, 'details'):
             rollback_success = self.notifier.check_rollback_success(collector_result)
             
+            # If rollback succeeded, proceed to DataLoader
             if rollback_success:
                 self.logger.info("🔄 Rollback successful - proceeding to DataLoader despite collector failure")
                 return True

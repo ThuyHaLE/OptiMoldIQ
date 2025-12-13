@@ -44,6 +44,8 @@ class DataLoaderAgent(ConfigReportMixin):
                 - annotation_path: Path to file storing database path annotations
                 - data_pipeline_dir: Default directory for shared database files
         """
+
+        # Capture initialization arguments for reporting
         self._capture_init_args()
         
         # Initialize logger for this class
@@ -57,7 +59,8 @@ class DataLoaderAgent(ConfigReportMixin):
                 "\n".join(f"  - {e}" for e in errors)
             )
         self.logger.info("✓ Validation for config requirements: PASSED!")
-    
+
+        # Store config
         self.config = config
 
         # Load database schema configuration
@@ -92,59 +95,60 @@ class DataLoaderAgent(ConfigReportMixin):
         
         self.logger.info("Starting DataLoaderAgent ...")
 
-        start_time = datetime.now()
-        results = []
-        overall_status = ProcessingStatus.SUCCESS
-
         # Generate config header using mixin
+        start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
         config_header = self._generate_config_report(timestamp_str, 
                                                      required_only=True)
+        
+        # Initialize results list and overall status
+        results = []
+        overall_status = ProcessingStatus.SUCCESS
 
         # Initialize combined log entries for entire processing run
         combined_log_entries = [config_header]
         combined_log_entries.append(f"--Processing Summary--\n")
         combined_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
-        # Dictionary to store files that have changed and need to be saved
+        # Initialize changed files dictionary
         self.have_changed_files = {}
         
-        # Count databases to process
+        # Calculate total number of databases to process
         total_databases = sum(len(dbs) for dbs in self.databaseSchemas_data.values())
         combined_log_entries.append(f"Total databases to process: {total_databases}\n\n")
 
-        # Process each database type and database name
+        # Process each database
         db_counter = 0
         for db_type in self.databaseSchemas_data.keys():
             for db_name in self.databaseSchemas_data[db_type].keys():
                 db_counter += 1
                 combined_log_entries.append(f"--- Database {db_counter}/{total_databases} ---\n")
-                
                 db_result = self._process_database(db_name, db_type)
                 results.append(db_result)
                 
-                # Collect log entries from individual database processing
+                # Add individual database log entries to combined log
                 if 'log_entries' in db_result:
                     combined_log_entries.append(db_result['log_entries'])
-                
-                combined_log_entries.append("\n")  # Add spacing between databases
 
-                # Collect changed files for saving
+                # Track changed files for saving
                 if db_result['status'] == ProcessingStatus.SUCCESS.value and db_result.get('data_updated', False):
                     self.have_changed_files[db_name] = db_result.get('dataframe')
 
-        # Save changed files if any were detected
+        # Handle file saving if there are changed files
         combined_log_entries.append(f"\n{'='*80}\n")
         combined_log_entries.append("FILE SAVE OPERATION\n")
         combined_log_entries.append(f"{'='*80}\n\n")
         
+        # Initialize save result
         save_result = None
+
+        # Save changed files if any
         if self.have_changed_files:
             combined_log_entries.append(f"Files requiring save: {list(self.have_changed_files.keys())}\n\n")
             save_result = self._save_changed_files()
             results.append(save_result)
             
-            # Add save operation log entries
+            # Add save operation log entries to combined log
             if 'log_entries' in save_result:
                 combined_log_entries.append(save_result['log_entries'])
         else:
@@ -163,13 +167,13 @@ class DataLoaderAgent(ConfigReportMixin):
         end_time = datetime.now()
         processing_duration = (end_time - start_time).total_seconds()
         
-        # Calculate statistics
+        # Summarize results
         db_results = [r for r in results if r.get('database_name')]
         successful_count = len([r for r in db_results if r['status'] == ProcessingStatus.SUCCESS.value])
         failed_count = len([r for r in db_results if r['status'] == ProcessingStatus.ERROR.value])
         warning_count = len([r for r in db_results if r['status'] == ProcessingStatus.WARNING.value])
         
-        # Add completion log
+        # Append summary to combined log entries
         combined_log_entries.append(f"\n{'='*80}\n")
         end_timestamp = end_time.strftime("%Y-%m-%d %H:%M:%S")
         combined_log_entries.append(f"[{end_timestamp}] DATA PROCESSING COMPLETED\n")
@@ -185,11 +189,11 @@ class DataLoaderAgent(ConfigReportMixin):
         combined_log_entries.append(f"  ⤷ Files Saved: {1 if save_result and save_result['status'] == ProcessingStatus.SUCCESS.value else 0}\n")
         combined_log_entries.append(f"\n{'='*80}\n")
         
-        # Combine all log entries
+        # Write combined log entries to a master log file
         full_log = "".join(combined_log_entries)
         self._write_log_to_file(full_log, "data_loader_master_log.txt")
 
-        # Create comprehensive execution information
+        # Prepare execution information response
         execution_info = AgentExecutionInfo(
             agent_id=AgentType.DATA_LOADER.value,
             status=overall_status.value,

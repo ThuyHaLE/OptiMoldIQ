@@ -40,6 +40,7 @@ class DataCollector(ConfigReportMixin):
                 - data_pipeline_dir: Base directory for output files
         """
 
+        # Capture initialization arguments for reporting
         self._capture_init_args()
 
         # Initialize logger for this class
@@ -53,7 +54,8 @@ class DataCollector(ConfigReportMixin):
                 "\n".join(f"  - {e}" for e in errors)
             )
         self.logger.info("✓ Validation for config requirements: PASSED!")
-    
+        
+        # Store config
         self.config = config
 
         # Setup output dir
@@ -76,17 +78,18 @@ class DataCollector(ConfigReportMixin):
         
         self.logger.info("Starting DataCollector ...")
 
+        # Generate config header using mixin
         start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-
-        # Generate config header using mixin
         config_header = self._generate_config_report(timestamp_str, 
                                                      required_only=True)
 
+        # Initialize log entries
         log_entries = [config_header]
         log_entries.append(f"--Processing Summary--\n")
         log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
+        # Initialize results list and overall status
         results = []
         overall_status = ProcessingStatus.SUCCESS
 
@@ -143,6 +146,7 @@ class DataCollector(ConfigReportMixin):
         failed_count = len([r for r in results if r['status'] == ProcessingStatus.ERROR.value])
         warning_count = len([r for r in results if r['status'] == ProcessingStatus.WARNING.value])
         
+        # Append summary to log entries
         log_entries.append(f"\n{'='*80}\n")
         log_entries.append(f"SUMMARY\n")
         log_entries.append(f"{'='*80}\n")

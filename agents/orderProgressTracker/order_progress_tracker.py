@@ -56,6 +56,7 @@ class OrderProgressTracker(ConfigReportMixin):
                 - progress_tracker_dir: Default directory for saving output files
         """
 
+        # Capture initialization arguments for reporting
         self._capture_init_args()
 
         # Initialize logger with class name for better tracking
@@ -69,7 +70,8 @@ class OrderProgressTracker(ConfigReportMixin):
                 "\n".join(f"  - {e}" for e in errors)
             )
         self.logger.info("✓ Validation for config requirements: PASSED!")
-    
+
+        # Store config
         self.config = config
 
         # Load database schema for productRecords_df
@@ -100,10 +102,8 @@ class OrderProgressTracker(ConfigReportMixin):
         
         This method loads the following DataFrames:
         - productRecords_df: Production records with item, mold, machine data
-        - machineInfo_df: Machine specifications and tonnage information
+        - purchaseOrders_df: Purchase order records
         - moldSpecificationSummary_df: Mold specifications and compatible items
-        - moldInfo_df: Detailed mold information including tonnage requirements
-        - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
         """
 
         # Define the mapping between path annotation keys and DataFrame attribute names
@@ -146,8 +146,8 @@ class OrderProgressTracker(ConfigReportMixin):
 
         self.logger.info("Starting OrderProgressTracker ...")
 
-        start_time = datetime.now()
         # Generate config header using mixin
+        start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
         config_header = self._generate_config_report(timestamp_str, 
                                                      required_only=True)
@@ -158,19 +158,20 @@ class OrderProgressTracker(ConfigReportMixin):
         tracking_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
 
         try:
-            # Step 1: Merge order data with mold information
-            ordersInfo_df = pd.merge(
-                self.purchaseOrders_df[['poNo', 'poReceivedDate', 'poETA', 'itemCode',	'itemName', 'itemQuantity']],
-                self.moldSpecificationSummary_df[['itemCode', 'itemType', 'moldList']],
-                on='itemCode',
-                how='left')
+            # Step 1: Merge purchase orders with mold specification summary
+            ordersInfo_df = self._merge_purchase_mold_specification()
 
-            # Step 2: Extract and summarize production data
+            # Step 2: Extract and aggregate product record information. 
+            # Including: 
+            # - Aggregated production data by poNote, 
+            # - List of POs currently in production, 
+            # - DataFrame of records without production
             agg_df, producing_po_list, notWorking_productRecords_df = OrderProgressTracker._extract_product_records(
                 self.productRecords_df, 
                 self.pro_status_schema['shift_start_map'])
 
-            # Step 3: Process production status
+            # Step 3: Generate production status report
+            # Process production status information and handle data type conversions.
             pro_status_df = OrderProgressTracker._pro_status_processing(
                 pd.merge(ordersInfo_df,
                          agg_df,
@@ -181,18 +182,22 @@ class OrderProgressTracker(ConfigReportMixin):
                 self.pro_status_schema['pro_status_dtypes']
                 )
             
+            # Mark pending POs as paused if they haven't been updated in the latest shift
             pro_status_df = OrderProgressTracker._mark_paused_pending_pos(
                 self.productRecords_df,
                 pro_status_df,
                 self.pro_status_schema['shift_start_map']
                 )
 
-            # Get the latest machine information for each po on working shift timestamp
+            # Get the latest machine information for each machine based on working shift timestamp.
+            # Includes machines that were not working (poNote is null) in the most recent shift.
             lastest_info_df = OrderProgressTracker._get_latest_po_info(
                 self.productRecords_df,
                 self.pro_status_schema['shift_start_map'],
                 keys=['machineNo', 'moldNo']
                 )
+            
+            # Merge latest machine information into production status DataFrame
             updated_lastest_info_df = pro_status_df.merge(lastest_info_df, 
                                                           how='left', 
                                                           on='poNo')
@@ -204,7 +209,7 @@ class OrderProgressTracker(ConfigReportMixin):
                 updated_lastest_info_df, 
                 warning_merge_dict)
 
-            # Step 5: Prepare output data
+            # Step 5: Prepare final output data structure
             self.data = {
                         "productionStatus": updated_pro_status_df,
                         'materialComponentMap': OrderProgressTracker._pro_status_fattening(
@@ -222,7 +227,7 @@ class OrderProgressTracker(ConfigReportMixin):
                         "notWorkingStatus": notWorking_productRecords_df,
                         }
 
-            # Add warning information into output data if any
+            # Add total warnings if available
             if total_warnings:
                 self.data.update(total_warnings)
 
@@ -231,7 +236,7 @@ class OrderProgressTracker(ConfigReportMixin):
             tracking_summary = "\n".join(reporter.export_report(self.data))
             tracking_log_lines.append(f"{tracking_summary}")
 
-            # Step 6: Export Excel file
+            # Export Excel file with versioning
             logger.info("Start excel file exporting...")
             output_exporting_log = save_output_with_versioning(
                 data = self.data,
@@ -241,9 +246,11 @@ class OrderProgressTracker(ConfigReportMixin):
             )
             self.logger.info("Results exported successfully!")
             tracking_log_lines.append(f"{output_exporting_log}\n")
-
+            
+            # Compile tracking log
             tracking_log_str = "\n".join(tracking_log_lines)
-
+            
+            # Save tracking log
             try:
                 log_path = self.output_dir / "change_log.txt"
                 with open(log_path, "a", encoding="utf-8") as log_file:
@@ -259,7 +266,144 @@ class OrderProgressTracker(ConfigReportMixin):
         except Exception as e:
             self.logger.error("❌ Validation failed: {}", str(e))
             raise
+    
+    #---------------------------------------------------------------#
+    # STEP 1: MERGE PURCHASE ORDERS WITH MOLD SPECIFICATION SUMMARY #
+    #---------------------------------------------------------------#
+    def _merge_purchase_mold_specification(self) -> pd.DataFrame:
+        """Merge purchase orders with mold specification summary."""
+        return pd.merge(
+                self.purchaseOrders_df[['poNo', 'poReceivedDate', 'poETA', 'itemCode',	'itemName', 'itemQuantity']],
+                self.moldSpecificationSummary_df[['itemCode', 'itemType', 'moldList']],
+                on='itemCode',
+                how='left')
+    
+    #---------------------------------------------------------------#
+    # STEP 2: EXTRACT AND AGGREGATE PRODUCT RECORD INFORMATION      #
+    #---------------------------------------------------------------#
+    @staticmethod
+    def _extract_product_records(productRecords_df,
+                                 shift_start_map):
 
+        """
+        Extract and aggregate product record information.
+
+        Args:
+            productRecords_df: DataFrame containing production records
+            shift_start_map: Dictionary mapping shift codes to start times
+
+        Returns:
+            pd.DataFrame: Aggregated production data by poNote
+            List: List of POs currently in production
+            pd.DataFrame: DataFrame of records without production
+        """
+
+        # Input validation
+        if productRecords_df.empty:
+            logger.error("Empty productRecords_df provided")
+            raise ValueError("Empty productRecords_df provided.")
+
+        # Create derived columns
+        productRecords_df = productRecords_df.copy()
+
+        # Combine date and shift into a string identifier
+        productRecords_df['dateShiftCombined'] = (productRecords_df['recordDate'].dt.strftime('%Y-%m-%d') + 
+                                                  '_shift_' + productRecords_df['workingShift']
+                                                  )
+
+        # Create a unique machine history identifier
+        productRecords_df['machineHist'] = productRecords_df['machineNo'] + '_' + productRecords_df['machineCode']
+        logger.debug("Total records => {}: {}", 
+                     productRecords_df.shape, productRecords_df.columns.to_list()
+                     )
+
+        # Split records into those with no production and those with actual production
+        not_working_mask = (productRecords_df['itemTotalQuantity'].isna() | 
+                            (productRecords_df['itemTotalQuantity'] == 0)
+                            )
+
+        # DataFrame for records without production
+        notWorking_productRecords_df = productRecords_df[not_working_mask].copy()
+        notWorking_productRecords_df['recordDate'] = notWorking_productRecords_df['recordDate'].dt.strftime('%Y-%m-%d')
+
+        # DataFrame for records with production
+        haveWorking_productRecords_df = productRecords_df[~not_working_mask].copy()
+
+        logger.debug("Not working => {}: {}", 
+                     notWorking_productRecords_df.shape, notWorking_productRecords_df.columns.to_list()
+                     )
+        logger.debug("Have working => {}: {}", 
+                     haveWorking_productRecords_df.shape, haveWorking_productRecords_df.columns.to_list()
+                     )
+
+        if haveWorking_productRecords_df.empty:
+            logger.error("No working production records found")
+            raise ValueError("No working production records found.")
+
+        # Determine the latest production time based on working shift start times
+        time_to_shift = {datetime.strptime(v, "%H:%M").time(): k for k, v in shift_start_map.items()}
+
+        # Calculate shift start time for each record
+        shift_starts = haveWorking_productRecords_df.apply(
+            lambda row: OrderProgressTracker._get_shift_start(row, shift_start_map), axis=1)
+        latest_shift_start = shift_starts.max()
+
+        if pd.isna(latest_shift_start):
+            logger.error("Could not determine latest shift start")
+            raise ValueError("Could not determine latest shift start.")
+
+        else:
+            # Determine the latest date and shift
+            latest_date = latest_shift_start.date().strftime("%Y-%m-%d")
+            latest_shift = time_to_shift.get(latest_shift_start.time())
+            logger.debug("Latest date: {}, Latest shift: {}", latest_date, latest_shift)
+
+        # Get POs still being produced in the latest shift
+        latest_shift_mask = (
+            (haveWorking_productRecords_df['recordDate'] == latest_date) &
+            (haveWorking_productRecords_df['workingShift'] == str(latest_shift))
+            )
+
+        # Get a list of poNotes that are still being produced in the latest shift
+        producing_po_list = haveWorking_productRecords_df[latest_shift_mask]['poNote'].tolist()
+        logger.debug(f"Producing PO list: {producing_po_list}")
+
+        # Extract material codes
+        resin_code_map = OrderProgressTracker._extract_material_codes(haveWorking_productRecords_df)
+
+        # Aggregate multiple production metrics by poNote
+        agg_df = haveWorking_productRecords_df.groupby('poNote').agg(
+
+            moldedQuantity=('itemGoodQuantity', 'sum'),
+            totalMoldShot=('moldShot', 'sum'),
+            startedDate=('recordDate', 'min'),
+            endDate=('recordDate', 'max'),
+            totalDay=('recordDate', 'nunique'),
+            totalShift=('dateShiftCombined', 'count'),
+            machineHist=('machineHist', lambda x: x.dropna().unique().tolist()),
+            moldHist=('moldNo', lambda x: x.dropna().unique().tolist()),
+            moldCavity=('moldCavity', lambda x: x.dropna().unique().tolist()),
+            plasticResinCode=('plasticResinCode', lambda x: x.dropna().unique().tolist()),
+            colorMasterbatchCode=('colorMasterbatchCode', lambda x: x.dropna().unique().tolist()),
+            additiveMasterbatchCode=('additiveMasterbatchCode', lambda x: x.dropna().unique().tolist()),
+
+            ).reset_index()
+
+        # Create aggregation maps
+        maps = OrderProgressTracker._create_aggregation_maps(haveWorking_productRecords_df)
+
+        # Add mapping columns
+        agg_df['moldShotMap'] = agg_df['poNote'].map(maps['mold_map'])
+        agg_df['machineQuantityMap'] = agg_df['poNote'].map(maps['machine_map'])
+        agg_df['dayQuantityMap'] = agg_df['poNote'].map(maps['date_map'])
+        agg_df['shiftQuantityMap'] = agg_df['poNote'].map(maps['shift_map'])
+        agg_df['materialComponentMap'] = agg_df['poNote'].map(resin_code_map)
+
+        # Rename poNote to poNo for consistency
+        agg_df = agg_df.rename(columns={'poNote': 'poNo'})
+
+        return agg_df, producing_po_list, notWorking_productRecords_df
+    
     @staticmethod
     def _get_shift_start(row, 
                          shift_start_map,
@@ -267,7 +411,7 @@ class OrderProgressTracker(ConfigReportMixin):
                          shift_field_name='workingShift'):
 
         """
-        Calculate the shift's start datetime based on the date and shift code.
+        Calculate the shift start datetime for a given row.
 
         Args:
             row: DataFrame row containing date and shift information
@@ -305,10 +449,52 @@ class OrderProgressTracker(ConfigReportMixin):
             return pd.NaT
 
     @staticmethod
+    def _extract_material_codes(df):
+        """
+        Extract material component combinations for each poNote.
+
+        Args:
+            df: DataFrame with production records
+
+        Returns:
+            dict: Dictionary mapping poNote to list of material component combinations
+        """
+
+        def extract_material_combinations(group):
+            """
+            Extract list of material component combinations from a group
+            """
+            combinations = []
+
+            for _, row in group.iterrows():
+
+                combination = {
+                    'plasticResinCode': row.get('plasticResinCode') if pd.notna(row.get('plasticResinCode')) else None,
+                    'colorMasterbatchCode': row.get('colorMasterbatchCode') if pd.notna(row.get('colorMasterbatchCode')) else None,
+                    'additiveMasterbatchCode': row.get('additiveMasterbatchCode') if pd.notna(row.get('additiveMasterbatchCode')) else None
+                }
+
+                # Validation
+                if combination['plasticResinCode'] == None:
+                    logger.error("The material combination is required to include at least one component of plasticResinCode")
+                    raise ValueError("The material combination is required to include at least one component of plasticResinCode")
+
+                if combination not in combinations:
+                    combinations.append(combination)
+
+            return combinations
+
+        return (
+            df.groupby('poNote')
+            .apply(extract_material_combinations, include_groups=False)
+            .to_dict()
+        )
+    
+    @staticmethod
     def _create_aggregation_maps(df):
 
         """
-        Create various aggregation maps for production data.
+        Create aggregation maps for molds, machines, dates, and shifts.
 
         Args:
             df: DataFrame with production records
@@ -367,164 +553,17 @@ class OrderProgressTracker(ConfigReportMixin):
 
         return maps
 
+    #---------------------------------------------------------------#
+    # STEP 3: GENERATE PRODUCTION STATUS REPORT                     #
+    #---------------------------------------------------------------#
     @staticmethod
-    def _extract_material_codes(df):
-        """
-        Extract material component codes and drop NaNs.
-
-        Args:
-            df: DataFrame with production records
-
-        Returns:
-            dict: Dictionary mapping poNote to list of material component combinations
-        """
-
-        def extract_material_combinations(group):
-            """
-            Extract list of material component combinations from a group
-            """
-            combinations = []
-
-            for _, row in group.iterrows():
-
-                combination = {
-                    'plasticResinCode': row.get('plasticResinCode') if pd.notna(row.get('plasticResinCode')) else None,
-                    'colorMasterbatchCode': row.get('colorMasterbatchCode') if pd.notna(row.get('colorMasterbatchCode')) else None,
-                    'additiveMasterbatchCode': row.get('additiveMasterbatchCode') if pd.notna(row.get('additiveMasterbatchCode')) else None
-                }
-
-                # Validation
-                if combination['plasticResinCode'] == None:
-                    logger.error("The material combination is required to include at least one component of plasticResinCode")
-                    raise ValueError("The material combination is required to include at least one component of plasticResinCode")
-
-                if combination not in combinations:
-                    combinations.append(combination)
-
-            return combinations
-
-        return (
-            df.groupby('poNote')
-            .apply(extract_material_combinations, include_groups=False)
-            .to_dict()
-        )
-
-    @staticmethod
-    def _extract_product_records(productRecords_df,
-                                 shift_start_map):
+    def _pro_status_processing(pro_status_df, 
+                               pro_status_fields,
+                               producing_po_list, 
+                               pro_status_dtypes):
 
         """
-        Main function to extract and aggregate product record information.
-
-        Args:
-            productRecords_df: DataFrame containing production records
-            shift_start_map: Dictionary mapping shift codes to start times
-
-        Returns:
-            tuple: (aggregated_df, producing_po_list, not_working_records_df)
-        """
-
-        # Input validation
-        if productRecords_df.empty:
-            logger.error("Empty productRecords_df provided")
-            raise ValueError("Empty productRecords_df provided.")
-
-        # Create derived columns
-        productRecords_df = productRecords_df.copy()
-
-        # Combine date and shift into a string identifier
-        productRecords_df['dateShiftCombined'] = productRecords_df['recordDate'].dt.strftime('%Y-%m-%d') + '_shift_' + productRecords_df['workingShift']
-
-        # Create a unique machine history identifier
-        productRecords_df['machineHist'] = productRecords_df['machineNo'] + '_' + productRecords_df['machineCode']
-        logger.debug("Total records => {}: {}", productRecords_df.shape, productRecords_df.columns.to_list())
-
-        # Split records into those with no production and those with actual production
-        not_working_mask = (productRecords_df['itemTotalQuantity'].isna() | (productRecords_df['itemTotalQuantity'] == 0))
-
-        # DataFrame for records without production
-        notWorking_productRecords_df = productRecords_df[not_working_mask].copy()
-        notWorking_productRecords_df['recordDate'] = notWorking_productRecords_df['recordDate'].dt.strftime('%Y-%m-%d')
-
-        # DataFrame for records with production
-        haveWorking_productRecords_df = productRecords_df[~not_working_mask].copy()
-
-        logger.debug("Not working => {}: {}", notWorking_productRecords_df.shape, notWorking_productRecords_df.columns.to_list())
-        logger.debug("Have working => {}: {}", haveWorking_productRecords_df.shape, haveWorking_productRecords_df.columns.to_list())
-
-        if haveWorking_productRecords_df.empty:
-            logger.error("No working production records found")
-            raise ValueError("No working production records found.")
-
-        # Determine the latest production time based on working shift start times
-        time_to_shift = {datetime.strptime(v, "%H:%M").time(): k for k, v in shift_start_map.items()}
-
-        # Calculate shift start time for each record
-        shift_starts = haveWorking_productRecords_df.apply(lambda row: OrderProgressTracker._get_shift_start(row, shift_start_map), axis=1)
-        latest_shift_start = shift_starts.max()
-
-        if pd.isna(latest_shift_start):
-            logger.error("Could not determine latest shift start")
-            raise ValueError("Could not determine latest shift start.")
-
-        else:
-            # Determine the latest date and shift
-            latest_date = latest_shift_start.date().strftime("%Y-%m-%d")
-            latest_shift = time_to_shift.get(latest_shift_start.time())
-            logger.debug("Latest date: {}, Latest shift: {}", latest_date, latest_shift)
-
-        # Get POs still being produced in the latest shift
-        latest_shift_mask = (
-            (haveWorking_productRecords_df['recordDate'] == latest_date) &
-            (haveWorking_productRecords_df['workingShift'] == str(latest_shift))
-            )
-
-        # Get a list of poNotes that are still being produced in the latest shift
-        producing_po_list = haveWorking_productRecords_df[latest_shift_mask]['poNote'].tolist()
-        logger.debug(f"Producing PO list: {producing_po_list}")
-
-        # Extract material codes
-        resin_code_map = OrderProgressTracker._extract_material_codes(haveWorking_productRecords_df)
-
-        # Aggregate multiple production metrics by poNote
-        agg_df = haveWorking_productRecords_df.groupby('poNote').agg(
-
-            moldedQuantity=('itemGoodQuantity', 'sum'),
-            totalMoldShot=('moldShot', 'sum'),
-            startedDate=('recordDate', 'min'),
-            endDate=('recordDate', 'max'),
-            totalDay=('recordDate', 'nunique'),
-            totalShift=('dateShiftCombined', 'count'),
-            machineHist=('machineHist', lambda x: x.dropna().unique().tolist()),
-            moldHist=('moldNo', lambda x: x.dropna().unique().tolist()),
-            moldCavity=('moldCavity', lambda x: x.dropna().unique().tolist()),
-            plasticResinCode=('plasticResinCode', lambda x: x.dropna().unique().tolist()),
-            colorMasterbatchCode=('colorMasterbatchCode', lambda x: x.dropna().unique().tolist()),
-            additiveMasterbatchCode=('additiveMasterbatchCode', lambda x: x.dropna().unique().tolist()),
-
-            ).reset_index()
-
-        # Create aggregation maps
-        maps = OrderProgressTracker._create_aggregation_maps(haveWorking_productRecords_df)
-
-        # Add mapping columns
-        agg_df['moldShotMap'] = agg_df['poNote'].map(maps['mold_map'])
-        agg_df['machineQuantityMap'] = agg_df['poNote'].map(maps['machine_map'])
-        agg_df['dayQuantityMap'] = agg_df['poNote'].map(maps['date_map'])
-        agg_df['shiftQuantityMap'] = agg_df['poNote'].map(maps['shift_map'])
-        agg_df['materialComponentMap'] = agg_df['poNote'].map(resin_code_map)
-
-        # Rename poNote to poNo for consistency
-        agg_df = agg_df.rename(columns={'poNote': 'poNo'})
-
-        return agg_df, producing_po_list, notWorking_productRecords_df
-
-    @staticmethod
-    def _pro_status_processing(pro_status_df, pro_status_fields,
-                               producing_po_list, pro_status_dtypes):
-
-        """
-        Process production status and handle data type conversions.
+        Process production status information and handle data type conversions.
 
         Args:
             pro_status_df: DataFrame with production status data
@@ -533,16 +572,18 @@ class OrderProgressTracker(ConfigReportMixin):
             pro_status_dtypes: Dictionary of data types for columns
 
         Returns:
-            pd.DataFrame: Processed dataframe with status information
+            pd.DataFrame: Processed production status DataFrame
         """
 
+        # Input validation
         if pro_status_df.empty:
             logger.error("Empty pro_status_df provided")
             raise ValueError("Empty pro_status_df provided.")
 
+        # Work on a copy to avoid modifying original DataFrame
         pro_status_df = pro_status_df.copy()
 
-        # Calculate remaining items
+        # Calculate remaining items to be produced
         pro_status_df['itemRemain'] = pro_status_df['itemQuantity'] - pro_status_df['moldedQuantity'].fillna(0)
 
         # Determine production status
@@ -553,20 +594,21 @@ class OrderProgressTracker(ConfigReportMixin):
         pro_status_df.loc[molded_mask, 'proStatus'] = 'MOLDED'
         pro_status_df.loc[molded_mask, 'actualFinishedDate'] = pro_status_df.loc[molded_mask, 'endDate']
 
-        # Check and alert on completed orders with missing end date
+        # Check for missing actualFinishedDate in completed orders
         missing_actual_finish = molded_mask & pro_status_df['actualFinishedDate'].isna()
+        # Log warning if any completed orders are missing actualFinishedDate
         if missing_actual_finish.any():
             logger.warning("Some completed orders are missing actualFinishedDate:\n{}",
                             pro_status_df.loc[missing_actual_finish, ['poNo', 'endDate']])
 
-        # Mark currently producing orders
+        # Mark orders currently in production
         molding_mask = (pro_status_df['poNo'].isin(producing_po_list)) & (pro_status_df['itemRemain'] != 0)
         pro_status_df.loc[molding_mask, 'proStatus'] = 'MOLDING'
 
         # Determine status compared to ETA (Expected Time of Arrival)
         pro_status_df['etaStatus'] = 'PENDING' # Default: PENDING
 
-        # ONTIME: Complete on time or ahead of schedule
+        # ONTIME: Finish on or before ETA
         on_time_mask = (
             pro_status_df['actualFinishedDate'].notnull() &
             (pro_status_df['itemRemain'] == 0) &
@@ -605,7 +647,7 @@ class OrderProgressTracker(ConfigReportMixin):
         # Fill remaining NaN values
         pro_status_df.fillna(pd.NA, inplace=True)
 
-        # Debug logging for object columns
+        # Debugging: Log NaN, null, and pd.NA counts for object dtype columns
         for col in pro_status_df.columns:
             if is_object_dtype(pro_status_df[col]):
                 series = pro_status_df[col]
@@ -614,88 +656,102 @@ class OrderProgressTracker(ConfigReportMixin):
                 # Use .apply to deal with (pd.NA == pd.NA) return pd.NA
                 pdna = series.apply(lambda x: x is pd.NA).sum()
                 logger.debug(f"{col}: isna = {nas}, isnull = {nulls}, pd.NA (by identity) = {pdna}")
-
+        # Ensure all expected fields are present in the final DataFrame
         assert set(pro_status_fields).issubset(pro_status_df.columns), \
             f"Missing expected fields in final dataframe: {set(pro_status_fields) - set(pro_status_df.columns)}"
 
         return pro_status_df[pro_status_fields]
 
-    def _data_collecting(excel_file):
+    @staticmethod
+    def _mark_paused_pending_pos(df, proStatus_df, shift_start_map):
+        """Mark pending POs as paused if they haven't been updated in the latest shift."""
+        # Filter only production records with item quantity > 0
+        df_work = df[df['itemTotalQuantity'] > 0].copy()
 
-        """
-        Read all sheets from the Excel file and store them in a dictionary using sheet names as keys.
-        """
+        # Ensure workingShift is a string and map it to shift start time
+        df_work['workingShift'] = df_work['workingShift'].astype(str)
+        df_work['shift_time'] = df_work['workingShift'].map(shift_start_map).fillna("00:00")
 
-        result = {}
-        xls = pd.ExcelFile(excel_file)
+        # Create a full datetime column by combining recordDate and shift start time
+        df_work['shiftStartTimestamp'] = pd.to_datetime(
+            df_work['recordDate'].astype(str) + ' ' + df_work['shift_time'],
+            format='%Y-%m-%d %H:%M',
+            errors='coerce'
+        )
 
-        for f_name in xls.sheet_names:
-            df = pd.read_excel(excel_file, sheet_name=f_name)
-            result[f_name] = df
+        # Extract list of pending POs from proStatus_df where itemRemain > 0 and status is 'PENDING'
+        pending_list = proStatus_df[
+            (proStatus_df['itemRemain'] > 0) &
+            (proStatus_df['proStatus'] == 'PENDING')
+        ]['poNo'].tolist()
 
-        return result
+        # Filter records of those pending POs
+        df_pending = df_work[df_work['poNote'].isin(pending_list)]
+
+        # Get the most recent production timestamp for each pending PO
+        pending_latest_shift = df_pending.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
+
+        # Get the most recent production timestamp for all POs
+        total_latest_shift = df_work.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
+        latest_shift_start = total_latest_shift['shiftStartTimestamp'].max()
+
+        # Identify pending POs that have not been updated until the most recent production timestamp
+        paused_mask = pending_latest_shift['shiftStartTimestamp'] < latest_shift_start
+        paused_po_list = pending_latest_shift[paused_mask]['poNote'].tolist()
+
+        # Mark those POs as 'PAUSED' in proStatus_df
+        proStatus_df.loc[proStatus_df['poNo'].isin(paused_po_list), 'proStatus'] = 'PAUSED'
+
+        return proStatus_df
 
     @staticmethod
-    def _aggregate_po_mismatches(df):
+    def _get_latest_po_info(df, 
+                            shift_start_map, 
+                            keys=['machineNo', 'moldNo']):
 
         """
-        Group mismatch warnings by PO and mismatch type, then count the occurrences of each type.
-        Also logs the mismatch ratio for each type within each PO.
+        Get the latest machine information for each machine based on working shift timestamp.
+        Includes machines that were not working (poNote is null) in the most recent shift.
+
+        Args:
+            df: DataFrame containing product record data
+            shift_start_map: Dictionary mapping working shift codes to start times
+            keys: List of additional columns to include in the output
+
+        Returns:
+            DataFrame with the latest machine information per machine (poNo may be null)
         """
 
-        grouped = df.groupby(['poNo', 'mismatchType']).size().reset_index(name='count')
+        df_work = df.copy()
 
-        result = {}
-        for _, row in grouped.iterrows():
-            po_no = row['poNo']
-            mismatch_type = row['mismatchType']
-            count = row['count']
+        # Create shift timestamp (vectorized)
+        df_work['workingShift'] = df_work['workingShift'].astype(str)
+        df_work['shift_time'] = df_work['workingShift'].map(shift_start_map).fillna("00:00")
 
-            if po_no not in result:
-                result[po_no] = {}
-            result[po_no][mismatch_type] = count
+        # Combine date and time into timestamp
+        df_work['shiftStartTimestamp'] = pd.to_datetime(
+            df_work['recordDate'].astype(str) + ' ' + df_work['shift_time'],
+            format='%Y-%m-%d %H:%M',
+            errors='coerce'
+        )
 
-        # Log mismatch ratio for each PO
-        for po_no, mismatches in result.items():
-            total_issues = sum(mismatches.values())
-            for mismatch_type, count in mismatches.items():
-                logger.info("{} - Mismatch: {} - Ratio: {}/{}", po_no, mismatch_type, count, total_issues)
+        # Get the most recent record for each machine (including idle machines)
+        latest_indices = df_work.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
+        latest_per_po = df_work.merge(latest_indices, on=['poNote', 'shiftStartTimestamp'], how='inner')
 
-        return result
+        # Select and rename columns
+        result_columns = ['poNote', 'shiftStartTimestamp'] + keys
+        result = latest_per_po[result_columns].copy()
 
-    @staticmethod
-    def _extract_latest_saved_file(log_text: str) -> Optional[str]:
+        # Rename columns (avoid duplicate column names)
+        new_column_names = ['poNo', 'lastestRecordTime', 'lastestMachineNo', 'lastestMoldNo']
+        result.columns = new_column_names
 
-        """
-        Extract the most recently saved file name from log text.
-        Assumes log format includes: "[timestamp] ⤷ Saved new file: ..."
-        """
+        return result[result['poNo'].notna()].reset_index(drop=True)
 
-        if not log_text.strip():
-            return None
-
-        # Match all log blocks by timestamp
-        pattern = r'\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\](.*?)(?=\n\[|$)'
-        matches = re.findall(pattern, log_text, flags=re.DOTALL)
-
-        if not matches:
-            return None
-
-        log_blocks = {}
-        for ts_str, content in matches:
-            log_blocks[ts_str] = content.strip()
-
-        # Get the latest block based on timestamp
-        latest_ts_str = max(log_blocks, key=lambda ts: datetime.strptime(ts, '%Y-%m-%d %H:%M:%S'))
-        latest_block = log_blocks[latest_ts_str]
-
-        # Extract saved file name from the latest block
-        saved_file_match = re.search(r'⤷ Saved new file: (.+)', latest_block)
-        if saved_file_match:
-            return saved_file_match.group(1).strip()
-
-        return None
-
+    #---------------------------------------------------------------#
+    # STEP 4: GET AND ADD WARNING INFORMATION FROM VALIDATION LOG   #
+    #---------------------------------------------------------------#  
     @staticmethod
     def _get_change(change_log_path: str):
 
@@ -747,6 +803,49 @@ class OrderProgressTracker(ConfigReportMixin):
         except Exception as e:
             logger.error("Error processing change log: {}", str(e))
             return {}, {}
+        
+    def _data_collecting(excel_file):
+
+        """
+        Read all sheets from the Excel file and store them in a dictionary using sheet names as keys.
+        """
+
+        result = {}
+        xls = pd.ExcelFile(excel_file)
+
+        for f_name in xls.sheet_names:
+            df = pd.read_excel(excel_file, sheet_name=f_name)
+            result[f_name] = df
+
+        return result
+
+    @staticmethod
+    def _aggregate_po_mismatches(df):
+
+        """
+        Group mismatch warnings by PO and mismatch type, then count the occurrences of each type.
+        Also logs the mismatch ratio for each type within each PO.
+        """
+
+        grouped = df.groupby(['poNo', 'mismatchType']).size().reset_index(name='count')
+
+        result = {}
+        for _, row in grouped.iterrows():
+            po_no = row['poNo']
+            mismatch_type = row['mismatchType']
+            count = row['count']
+
+            if po_no not in result:
+                result[po_no] = {}
+            result[po_no][mismatch_type] = count
+
+        # Log mismatch ratio for each PO
+        for po_no, mismatches in result.items():
+            total_issues = sum(mismatches.values())
+            for mismatch_type, count in mismatches.items():
+                logger.info("{} - Mismatch: {} - Ratio: {}/{}", po_no, mismatch_type, count, total_issues)
+
+        return result
 
     @staticmethod
     def _add_warning_notes_column(df, warning_dict):
@@ -772,90 +871,9 @@ class OrderProgressTracker(ConfigReportMixin):
 
         return df
 
-    @staticmethod
-    def _get_latest_po_info(df, shift_start_map, keys=['machineNo', 'moldNo']):
-
-        """
-        Get the latest machine information for each machine based on working shift timestamp.
-        Includes machines that were not working (poNote is null) in the most recent shift.
-
-        Args:
-            df: DataFrame containing product record data
-            shift_start_map: Dictionary mapping working shift codes to start times
-            keys: List of additional columns to include in the output
-
-        Returns:
-            DataFrame with the latest machine information per machine (poNo may be null)
-        """
-
-        df_work = df.copy()
-
-        # Create shift timestamp (vectorized)
-        df_work['workingShift'] = df_work['workingShift'].astype(str)
-        df_work['shift_time'] = df_work['workingShift'].map(shift_start_map).fillna("00:00")
-
-        # Combine date and time into timestamp
-        df_work['shiftStartTimestamp'] = pd.to_datetime(
-            df_work['recordDate'].astype(str) + ' ' + df_work['shift_time'],
-            format='%Y-%m-%d %H:%M',
-            errors='coerce'
-        )
-
-        # Get the most recent record for each machine (including idle machines)
-        latest_indices = df_work.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
-        latest_per_po = df_work.merge(latest_indices, on=['poNote', 'shiftStartTimestamp'], how='inner')
-
-        # Select and rename columns
-        result_columns = ['poNote', 'shiftStartTimestamp'] + keys
-        result = latest_per_po[result_columns].copy()
-
-        # Rename columns (avoid duplicate column names)
-        new_column_names = ['poNo', 'lastestRecordTime', 'lastestMachineNo', 'lastestMoldNo']
-        result.columns = new_column_names
-
-        return result[result['poNo'].notna()].reset_index(drop=True)
-
-    @staticmethod
-    def _mark_paused_pending_pos(df, proStatus_df, shift_start_map):
-        # Filter only production records with item quantity > 0
-        df_work = df[df['itemTotalQuantity'] > 0].copy()
-
-        # Ensure workingShift is a string and map it to shift start time
-        df_work['workingShift'] = df_work['workingShift'].astype(str)
-        df_work['shift_time'] = df_work['workingShift'].map(shift_start_map).fillna("00:00")
-
-        # Create a full datetime column by combining recordDate and shift start time
-        df_work['shiftStartTimestamp'] = pd.to_datetime(
-            df_work['recordDate'].astype(str) + ' ' + df_work['shift_time'],
-            format='%Y-%m-%d %H:%M',
-            errors='coerce'
-        )
-
-        # Extract list of pending POs from proStatus_df where itemRemain > 0 and status is 'PENDING'
-        pending_list = proStatus_df[
-            (proStatus_df['itemRemain'] > 0) &
-            (proStatus_df['proStatus'] == 'PENDING')
-        ]['poNo'].tolist()
-
-        # Filter records of those pending POs
-        df_pending = df_work[df_work['poNote'].isin(pending_list)]
-
-        # Get the most recent production timestamp for each pending PO
-        pending_latest_shift = df_pending.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
-
-        # Get the most recent production timestamp for all POs
-        total_latest_shift = df_work.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
-        latest_shift_start = total_latest_shift['shiftStartTimestamp'].max()
-
-        # Identify pending POs that have not been updated until the most recent production timestamp
-        paused_mask = pending_latest_shift['shiftStartTimestamp'] < latest_shift_start
-        paused_po_list = pending_latest_shift[paused_mask]['poNote'].tolist()
-
-        # Mark those POs as 'PAUSED' in proStatus_df
-        proStatus_df.loc[proStatus_df['poNo'].isin(paused_po_list), 'proStatus'] = 'PAUSED'
-
-        return proStatus_df
-
+    #---------------------------------------------------------------#
+    # STEP 5: PREPARE FINAL OUTPUT DATA STRUCTURE                   #
+    #---------------------------------------------------------------#   
     @staticmethod
     def _pro_status_fattening(df: pd.DataFrame,
                               field_name: str = 'moldShotMap') -> pd.DataFrame:
@@ -935,43 +953,7 @@ class OrderProgressTracker(ConfigReportMixin):
             return ast.literal_eval(data)
         except (ValueError, SyntaxError):
             return None
-
-    @staticmethod
-    def _process_map_fields(filtered_df: pd.DataFrame, field_name: str, first_element: str,
-                          second_element: str, name_mapping: Dict[str, str],
-                          columns_to_keep: List[str]) -> pd.DataFrame:
-
-        """Process map fields (moldShotMap, machineQuantityMap, etc.)."""
-
-        # Pre-compute column names
-        first_col = name_mapping[first_element]
-        second_col = name_mapping[second_element]
-        count_col = f'numOf{first_element.capitalize()}'
-
-        rows = []
-
-        for _, row in filtered_df.iterrows():
-            info_data = OrderProgressTracker._safe_literal_eval(row[field_name])
-
-            # Skip if not a dict or is empty
-            if not isinstance(info_data, dict) or not info_data:
-                continue
-
-            num_of_info = len(info_data)
-            base_row = {col: row[col] for col in columns_to_keep}  # Create base row once
-
-            # Create rows for each item in the dict
-            for first_info, second_info in info_data.items():
-                new_row = base_row.copy()
-                new_row.update({
-                    first_col: first_info,
-                    second_col: second_info,
-                    count_col: num_of_info
-                })
-                rows.append(new_row)
-
-        return pd.DataFrame(rows) if rows else pd.DataFrame()
-
+        
     @staticmethod
     def _process_material_components(filtered_df: pd.DataFrame,
                                      columns_to_keep: List[str]) -> pd.DataFrame:
@@ -1016,3 +998,39 @@ class OrderProgressTracker(ConfigReportMixin):
                             components_df.reset_index(drop=True)], axis=1)
 
         return result
+
+    @staticmethod
+    def _process_map_fields(filtered_df: pd.DataFrame, field_name: str, first_element: str,
+                          second_element: str, name_mapping: Dict[str, str],
+                          columns_to_keep: List[str]) -> pd.DataFrame:
+
+        """Process map fields (moldShotMap, machineQuantityMap, etc.)."""
+
+        # Pre-compute column names
+        first_col = name_mapping[first_element]
+        second_col = name_mapping[second_element]
+        count_col = f'numOf{first_element.capitalize()}'
+
+        rows = []
+
+        for _, row in filtered_df.iterrows():
+            info_data = OrderProgressTracker._safe_literal_eval(row[field_name])
+
+            # Skip if not a dict or is empty
+            if not isinstance(info_data, dict) or not info_data:
+                continue
+
+            num_of_info = len(info_data)
+            base_row = {col: row[col] for col in columns_to_keep}  # Create base row once
+
+            # Create rows for each item in the dict
+            for first_info, second_info in info_data.items():
+                new_row = base_row.copy()
+                new_row.update({
+                    first_col: first_info,
+                    second_col: second_info,
+                    count_col: num_of_info
+                })
+                rows.append(new_row)
+
+        return pd.DataFrame(rows) if rows else pd.DataFrame()

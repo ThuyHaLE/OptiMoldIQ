@@ -15,6 +15,7 @@ from agents.autoPlanner.reportFormatters.dict_based_report_generator import Dict
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
     "purchaseOrders_df": list(self.databaseSchemas_data['dynamicDB']['purchaseOrders']['dtypes'].keys()),
 })
+
 class PORequiredCriticalValidator(ConfigReportMixin):
 
     """
@@ -47,6 +48,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
                 - validation_dir: Default directory for saving output files
         """
 
+        # Capture initialization arguments for reporting
         self._capture_init_args()
         
         # Initialize logger for this class
@@ -60,7 +62,8 @@ class PORequiredCriticalValidator(ConfigReportMixin):
                 "\n".join(f"  - {e}" for e in errors)
             )
         self.logger.info("✓ Validation for config requirements: PASSED!")
-    
+
+        # Store config
         self.config = config
 
         # Load database schema configuration to understand data structure
@@ -130,9 +133,9 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         """
 
         self.logger.info("Starting PORequiredCriticalValidator ...")
-
-        start_time = datetime.now()
+        
         # Generate config header using mixin
+        start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
         config_header = self._generate_config_report(timestamp_str, 
                                                      required_only=True)
@@ -143,27 +146,27 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         validation_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
         try:
-            # Clean and preprocess productRecords DataFrame for validation
+            # Preprocess product records to remove null PO numbers
             rm_null_productRecords_df = self._process_product_records()
 
-            # Find common columns between both DataFrames for comparison
+            # Identify overlapping fields between both DataFrames for comparison
             overlap_field_list = list(set(rm_null_productRecords_df.columns) & set(self.purchaseOrders_df.columns))
 
-            # Get unique PO numbers from both datasets for comparison
+            # Extract sets of PO numbers from both DataFrames
             productRecords_poNo_set = set(rm_null_productRecords_df['poNo'])
             purchaseOrders_poNo_set = set(self.purchaseOrders_df['poNo'])
 
-            # Find PO numbers that exist in product records but not in purchase orders (invalid)
+            # Find PO numbers that exist in product records but not in purchase orders (invalid POs)
             invalid_poNo_list = list(productRecords_poNo_set - purchaseOrders_poNo_set)
             invalid_productRecords = rm_null_productRecords_df[
                 rm_null_productRecords_df['poNo'].isin(invalid_poNo_list)
                 ].copy()
             self.logger.info("Invalid PO list: {}", invalid_poNo_list)
 
-            # Find PO numbers that exist in both datasets (valid for further validation)
+            # Find valid PO numbers that exist in both DataFrames
             valid_poNo_list = list(productRecords_poNo_set & purchaseOrders_poNo_set)
             
-            # Filter both DataFrames to include only valid PO numbers
+            # Filter DataFrames to only include valid PO numbers for comparison
             productRecords_df_filtered = rm_null_productRecords_df[
                 rm_null_productRecords_df['poNo'].isin(valid_poNo_list)
             ].copy()
@@ -171,8 +174,8 @@ class PORequiredCriticalValidator(ConfigReportMixin):
                 self.purchaseOrders_df['poNo'].isin(valid_poNo_list)
             ].copy()
 
-            # Merge DataFrames on PO number to compare field values
-            # Include additional context fields from product records for reporting
+            # Merge DataFrames on 'poNo' to align records for comparison
+            # Suffixes are added to distinguish columns from each DataFrame
             merged = pd.merge(
                 productRecords_df_filtered[overlap_field_list+['recordDate', 'workingShift', 'machineNo']], 
                 purchaseOrders_df_filtered[overlap_field_list], 
@@ -180,7 +183,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
                 suffixes=('_productRecords', '_purchaseOrders')
             )
 
-            # Get list of fields to compare (excluding 'poNo' which is the join key)
+            # Identify columns to compare (excluding 'poNo')
             comparison_cols = [c for c in overlap_field_list if c != 'poNo']
 
             # Perform vectorized comparison for all fields
@@ -196,10 +199,9 @@ class PORequiredCriticalValidator(ConfigReportMixin):
                     (merged[col_pr] == merged[col_po])
                 )
 
-            # Calculate final match status: all fields must match for a record to be valid
+            # Determine overall match status across all fields
             field_match_columns = [f'{col}_match' for col in comparison_cols]
             merged['final_match'] = merged[field_match_columns].all(axis=1)
-
             self.logger.debug("Merged data with match results: {} - {}", 
                               merged.shape, merged.columns)
 
@@ -207,7 +209,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
             invalid_field_warnings = PORequiredCriticalValidator._process_warnings(
                 merged, comparison_cols)
             
-            # Generate warnings for invalid PO numbers (if any exist)
+            # Generate warnings for invalid PO numbers
             invalid_po_warnings = (
                 [] if not invalid_poNo_list
                 else PORequiredCriticalValidator._process_invalid_po_warnings(invalid_productRecords)
@@ -216,12 +218,12 @@ class PORequiredCriticalValidator(ConfigReportMixin):
             # Combine all warnings into a single list
             all_invalid_warnings = invalid_field_warnings + invalid_po_warnings
 
-            # Calculate and log summary statistics
+            # Calculate summary statistics
             total_processed = len(merged) + len(invalid_poNo_list)
             total_valid = len(merged) - len(invalid_field_warnings)
             total_invalid = len(all_invalid_warnings)
 
-            # Return warnings as DataFrame, or empty DataFrame with expected columns if no warnings
+            # Prepare final result DataFrame
             final_result = (
                 pd.DataFrame(all_invalid_warnings) if all_invalid_warnings 
                 else pd.DataFrame(columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
@@ -233,10 +235,12 @@ class PORequiredCriticalValidator(ConfigReportMixin):
             validation_log_entries.append(f"⤷ Valid POs: {total_valid}")
             validation_log_entries.append(f"⤷ Invalid POs: {total_invalid} (Field mismatches: {len(invalid_field_warnings)}, Non-existent orders: {len(invalid_po_warnings)})")
 
+            # Generate detailed validation report
             reporter = DictBasedReportGenerator(use_colors=False)
             validation_summary = "\n".join(reporter.export_report({'Warning details': final_result}))
             validation_log_entries.append(f"{validation_summary}") 
 
+            # Save results to Excel if requested
             if save_results:
                 try:
                     # Export results to Excel with versioning
@@ -256,6 +260,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
                     self.logger.error("Failed to save results: {}", str(e))
                     raise
             
+            # Compile final validation log
             validation_log_str = "\n".join(validation_log_entries)
             self.logger.info("✅ Process finished!!!")
 
@@ -264,7 +269,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         except Exception as e:
             self.logger.error("❌ Validation failed: {}", str(e))
             raise
-
+    
     def _process_product_records(self, **kwargs):
         
         """
