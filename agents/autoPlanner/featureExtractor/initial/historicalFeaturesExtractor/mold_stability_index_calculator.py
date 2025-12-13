@@ -446,7 +446,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
         """
         
         filter_df = productRecords_df[productRecords_df['moldShot'] > 0].copy()
-        filter_df['moldCycle'] = (self.constant_config.PRODUCTION_WINDOW_SECONDS / filter_df['moldShot']).round(2)
+        filter_df['moldCycle'] = (self.constant_config["PRODUCTION_WINDOW_SECONDS"] / filter_df['moldShot']).round(2)
 
         # Group and aggregate
         df = filter_df.groupby(['moldNo', 'recordDate'])[['moldCavity', 'moldCycle']].agg(list).reset_index()
@@ -459,7 +459,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                                           'moldCavityStandard', 'moldSettingCycle',
                                           'acquisitionDate', 'machineTonnage']], how='left', on='moldNo')
 
-        return merged_df[self.constant_config.REQUIRED_DF_FIELDS]
+        return merged_df[self.constant_config["REQUIRED_DF_FIELDS"]]
     
     def _calculate_cavity_stability(self,
                                 cavity_values: List[int],
