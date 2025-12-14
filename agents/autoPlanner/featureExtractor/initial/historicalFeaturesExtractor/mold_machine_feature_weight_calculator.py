@@ -162,7 +162,7 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
             ),
         ]
         # DependencyValidator
-        validator = DependencyValidator(shared_source_config)
+        validator = DependencyValidator(self.shared_source_config)
         results = validator.validate_dependencies(
             dependencies=dependencies,
             auto_heal=True,
@@ -243,7 +243,7 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
             raise
     
     def process(self,
-                save_results: bool = False) -> tuple[pd.DataFrame, str]:
+                save_results: bool = False) -> FeatureWeightCalculatorInfo:
 
         """
         Main method to calculate feature confidence scores and enhanced weights.

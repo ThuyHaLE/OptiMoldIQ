@@ -5,7 +5,7 @@ from pathlib import Path
 from loguru import logger
 
 from agents.decorators import validate_init_dataframes
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -182,18 +182,12 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                 # Log detailed error information and re-raise for proper error handling
                 self.logger.error("Failed to load {}: {}", path_key, str(e))
                 raise
-    
-    # --------------------------------------#
-    # MOLD STABILITY INDEX CALCULATING PHASE
-    # --------------------------------------#
-
-    # Calculates cavity and cycle stability indices for molds based on historical production data
-    # and will be used to estimate mold capacity in planning steps
 
     def process(self,
-                save_results: bool = False) -> tuple[pd.DataFrame, str]:
+                save_results: bool = False) -> MoldStabilityCalculatorInfo:
         """
-        Calculates cavity and cycle stability indices for molds based on historical production data.
+        Calculates cavity and cycle stability indices for molds based on historical production data
+        and will be used to estimate mold capacity in planning steps
 
         Args:
             df: A DataFrame containing production records with columns:
@@ -226,102 +220,16 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
             calculator_log_entries.append(f"--Processing Summary--\n")
             calculator_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
-            # Process input data
-            df = self._stability_index_input_processing(self.productRecords_df, self.moldInfo_df)
-            
-            # Initialize list to collect ALL mold results
-            stability_results_list = []
+            # Extract historical data
+            historical_data = self._stability_index_input_processing(self.productRecords_df, 
+                                                                     self.moldInfo_df)
 
-            # Iterate through each mold
-            for mold_no in df['moldNo'].unique():
-
-                mold_data = df[df['moldNo'] == mold_no].copy()
-
-                # Extract mold info efficiently using iloc
-                mold_info = mold_data.iloc[0]
-
-                moldName = mold_info['moldName']
-                acquisitionDate = mold_info['acquisitionDate']
-                machineTonnage = mold_info['machineTonnage']
-                standard_cavity = mold_info['moldCavityStandard']
-                standard_cycle = mold_info['moldSettingCycle']
-
-                # Handle NaN values
-                standard_cavity = 0 if pd.isna(standard_cavity) else standard_cavity
-                standard_cycle = 0 if pd.isna(standard_cycle) else standard_cycle
-
-                mold_data = mold_data.sort_values('recordDate')
-
-                total_records = len(mold_data)
-
-                # Gather all cavity and cycle values
-                all_cavity_values = [val for sublist in mold_data['moldCavity'] for val in sublist]
-                all_cycle_values = [val for sublist in mold_data['moldCycle'] for val in sublist]
-
-                for idx, row in mold_data.iterrows():
-                    all_cavity_values.extend(row['moldCavity'])
-                    all_cycle_values.extend(row['moldCycle'])
-
-                # Calculate stability scores
-                cavity_stability = self._calculate_cavity_stability(
-                    all_cavity_values, standard_cavity, total_records, self.config.total_records_threshold
-                    )
-                cycle_stability = self._calculate_cycle_stability(
-                    all_cycle_values, standard_cycle, total_records, self.config.total_records_threshold
-                    )
-                
-                # Calculate theoretical capacity
-                if standard_cycle > 0:
-                    theoretical_hour_capacity = self.constant_config["SECONDS_PER_HOUR"] / standard_cycle * standard_cavity
-                else:
-                    theoretical_hour_capacity = 0
-
-                # Weighted stability
-                overall_stability = (
-                    cavity_stability * self.config.cavity_stability_threshold) + (
-                        cycle_stability * self.config.cycle_stability_threshold)
-
-                effective_hour_capacity = theoretical_hour_capacity * overall_stability
-                estimated_hour_capacity = theoretical_hour_capacity * (self.config.efficiency - self.config.loss)
-            
-                # Trust coefficient from historical data
-                alpha = max(0.1, min(1.0, total_records / self.config.total_records_threshold))
-
-                balanced_hour_capacity = alpha * effective_hour_capacity + (1 - alpha) * estimated_hour_capacity
-
-                # Append to result list
-                stability_results = {
-                    'moldNo': mold_no,
-                    'moldName': moldName,
-                    'acquisitionDate': acquisitionDate,
-                    'machineTonnage': machineTonnage,
-                    'moldCavityStandard': standard_cavity,
-                    'moldSettingCycle': standard_cycle,
-
-                    'cavityStabilityIndex': round(cavity_stability, 2),
-                    'cycleStabilityIndex': round(cycle_stability, 2),
-
-                    'theoreticalMoldHourCapacity': round(theoretical_hour_capacity, 2),
-                    'effectiveMoldHourCapacity': round(effective_hour_capacity, 2),
-                    'estimatedMoldHourCapacity': round(estimated_hour_capacity, 2),
-                    'balancedMoldHourCapacity': round(balanced_hour_capacity, 2),
-
-                    'totalRecords': total_records,
-                    'totalCavityMeasurements': len(all_cavity_values),
-                    'totalCycleMeasurements': len(all_cycle_values),
-                    'firstRecordDate': mold_data['recordDate'].min(),
-                    'lastRecordDate': mold_data['recordDate'].max(),
-                }
-
-                # Append to list
-                stability_results_list.append(stability_results)
-
-            # Return result as DataFrame
-            stability_df = pd.DataFrame(stability_results_list)
+            # Calculate stability index
+            stability_df = self._calculate_stability_index(historical_data)
 
             # Generate report
             reporter = DictBasedReportGenerator(use_colors=False)
-            calculation_summary = "\n".join(reporter.export_report(stability_results))
+            calculation_summary = "\n".join(reporter.export_report({"Mold Stability Index": stability_df}))
             calculator_log_entries.append(f"{calculation_summary}\n") 
 
             # Save results if required
@@ -375,7 +283,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                 
                 # Include all molds' results
                 details={
-                    "molds": stability_results_list,
+                    "stability_index": stability_df,
                     "summary_stats": {
                         "total_records": int(stability_df['totalRecords'].sum()),
                         "total_cavity_measurements": int(stability_df['totalCavityMeasurements'].sum()),
@@ -435,7 +343,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                                           productRecords_df: pd.DataFrame,
                                           moldInfo_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Process input data for stability index calculation.
+        Extract historical data to calculate stability index calculation.
         
         Args:
             productRecords_df: Production records DataFrame
@@ -454,18 +362,131 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
         # Ensure correct data types
         df['moldCavity'] = df['moldCavity'].apply(lambda lst: [int(x) for x in lst])
         df['moldCycle'] = df['moldCycle'].apply(lambda lst: [float(x) for x in lst])
-
+        
         merged_df = df.merge(moldInfo_df[['moldNo', 'moldName',
                                           'moldCavityStandard', 'moldSettingCycle',
-                                          'acquisitionDate', 'machineTonnage']], how='left', on='moldNo')
+                                          'acquisitionDate', 'machineTonnage']], 
+                            how='left', 
+                            on='moldNo')
 
-        return merged_df[self.constant_config["REQUIRED_DF_FIELDS"]]
+        valid_df = merged_df[
+            (merged_df['moldCavityStandard'] > 0) &
+            (merged_df['moldSettingCycle'] > 0) &
+            (merged_df['moldCavityStandard'].notna()) &
+            (merged_df['moldSettingCycle'].notna())
+        ]
+
+        filtered_count = len(merged_df) - len(valid_df)
+        if filtered_count > 0:
+            invalid_molds = merged_df[~merged_df['moldNo'].isin(valid_df['moldNo'])]['moldNo'].unique()
+            self.logger.warning("Filtered {} records from {} molds ", filtered_count, len(invalid_molds))
+            self.logger.warning("with invalid cavity/cycle: {}", list(invalid_molds)[:5])
+
+        return valid_df[self.constant_config["REQUIRED_DF_FIELDS"]]
+    
+    def _calculate_stability_index(self, 
+                                   df: pd.DataFrame) -> pd.DataFrame:
+        """Calculates cavity and cycle stability indices"""
+
+        # Validate input DataFrame has required columns and data
+        if df.empty:
+            self.logger.error("Extracted historical data is empty. Cannot calculate cavity and cycle stability indices")
+            raise ValueError("Extracted historical data is empty. Cannot calculate cavity and cycle stability indices")
+        
+        # Initialize list to collect ALL mold results
+        stability_results_list = []
+
+        # Iterate through each mold
+        for mold_no in df['moldNo'].unique():
+
+            mold_data = df[df['moldNo'] == mold_no].copy()
+
+            if mold_data.empty:
+                self.logger.warning(f"Mold {mold_no} has no data after filtering, skipping")
+                continue
+
+            # Extract mold info efficiently using iloc
+            mold_info = mold_data.iloc[0]
+
+            moldName = mold_info['moldName']
+            acquisitionDate = mold_info['acquisitionDate']
+            machineTonnage = mold_info['machineTonnage']
+            standard_cavity = mold_info['moldCavityStandard']
+            standard_cycle = mold_info['moldSettingCycle']
+
+            # Calculate theoretical capacity
+            theoretical_hour_capacity = self.constant_config["SECONDS_PER_HOUR"] / standard_cycle * standard_cavity
+
+            # Gather all cavity and cycle values
+            mold_data = mold_data.sort_values('recordDate')
+            all_cavity_values = [val for sublist in mold_data['moldCavity'] for val in sublist]
+            all_cycle_values = [val for sublist in mold_data['moldCycle'] for val in sublist]
+
+            # Calculate stability scores
+            total_records = len(mold_data)
+            cavity_stability = self._calculate_cavity_stability(
+                all_cavity_values, standard_cavity, total_records, self.config.total_records_threshold
+                )
+            cycle_stability = self._calculate_cycle_stability(
+                all_cycle_values, standard_cycle, total_records, self.config.total_records_threshold
+                )
+            
+            # Calculate weighted stability
+            overall_stability = (
+                cavity_stability * self.config.cavity_stability_threshold) + (
+                    cycle_stability * self.config.cycle_stability_threshold)
+
+            # Calculate effective capacity
+            effective_hour_capacity = theoretical_hour_capacity * overall_stability
+
+            # Calculate estimated capacity (considering efficiency and loss)
+            estimated_hour_capacity = theoretical_hour_capacity * (self.config.efficiency - self.config.loss)
+        
+            # Calculate balanced capacity (balance effective and estimated capacity by using alpha
+            # Alpha: trust coefficient from historical data (0.1 - 1.0)
+            alpha = max(
+                self.constant_config["MIN_HISTORICAL_TRUST"], 
+                min(
+                    self.constant_config["MAX_HISTORICAL_TRUST"], 
+                    total_records / self.config.total_records_threshold)
+                    )
+            balanced_hour_capacity = alpha * effective_hour_capacity + (1 - alpha) * estimated_hour_capacity
+
+            # Append single mold stability to result list
+            stability_results = {
+                'moldNo': mold_no,
+                'moldName': moldName,
+                'acquisitionDate': acquisitionDate,
+                'machineTonnage': machineTonnage,
+                'moldCavityStandard': standard_cavity,
+                'moldSettingCycle': standard_cycle,
+
+                'cavityStabilityIndex': round(cavity_stability, 2),
+                'cycleStabilityIndex': round(cycle_stability, 2),
+
+                'theoreticalMoldHourCapacity': round(theoretical_hour_capacity, 2),
+                'effectiveMoldHourCapacity': round(effective_hour_capacity, 2),
+                'estimatedMoldHourCapacity': round(estimated_hour_capacity, 2),
+                'balancedMoldHourCapacity': round(balanced_hour_capacity, 2),
+
+                'totalRecords': total_records,
+                'totalCavityMeasurements': len(all_cavity_values),
+                'totalCycleMeasurements': len(all_cycle_values),
+                'firstRecordDate': mold_data['recordDate'].min(),
+                'lastRecordDate': mold_data['recordDate'].max(),
+            }
+
+            # Append to list
+            stability_results_list.append(stability_results)
+
+        # Return result as DataFrame
+        return pd.DataFrame(stability_results_list)
     
     def _calculate_cavity_stability(self,
-                                cavity_values: List[int],
-                                standard_cavity: float,
-                                total_records: int,
-                                total_records_threshold: int) -> float:
+                                    cavity_values: List[int],
+                                    standard_cavity: float,
+                                    total_records: int,
+                                    total_records_threshold: int) -> float:
         """
         Calculate cavity stability index.
         
@@ -478,10 +499,6 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
         Returns:
             float: Stability score between 0.0 and 1.0
         """
-
-        if not cavity_values or standard_cavity == 0:
-            self.logger.warning("Invalid cavity data: empty values or zero standard")
-            return 0.0
 
         # 1. Accuracy rate (how many values match the standard)
         correct_count = sum(1 for val in cavity_values if val == standard_cavity)
@@ -516,10 +533,10 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
         return min(1.0, max(0.0, stability_score))
 
     def _calculate_cycle_stability(self,
-                               cycle_values: List[float],
-                               standard_cycle: float,
-                               total_records: int,
-                               total_records_threshold: int) -> float:
+                                   cycle_values: List[float],
+                                   standard_cycle: float,
+                                   total_records: int,
+                                   total_records_threshold: int) -> float:
         """
         Calculate cycle time stability index.
         
@@ -532,10 +549,6 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
         Returns:
             float: Stability score between 0.0 and 1.0
         """
-
-        if not cycle_values or standard_cycle == 0:
-            self.logger.warning("Invalid cycle data: empty values or zero standard")
-            return 0.000001
 
         # 1. Deviation from standard
         deviations = [abs(val - standard_cycle) / standard_cycle for val in cycle_values]
@@ -557,7 +570,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
 
         # 4. Penalty for extreme outliers (deviation > 100%)
         extreme_outliers = sum(1 for val in cycle_values
-                            if abs(val - standard_cycle) / standard_cycle > 1.0)
+                            if abs(val - standard_cycle) / standard_cycle > self.constant_config['EXTREME_DEVIATION_THRESHOLD'])
         outlier_penalty = max(0, 1 - (extreme_outliers / len(cycle_values))) if cycle_values else 0
 
         # 5. Data completeness penalty
