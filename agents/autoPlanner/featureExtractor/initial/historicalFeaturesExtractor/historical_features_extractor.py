@@ -5,7 +5,6 @@ from datetime import datetime
 import shutil
 
 from agents.utils import ConfigReportMixin
-from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
 
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.features_extractor_config import FeaturesExtractorConfig
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.mold_machine_feature_weight_calculator import MoldMachineFeatureWeightCalculator

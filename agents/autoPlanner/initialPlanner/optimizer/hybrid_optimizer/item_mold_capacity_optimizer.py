@@ -18,9 +18,6 @@ from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.config.hybrid_
 @validate_init_dataframes(lambda self: {
     "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
     "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
-})
-
-@validate_init_dataframes(lambda self: {
     "mold_stability_index": list(self.sharedDatabaseSchemas_data["mold_stability_index"]['dtypes'].keys()),
 })
 

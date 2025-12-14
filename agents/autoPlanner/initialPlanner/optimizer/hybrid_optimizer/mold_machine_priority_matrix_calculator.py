@@ -24,9 +24,6 @@ from configs.recovery import (
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
     "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
     "moldInfo_df": list(self.databaseSchemas_data['staticDB']['moldInfo']['dtypes'].keys()),
-})
-
-@validate_init_dataframes(lambda self: {
     "proStatus_df": list(self.sharedDatabaseSchemas_data["pro_status"]['dtypes'].keys())
 })
 
