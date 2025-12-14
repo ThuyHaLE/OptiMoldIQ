@@ -4,11 +4,19 @@ from pathlib import Path
 from loguru import logger
 from agents.decorators import validate_init_dataframes, validate_dataframe
 from datetime import datetime
-from agents.utils import load_annotation_path, read_change_log, rank_nonzero, ConfigReportMixin
+from agents.utils import load_annotation_path, rank_nonzero, ConfigReportMixin
 from agents.core_helpers import check_newest_machine_layout, summarize_mold_machine_history
 from agents.utils import get_latest_change_row
 from configs.shared.shared_source_config import SharedSourceConfig
 from agents.autoPlanner.initialPlanner.optimizer.hybrid_optimizer.config.hybrid_suggest_config import FeatureWeights
+from typing import Tuple, List
+
+from configs.recovery import (
+    Dependency,
+    DependencyValidator,
+    get_dependency_data,
+    OrderProgressTrackerHealer,
+)
 
 # Decorator to validate DataFrames are initialized with the correct schema
 # This ensures that required DataFrames have all necessary columns before processing
@@ -71,6 +79,7 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
             loss: Production loss factor (0.0 to 1.0)
         """
 
+        # Capture initialization arguments for reporting
         self._capture_init_args()
 
         # Initialize logger with class context for better debugging
@@ -84,21 +93,38 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
                 "\n".join(f"  - {e}" for e in errors)
             )
         self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
-    
+
+        # Store configurations
         self.config = shared_source_config
+        
+        self.mold_estimated_capacity_df = mold_estimated_capacity
+        self.efficiency = efficiency
+        self.loss = loss
 
         # Load database schema configuration for column validation
         self.load_schema_and_annotations()
         self._load_dataframes()
 
-        # Load progress tracking info
-        self._load_progress_tracker_report(self.config.progress_tracker_change_log_path)
-
-        # Load feature weights for priority matrix calculation
-        self.logger.info("Loading feature weights...")
-        self.mold_machine_feature_weights = self._load_feature_weights(
-            self.config.mold_machine_weights_hist_path
+        # Define dependencies
+        dependencies = [
+            Dependency(
+                name="progress_tracker",
+                change_log_path=self.config.progress_tracker_change_log_path,
+                healing_agent=OrderProgressTrackerHealer(self.config),
+                required=True,
+                file_type="excel",
+                description="Production progress tracking"
+            ),
+        ]
+        # DependencyValidator
+        validator = DependencyValidator(self.config)
+        results = validator.validate_dependencies(
+            dependencies=dependencies,
+            auto_heal=True,
+            load_data=True
         )
+        # Load production report
+        self.proStatus_df = get_dependency_data(results, "progress_tracker")
 
         # Load constant configurations
         self.constant_config = load_annotation_path(
@@ -107,9 +133,17 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
         if not self.constant_config:
             self.logger.debug("MoldMachinePriorityMatrixCalculator constant config not found in loaded YAML dict")
 
-        self.mold_estimated_capacity_df = mold_estimated_capacity
-        self.efficiency = efficiency
-        self.loss = loss
+        # Loading feature weights
+        self.logger.info("Loading feature weights...")
+        self.mold_machine_feature_weights = self._load_feature_weights(self.config.mold_machine_weights_hist_path)
+        self.logger.info("✓ Feature weights loaded successfully")
+
+    def _load_annotation_from_config(self, config_path):
+        """Helper function to load annotation from a config path."""
+        return load_annotation_path(
+            Path(config_path).parent,
+            Path(config_path).name
+        )
 
     def load_schema_and_annotations(self):
         """Load database schemas and path annotations from configuration files."""
@@ -122,14 +156,7 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
         self.path_annotation = self._load_annotation_from_config(
             self.config.annotation_path
         )
-    
-    def _load_annotation_from_config(self, config_path):
-        """Helper function to load annotation from a config path."""
-        return load_annotation_path(
-            Path(config_path).parent,
-            Path(config_path).name
-        )
-
+        
     def _load_dataframes(self) -> None:
 
         """
@@ -138,7 +165,6 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
         This method loads the following DataFrames:
         - productRecords_df: Production records with item, mold, machine data
         - machineInfo_df: Machine specifications and tonnage information
-        - moldSpecificationSummary_df: Mold specifications and compatible items
         - moldInfo_df: Detailed mold information including tonnage requirements
         """
 
@@ -167,15 +193,32 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
                 self.logger.error("Failed to load {}: {}", path_key, str(e))
                 raise
 
-    # ----------------------------------------------#
-    # MOLD MACHINE PRIORITY MATRIX CALCULATING PHASE
-    # ----------------------------------------------#
-    # Calculate the priority matrix for mold-machine assignments based on historical data
-    # and will be used to suggest a list of machines (in priority order) for each mold in the subsequent planning steps
-    def process(self):
+    def _validate_process_inputs(self) -> None:
+        """
+        Validate all inputs before processing. 
+        Both must be valid.
+        """
+        capacity_valid = self._validate_columns(
+            self.mold_estimated_capacity_df,
+            self.constant_config['ESTIMATED_MOLD_REQUIRED_COLUMNS'],
+            "estimated_capacity"
+        )
+        weights_valid = self._validate_columns(
+            self.mold_machine_feature_weights,
+            self.constant_config['FEATURE_WEIGHTS_REQUIRED_COLUMNS'],
+            "feature_weights"
+        )
+        if not capacity_valid or not weights_valid:
+            raise ValueError("Input validation failed. Check logs for details.")
+    
+    def process(self) -> tuple[pd.DataFrame, 
+                               pd.DataFrame, 
+                               List[str], 
+                               str]:
 
         """
-        Calculate the priority matrix for mold-machine assignments based on historical data.
+        Calculate the priority matrix for mold-machine assignments based on historical data
+        and will be used to suggest a list of machines (in priority order) for each mold in the subsequent planning steps
 
         This method:
         1. Loads feature weights from the latest weight calculation
@@ -192,207 +235,92 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
             FileNotFoundError: If weights history file is missing
         """
 
-        self.logger.info("Starting MoldMachinePriorityMatrixCalculator ...")
-
-        # Valid inputs
-        if (
-            not self._check_series_columns(self.mold_machine_feature_weights) 
-            and self._check_mold_dataframe_columns(self.mold_estimated_capacity_df)
-            ):
-            self.logger.error(f"Error: Invalid input!!!")
-
-        # Generate config header using mixin
-        timestamp_start = datetime.now()
-        timestamp_str = timestamp_start.strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str, required_only=True)
-
-        optimization_log_lines = [config_header]
-        optimization_log_lines.append(f"--Processing Summary--")
-        optimization_log_lines.append(f"⤷ {self.__class__.__name__} results:")
-
-        # Rename columns for consistency across the system
-        # Standardize column names to match expected schema
-        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
-                                          'lastestMoldNo': 'moldNo'
-                                          }, inplace=True)
-        
-        # Prepare historical data for analysis
-        historical_data = self._prepare_mold_machine_historical_data(self.machineInfo_df, 
-                                                                     self.proStatus_df, 
-                                                                     self.productRecords_df)
         try:
-            cols = list(self.sharedDatabaseSchemas_data["historical_records"]['dtypes'].keys())
-            logger.info('Validation for historical_data...')
-            validate_dataframe(historical_data, cols)
-        except Exception as e:
-            logger.error("Validation failed for historical_data (expected cols: %s): %s", cols, e)
-            raise
+            self.logger.info("Starting MoldMachinePriorityMatrixCalculator ...")
 
-        # Calculate performance metrics
-        mold_machine_history_summary, invalid_molds = summarize_mold_machine_history(
-            historical_data, 
-            self.mold_estimated_capacity_df)
-        try:
-            cols = list(self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys())
-            logger.info('Validation for mold_machine_history_summary...')
-            validate_dataframe(mold_machine_history_summary, cols)
-        except Exception as e:
-            logger.error("Validation failed for mold_machine_history_summary (expected cols: %s): %s", cols, e)
-            raise
+            # Generate config header using mixin
+            timestamp_start = datetime.now()
+            timestamp_str = timestamp_start.strftime("%Y-%m-%d %H:%M:%S")
+            config_header = self._generate_config_report(timestamp_str, required_only=True)
 
-        # Apply weighted scoring and create priority matrix
-        priority_matrix = MoldMachinePriorityMatrixCalculator._create_mold_machine_priority_matrix(
-            mold_machine_history_summary, 
-            self.mold_machine_feature_weights)
-        
-        self.logger.info("✅ Process finished!!!")
-        
-        # Calculate processing time
-        timestamp_end = datetime.now()
-        processing_time = (timestamp_end - timestamp_start).total_seconds()
+            optimization_log_lines = [config_header]
+            optimization_log_lines.append(f"--Processing Summary--")
+            optimization_log_lines.append(f"⤷ {self.__class__.__name__} results:")
 
-        # Add summary statistics
-        optimization_log_lines.append(f"--Assignment Results--")
-        optimization_log_lines.append(f"⤷ Processing time: {processing_time:.2f} seconds")
-        optimization_log_lines.append(f"⤷ End time: {timestamp_end.strftime('%Y-%m-%d %H:%M:%S')}")
+            # Step 1: Validate inputs (feature weights already loaded in __init__)
+            self._validate_process_inputs()
+            self.logger.info("✓ Step 1: Inputs validated (feature weights pre-loaded)")
 
-        if invalid_molds:
-            optimization_log_lines.append(f"--Invalid molds detected!--")
-            optimization_log_lines.append(f"⤷ Found {len(invalid_molds)} invalid molds with NaN values: {invalid_molds}")
-        
-        optimization_log_lines.append(f"--Priority Matrix Info--")
-        optimization_log_lines.append(f"⤷ Matrix dimensions: {priority_matrix.shape[0]} molds × {priority_matrix.shape[1]} machines")
-        optimization_log_lines.append(f"⤷ Total cells: {priority_matrix.size}")
-        optimization_log_lines.append(f"⤷ Valid priorities (non-zero): {(priority_matrix > 0).sum().sum()}")
-        optimization_log_lines.append(f"⤷ Coverage rate: {(priority_matrix > 0).sum().sum() / priority_matrix.size * 100:.1f}%")
-        optimization_log_lines.append(f"⤷ Avg priorities per mold: {(priority_matrix > 0).sum(axis=1).mean():.1f}")
-        optimization_log_lines.append(f"⤷ Max priority level: {int(priority_matrix.max().max())}")
-        
-        optimization_log_lines.append("Process finished!!!")
+            # Step 2: Process historical production data for completed orders
+            historical_data = self._process_historical_production_data()
+            self.logger.info("✓ Step 2: Historical production data processed")
+            
+            # Step 3: Calculate performance metrics for each mold-machine combination
+            mold_machine_history_summary, invalid_molds = self._calculate_performance_metrics(historical_data)
+            self.logger.info("✓ Step 3: Performance metrics calculated")
 
-        optimization_log_str = "\n".join(optimization_log_lines)
-        
-        return self.proStatus_df, priority_matrix, invalid_molds, optimization_log_str
-    
-    def _check_mold_dataframe_columns(self, df: pd.DataFrame) -> bool:
+            # Step 4: Apply weighted scoring based on multiple factors
+            weighted_scores = self._apply_weighted_scoring(mold_machine_history_summary)
+            self.logger.info("✓ Step 4: Weighted scoring applied")
 
-        if not isinstance(df, pd.DataFrame):
-            self.logger.error("Error: Input is not a DataFrame, got {}", type(df))
+            # Step 5: Rank combinations to create priority matrix
+            priority_matrix = self._rank_and_create_priority_matrix(weighted_scores)
+            self.logger.info("✓ Step 5: Priority matrix created")
+            
+            self.logger.info("✅ Process finished!!!")
+            
+            # Calculate processing time
+            timestamp_end = datetime.now()
+            processing_time = (timestamp_end - timestamp_start).total_seconds()
+
+            # Add summary statistics
+            optimization_log_lines.append(f"--Assignment Results--")
+            optimization_log_lines.append(f"⤷ Processing time: {processing_time:.2f} seconds")
+            optimization_log_lines.append(f"⤷ End time: {timestamp_end.strftime('%Y-%m-%d %H:%M:%S')}")
+
+            if invalid_molds:
+                optimization_log_lines.append(f"--Invalid molds detected!--")
+                optimization_log_lines.append(f"⤷ Found {len(invalid_molds)} invalid molds with NaN values: {invalid_molds}")
+            
+            optimization_log_lines.append(f"--Priority Matrix Info--")
+            optimization_log_lines.append(f"⤷ Matrix dimensions: {priority_matrix.shape[0]} molds × {priority_matrix.shape[1]} machines")
+            optimization_log_lines.append(f"⤷ Total cells: {priority_matrix.size}")
+            optimization_log_lines.append(f"⤷ Valid priorities (non-zero): {(priority_matrix > 0).sum().sum()}")
+            optimization_log_lines.append(f"⤷ Coverage rate: {(priority_matrix > 0).sum().sum() / priority_matrix.size * 100:.1f}%")
+            optimization_log_lines.append(f"⤷ Avg priorities per mold: {(priority_matrix > 0).sum(axis=1).mean():.1f}")
+            optimization_log_lines.append(f"⤷ Max priority level: {int(priority_matrix.max().max())}")
+            
+            optimization_log_lines.append("Process finished!!!")
+
+            optimization_log_str = "\n".join(optimization_log_lines)
+            
+            return self.proStatus_df, priority_matrix, invalid_molds, optimization_log_str
+
+        except Exception as e:  
+            self.logger.error("Failed to process MoldMachinePriorityMatrixCalculator: {}", str(e))
+            raise RuntimeError(f"MoldMachinePriorityMatrixCalculator processing failed: {str(e)}") from e
+
+    def _validate_columns(self, data, required_columns, data_type_name):
+        """Generic validation for both DataFrames and Series"""
+        if isinstance(data, pd.DataFrame):
+            actual_columns = data.columns
+        elif isinstance(data, pd.Series):
+            actual_columns = data.index
+        else:
+            self.logger.error("Invalid input type: {}", type(data))
             return False
-
-        missing_columns = [col for col in df.columns if col not in self.constant_config['ESTIMATED_MOLD_REQUIRED_COLUMNS']]
-
-        if missing_columns:
-            self.logger.error("Missing columns: {}", missing_columns)
+        
+        missing = [col for col in required_columns if col not in actual_columns]
+        if missing:
+            self.logger.error("Missing {} columns: {}", data_type_name, missing)
             return False
-
-        self.logger.info("✅ All required columns are present!")
-        return True
-
-    def _check_series_columns(self, series: pd.Series) -> bool:
-
-        if not isinstance(series, pd.Series):
-            self.logger.error("Error: Input is not a Series, got {}", type(series))
-            return False
-
-        missing_columns = [col for col in series.to_dict().keys() if col not in self.constant_config['FEATURE_WEIGHTS_REQUIRED_COLUMNS']]
-
-        if missing_columns:
-            self.logger.error("Missing columns: {}", missing_columns)
-            return False
-
-        self.logger.info("✅ All required columns are present!")
+        
+        self.logger.info("✅ All {} columns present!", data_type_name)
         return True
     
-    # Static methods for mold machine priority matrix calculating phase
-
-    @staticmethod
-    def _prepare_mold_machine_historical_data(machineInfo_df, proStatus_df, productRecords_df):
-
-        """Prepare and filter historical data for analysis."""
-
-        machine_info_df = check_newest_machine_layout(machineInfo_df)
-
-        # Filter to completed orders and merge with machine info
-        hist = proStatus_df.loc[proStatus_df['itemRemain']==0].merge(
-            machine_info_df[['machineNo', 'machineCode', 'machineName', 'machineTonnage']],
-            how='left', on=['machineNo'])
-
-        # Prepare product records
-        productRecords_df.rename(columns={'poNote': 'poNo'}, inplace=True)
-
-        df = productRecords_df[['recordDate', 'workingShift',
-                                'machineNo', 'machineCode',
-                                'itemCode','itemName',
-                                'poNo', 'moldNo', 'moldShot', 'moldCavity',
-                                'itemTotalQuantity', 'itemGoodQuantity']]
-
-        # Filter to meaningful production data
-        filtered_df = df[df['poNo'].isin(hist['poNo']) & (df['itemTotalQuantity'] > 0)]
-
-        return filtered_df
-
-    @staticmethod
-    def _create_mold_machine_priority_matrix(mold_machine_history_summary, weights):
-
-        """Apply weights and create the final priority matrix."""
-
-        # Apply weighted scoring
-        mold_machine_history_summary["total_score"] = (mold_machine_history_summary[list(weights.index)] * weights.values).sum(axis=1)
-
-        # Create pivot table
-        weighted_results = mold_machine_history_summary[['moldNo', 'machineCode', 'total_score']].pivot(
-            index="moldNo", columns="machineCode", values="total_score").fillna(0)
-
-        # Convert to priority rankings
-        priority_matrix = weighted_results.apply(rank_nonzero, axis=1)
-
-        return priority_matrix
-    
-    def _load_progress_tracker_report(self,
-                                      progress_tracker_change_log_path) -> pd.DataFrame:
-        """
-        Load OrderProgressTracker tracking info from the report.
-        Returns:
-            pd.DataFrame: Order progress tracking info
-        """
-
-        # Attempt to find the latest tracking info file from change log
-        self.logger.info("Loading tracking info...")
-        proStatus_path = read_change_log(
-            Path(progress_tracker_change_log_path).parent, 
-            Path(progress_tracker_change_log_path).name)
-
-        # Handle case where no historical stability index exists
-        if proStatus_path is None:
-            self.logger.warning("Cannot find tracking info {}", progress_tracker_change_log_path)
-            self.logger.warning("Creating initial tracking info structure...")
-            return self._create_initial_progress_tracker() 
-        
-        # Load existing stability index from Excel file
-        try:
-            self.proStatus_df = pd.read_excel(proStatus_path)
-            self.logger.debug("Loaded tracking info with shape: {}", 
-                              self.proStatus_df.shape)
-        except Exception as e:
-            self.logger.error("Failed to load tracking info from {}: {}", 
-                              progress_tracker_change_log_path, 
-                              str(e))
-            self.logger.warning("Falling back to initial tracking info structure...")
-            return self._create_initial_progress_tracker()
-        
-    def _create_initial_progress_tracker(self): 
-        try:
-            from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-            order_progress_tracker = OrderProgressTracker(config = self.config)
-            results, log_str = order_progress_tracker.pro_status()
-            self.proStatus_df = results['productionStatus']
-            self.logger.debug("Loaded tracking info with shape: {}", 
-                              self.proStatus_df.shape)
-        except Exception as e:
-            self.logger.error("Failed to initial progress tracker: {}", str(e))
-            raise
-
+    #--------------------------------------------#
+    # STEP 1: LOAD FEATURE WEIGHTS               #
+    #--------------------------------------------#
     def _load_feature_weights(self, 
                               mold_machine_weights_hist_path) -> pd.Series:
         """
@@ -452,7 +380,7 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
 
         self.logger.info("Created initial feature weights: {}", weight_mapping)
         return weights
-
+    
     def _validate_feature_weights(self, weights: pd.Series) -> bool:
         """
         Validate that feature weights are properly formatted and within acceptable ranges.
@@ -482,7 +410,8 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
 
             # Check if weights sum to a reasonable total (should be close to 1.0)
             total_weight = weights[FeatureWeights.REQUIRED_COLUMNS].sum()
-            if not (0.5 <= total_weight <= 2.0):  # Allow some flexibility
+            if not (
+                self.constant_config["WEIGHT_SUM_MIN"] <= total_weight <= self.constant_config["WEIGHT_SUM_MAX"]):
                 self.logger.warning("Unusual total weight sum: {}. Expected close to 1.0", total_weight)
                 return False
 
@@ -491,3 +420,192 @@ class MoldMachinePriorityMatrixCalculator(ConfigReportMixin):
         except Exception as e:
             self.logger.error("Error validating feature weights: {}", str(e))
             return False
+        
+    #--------------------------------------------#
+    # STEP 2: PROCESS HISTORICAL PRODUCTION DATA #
+    #--------------------------------------------#
+    def _process_historical_production_data(self) -> pd.DataFrame:
+        """
+        Step 2: Process historical production data for completed orders.
+        
+        This method:
+        - Standardizes column names
+        - Prepares mold-machine historical data
+        - Validates the schema of prepared data
+        
+        Returns:
+            pd.DataFrame: Processed historical data with completed orders
+            
+        Raises:
+            Exception: If data validation fails
+        """
+
+        # Standardize column names to match expected schema
+        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
+                                          'lastestMoldNo': 'moldNo'
+                                          }, inplace=True)
+        
+        # Prepare historical data for analysis
+        historical_data = self._prepare_mold_machine_historical_data(self.machineInfo_df, 
+                                                                     self.proStatus_df, 
+                                                                     self.productRecords_df)
+        try:
+            cols = list(self.sharedDatabaseSchemas_data["historical_records"]['dtypes'].keys())
+            logger.info('Validation for historical_data...')
+            validate_dataframe(historical_data, cols)
+        except Exception as e:
+            logger.error("Validation failed for historical_data (expected cols: %s): %s", cols, e)
+            raise
+
+        return historical_data
+    
+    @staticmethod
+    def _prepare_mold_machine_historical_data(machineInfo_df: pd.DataFrame, 
+                                              proStatus_df: pd.DataFrame, 
+                                              productRecords_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Prepare and filter historical data for analysis.
+        
+        Args:
+            machineInfo_df: Machine information DataFrame
+            proStatus_df: Production status DataFrame
+            productRecords_df: Product records DataFrame
+            
+        Returns:
+            pd.DataFrame: Filtered historical data for completed orders
+        """
+        machine_info_df = check_newest_machine_layout(machineInfo_df)
+
+        # Filter to completed orders and merge with machine info
+        hist = proStatus_df.loc[proStatus_df['itemRemain'] == 0].merge(
+            machine_info_df[['machineNo', 'machineCode', 'machineName', 'machineTonnage']],
+            how='left', 
+            on=['machineNo']
+        )
+
+        # Prepare product records (don't mutate input DataFrame)
+        productRecords_working = productRecords_df.copy()
+        productRecords_working.rename(columns={'poNote': 'poNo'}, inplace=True)
+
+        df = productRecords_working[[
+            'recordDate', 'workingShift',
+            'machineNo', 'machineCode',
+            'itemCode', 'itemName',
+            'poNo', 'moldNo', 'moldShot', 'moldCavity',
+            'itemTotalQuantity', 'itemGoodQuantity'
+        ]]
+
+        # Optimize filtering with set for O(1) lookups
+        hist_po_set = set(hist['poNo'])
+        filtered_df = df[
+            df['poNo'].isin(hist_po_set) & (df['itemTotalQuantity'] > 0)
+        ].copy()
+
+        return filtered_df
+    
+    #--------------------------------------------#
+    # STEP 3: CALCULATE MOLD-MACHINE PERFORMANCE #
+    #--------------------------------------------#
+    def _calculate_performance_metrics(self, historical_data: pd.DataFrame
+                                       ) -> Tuple[pd.DataFrame, List[str]]:
+        """
+        Step 3: Calculate performance metrics for each mold-machine combination.
+        
+        This method analyzes historical data to compute key performance indicators
+        such as:
+        - Shift NG (defect) rate
+        - Shift cavity utilization rate
+        - Shift cycle time efficiency
+        - Shift capacity utilization rate
+        
+        Args:
+            historical_data: Processed historical production data
+            
+        Returns:
+            Tuple containing:
+                - mold_machine_history_summary: Performance metrics for each combination
+                - invalid_molds: List of molds with validation issues (NaN values)
+                
+        Raises:
+            Exception: If metrics validation fails
+        """
+        # Calculate performance metrics
+        mold_machine_history_summary, invalid_molds = summarize_mold_machine_history(
+            historical_data, 
+            self.mold_estimated_capacity_df
+        )
+        
+        # Validate schema
+        try:
+            cols = list(
+                self.sharedDatabaseSchemas_data["mold_machine_history_summary"]['dtypes'].keys()
+            )
+            self.logger.info('Validating mold_machine_history_summary schema...')
+            validate_dataframe(mold_machine_history_summary, cols)
+        except Exception as e:
+            self.logger.error(
+                "Validation failed for mold_machine_history_summary (expected cols: %s): %s", 
+                cols, e
+            )
+            raise
+        
+        return mold_machine_history_summary, invalid_molds
+    
+    #--------------------------------------------#
+    # STEP 4: APPLY WEIGHTED SCORING             #
+    #--------------------------------------------#
+
+    def _apply_weighted_scoring(self, 
+                                mold_machine_history_summary: pd.DataFrame) -> pd.DataFrame:
+        """
+        Step 4: Apply weighted scoring based on multiple performance factors.
+        
+        This method combines multiple performance metrics using learned feature weights
+        to produce a composite score for each mold-machine combination. The weights
+        reflect the relative importance of each performance factor.
+        
+        Args:
+            mold_machine_history_summary: DataFrame with performance metrics
+            
+        Returns:
+            pd.DataFrame: Summary with added 'total_score' column
+        """
+        # Apply weighted scoring
+        mold_machine_history_summary["total_score"] = (
+            mold_machine_history_summary[list(self.mold_machine_feature_weights.index)] * 
+            self.mold_machine_feature_weights.values
+        ).sum(axis=1)
+        
+        return mold_machine_history_summary
+
+    #--------------------------------------------#
+    # STEP 5: CREAT PRIORITY MATRIX              #
+    #--------------------------------------------#
+    def _rank_and_create_priority_matrix(self, 
+                                         weighted_scores: pd.DataFrame) -> pd.DataFrame:
+        """
+        Step 5: Rank mold-machine combinations to create priority matrix.
+        
+        This method:
+        - Pivots weighted scores into a matrix format
+        - Ranks machines for each mold based on total scores
+        - Produces priority rankings (1 = highest priority)
+        
+        Args:
+            weighted_scores: DataFrame with total_score column
+            
+        Returns:
+            pd.DataFrame: Priority matrix with molds as rows, machines as columns,
+                        and priority rankings as values
+        """
+        # Create pivot table with weighted scores
+        weighted_results = weighted_scores[['moldNo', 'machineCode', 'total_score']].pivot(
+            index="moldNo", 
+            columns="machineCode", 
+            values="total_score"
+        ).fillna(0)
+
+        # Convert scores to priority rankings (1 = best, 2 = second best, etc.)
+        priority_matrix = weighted_results.apply(rank_nonzero, axis=1)
+
+        return priority_matrix

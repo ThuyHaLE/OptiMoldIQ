@@ -12,6 +12,10 @@
 
         "FEATURE_WEIGHTS_REQUIRED_COLUMNS": [
             "shiftNGRate", "shiftCavityRate", "shiftCycleTimeRate", "shiftCapacityRate"
-        ]
+        ],
+
+        "WEIGHT_SUM_MIN": 0.5, 
+        
+        "WEIGHT_SUM_MAX": 2.0
     }
 }

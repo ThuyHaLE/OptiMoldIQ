@@ -136,6 +136,16 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
         # Store configurations
         self.config = mold_stability_config
 
+        # Validate efficiency and loss parameters
+        if not 0.0 <= self.config.efficiency <= 1.0:
+            raise ValueError(f"Efficiency must be between 0.0 and 1.0, got {self.config.efficiency}")
+        if not 0.0 <= self.config.loss <= 1.0:
+            raise ValueError(f"Loss must be between 0.0 and 1.0, got {self.config.loss}")
+        if self.config.efficiency <= self.config.loss:
+            raise ValueError(
+                f"Efficiency ({self.config.efficiency}) must be greater than loss ({self.config.loss})"
+            )
+
     def _load_dataframes(self) -> None:
 
         """

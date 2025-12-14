@@ -141,6 +141,16 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
         self.shared_source_config = shared_source_config
         self.feature_weight_config = feature_weight_config
 
+        # Validate efficiency and loss parameters
+        if not 0.0 <= self.feature_weight_config.efficiency <= 1.0:
+            raise ValueError(f"Efficiency must be between 0.0 and 1.0, got {self.feature_weight_config.efficiency}")
+        if not 0.0 <= self.feature_weight_config.loss <= 1.0:
+            raise ValueError(f"Loss must be between 0.0 and 1.0, got {self.feature_weight_config.loss}")
+        if self.feature_weight_config.efficiency <= self.feature_weight_config.loss:
+            raise ValueError(
+                f"Efficiency ({self.feature_weight_config.efficiency}) must be greater than loss ({self.feature_weight_config.loss})"
+            )
+        
         # Load schemas and annotations
         self.load_schema_and_annotations()
 
