@@ -675,15 +675,17 @@ class ValidationOrchestrator(ConfigReportMixin):
         try:
             log_path = self.output_dir / "change_log.txt"
             
-            # Generate log content
-            log_content = [
-                "="*60,
-                f"VALIDATION RUN - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                "="*60,
-                "",
-                "EXECUTION TREE:",
-                ""
-            ]
+            # Generate config header using mixin
+            start_time = datetime.now()
+            timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+            config_header = self._generate_config_report(timestamp_str, required_only=True)
+            
+            # Initialize validation log entries for entire processing run
+            log_content = ["="*60]
+            log_content.append(config_header)
+            log_content.append(f"--Processing Summary--\n")
+            log_content.append(f"⤷ {self.__class__.__name__} results:\n")
+            log_content.append("EXECUTION TREE:")
             
             # Add execution tree (capture print output)
             import io
