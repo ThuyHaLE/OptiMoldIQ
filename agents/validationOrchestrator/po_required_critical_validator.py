@@ -1,13 +1,9 @@
 from agents.decorators import validate_init_dataframes
-from pathlib import Path
 from loguru import logger
-from agents.utils import load_annotation_path, save_output_with_versioning
 import pandas as pd
-import os
-
+from typing import Dict, Any, List
 from datetime import datetime
-from agents.utils import ConfigReportMixin
-from configs.shared.shared_source_config import SharedSourceConfig
+from configs.shared.config_report_format import ConfigReportMixin
 from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 # Decorator to validate DataFrames are initialized with the correct schema
@@ -15,7 +11,6 @@ from agents.autoPlanner.reportFormatters.dict_based_report_generator import Dict
     "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
     "purchaseOrders_df": list(self.databaseSchemas_data['dynamicDB']['purchaseOrders']['dtypes'].keys()),
 })
-
 class PORequiredCriticalValidator(ConfigReportMixin):
 
     """
@@ -28,24 +23,19 @@ class PORequiredCriticalValidator(ConfigReportMixin):
     3. Generates warnings for any mismatches or invalid records
     """
 
-    # Define requirements
-    REQUIRED_FIELDS = {
-        'databaseSchemas_path': str,
-        'annotation_path': str,
-        'validation_dir': str
-    }
-
-    def __init__(self, config: SharedSourceConfig):
+    def __init__(self,
+                 databaseSchemas_data: Dict, 
+                 productRecords_df: pd.DataFrame, 
+                 purchaseOrders_df: pd.DataFrame,
+                 ):
         
         """
         Initialize the PORequiredCriticalValidator.
         
         Args:
-            config: SharedSourceConfig containing processing parameters
-            Including:
-                - annotation_path: Path to the JSON file containing path annotations
-                - databaseSchemas_path: Path to database schemas JSON file for validation
-                - validation_dir: Default directory for saving output files
+            - databaseSchemas_data: Database schemas for validation
+            - productRecords_df: Production records with item, mold, machine data
+            - purchaseOrders_df: Purchase order records
         """
 
         # Capture initialization arguments for reporting
@@ -54,70 +44,14 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         # Initialize logger for this class
         self.logger = logger.bind(class_="PORequiredCriticalValidator")
 
-        # Validate required configs
-        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
-        if not is_valid:
-            raise ValueError(
-                f"{self.__class__.__name__} config validation failed:\n" +
-                "\n".join(f"  - {e}" for e in errors)
-            )
-        self.logger.info("✓ Validation for config requirements: PASSED!")
+        # Database schema for validation
+        self.databaseSchemas_data = databaseSchemas_data
 
-        # Store config
-        self.config = config
-
-        # Load database schema configuration to understand data structure
-        self.databaseSchemas_data = load_annotation_path(Path(self.config.databaseSchemas_path).parent, 
-                                                         Path(self.config.databaseSchemas_path).name)
-        
-        # Load path annotations that contain actual file paths to data
-        self.path_annotation = load_annotation_path(Path(self.config.annotation_path).parent, 
-                                                    Path(self.config.annotation_path).name)
-
-        # Load all required DataFrames from parquet files
-        self._load_dataframes()
-        
-        # Set up output configuration for saving results
-        self.filename_prefix = "po_required_critical_validator"
-        self.output_dir = Path(self.config.validation_dir) / "PORequiredCriticalValidator"
-
-    def _load_dataframes(self) -> None:
-        
-        """
-        Load all required DataFrames from parquet files with consistent error handling.
-        
-        This method loads the following DataFrames:
-        - productRecords_df: Production records
-        - purchaseOrders_df: Purchase order records
-        """
-
-        # Define the mapping between path annotation keys and DataFrame attribute names
-        dataframes_to_load = [
-            ('productRecords', 'productRecords_df'),
-            ('purchaseOrders', 'purchaseOrders_df')
-        ]
-        
-        # Load each DataFrame with error handling
-        for path_key, attr_name in dataframes_to_load:
-            path = self.path_annotation.get(path_key)
-
-            # Validate path exists
-            if not path or not os.path.exists(path):
-                self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
-                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
-
-            try:
-                # Load DataFrame from parquet file
-                df = pd.read_parquet(path)
-                setattr(self, attr_name, df)
-                self.logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
-            except Exception as e:
-                self.logger.error("Failed to load {}: {}", path_key, str(e))
-                raise
+        # Store config to validate in __init__
+        self.productRecords_df = productRecords_df
+        self.purchaseOrders_df = purchaseOrders_df
     
-    def run_validations(self, 
-                        save_results: bool = False,
-                        **kwargs):
+    def run_validations(self) -> Dict[str, Any]:
 
         """
         Run comprehensive PO validation checks.
@@ -129,7 +63,11 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         4. Generates detailed warnings for all validation failures
         
         Returns:
-            pd.DataFrame: DataFrame containing all validation warnings and errors
+            Dict containing:
+            - result
+                - DataFrame with detailed warnings for all validation failures
+            - log_str
+                - validation log entries for entire processing run
         """
 
         self.logger.info("Starting PORequiredCriticalValidator ...")
@@ -137,8 +75,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         # Generate config header using mixin
         start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str, 
-                                                     required_only=True)
+        config_header = self._generate_config_report(timestamp_str)
         
         # Initialize validation log entries for entire processing run
         validation_log_entries = [config_header]
@@ -239,38 +176,21 @@ class PORequiredCriticalValidator(ConfigReportMixin):
             reporter = DictBasedReportGenerator(use_colors=False)
             validation_summary = "\n".join(reporter.export_report({'Warning details': final_result}))
             validation_log_entries.append(f"{validation_summary}") 
-
-            # Save results to Excel if requested
-            if save_results:
-                try:
-                    # Export results to Excel with versioning
-                    self.logger.info("Exporting results to Excel...")
-
-                    # Prepare data for saving
-                    output_exporting_log = save_output_with_versioning(
-                        data = {"Sheet1": final_result},
-                        output_dir = self.output_dir,
-                        filename_prefix = self.filename_prefix,
-                        report_text = validation_summary
-                    )
-                    self.logger.info("Results exported successfully!")
-                    validation_log_entries.append(f"{output_exporting_log}")
-
-                except Exception as e:
-                    self.logger.error("Failed to save results: {}", str(e))
-                    raise
             
             # Compile final validation log
             validation_log_str = "\n".join(validation_log_entries)
             self.logger.info("✅ Process finished!!!")
 
-            return final_result, validation_log_str
+            return {
+                    "result": final_result, 
+                    "log_str": validation_log_str
+                    }
 
         except Exception as e:
             self.logger.error("❌ Validation failed: {}", str(e))
             raise
     
-    def _process_product_records(self, **kwargs):
+    def _process_product_records(self, **kwargs) -> pd.DataFrame:
         
         """
         Clean and preprocess the product records DataFrame.
@@ -290,7 +210,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         return rm_null_productRecords_df
     
     @staticmethod
-    def _process_warnings(merged_df, comparison_cols):
+    def _process_warnings(merged_df, comparison_cols) -> List:
 
         """
         Process field mismatch warnings for valid PO numbers.
@@ -353,7 +273,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         return results
 
     @staticmethod
-    def _process_invalid_po_warnings(invalid_productRecords):
+    def _process_invalid_po_warnings(invalid_productRecords) -> List:
 
         """
         Process warnings for invalid PO numbers.

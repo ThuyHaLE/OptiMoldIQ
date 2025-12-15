@@ -7,7 +7,7 @@ def test_validation_orchestrator():
         default_dir = 'tests/shared_db'
     )
 
-    final_report, validation_log_str = ValidationOrchestrator(
+    result = ValidationOrchestrator(
         shared_source_config=shared_source_config,
         enable_parallel = False,
         max_workers = None).run_validations_and_save_results()

@@ -1,14 +1,9 @@
 from agents.decorators import validate_init_dataframes
-from pathlib import Path
 from loguru import logger
-from agents.utils import load_annotation_path, save_output_with_versioning
 import pandas as pd
-from typing import List
-import os
-
+from typing import List, Dict, Any
 from datetime import datetime
-from agents.utils import ConfigReportMixin
-from configs.shared.shared_source_config import SharedSourceConfig
+from configs.shared.config_report_format import ConfigReportMixin
 from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 # Decorator to validate DataFrames are initialized with the correct schema
@@ -19,7 +14,6 @@ from agents.autoPlanner.reportFormatters.dict_based_report_generator import Dict
     "resinInfo_df": list(self.databaseSchemas_data['staticDB']['resinInfo']['dtypes'].keys()),
     "itemCompositionSummary_df": list(self.databaseSchemas_data['staticDB']['itemCompositionSummary']['dtypes'].keys()),
 })
-
 class StaticCrossDataChecker(ConfigReportMixin):
     
     """
@@ -33,26 +27,26 @@ class StaticCrossDataChecker(ConfigReportMixin):
     3. Item compositions match the itemCompositionSummary reference table
     """
 
-    # Define requirements
-    REQUIRED_FIELDS = {
-        'validation_df_name': List[str],
-        'databaseSchemas_path': str,
-        'annotation_path': str,
-        'validation_dir': str
-    }
-
-    def __init__(self, config: SharedSourceConfig):
+    def __init__(self, 
+                 validation_df_name: List,
+                 databaseSchemas_data: Dict,
+                 productRecords_df: pd.DataFrame,
+                 purchaseOrders_df: pd.DataFrame,
+                 itemInfo_df: pd.DataFrame,
+                 resinInfo_df: pd.DataFrame,
+                 itemCompositionSummary_df: pd.DataFrame):
         
         """
         Initialize the StaticCrossDataChecker.
         
         Args:
-            config: SharedSourceConfig containing processing parameters
-            Including:
-                - validation_df_name: List of dataframe names to validate ("productRecords", "purchaseOrders")
-                - annotation_path: Path to the JSON file containing path annotations
-                - databaseSchemas_path: Path to database schemas JSON file for validation
-                - validation_dir: Default directory for saving output files
+            - validation_df_name: List of dataframe names to validate ("productRecords", "purchaseOrders")
+            - databaseSchemas_data: Database schemas for validation
+            - productRecords_df: Production records with item, mold, machine data
+            - purchaseOrders_df: Purchase order records
+            - itemInfo_df: Item master data
+            - resinInfo_df: Resin master data
+            - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
         """
 
         # Capture initialization arguments for reporting
@@ -61,79 +55,26 @@ class StaticCrossDataChecker(ConfigReportMixin):
         # Initialize logger for this class
         self.logger = logger.bind(class_="StaticCrossDataChecker")
 
-        # Validate required configs
-        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
-        if not is_valid:
-            raise ValueError(
-                f"{self.__class__.__name__} config validation failed:\n" +
-                "\n".join(f"  - {e}" for e in errors)
-            )
-        self.logger.info("✓ Validation for config requirements: PASSED!")
-    
-        # Store config
-        self.config = config
+        # Database schema for validation
+        self.databaseSchemas_data = databaseSchemas_data
+
+        # Store config to validate in __init__
+        self.productRecords_df = productRecords_df
+        self.purchaseOrders_df = purchaseOrders_df
+        self.itemInfo_df = itemInfo_df
+        self.resinInfo_df = resinInfo_df
+        self.itemCompositionSummary_df = itemCompositionSummary_df
 
         # Validate that only allowed dataframe names are provided
+        self.validation_df_name = validation_df_name
         allowed_names = ["productRecords", "purchaseOrders"]
-        invalid_names = [name for name in self.config.validation_df_name if name not in allowed_names]
+        invalid_names = [name for name in self.validation_df_name if name not in allowed_names]
         if invalid_names:
             self.logger.error("Invalid validation_df_name values: {}. Must be within {}.",
                               invalid_names, allowed_names)
             raise ValueError(f"Invalid validation_df_name values: {invalid_names}. Must be within {allowed_names}")
 
-        # Load database schema configuration and file path annotations
-        self.databaseSchemas_data = load_annotation_path(
-            Path(self.config.databaseSchemas_path).parent, 
-            Path(self.config.databaseSchemas_path).name)
-        
-        self.path_annotation = load_annotation_path(
-            Path(self.config.annotation_path).parent, 
-            Path(self.config.annotation_path).name)
-
-        # Load all required DataFrames from parquet files
-        self._load_dataframes()
-        
-        # Set up output configuration
-        self.filename_prefix = "static_cross_checker"
-        self.output_dir = Path(self.config.validation_dir) / "StaticCrossDataChecker"
-
-    def _load_dataframes(self):
-        
-        """
-        Load all required DataFrames with consistent error handling.
-        
-        This method loads both static reference data (itemInfo, resinInfo, itemCompositionSummary)
-        and dynamic data (productRecords, purchaseOrders) from parquet files.
-        - itemInfo_df: Item master data
-        - resinInfo_df: Resin master data
-        - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
-        - productRecords_df: Production records with item, mold, machine data
-        - purchaseOrders_df: Purchase order records
-        """
-
-        # Define mapping of path annotation keys to DataFrame attribute names
-        dataframes_to_load = [
-            ('itemInfo', 'itemInfo_df'),                              # Static reference: item master data
-            ('resinInfo', 'resinInfo_df'),                            # Static reference: resin master data
-            ('itemCompositionSummary', 'itemCompositionSummary_df'),  # Static reference: item composition data
-            ('productRecords', 'productRecords_df'),                  # Dynamic data: production records
-            ('purchaseOrders', 'purchaseOrders_df')                   # Dynamic data: purchase orders
-        ]
-        
-        # Load each dataframe and set as instance attribute
-        for path_key, attr_name in dataframes_to_load:
-            path = self.path_annotation.get(path_key)
-            if not path or not os.path.exists(path):
-                self.logger.error("❌ Path to '{}' not found or does not exist.", path_key)
-                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist.")
-            
-            df = pd.read_parquet(path)
-            setattr(self, attr_name, df)
-            self.logger.debug("{}: {} - {}", path_key, df.shape, df.columns)
-
-    def run_validations(self, 
-                        save_results: bool = False,
-                        **kwargs):
+    def run_validations(self) -> Dict[str, Any]:
         
         """
         Run all validation checks following PORequiredCriticalValidator pattern.
@@ -144,7 +85,11 @@ class StaticCrossDataChecker(ConfigReportMixin):
         3. Composition validation (full item composition matches)
         
         Returns:
-            dict: Dictionary containing validation results for each dataframe
+            Dict containing:
+            - result
+                - df_name: DataFrame with detailed warnings for all validation failures
+            - log_str
+                - validation log entries for entire processing run
         """
 
         self.logger.info("Starting StaticCrossDataChecker ...")
@@ -152,8 +97,7 @@ class StaticCrossDataChecker(ConfigReportMixin):
         # Generate config header using mixin
         start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str, 
-                                                     required_only=True)
+        config_header = self._generate_config_report(timestamp_str)
         
         # Initialize validation log entries for entire processing run
         validation_log_entries = [config_header]
@@ -161,9 +105,9 @@ class StaticCrossDataChecker(ConfigReportMixin):
         validation_log_entries.append(f"⤷ {self.__class__.__name__} results:\n")
 
         try:
-            final_results = {}
+            final_result = {}
             # Process each dataframe specified in checking_df_name
-            for df_name in self.config.validation_df_name:
+            for df_name in self.validation_df_name:
 
                 self.logger.info("Processing validations for: {}", df_name)
 
@@ -182,7 +126,7 @@ class StaticCrossDataChecker(ConfigReportMixin):
                 total_warnings = len(all_warnings)
                 
                 # Store results in final_results dictionary
-                final_results[df_name] = pd.DataFrame(all_warnings) if all_warnings else pd.DataFrame(
+                final_result[df_name] = pd.DataFrame(all_warnings) if all_warnings else pd.DataFrame(
                     columns=['poNo', 'warningType', 'mismatchType', 'requiredAction', 'message'])
                 
                 # Log summary information for user review
@@ -194,38 +138,18 @@ class StaticCrossDataChecker(ConfigReportMixin):
 
                 # Generate detailed report using DictBasedReportGenerator
                 reporter = DictBasedReportGenerator(use_colors=False)
-                validation_summary = "\n".join(reporter.export_report(final_results))
+                validation_summary = "\n".join(reporter.export_report(final_result))
                 validation_log_entries.append(f"{validation_summary}") 
-
-                # Save results if specified
-                if save_results:
-                    try:
-                        # Export results to Excel with versioning
-                        self.logger.info("Exporting results to Excel...")
-
-                        # Prepare data for saving (matching PORequiredCriticalValidator format)
-                        data = {}
-                        for df_name, results_df in final_results.items():
-                            data[f"{df_name}"] = results_df
-
-                        output_exporting_log = save_output_with_versioning(
-                            data = data,
-                            output_dir = self.output_dir,
-                            filename_prefix = self.filename_prefix,
-                            report_text = validation_summary
-                        )
-                        self.logger.info("Results exported successfully!")
-                        validation_log_entries.append(f"{output_exporting_log}")
-
-                    except Exception as e:
-                        self.logger.error("Failed to save results: {}", str(e))
-                        raise
             
             # Compile final validation log
             validation_log_str = "\n".join(validation_log_entries)
             self.logger.info("✅ Process finished!!!")
 
-            return final_results, validation_log_str
+            return {
+                    "result": final_result, 
+                    "log_str": validation_log_str
+                    }
+        
 
         except Exception as e:
             self.logger.error("❌ Validation failed: {}", str(e))

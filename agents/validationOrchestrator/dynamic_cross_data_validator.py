@@ -1,14 +1,9 @@
 from agents.decorators import validate_init_dataframes
-from pathlib import Path
 from loguru import logger
-from agents.utils import load_annotation_path, save_output_with_versioning
 import pandas as pd
-import os
 from typing import Dict, Tuple, Any, List
-
 from datetime import datetime
-from agents.utils import ConfigReportMixin
-from configs.shared.shared_source_config import SharedSourceConfig
+from configs.shared.config_report_format import ConfigReportMixin
 from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
 
 # Decorator to validate DataFrames are initialized with the correct schema
@@ -32,27 +27,27 @@ class DynamicCrossDataValidator(ConfigReportMixin):
     - Loading production records and reference data
     - Cross-referencing items, molds, machines, and compositions
     - Identifying mismatches and generating actionable warnings
-    - Exporting results to Excel files for review
+    - Exporting results for review
     """
 
-    # Define requirements
-    REQUIRED_FIELDS = {
-        'databaseSchemas_path': str,
-        'annotation_path': str,
-        'validation_dir': str
-    }
-
-    def __init__(self, config: SharedSourceConfig):
+    def __init__(self, 
+                 databaseSchemas_data: Dict, 
+                 productRecords_df: pd.DataFrame,
+                 machineInfo_df: pd.DataFrame,
+                 moldSpecificationSummary_df: pd.DataFrame,
+                 moldInfo_df: pd.DataFrame,
+                 itemCompositionSummary_df: pd.DataFrame):
         
         """
         Initialize the DynamicCrossDataValidator.
         
         Args:
-            config: SharedSourceConfig containing processing parameters
-            Including:
-                - annotation_path: Path to the JSON file containing path annotations
-                - databaseSchemas_path: Path to database schemas JSON file for validation
-                - validation_dir: Default directory for saving output files
+            - databaseSchemas_data: Database schemas for validation
+            - productRecords_df: Production records with item, mold, machine data
+            - machineInfo_df: Machine specifications and tonnage information
+            - moldSpecificationSummary_df: Mold specifications and compatible items
+            - moldInfo_df: Detailed mold information including tonnage requirements
+            - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
         """
 
         # Capture initialization arguments for reporting
@@ -61,79 +56,17 @@ class DynamicCrossDataValidator(ConfigReportMixin):
         # Initialize logger for this class
         self.logger = logger.bind(class_="DynamicCrossDataValidator")
 
-        # Validate required configs
-        is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
-        if not is_valid:
-            raise ValueError(
-                f"{self.__class__.__name__} config validation failed:\n" +
-                "\n".join(f"  - {e}" for e in errors)
-            )
-        self.logger.info("✓ Validation for config requirements: PASSED!")
+        # Database schema for validation
+        self.databaseSchemas_data = databaseSchemas_data
 
-        # Store config
-        self.config = config
+        # Store config to validate in __init__
+        self.productRecords_df = productRecords_df
+        self.machineInfo_df = machineInfo_df
+        self.moldSpecificationSummary_df = moldSpecificationSummary_df
+        self.moldInfo_df = moldInfo_df
+        self.itemCompositionSummary_df = itemCompositionSummary_df
 
-        # Load database schema configuration for column validation
-        self.databaseSchemas_data = load_annotation_path(
-            Path(self.config.databaseSchemas_path).parent,
-            Path(self.config.databaseSchemas_path).name
-        )
-        # Load path annotations that map logical names to actual file paths
-        self.path_annotation = load_annotation_path(
-            Path(self.config.annotation_path).parent, 
-            Path(self.config.annotation_path).name
-        )
-
-        # Load all required DataFrames from parquet files
-        self._load_dataframes()
-
-        # Set up output configuration
-        self.filename_prefix = "dynamic_cross_validator"
-        self.output_dir = Path(self.config.validation_dir) / "DynamicCrossDataValidator"
-
-    def _load_dataframes(self) -> None:
-        
-        """
-        Load all required DataFrames from parquet files with consistent error handling.
-        
-        This method loads the following DataFrames:
-        - productRecords_df: Production records with item, mold, machine data
-        - machineInfo_df: Machine specifications and tonnage information
-        - moldSpecificationSummary_df: Mold specifications and compatible items
-        - moldInfo_df: Detailed mold information including tonnage requirements
-        - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
-        """
-
-        # Define the mapping between path annotation keys and DataFrame attribute names
-        dataframes_to_load = [
-            ('productRecords', 'productRecords_df'),
-            ('machineInfo', 'machineInfo_df'),
-            ('moldSpecificationSummary', 'moldSpecificationSummary_df'),
-            ('moldInfo', 'moldInfo_df'),
-            ('itemCompositionSummary', 'itemCompositionSummary_df')
-        ]
-        
-        # Load each DataFrame with error handling
-        for path_key, attr_name in dataframes_to_load:
-            path = self.path_annotation.get(path_key)
-
-            # Validate path exists
-            if not path or not os.path.exists(path):
-                self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
-                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
-
-            try:
-                # Load DataFrame from parquet file
-                df = pd.read_parquet(path)
-                setattr(self, attr_name, df)
-                self.logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
-            except Exception as e:
-                self.logger.error("Failed to load {}: {}", path_key, str(e))
-                raise
-
-    def run_validations(self, 
-                        save_results: bool = False,
-                        **kwargs) -> Dict[str, Any]:
+    def run_validations(self) -> Dict[str, Any]:
 
         """
         Run all validation checks and return comprehensive results.
@@ -146,8 +79,11 @@ class DynamicCrossDataValidator(ConfigReportMixin):
 
         Returns:
             Dict containing:
-            - mismatch_warnings: DataFrame with production record mismatches
-            - invalid_warnings: DataFrame with invalid/missing reference data
+            - result
+                - mismatch_warnings: DataFrame with production record mismatches
+                - invalid_warnings: DataFrame with invalid/missing reference data
+            - log_str
+                - validation log entries for entire processing run
         """
 
         self.logger.info("Starting DynamicCrossDataValidator ...")
@@ -155,8 +91,7 @@ class DynamicCrossDataValidator(ConfigReportMixin):
         # Generate config header using mixin
         start_time = datetime.now()
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str, 
-                                                     required_only=True)
+        config_header = self._generate_config_report(timestamp_str)
         
         # Initialize validation log entries for entire processing run
         validation_log_entries = [config_header]
@@ -193,7 +128,7 @@ class DynamicCrossDataValidator(ConfigReportMixin):
             results['invalid_warnings'] = invalid_warnings
 
             # Convert results into structured DataFrames
-            final_result = DynamicCrossDataValidator._convert_results(results)
+            final_result = self._convert_results(results)
 
             # Compile validation summary
             validation_log_entries.append("Validation Summary:")
@@ -204,30 +139,15 @@ class DynamicCrossDataValidator(ConfigReportMixin):
             reporter = DictBasedReportGenerator(use_colors=False)
             validation_summary = "\n".join(reporter.export_report(final_result))
             validation_log_entries.append(f"{validation_summary}")
-
-            # Save results to Excel if specified
-            if save_results:
-                try:
-                    # Export results to Excel with versioning
-                    self.logger.info("Exporting results to Excel...")
-                    output_exporting_log = save_output_with_versioning(
-                        data = final_result,
-                        output_dir = self.output_dir,
-                        filename_prefix = self.filename_prefix,
-                        report_text = validation_summary
-                    )
-                    self.logger.info("Results exported successfully!")
-                    validation_log_entries.append(f"{output_exporting_log}")
-
-                except Exception as e:
-                    self.logger.error("Failed to save results: {}", str(e))
-                    raise
             
             # Compile final validation log
             validation_log_str = "\n".join(validation_log_entries)
             self.logger.info("✅ Process finished!!!")
 
-            return final_result, validation_log_str
+            return {
+                    "result": final_result, 
+                    "log_str": validation_log_str
+                    }
         
         except Exception as e:
             self.logger.error("❌ Validation failed: {}", str(e))
