@@ -202,7 +202,7 @@ class ProgressTrackingPhase(AtomicPhase):
         logger.info("🔄 Running progress tracking...")
         
         # Import ProgressTracker (your existing class)
-        from agents.orderProgressTracker.progress_tracker import ProgressTracker
+        from agents.orderProgressTracker.tracker_utils import ProgressTracker
         
         # Extract data from loaded_data
         pro_status_schema = self.loaded_data['pro_status_schema']
@@ -335,7 +335,7 @@ class OrderProgressTracker(ConfigReportMixin):
 
         # Check if data loading succeeded
         if tracking_result.status != "success":
-            self.logger.error("❌ Data loading failed, cannot proceed with validations")
+            self.logger.error("❌ Progress tracking failed")
             
             # Return early with failed result
             return ExecutionResult(
@@ -417,8 +417,11 @@ class OrderProgressTracker(ConfigReportMixin):
 
             # Extract tracking data
             tracker_result = self._extract_validation_data(result)
-            tracking_summary = tracker_result['tracking_summary']
+            if not tracker_result:
+                self.logger.error("❌ Validations failed with tracking result, skipping save")
+                return result
 
+            tracking_summary = tracker_result['tracking_summary']
             # Export Excel file with versioning
             logger.info("Start excel file exporting...")
             export_log = save_output_with_versioning(

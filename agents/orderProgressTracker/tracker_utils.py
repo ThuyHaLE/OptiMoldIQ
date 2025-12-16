@@ -467,7 +467,6 @@ class ProgressTracker(ConfigReportMixin):
     #---------------------------------------------------------------#
     # STEP 3: GENERATE PRODUCTION STATUS REPORT                     #
     #---------------------------------------------------------------#
-    @staticmethod
     def _pro_status_processing(self, 
                                pro_status_df: pd.DataFrame, 
                                pro_status_fields: List,
