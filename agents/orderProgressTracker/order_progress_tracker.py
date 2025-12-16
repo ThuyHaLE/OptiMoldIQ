@@ -387,15 +387,20 @@ class OrderProgressTracker(ConfigReportMixin):
         
         return final_result
     
-    def _extract_validation_data(self, result: ExecutionResult) -> Dict[str, Any]:
-        """Extract validation data from ExecutionResult hierarchy."""
+    def _extract_tracking_data(self, result: ExecutionResult) -> Dict[str, Any]:
+        """Extract tracking data from ExecutionResult hierarchy."""
         
         # Skip first sub_results (DataLoading and DependencyDataLoading phase) 
         tracking_result = [r for r in result.sub_results if r.name not in ["DataLoading", "DependencyDataLoading"]]
         tracking_data = tracking_result[0].data.get(
-            'result', {}).get(
-                'result', {}) if tracking_result and tracking_result[0].status == "success" else {}
-        
+            'result', {}) if tracking_result and tracking_result[0].status == "success" else {}
+
+        if not isinstance(tracking_data, dict):
+            return {}
+
+        if not {"result", "tracking_summary"}.issubset(tracking_data):
+            return {}
+    
         return tracking_data
                 
     def run_tracking_and_save_results(self, **kwargs) -> ExecutionResult:
@@ -416,28 +421,27 @@ class OrderProgressTracker(ConfigReportMixin):
                 return result
 
             # Extract tracking data
-            tracker_result = self._extract_validation_data(result)
+            tracker_result = self._extract_tracking_data(result)
             if not tracker_result:
-                self.logger.error("❌ Validations failed with tracking result, skipping save")
+                self.logger.error("❌ Validations failed: empty or invalid tracking result, skipping save")
                 return result
-
-            tracking_summary = tracker_result['tracking_summary']
+            
             # Export Excel file with versioning
             logger.info("Start excel file exporting...")
             export_log = save_output_with_versioning(
                 data = tracker_result['result'],
                 output_dir = self.output_dir,
                 filename_prefix = self.filename_prefix,
-                report_text = tracking_summary
+                report_text = tracker_result['tracking_summary']
             )
             self.logger.info("Results exported successfully!")
 
             # Add export info to result metadata
             result.metadata['export_log'] = export_log
-            result.metadata['tracking_summary'] = tracking_summary
+            result.metadata['tracking_summary'] = tracker_result['tracking_summary']
             
             # Save change log
-            self._save_change_log(result, tracking_summary, export_log)
+            self._save_change_log(result, tracker_result['tracking_summary'], export_log)
             
             return result
 
