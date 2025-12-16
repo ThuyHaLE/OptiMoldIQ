@@ -8,6 +8,6 @@ def test_order_progress_tracker():
     
     order_progress_tracker = OrderProgressTracker(config = shared_source_config)
 
-    results, log_str = order_progress_tracker.pro_status()
+    result = order_progress_tracker.run_tracking_and_save_results()
 
     assert True

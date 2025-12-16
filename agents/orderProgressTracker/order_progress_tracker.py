@@ -1,67 +1,270 @@
-from agents.decorators import validate_init_dataframes
 from pathlib import Path
 from loguru import logger
 
-from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning, ConfigReportMixin
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning
 from configs.shared.shared_source_config import SharedSourceConfig
-
 import pandas as pd
-from pandas.api.types import is_object_dtype
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-import ast
-import re
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
+from configs.shared.config_report_format import ConfigReportMixin
 
-# Decorator to validate DataFrames are initialized with the correct schema
-@validate_init_dataframes(lambda self: {
-    "productRecords_df": list(self.databaseSchemas_data['dynamicDB']['productRecords']['dtypes'].keys()),
-    "purchaseOrders_df": list(self.databaseSchemas_data['dynamicDB']['purchaseOrders']['dtypes'].keys()),
-    "moldSpecificationSummary_df": list(self.databaseSchemas_data['staticDB']['moldSpecificationSummary']['dtypes'].keys()),
-})
+# Import agent report format components
+from configs.shared.agent_report_format import (
+    Executable,
+    ExecutionResult,
+    AtomicPhase,
+    CompositeAgent,
+    PhaseSeverity,
+    ExecutionStatus,
+    print_execution_tree,
+    analyze_execution)
+
+# ============================================
+# DATA LOADING PHASE
+# ============================================
+class DataLoadingPhase(AtomicPhase):
+    """Phase for loading all required data files"""
+    
+    RECOVERABLE_ERRORS = (FileNotFoundError, pd.errors.EmptyDataError, KeyError)
+    CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
+    FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Data loading is critical!
+    
+    DEFAUTL_SCHEMA_PATH = "agents/orderProgressTracker/pro_status_schema.json"
+
+    def __init__(self, config: SharedSourceConfig):
+        super().__init__("DataLoading")
+        self.config = config
+    
+    def _execute_impl(self) -> Dict[str, Any]:
+        """Load all required data"""
+        logger.info("📂 Loading database schemas and path annotations...")
+        
+        # Load database schema for productRecords_df
+        try:
+            pro_status_schema = load_annotation_path(
+                Path(self.DEFAUTL_SCHEMA_PATH).parent,
+                Path(self.DEFAUTL_SCHEMA_PATH).name)
+        except Exception as e:
+            raise FileNotFoundError(f"Failed to database schema for productRecords_df: {e}")
+        
+        # Load database schemas
+        try:
+            databaseSchemas_data = load_annotation_path(
+                Path(self.config.databaseSchemas_path).parent,
+                Path(self.config.databaseSchemas_path).name
+            )
+        except Exception as e:
+            raise FileNotFoundError(f"Failed to load databaseSchemas: {e}")
+        
+        # Load path annotations
+        try:
+            path_annotation = load_annotation_path(
+                Path(self.config.annotation_path).parent,
+                Path(self.config.annotation_path).name
+            )
+        except Exception as e:
+            raise FileNotFoundError(f"Failed to load path_annotation: {e}")
+        
+        logger.info("📊 Loading DataFrames from parquet files...")
+        
+        # Define dataframes to load
+        dataframes_to_load = [
+            ('productRecords', 'productRecords_df'),
+            ('purchaseOrders', 'purchaseOrders_df'),
+            ('moldSpecificationSummary', 'moldSpecificationSummary_df')
+        ]
+        
+        loaded_dfs = {}
+        missing_files = []
+        failed_loads = []
+        
+        for path_key, attr_name in dataframes_to_load:
+            path = path_annotation.get(path_key)
+            
+            if not path:
+                missing_files.append(f"{path_key}: path not found in annotation")
+                continue
+            
+            if not os.path.exists(path):
+                missing_files.append(f"{path_key}: file not found at {path}")
+                continue
+            
+            try:
+                df = pd.read_parquet(path)
+                loaded_dfs[attr_name] = df
+                logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
+            except Exception as e:
+                failed_loads.append(f"{path_key}: {str(e)}")
+        
+        # Check if we have critical failures
+        if missing_files or failed_loads:
+            error_msg = []
+            if missing_files:
+                error_msg.append("Missing files:\n  - " + "\n  - ".join(missing_files))
+            if failed_loads:
+                error_msg.append("Failed to load:\n  - " + "\n  - ".join(failed_loads))
+            
+            raise FileNotFoundError("\n".join(error_msg))
+        
+        logger.info("✓ All data loaded successfully ({} DataFrames)", len(loaded_dfs))
+        
+        return {
+            'pro_status_schema': pro_status_schema,
+            'databaseSchemas_data': databaseSchemas_data,
+            'path_annotation': path_annotation,
+            'dataframes': loaded_dfs
+        }
+    
+    def _fallback(self) -> Dict[str, Any]:
+        """
+        No valid fallback for data loading.
+        Raise to ensure CRITICAL severity is applied.
+        """
+        logger.error("DataLoading cannot fallback - missing data files")
+        
+        raise FileNotFoundError(
+            "Cannot proceed without required data files. "
+            "Please check paths in configuration."
+        )
+
+# ============================================
+# DEPENDENCY DATA/REPORT LOADING PHASE
+# ============================================
+class DependencyDataLoadingPhase(AtomicPhase):
+    """Phase for loading validation data from dependency (ValidationOrchestrator)"""
+    
+    RECOVERABLE_ERRORS = (FileNotFoundError, pd.errors.EmptyDataError, KeyError)
+    CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
+    FALLBACK_FAILURE_IS_CRITICAL = False  # Not critical - can continue without validation data
+    
+    def __init__(self, config: SharedSourceConfig):
+        super().__init__("DependencyDataLoading")
+        self.config = config
+    
+    def _execute_impl(self) -> Dict[str, Any]:
+        """Load validation data from dependency"""
+        logger.info("📂 Loading log file from dependency ValidationOrchestrator...")
+        
+        # Process the log file
+        excel_file_path = read_change_log(
+            Path(self.config.validation_change_log_path).parent,
+            Path(self.config.validation_change_log_path).name
+        )
+        
+        if excel_file_path is None:
+            logger.info("No change log file found")
+            raise FileNotFoundError("No validation change log found")
+        
+        # Read all sheets from the Excel file
+        validation_data = self._collect_validation_data(excel_file_path)
+        logger.info(f"✓ Loaded validation data ({len(validation_data)} sheets)")
+        
+        return {"validation_data": validation_data}
+    
+    def _collect_validation_data(self, excel_file_path: str) -> Dict[str, pd.DataFrame]:
+        """Read all sheets from the Excel file"""
+        try:
+            result = {}
+            xls = pd.ExcelFile(excel_file_path)
+            for sheet_name in xls.sheet_names:
+                df = pd.read_excel(excel_file_path, sheet_name=sheet_name)
+                result[sheet_name] = df
+            return result
+        except Exception as e:
+            logger.error(f"Error processing validation report: {e}")
+            raise FileNotFoundError(f"Error processing validation report: {e}")
+    
+    def _fallback(self) -> Dict[str, Any]:
+        """Fallback: return empty validation results"""
+        logger.warning("Using fallback for DependencyDataLoadingPhase - returning empty results")
+        return {"validation_data": {}}
+
+# ============================================
+# PHASE 3: PROGRESS TRACKING
+# ============================================
+class ProgressTrackingPhase(AtomicPhase):
+    """Phase for running the actual progress tracking logic"""
+    
+    RECOVERABLE_ERRORS = (KeyError, ValueError, pd.errors.MergeError)
+    CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
+    FALLBACK_FAILURE_IS_CRITICAL = True  # Can return partial results
+    
+    def __init__(self, 
+                 loaded_data: Dict[str, Any], 
+                 dependency_data: Dict[str, Any]):
+        super().__init__("ProgressTracking")
+        self.loaded_data = loaded_data
+        self.dependency_data = dependency_data
+    
+    def _execute_impl(self) -> Dict[str, Any]:
+        """Run progress tracking logic"""
+        logger.info("🔄 Running progress tracking...")
+        
+        # Import ProgressTracker (your existing class)
+        from agents.orderProgressTracker.progress_tracker import ProgressTracker
+        
+        # Extract data from loaded_data
+        pro_status_schema = self.loaded_data['pro_status_schema']
+        databaseSchemas_data = self.loaded_data['databaseSchemas_data']
+        dataframes = self.loaded_data['dataframes']
+        validation_data = self.dependency_data.get('validation_data', {})
+        
+        # Initialize and run tracker
+        tracker = ProgressTracker(
+            pro_status_schema,
+            databaseSchemas_data,
+            dataframes['productRecords_df'],
+            dataframes['purchaseOrders_df'],
+            dataframes['moldSpecificationSummary_df'],
+            validation_data
+        )
+        
+        tracker_result = tracker.run_tracking()
+        logger.info("✓ Progress tracking completed")
+        
+        return tracker_result
+    
+    def _fallback(self) -> Dict[str, Any]:
+        """
+        No valid fallback for progress tracking.
+        Raise to ensure CRITICAL severity is applied.
+        """
+        logger.error("ProgressTracking cannot fallback - error processing tracker")
+        
+        raise RuntimeError(
+            "Error processing tracker."
+            "ProgressTracking cannot fallback."
+        )
+
+# ============================================
+# MAIN AGENT: ORDER PROGRESS TRACKER
+# ============================================
 
 class OrderProgressTracker(ConfigReportMixin):
-
     """
-    Class to track order production progress
-
-    Main functions:
-    - Track production status of orders
-    - Calculate completion progress
-    - Analyze production data by shift, machine, mold
-    - Export Excel report
+    Order Progress Tracker Agent
+    
+    Orchestrates the complete order progress tracking workflow using
+    the standardized agent report format.
     """
-
+    
     REQUIRED_FIELDS = {
         'annotation_path': str,
         'databaseSchemas_path': str,
         'validation_change_log_path': str,
         'progress_tracker_dir': str
-        }
-
-    DEFAUTL_SCHEMA_PATH = "agents/orderProgressTracker/pro_status_schema.json"
-
+    }
+    
     def __init__(self, config: SharedSourceConfig):
+        """Initialize the OrderProgressTracker agent"""
         
-        """
-        Initialize the OrderProgressTracker.
-        
-        Args:
-            config: SharedSourceConfig containing processing parameters
-            Including:
-                - annotation_path: Path to the JSON file containing path annotations
-                - databaseSchemas_path: Path to database schemas JSON file for validation
-                - validation_change_log_path: Path to the directory containing the validation change log
-                - progress_tracker_dir: Default directory for saving output files
-        """
-
         # Capture initialization arguments for reporting
         self._capture_init_args()
-
-        # Initialize logger with class name for better tracking
+        
+        # Initialize logger
         self.logger = logger.bind(class_="OrderProgressTracker")
-
+        
         # Validate required configs
         is_valid, errors = config.validate_requirements(self.REQUIRED_FIELDS)
         if not is_valid:
@@ -70,967 +273,225 @@ class OrderProgressTracker(ConfigReportMixin):
                 "\n".join(f"  - {e}" for e in errors)
             )
         self.logger.info("✓ Validation for config requirements: PASSED!")
-
+        
         # Store config
         self.config = config
 
-        # Load database schema for productRecords_df
-        self.pro_status_schema = load_annotation_path(
-            Path(self.DEFAUTL_SCHEMA_PATH).parent,
-            Path(self.DEFAUTL_SCHEMA_PATH).name)
-
-        # Load database schema and database paths annotation
-        self.databaseSchemas_data = load_annotation_path(
-            Path(self.config.databaseSchemas_path).parent,
-            Path(self.config.databaseSchemas_path).name)
+        # NOTE: Data loading is now handled by DataLoadingPhase and DependencyDataLoadingPhase
+        # These will be populated during execution
+        self.loaded_data = {}
+        self.dependency_data = {}
         
-        self.path_annotation = load_annotation_path(
-            Path(self.config.annotation_path).parent,
-            Path(self.config.annotation_path).name)
-
-        # Load all required DataFrames from parquet files
-        self._load_dataframes()
-        
-        # Set up output configuration for saving results
-        self.filename_prefix= "auto_status"
+        # Set up output configuration
+        self.filename_prefix = "auto_status"
         self.output_dir = Path(self.config.progress_tracker_dir)
-
-    def _load_dataframes(self) -> None:
-        
+    
+    def run_tracking(self, **kwargs) -> ExecutionResult:
         """
-        Load all required DataFrames from parquet files with consistent error handling.
+        Main execution method using agent report format
         
-        This method loads the following DataFrames:
-        - productRecords_df: Production records with item, mold, machine data
-        - purchaseOrders_df: Purchase order records
-        - moldSpecificationSummary_df: Mold specifications and compatible items
-        """
-
-        # Define the mapping between path annotation keys and DataFrame attribute names
-        dataframes_to_load = [
-            ('productRecords', 'productRecords_df'),
-            ('purchaseOrders', 'purchaseOrders_df'),
-            ('moldSpecificationSummary', 'moldSpecificationSummary_df')
-        ]
-        
-        # Load each DataFrame with error handling
-        for path_key, attr_name in dataframes_to_load:
-            path = self.path_annotation.get(path_key)
-
-            # Validate path exists
-            if not path or not os.path.exists(path):
-                self.logger.error("Path to '{}' not found or does not exist: {}", path_key, path)
-                raise FileNotFoundError(f"Path to '{path_key}' not found or does not exist: {path}")
-
-            try:
-                # Load DataFrame from parquet file
-                df = pd.read_parquet(path)
-                setattr(self, attr_name, df)
-                self.logger.debug("{}: {} - {}", path_key, df.shape, list(df.columns))
-            except Exception as e:
-                self.logger.error("Failed to load {}: {}", path_key, str(e))
-                raise
-
-    def pro_status(self, **kwargs) -> None:
-
-        """
-        Main function to process and generate production status report
-
-        Process:
-        1. Merge order data with mold information
-        2. Extract and summarize production data
-        3. Process production status
-        4. Add warning information
-        5. Export Excel file
+        Returns:
+            ExecutionResult: Hierarchical execution report
         """
 
         self.logger.info("Starting OrderProgressTracker ...")
 
-        # Generate config header using mixin
-        start_time = datetime.now()
-        timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-        config_header = self._generate_config_report(timestamp_str, 
-                                                     required_only=True)
+        # Create data loading phase
+        data_phase = DataLoadingPhase(self.config)
         
-        # Initialize validation log entries for entire processing run
-        tracking_log_lines = [config_header]
-        tracking_log_lines.append(f"--Processing Summary--\n")
-        tracking_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
+        # Execute data loading first
+        self.logger.info("📂 Step 1: Loading data...")
+        data_result = data_phase.execute()
+        
+        # Check if data loading succeeded
+        if data_result.status != "success":
+            self.logger.error("❌ Data loading failed, cannot proceed with validations")
+            
+            # Return early with failed result
+            return ExecutionResult(
+                name="OrderProgressTracker",
+                type="agent",
+                status="failed",
+                duration=data_result.duration,
+                severity=data_result.severity,
+                sub_results=[data_result],
+                total_sub_executions=1,
+                error="Data loading failed"
+            )
+
+        self.loaded_data = data_result.data.get('result', {})
+        self.logger.info("✓ Data loaded successfully")
+
+        self.logger.info("📂 Step 2: Loading dependency data...")
+        dependency_data_phase = DependencyDataLoadingPhase(self.config)
+        dependency_data_result = dependency_data_phase.execute()
+        self.dependency_data = dependency_data_result.data.get('result', {})
+
+        self.logger.info("✓ Dependency data loaded successfully")
+
+        self.logger.info("🔍 Step 3: Running tracking...")
+        tracking_phase = ProgressTrackingPhase(self.loaded_data, self.dependency_data)
+        tracking_result = tracking_phase.execute()
+
+        # Check if data loading succeeded
+        if tracking_result.status != "success":
+            self.logger.error("❌ Data loading failed, cannot proceed with validations")
+            
+            # Return early with failed result
+            return ExecutionResult(
+                name="OrderProgressTracker",
+                type="agent",
+                status="failed",
+                duration=tracking_result.duration,
+                severity=tracking_result.severity,
+                sub_results=[data_result, dependency_data_result, tracking_result],
+                total_sub_executions=3,
+                error="Error processing OrderProgressTracker"
+            )
+
+        # Combine data loading + validations into final result
+        total_duration = data_result.duration + dependency_data_result.duration + tracking_result.duration
+        
+        final_result = ExecutionResult(
+            name="OrderProgressTracker",
+            type="agent",
+            status=tracking_result.status,
+            duration=total_duration,
+            severity=tracking_result.severity,
+            sub_results=[data_result, dependency_data_result, tracking_result],
+            total_sub_executions= 3,
+            warnings=tracking_result.warnings
+        )
+        
+        # Log completion
+        self.logger.info("✅ OrderProgressTracker completed in {:.2f}s!", final_result.duration)
+        
+        # Print execution tree for visibility
+        print("\n" + "="*60)
+        print("VALIDATION EXECUTION TREE")
+        print("="*60)
+        print_execution_tree(final_result)
+        print("="*60 + "\n")
+        
+        # Print analysis
+        analysis = analyze_execution(final_result)
+        print("EXECUTION ANALYSIS:")
+        print(f"  Status: {analysis['status']}")
+        print(f"  Duration: {analysis['duration']:.2f}s")
+        print(f"  Complete: {analysis['complete']}")
+        print(f"  All Successful: {analysis['all_successful']}")
+        print(f"  Statistics: {analysis['statistics']}")
+        if analysis['failed_paths']:
+            print(f"  Failed Paths: {analysis['failed_paths']}")
+        print("="*60 + "\n")
+        
+        return final_result
+    
+    def _extract_validation_data(self, result: ExecutionResult) -> Dict[str, Any]:
+        """Extract validation data from ExecutionResult hierarchy."""
+        
+        # Skip first sub_results (DataLoading and DependencyDataLoading phase) 
+        tracking_result = [r for r in result.sub_results if r.name not in ["DataLoading", "DependencyDataLoading"]]
+        tracking_data = tracking_result[0].data.get(
+            'result', {}).get(
+                'result', {}) if tracking_result and tracking_result[0].status == "success" else {}
+        
+        return tracking_data
+                
+    def run_tracking_and_save_results(self, **kwargs) -> ExecutionResult:
+        """
+        Execute tracking and save results to Excel files.
+        
+        Returns:
+            ExecutionResult: Hierarchical execution result with saved data
+        """
 
         try:
-            # Step 1: Merge purchase orders with mold specification summary
-            ordersInfo_df = self._merge_purchase_mold_specification()
-
-            # Step 2: Extract and aggregate product record information. 
-            # Including: 
-            # - Aggregated production data by poNote, 
-            # - List of POs currently in production, 
-            # - DataFrame of records without production
-            agg_df, producing_po_list, notWorking_productRecords_df = OrderProgressTracker._extract_product_records(
-                self.productRecords_df, 
-                self.pro_status_schema['shift_start_map'])
-
-            # Step 3: Generate production status report
-            # Process production status information and handle data type conversions.
-            pro_status_df = OrderProgressTracker._pro_status_processing(
-                pd.merge(ordersInfo_df,
-                         agg_df,
-                         on='poNo', 
-                         how='left'),
-                self.pro_status_schema['pro_status_fields'],
-                producing_po_list,
-                self.pro_status_schema['pro_status_dtypes']
-                )
+            # Execute tracking
+            result = self.run_tracking(**kwargs)
             
-            # Mark pending POs as paused if they haven't been updated in the latest shift
-            pro_status_df = OrderProgressTracker._mark_paused_pending_pos(
-                self.productRecords_df,
-                pro_status_df,
-                self.pro_status_schema['shift_start_map']
-                )
+            # Check if tracking succeeded
+            if result.has_critical_errors():
+                self.logger.error("❌ Validations failed with critical errors, skipping save")
+                return result
 
-            # Get the latest machine information for each machine based on working shift timestamp.
-            # Includes machines that were not working (poNote is null) in the most recent shift.
-            lastest_info_df = OrderProgressTracker._get_latest_po_info(
-                self.productRecords_df,
-                self.pro_status_schema['shift_start_map'],
-                keys=['machineNo', 'moldNo']
-                )
-            
-            # Merge latest machine information into production status DataFrame
-            updated_lastest_info_df = pro_status_df.merge(lastest_info_df, 
-                                                          how='left', 
-                                                          on='poNo')
-
-            # Step 4: Get and add warning information from validationOrchestrator's output
-            warning_merge_dict, total_warnings = OrderProgressTracker._get_change(
-                self.config.validation_change_log_path)
-            updated_pro_status_df = OrderProgressTracker._add_warning_notes_column(
-                updated_lastest_info_df, 
-                warning_merge_dict)
-
-            # Step 5: Prepare final output data structure
-            self.data = {
-                        "productionStatus": updated_pro_status_df,
-                        'materialComponentMap': OrderProgressTracker._pro_status_fattening(
-                            updated_pro_status_df,
-                            field_name = 'materialComponentMap'),
-                        'moldShotMap': OrderProgressTracker._pro_status_fattening(
-                            updated_pro_status_df,
-                            field_name = 'moldShotMap'),
-                        'machineQuantityMap': OrderProgressTracker._pro_status_fattening(
-                            updated_pro_status_df,
-                            field_name = 'machineQuantityMap'),
-                        'dayQuantityMap': OrderProgressTracker._pro_status_fattening(
-                            updated_pro_status_df,
-                            field_name = 'dayQuantityMap'),
-                        "notWorkingStatus": notWorking_productRecords_df,
-                        }
-
-            # Add total warnings if available
-            if total_warnings:
-                self.data.update(total_warnings)
-
-            # Generate validation summary
-            reporter = DictBasedReportGenerator(use_colors=False)
-            tracking_summary = "\n".join(reporter.export_report(self.data))
-            tracking_log_lines.append(f"{tracking_summary}")
+            # Extract tracking data
+            tracker_result = self._extract_validation_data(result)
+            tracking_summary = tracker_result['tracking_summary']
 
             # Export Excel file with versioning
             logger.info("Start excel file exporting...")
-            output_exporting_log = save_output_with_versioning(
-                data = self.data,
+            export_log = save_output_with_versioning(
+                data = tracker_result['result'],
                 output_dir = self.output_dir,
                 filename_prefix = self.filename_prefix,
                 report_text = tracking_summary
             )
             self.logger.info("Results exported successfully!")
-            tracking_log_lines.append(f"{output_exporting_log}\n")
-            
-            # Compile tracking log
-            tracking_log_str = "\n".join(tracking_log_lines)
-            
-            # Save tracking log
-            try:
-                log_path = self.output_dir / "change_log.txt"
-                with open(log_path, "a", encoding="utf-8") as log_file:
-                    log_file.write(tracking_log_str)
-                self.logger.info("✓ Updated and saved change log: {}", log_path)
-            except Exception as e:
-                self.logger.error("✗ Failed to save change log {}: {}", log_path, e)
 
-            self.logger.info("✅ Process finished!!!")
+            # Add export info to result metadata
+            result.metadata['export_log'] = export_log
+            result.metadata['tracking_summary'] = tracking_summary
+            
+            # Save change log
+            self._save_change_log(result, tracking_summary, export_log)
+            
+            return result
 
-            return self.data, tracking_log_str
-        
         except Exception as e:
-            self.logger.error("❌ Validation failed: {}", str(e))
+            self.logger.error("❌ Failed to save results: {}", str(e))
             raise
-    
-    #---------------------------------------------------------------#
-    # STEP 1: MERGE PURCHASE ORDERS WITH MOLD SPECIFICATION SUMMARY #
-    #---------------------------------------------------------------#
-    def _merge_purchase_mold_specification(self) -> pd.DataFrame:
-        """Merge purchase orders with mold specification summary."""
-        return pd.merge(
-                self.purchaseOrders_df[['poNo', 'poReceivedDate', 'poETA', 'itemCode',	'itemName', 'itemQuantity']],
-                self.moldSpecificationSummary_df[['itemCode', 'itemType', 'moldList']],
-                on='itemCode',
-                how='left')
-    
-    #---------------------------------------------------------------#
-    # STEP 2: EXTRACT AND AGGREGATE PRODUCT RECORD INFORMATION      #
-    #---------------------------------------------------------------#
-    @staticmethod
-    def _extract_product_records(productRecords_df,
-                                 shift_start_map):
 
-        """
-        Extract and aggregate product record information.
-
-        Args:
-            productRecords_df: DataFrame containing production records
-            shift_start_map: Dictionary mapping shift codes to start times
-
-        Returns:
-            pd.DataFrame: Aggregated production data by poNote
-            List: List of POs currently in production
-            pd.DataFrame: DataFrame of records without production
-        """
-
-        # Input validation
-        if productRecords_df.empty:
-            logger.error("Empty productRecords_df provided")
-            raise ValueError("Empty productRecords_df provided.")
-
-        # Create derived columns
-        productRecords_df = productRecords_df.copy()
-
-        # Combine date and shift into a string identifier
-        productRecords_df['dateShiftCombined'] = (productRecords_df['recordDate'].dt.strftime('%Y-%m-%d') + 
-                                                  '_shift_' + productRecords_df['workingShift']
-                                                  )
-
-        # Create a unique machine history identifier
-        productRecords_df['machineHist'] = productRecords_df['machineNo'] + '_' + productRecords_df['machineCode']
-        logger.debug("Total records => {}: {}", 
-                     productRecords_df.shape, productRecords_df.columns.to_list()
-                     )
-
-        # Split records into those with no production and those with actual production
-        not_working_mask = (productRecords_df['itemTotalQuantity'].isna() | 
-                            (productRecords_df['itemTotalQuantity'] == 0)
-                            )
-
-        # DataFrame for records without production
-        notWorking_productRecords_df = productRecords_df[not_working_mask].copy()
-        notWorking_productRecords_df['recordDate'] = notWorking_productRecords_df['recordDate'].dt.strftime('%Y-%m-%d')
-
-        # DataFrame for records with production
-        haveWorking_productRecords_df = productRecords_df[~not_working_mask].copy()
-
-        logger.debug("Not working => {}: {}", 
-                     notWorking_productRecords_df.shape, notWorking_productRecords_df.columns.to_list()
-                     )
-        logger.debug("Have working => {}: {}", 
-                     haveWorking_productRecords_df.shape, haveWorking_productRecords_df.columns.to_list()
-                     )
-
-        if haveWorking_productRecords_df.empty:
-            logger.error("No working production records found")
-            raise ValueError("No working production records found.")
-
-        # Determine the latest production time based on working shift start times
-        time_to_shift = {datetime.strptime(v, "%H:%M").time(): k for k, v in shift_start_map.items()}
-
-        # Calculate shift start time for each record
-        shift_starts = haveWorking_productRecords_df.apply(
-            lambda row: OrderProgressTracker._get_shift_start(row, shift_start_map), axis=1)
-        latest_shift_start = shift_starts.max()
-
-        if pd.isna(latest_shift_start):
-            logger.error("Could not determine latest shift start")
-            raise ValueError("Could not determine latest shift start.")
-
-        else:
-            # Determine the latest date and shift
-            latest_date = latest_shift_start.date().strftime("%Y-%m-%d")
-            latest_shift = time_to_shift.get(latest_shift_start.time())
-            logger.debug("Latest date: {}, Latest shift: {}", latest_date, latest_shift)
-
-        # Get POs still being produced in the latest shift
-        latest_shift_mask = (
-            (haveWorking_productRecords_df['recordDate'] == latest_date) &
-            (haveWorking_productRecords_df['workingShift'] == str(latest_shift))
-            )
-
-        # Get a list of poNotes that are still being produced in the latest shift
-        producing_po_list = haveWorking_productRecords_df[latest_shift_mask]['poNote'].tolist()
-        logger.debug(f"Producing PO list: {producing_po_list}")
-
-        # Extract material codes
-        resin_code_map = OrderProgressTracker._extract_material_codes(haveWorking_productRecords_df)
-
-        # Aggregate multiple production metrics by poNote
-        agg_df = haveWorking_productRecords_df.groupby('poNote').agg(
-
-            moldedQuantity=('itemGoodQuantity', 'sum'),
-            totalMoldShot=('moldShot', 'sum'),
-            startedDate=('recordDate', 'min'),
-            endDate=('recordDate', 'max'),
-            totalDay=('recordDate', 'nunique'),
-            totalShift=('dateShiftCombined', 'count'),
-            machineHist=('machineHist', lambda x: x.dropna().unique().tolist()),
-            moldHist=('moldNo', lambda x: x.dropna().unique().tolist()),
-            moldCavity=('moldCavity', lambda x: x.dropna().unique().tolist()),
-            plasticResinCode=('plasticResinCode', lambda x: x.dropna().unique().tolist()),
-            colorMasterbatchCode=('colorMasterbatchCode', lambda x: x.dropna().unique().tolist()),
-            additiveMasterbatchCode=('additiveMasterbatchCode', lambda x: x.dropna().unique().tolist()),
-
-            ).reset_index()
-
-        # Create aggregation maps
-        maps = OrderProgressTracker._create_aggregation_maps(haveWorking_productRecords_df)
-
-        # Add mapping columns
-        agg_df['moldShotMap'] = agg_df['poNote'].map(maps['mold_map'])
-        agg_df['machineQuantityMap'] = agg_df['poNote'].map(maps['machine_map'])
-        agg_df['dayQuantityMap'] = agg_df['poNote'].map(maps['date_map'])
-        agg_df['shiftQuantityMap'] = agg_df['poNote'].map(maps['shift_map'])
-        agg_df['materialComponentMap'] = agg_df['poNote'].map(resin_code_map)
-
-        # Rename poNote to poNo for consistency
-        agg_df = agg_df.rename(columns={'poNote': 'poNo'})
-
-        return agg_df, producing_po_list, notWorking_productRecords_df
-    
-    @staticmethod
-    def _get_shift_start(row, 
-                         shift_start_map,
-                         date_field_name='recordDate',
-                         shift_field_name='workingShift'):
-
-        """
-        Calculate the shift start datetime for a given row.
-
-        Args:
-            row: DataFrame row containing date and shift information
-            shift_start_map: Dictionary mapping shift codes to start times (HH:MM format)
-            date_field_name: Name of the date field in the row
-            shift_field_name: Name of the shift field in the row
-
-        Returns:
-            pd.Timestamp: Shift start datetime or pd.NaT if invalid
-        """
-
+    def _save_change_log(
+        self, 
+        result: ExecutionResult,
+        tracking_summary: str,
+        export_log: str
+    ) -> None:
+        """Save change log to file."""
         try:
-            # Convert date to datetime format
-            date = pd.to_datetime(row[date_field_name])
-            shift = str(row[shift_field_name])
-            start_time_str = shift_start_map.get(shift)
-
-            # Check if the shift code is valid
-            if not start_time_str:
-                logger.warning(f"Invalid shift code: {shift}")
-                return pd.NaT
-
-            # Extract hours and minutes from string
-            hour, minute = map(int, start_time_str.split(":"))
-
-            # Create datetime combining shift start date and time
-            start_datetime = datetime.combine(
-                date.date(), 
-                datetime.min.time()) + timedelta(hours=hour, minutes=minute)
-
-            return pd.Timestamp(start_datetime)
+            log_path = self.output_dir / "change_log.txt"
+            
+            # Generate config header using mixin
+            start_time = datetime.now()
+            timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+            config_header = self._generate_config_report(timestamp_str, required_only=True)
+            
+            # Initialize validation log entries for entire processing run
+            log_content = ["="*60]
+            log_content.append(config_header)
+            log_content.append(f"--Processing Summary--\n")
+            log_content.append(f"⤷ {self.__class__.__name__} results:\n")
+            log_content.append("EXECUTION TREE:")
+            
+            # Add execution tree (capture print output)
+            import io
+            import sys
+            old_stdout = sys.stdout
+            sys.stdout = buffer = io.StringIO()
+            print_execution_tree(result)
+            sys.stdout = old_stdout
+            log_content.append(buffer.getvalue())
+            
+            log_content.extend([
+                "",
+                "ANALYSIS:",
+                str(analyze_execution(result)),
+                "",
+                "TRACKING SUMMARY:",
+                tracking_summary,
+                "",
+                "EXPORT LOG:",
+                export_log,
+                "",
+                "="*60,
+                ""
+            ])
+            
+            with open(log_path, "a", encoding="utf-8") as log_file:
+                log_file.write("\n".join(log_content))
+            
+            self.logger.info("✓ Updated and saved change log: {}", log_path)
 
         except Exception as e:
-            logger.error(f"Error calculating shift start for row: {e}")
-            return pd.NaT
-
-    @staticmethod
-    def _extract_material_codes(df):
-        """
-        Extract material component combinations for each poNote.
-
-        Args:
-            df: DataFrame with production records
-
-        Returns:
-            dict: Dictionary mapping poNote to list of material component combinations
-        """
-
-        def extract_material_combinations(group):
-            """
-            Extract list of material component combinations from a group
-            """
-            combinations = []
-
-            for _, row in group.iterrows():
-
-                combination = {
-                    'plasticResinCode': row.get('plasticResinCode') if pd.notna(row.get('plasticResinCode')) else None,
-                    'colorMasterbatchCode': row.get('colorMasterbatchCode') if pd.notna(row.get('colorMasterbatchCode')) else None,
-                    'additiveMasterbatchCode': row.get('additiveMasterbatchCode') if pd.notna(row.get('additiveMasterbatchCode')) else None
-                }
-
-                # Validation
-                if combination['plasticResinCode'] == None:
-                    logger.error("The material combination is required to include at least one component of plasticResinCode")
-                    raise ValueError("The material combination is required to include at least one component of plasticResinCode")
-
-                if combination not in combinations:
-                    combinations.append(combination)
-
-            return combinations
-
-        return (
-            df.groupby('poNote')
-            .apply(extract_material_combinations, include_groups=False)
-            .to_dict()
-        )
-    
-    @staticmethod
-    def _create_aggregation_maps(df):
-
-        """
-        Create aggregation maps for molds, machines, dates, and shifts.
-
-        Args:
-            df: DataFrame with production records
-
-        Returns:
-            dict: Dictionary containing various aggregation maps
-        """
-
-        maps = {}
-
-        # Map summarizes the number of mold shots by mold for each PO
-        maps['mold_map'] = (
-            df.groupby(['poNote', 'moldNo'])['moldShot']
-            .sum()
-            .reset_index()
-            .groupby('poNote')[['moldNo', 'moldShot']]
-            .apply(lambda x: {k: int(v) for k, v in zip(x['moldNo'], x['moldShot'])})
-            .to_dict()
-        )
-
-        # Map good quantity summary by machine for each PO
-        maps['machine_map'] = (
-            df.groupby(['poNote', 'machineHist'])['itemGoodQuantity']
-            .sum()
-            .reset_index()
-            .groupby('poNote')[['machineHist', 'itemGoodQuantity']]
-            .apply(lambda x: {k: int(v) for k, v in zip(x['machineHist'], x['itemGoodQuantity'])})
-            .to_dict()
-        )
-
-        # Map sums up good quantity by day for each PO
-        maps['date_map'] = (
-            df.groupby(['poNote', 'recordDate'])['itemGoodQuantity']
-            .sum()
-            .reset_index()
-            .groupby('poNote')[['recordDate', 'itemGoodQuantity']]
-            .apply(lambda x: {
-                k.strftime('%Y-%m-%d'): int(v)
-                for k, v in zip(x['recordDate'], x['itemGoodQuantity'])
-            })
-            .to_dict()
-        )
-
-        # Map sums up good quantity by shift+day for each PO
-        maps['shift_map'] = (
-            df.groupby(['poNote', 'dateShiftCombined'])['itemGoodQuantity']
-            .sum()
-            .reset_index()
-            .groupby('poNote')[['dateShiftCombined', 'itemGoodQuantity']]
-            .apply(lambda x: {
-                k: int(v)
-                for k, v in zip(x['dateShiftCombined'], x['itemGoodQuantity'])
-            })
-            .to_dict()
-        )
-
-        return maps
-
-    #---------------------------------------------------------------#
-    # STEP 3: GENERATE PRODUCTION STATUS REPORT                     #
-    #---------------------------------------------------------------#
-    @staticmethod
-    def _pro_status_processing(pro_status_df, 
-                               pro_status_fields,
-                               producing_po_list, 
-                               pro_status_dtypes):
-
-        """
-        Process production status information and handle data type conversions.
-
-        Args:
-            pro_status_df: DataFrame with production status data
-            pro_status_fields: List of fields to include in output
-            producing_po_list: List of POs currently in production
-            pro_status_dtypes: Dictionary of data types for columns
-
-        Returns:
-            pd.DataFrame: Processed production status DataFrame
-        """
-
-        # Input validation
-        if pro_status_df.empty:
-            logger.error("Empty pro_status_df provided")
-            raise ValueError("Empty pro_status_df provided.")
-
-        # Work on a copy to avoid modifying original DataFrame
-        pro_status_df = pro_status_df.copy()
-
-        # Calculate remaining items to be produced
-        pro_status_df['itemRemain'] = pro_status_df['itemQuantity'] - pro_status_df['moldedQuantity'].fillna(0)
-
-        # Determine production status
-        pro_status_df['proStatus'] = 'PENDING'  # Default status
-
-        # Mark completed orders
-        molded_mask = pro_status_df['itemRemain'] == 0
-        pro_status_df.loc[molded_mask, 'proStatus'] = 'MOLDED'
-        pro_status_df.loc[molded_mask, 'actualFinishedDate'] = pro_status_df.loc[molded_mask, 'endDate']
-
-        # Check for missing actualFinishedDate in completed orders
-        missing_actual_finish = molded_mask & pro_status_df['actualFinishedDate'].isna()
-        # Log warning if any completed orders are missing actualFinishedDate
-        if missing_actual_finish.any():
-            logger.warning("Some completed orders are missing actualFinishedDate:\n{}",
-                            pro_status_df.loc[missing_actual_finish, ['poNo', 'endDate']])
-
-        # Mark orders currently in production
-        molding_mask = (pro_status_df['poNo'].isin(producing_po_list)) & (pro_status_df['itemRemain'] != 0)
-        pro_status_df.loc[molding_mask, 'proStatus'] = 'MOLDING'
-
-        # Determine status compared to ETA (Expected Time of Arrival)
-        pro_status_df['etaStatus'] = 'PENDING' # Default: PENDING
-
-        # ONTIME: Finish on or before ETA
-        on_time_mask = (
-            pro_status_df['actualFinishedDate'].notnull() &
-            (pro_status_df['itemRemain'] == 0) &
-            (pro_status_df['actualFinishedDate'] <= pro_status_df['poETA'])
-        )
-        pro_status_df.loc[on_time_mask, 'etaStatus'] = 'ONTIME'
-
-        # LATE: Finish later than ETA
-        late_mask = (
-            pro_status_df['actualFinishedDate'].notnull() &
-            (pro_status_df['itemRemain'] == 0) &
-            (pro_status_df['actualFinishedDate'] > pro_status_df['poETA'])
-        )
-        pro_status_df.loc[late_mask, 'etaStatus'] = 'LATE'
-
-        # Apply data types
-        try:
-            pro_status_df = pro_status_df.astype(pro_status_dtypes)
-        except Exception as e:
-            logger.error("Error applying data types: {}", e)
-            raise ValueError(f"Failed to apply data types: {e}")
-
-        # Handle datetime columns and NaT values
-        for col in pro_status_df.select_dtypes(include='datetime'):
-            # Create a mask for NaT values
-            nat_mask = pro_status_df[col].isna()
-            # Convert datetime values into '%Y-%m-%d'
-            formatted_dates = pro_status_df.loc[~nat_mask, col].dt.strftime('%Y-%m-%d')
-            # Convert entire column to object
-            pro_status_df[col] = pro_status_df[col].astype("object")
-            # Replace only the NaT positions (now None) with pd.NA
-            pro_status_df.loc[nat_mask, col] = pd.NA
-            # Replace datetime values with '%Y-%m-%d'
-            pro_status_df.loc[~nat_mask, col] = formatted_dates
-
-        # Fill remaining NaN values
-        pro_status_df.fillna(pd.NA, inplace=True)
-
-        # Debugging: Log NaN, null, and pd.NA counts for object dtype columns
-        for col in pro_status_df.columns:
-            if is_object_dtype(pro_status_df[col]):
-                series = pro_status_df[col]
-                nas = series.isna().sum()
-                nulls = series.isnull().sum()
-                # Use .apply to deal with (pd.NA == pd.NA) return pd.NA
-                pdna = series.apply(lambda x: x is pd.NA).sum()
-                logger.debug(f"{col}: isna = {nas}, isnull = {nulls}, pd.NA (by identity) = {pdna}")
-        # Ensure all expected fields are present in the final DataFrame
-        assert set(pro_status_fields).issubset(pro_status_df.columns), \
-            f"Missing expected fields in final dataframe: {set(pro_status_fields) - set(pro_status_df.columns)}"
-
-        return pro_status_df[pro_status_fields]
-
-    @staticmethod
-    def _mark_paused_pending_pos(df, proStatus_df, shift_start_map):
-        """Mark pending POs as paused if they haven't been updated in the latest shift."""
-        # Filter only production records with item quantity > 0
-        df_work = df[df['itemTotalQuantity'] > 0].copy()
-
-        # Ensure workingShift is a string and map it to shift start time
-        df_work['workingShift'] = df_work['workingShift'].astype(str)
-        df_work['shift_time'] = df_work['workingShift'].map(shift_start_map).fillna("00:00")
-
-        # Create a full datetime column by combining recordDate and shift start time
-        df_work['shiftStartTimestamp'] = pd.to_datetime(
-            df_work['recordDate'].astype(str) + ' ' + df_work['shift_time'],
-            format='%Y-%m-%d %H:%M',
-            errors='coerce'
-        )
-
-        # Extract list of pending POs from proStatus_df where itemRemain > 0 and status is 'PENDING'
-        pending_list = proStatus_df[
-            (proStatus_df['itemRemain'] > 0) &
-            (proStatus_df['proStatus'] == 'PENDING')
-        ]['poNo'].tolist()
-
-        # Filter records of those pending POs
-        df_pending = df_work[df_work['poNote'].isin(pending_list)]
-
-        # Get the most recent production timestamp for each pending PO
-        pending_latest_shift = df_pending.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
-
-        # Get the most recent production timestamp for all POs
-        total_latest_shift = df_work.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
-        latest_shift_start = total_latest_shift['shiftStartTimestamp'].max()
-
-        # Identify pending POs that have not been updated until the most recent production timestamp
-        paused_mask = pending_latest_shift['shiftStartTimestamp'] < latest_shift_start
-        paused_po_list = pending_latest_shift[paused_mask]['poNote'].tolist()
-
-        # Mark those POs as 'PAUSED' in proStatus_df
-        proStatus_df.loc[proStatus_df['poNo'].isin(paused_po_list), 'proStatus'] = 'PAUSED'
-
-        return proStatus_df
-
-    @staticmethod
-    def _get_latest_po_info(df, 
-                            shift_start_map, 
-                            keys=['machineNo', 'moldNo']):
-
-        """
-        Get the latest machine information for each machine based on working shift timestamp.
-        Includes machines that were not working (poNote is null) in the most recent shift.
-
-        Args:
-            df: DataFrame containing product record data
-            shift_start_map: Dictionary mapping working shift codes to start times
-            keys: List of additional columns to include in the output
-
-        Returns:
-            DataFrame with the latest machine information per machine (poNo may be null)
-        """
-
-        df_work = df.copy()
-
-        # Create shift timestamp (vectorized)
-        df_work['workingShift'] = df_work['workingShift'].astype(str)
-        df_work['shift_time'] = df_work['workingShift'].map(shift_start_map).fillna("00:00")
-
-        # Combine date and time into timestamp
-        df_work['shiftStartTimestamp'] = pd.to_datetime(
-            df_work['recordDate'].astype(str) + ' ' + df_work['shift_time'],
-            format='%Y-%m-%d %H:%M',
-            errors='coerce'
-        )
-
-        # Get the most recent record for each machine (including idle machines)
-        latest_indices = df_work.groupby('poNote')['shiftStartTimestamp'].max().reset_index()
-        latest_per_po = df_work.merge(latest_indices, on=['poNote', 'shiftStartTimestamp'], how='inner')
-
-        # Select and rename columns
-        result_columns = ['poNote', 'shiftStartTimestamp'] + keys
-        result = latest_per_po[result_columns].copy()
-
-        # Rename columns (avoid duplicate column names)
-        new_column_names = ['poNo', 'lastestRecordTime', 'lastestMachineNo', 'lastestMoldNo']
-        result.columns = new_column_names
-
-        return result[result['poNo'].notna()].reset_index(drop=True)
-
-    #---------------------------------------------------------------#
-    # STEP 4: GET AND ADD WARNING INFORMATION FROM VALIDATION LOG   #
-    #---------------------------------------------------------------#  
-    @staticmethod
-    def _get_change(change_log_path: str):
-
-        """
-        Process the log file and summarize mismatch warnings if available.
-
-        Returns:
-            - warning_merge_dict: dict of grouped mismatch warnings by PO
-            - total_warnings: all sheets collected from the Excel file
-        """
-
-        try:
-            excel_file = read_change_log(
-                Path(change_log_path).parent, 
-                Path(change_log_path).name)
-
-            if excel_file is None:
-                logger.info("No change log file found, returning empty warnings")
-                return {}, {}
-
-            total_warnings = OrderProgressTracker._data_collecting(excel_file)
-
-            if not total_warnings:
-                logger.info("No warnings found in change log")
-                return {}, {}
-
-            if 'po_mismatch_warnings' in total_warnings:
-                po_mismatch_df = total_warnings['po_mismatch_warnings']
-
-                # Validate the DataFrame before processing
-                if po_mismatch_df.empty:
-                    logger.warning("po_mismatch_warnings DataFrame is empty")
-                    return {}, total_warnings
-
-                # Check required columns exist
-                required_columns = ['poNo', 'mismatchType']
-                missing_cols = set(required_columns) - set(po_mismatch_df.columns)
-                if missing_cols:
-                    logger.error("Missing required columns in po_mismatch_warnings: {}", missing_cols)
-                    return {}, total_warnings
-
-                # Aggregate mismatch counts by PO
-                warning_merge_dict = OrderProgressTracker._aggregate_po_mismatches(po_mismatch_df)
-                return warning_merge_dict, total_warnings
-            else:
-                logger.info("No po_mismatch_warnings found in change log")
-                return {}, total_warnings
-
-        except Exception as e:
-            logger.error("Error processing change log: {}", str(e))
-            return {}, {}
-        
-    def _data_collecting(excel_file):
-
-        """
-        Read all sheets from the Excel file and store them in a dictionary using sheet names as keys.
-        """
-
-        result = {}
-        xls = pd.ExcelFile(excel_file)
-
-        for f_name in xls.sheet_names:
-            df = pd.read_excel(excel_file, sheet_name=f_name)
-            result[f_name] = df
-
-        return result
-
-    @staticmethod
-    def _aggregate_po_mismatches(df):
-
-        """
-        Group mismatch warnings by PO and mismatch type, then count the occurrences of each type.
-        Also logs the mismatch ratio for each type within each PO.
-        """
-
-        grouped = df.groupby(['poNo', 'mismatchType']).size().reset_index(name='count')
-
-        result = {}
-        for _, row in grouped.iterrows():
-            po_no = row['poNo']
-            mismatch_type = row['mismatchType']
-            count = row['count']
-
-            if po_no not in result:
-                result[po_no] = {}
-            result[po_no][mismatch_type] = count
-
-        # Log mismatch ratio for each PO
-        for po_no, mismatches in result.items():
-            total_issues = sum(mismatches.values())
-            for mismatch_type, count in mismatches.items():
-                logger.info("{} - Mismatch: {} - Ratio: {}/{}", po_no, mismatch_type, count, total_issues)
-
-        return result
-
-    @staticmethod
-    def _add_warning_notes_column(df, warning_dict):
-
-        """
-        Add a 'warningNotes' column to the DataFrame based on the warning dictionary.
-        Each row will contain a semicolon-separated list of mismatch types for its PO.
-        """
-
-        df = df.copy()
-
-        if warning_dict:
-            def get_warning_notes(po):
-                if po in warning_dict:
-                    return "; ".join(warning_dict[po].keys())
-                else:
-                    return ""
-
-            df["warningNotes"] = df["poNo"].apply(get_warning_notes)
-
-        else:
-            df["warningNotes"] = ""
-
-        return df
-
-    #---------------------------------------------------------------#
-    # STEP 5: PREPARE FINAL OUTPUT DATA STRUCTURE                   #
-    #---------------------------------------------------------------#   
-    @staticmethod
-    def _pro_status_fattening(df: pd.DataFrame,
-                              field_name: str = 'moldShotMap') -> pd.DataFrame:
-
-        """
-        Optimize and flatten data from mapping fields in a DataFrame.
-
-        Args:
-            df: Input DataFrame
-            field_name: The name of the field to process
-
-        Returns:
-            Flattened DataFrame
-
-        Raises:
-            ValueError: If the field_name is not supported
-        """
-
-        # Constants - defined once
-        SUPPORTED_FIELDS = frozenset(['moldShotMap', 'machineQuantityMap', 'dayQuantityMap', 'materialComponentMap'])
-        COLUMNS_TO_KEEP = ['poReceivedDate', 'poNo', 'itemCode', 'itemName', 'poETA',
-                          'itemQuantity', 'itemRemain', 'startedDate', 'actualFinishedDate']
-        NAME_MAPPING = {
-            'mold': 'moldNo',
-            'shot': 'shotCount',
-            'machine': 'machineCode',
-            'quantity': 'moldedQuantity',
-            'day': 'workingDay'
-        }
-
-        # Validation
-        if field_name not in SUPPORTED_FIELDS:
-            raise ValueError(f"Field '{field_name}' not supported. Must be one of: {SUPPORTED_FIELDS}")
-
-        # Filter data once
-        filtered_df = df.dropna(subset=['startedDate']).copy()
-
-        if filtered_df.empty:
-            return pd.DataFrame()
-
-        # Split the field name once
-        field_parts = OrderProgressTracker._split_field_name(field_name)
-        if len(field_parts) != 2:
-            raise ValueError(f"Invalid field name format: {field_name}")
-
-        first_element, second_element = field_parts
-
-        # Special case: materialComponentMap
-        if field_name == 'materialComponentMap':
-            return OrderProgressTracker._process_material_components(filtered_df, COLUMNS_TO_KEEP)
-
-        # Process other map fields
-        return OrderProgressTracker._process_map_fields(filtered_df, field_name, first_element, second_element,
-                                                        NAME_MAPPING, COLUMNS_TO_KEEP)
-
-    @staticmethod
-    def _split_field_name(field_name: str) -> List[str]:
-
-        """Split field name into parts."""
-
-        clean_name = field_name.replace("Map", "")
-        match = re.match(r'^([a-z]+)([A-Z].*)$', clean_name)
-
-        if match:
-            return [match.group(1), match.group(2).lower()]
-        return [clean_name]
-
-    @staticmethod
-    def _safe_literal_eval(data: Any) -> Any:
-
-        """Safely parse a string into a Python object."""
-
-        if not isinstance(data, str):
-            return data
-
-        try:
-            return ast.literal_eval(data)
-        except (ValueError, SyntaxError):
-            return None
-        
-    @staticmethod
-    def _process_material_components(filtered_df: pd.DataFrame,
-                                     columns_to_keep: List[str]) -> pd.DataFrame:
-
-        """Process materialComponentMap field."""
-
-        def extract_material_info(material_data: Any) -> Dict[str, Any]:
-            """Extract material information from data."""
-            default_result = {
-                'plasticResinCode': None,
-                'colorMasterbatchCode': None,
-                'additiveMasterbatchCode': None,
-                'numOfMaterialComponent': 0
-            }
-
-            # Parse string if needed
-            parsed_data = OrderProgressTracker._safe_literal_eval(material_data)
-
-            # Validate as non-empty list
-            if not isinstance(parsed_data, list) or not parsed_data:
-                return default_result
-
-            # Get the first item
-            first_item = parsed_data[0] if isinstance(parsed_data[0], dict) else {}
-
-            return {
-                'plasticResinCode': first_item.get('plasticResinCode'),
-                'colorMasterbatchCode': first_item.get('colorMasterbatchCode'),
-                'additiveMasterbatchCode': first_item.get('additiveMasterbatchCode'),
-                'numOfMaterialComponent': len(parsed_data)
-            }
-
-        # Vectorized operation - faster than apply
-        material_info = filtered_df['materialComponentMap'].apply(extract_material_info)
-        components_df = pd.DataFrame(material_info.tolist())
-
-        # Optimize data types
-        components_df['numOfMaterialComponent'] = components_df['numOfMaterialComponent'].astype('Int64')
-
-        # Concatenate once
-        result = pd.concat([filtered_df[columns_to_keep].reset_index(drop=True),
-                            components_df.reset_index(drop=True)], axis=1)
-
-        return result
-
-    @staticmethod
-    def _process_map_fields(filtered_df: pd.DataFrame, field_name: str, first_element: str,
-                          second_element: str, name_mapping: Dict[str, str],
-                          columns_to_keep: List[str]) -> pd.DataFrame:
-
-        """Process map fields (moldShotMap, machineQuantityMap, etc.)."""
-
-        # Pre-compute column names
-        first_col = name_mapping[first_element]
-        second_col = name_mapping[second_element]
-        count_col = f'numOf{first_element.capitalize()}'
-
-        rows = []
-
-        for _, row in filtered_df.iterrows():
-            info_data = OrderProgressTracker._safe_literal_eval(row[field_name])
-
-            # Skip if not a dict or is empty
-            if not isinstance(info_data, dict) or not info_data:
-                continue
-
-            num_of_info = len(info_data)
-            base_row = {col: row[col] for col in columns_to_keep}  # Create base row once
-
-            # Create rows for each item in the dict
-            for first_info, second_info in info_data.items():
-                new_row = base_row.copy()
-                new_row.update({
-                    first_col: first_info,
-                    second_col: second_info,
-                    count_col: num_of_info
-                })
-                rows.append(new_row)
-
-        return pd.DataFrame(rows) if rows else pd.DataFrame()
+            self.logger.error("✗ Failed to save change log: {}", e)

@@ -757,7 +757,7 @@ class DynamicCrossDataValidator(ConfigReportMixin):
         return invalid_results
 
     @staticmethod
-    def _convert_results(results):
+    def _convert_results(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
       
         """
         Convert validation results into properly structured DataFrames.

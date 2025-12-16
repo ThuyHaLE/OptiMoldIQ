@@ -38,6 +38,7 @@ class DataLoadingPhase(AtomicPhase):
     
     RECOVERABLE_ERRORS = (FileNotFoundError, pd.errors.EmptyDataError, KeyError)
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
+    FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Data loading is critical!
     
     def __init__(self, config: SharedSourceConfig):
         super().__init__("DataLoading")
@@ -120,14 +121,15 @@ class DataLoadingPhase(AtomicPhase):
         }
     
     def _fallback(self) -> Dict[str, Any]:
-        """Fallback: No valid fallback for data loading - this should fail"""
+        """
+        No valid fallback for data loading.
+        Raise to ensure CRITICAL severity is applied.
+        """
         logger.error("DataLoading cannot fallback - missing data files")
         
-        # Raise to ensure phase returns failed status
-        # DataLoading failure should stop the pipeline
         raise FileNotFoundError(
             "Cannot proceed without required data files. "
-            "Please check paths in annotation file."
+            "Please check paths in configuration."
         )
 
 # ============================================
@@ -177,9 +179,12 @@ class StaticValidationPhase(AtomicPhase):
         return result
     
     def _fallback(self) -> Dict[str, Any]:
-        """Fallback: Validation failed - this should fail"""
-        logger.error("DataLoading cannot fallback - Validation failed")
-        raise ("Validation failed.")
+        """Fallback: return empty validation results"""
+        logger.warning("Using fallback for StaticCrossDataChecker - returning empty results")
+        return {
+            "result": pd.DataFrame(),
+            "log_str": "Fallback: static cross validation skipped due to error\n"
+            }
     
 class POValidationPhase(AtomicPhase):
     """Phase for purchase order required field validation"""
@@ -208,9 +213,13 @@ class POValidationPhase(AtomicPhase):
         return result
     
     def _fallback(self) -> Dict[str, Any]:
-        """Fallback: Validation failed - this should fail"""
-        logger.error("DataLoading cannot fallback - Validation failed")
-        raise ("Validation failed.")
+        """Fallback: return empty validation results"""
+        logger.warning("Using fallback for PORequiredFieldValidation - returning empty results")
+        return {
+            "result": pd.DataFrame(),
+            "log_str": "Fallback: PO validation skipped due to error\n"
+            }
+    
 
 class DynamicValidationPhase(AtomicPhase):
     """Phase for dynamic cross-data validation"""
@@ -253,9 +262,15 @@ class DynamicValidationPhase(AtomicPhase):
         return result
     
     def _fallback(self) -> Dict[str, Any]:
-        """Fallback: Validation failed - this should fail"""
-        logger.error("DataLoading cannot fallback - Validation failed")
-        raise ("Validation failed.")
+        """Fallback: return empty validation results"""
+        logger.warning("Using fallback for DynamicCrossDataValidation - returning empty results")
+        return {
+            "result": {
+                'mismatch_warnings': {},
+                'invalid_warnings': {}
+                }, 
+            "log_str": "Fallback: Dynamic cross validation skipped due to error\n"
+            }
     
 # ============================================
 # MAIN VALIDATION ORCHESTRATOR
@@ -494,7 +509,7 @@ class ValidationOrchestrator(ConfigReportMixin):
                 type="agent",
                 status="failed",
                 duration=data_result.duration,
-                severity=PhaseSeverity.CRITICAL.value,
+                severity=data_result.severity,
                 sub_results=[data_result],
                 total_sub_executions=1,
                 error="Data loading failed"
@@ -575,11 +590,17 @@ class ValidationOrchestrator(ConfigReportMixin):
                              if r.name == "DynamicCrossDataValidation"), None)
         
         # Extract data from successful results
-        static_data = static_result.data.get('result', {}).get('result', {}) if static_result and static_result.status == "success" else {'purchaseOrders': pd.DataFrame(), 'productRecords': pd.DataFrame()}
+        static_data = static_result.data.get(
+            'result', {}).get(
+                'result', {}) if static_result and static_result.status == "success" else {}
         
-        po_data = po_result.data.get('result', {}).get('result', pd.DataFrame()) if po_result and po_result.status == "success" else pd.DataFrame()
+        po_data = po_result.data.get(
+            'result', {}).get(
+                'result', pd.DataFrame()) if po_result and po_result.status == "success" else pd.DataFrame()
         
-        dynamic_data = dynamic_result.data.get('result', {}).get('result', {}) if dynamic_result and dynamic_result.status == "success" else {'invalid_warnings': pd.DataFrame(), 'mismatch_warnings': pd.DataFrame()}
+        dynamic_data = dynamic_result.data.get(
+            'result', {}).get(
+                'result', {}) if dynamic_result and dynamic_result.status == "success" else {}
         
         # Combine results
         return self._combine_validation_results(static_data, po_data, dynamic_data)
@@ -637,6 +658,13 @@ class ValidationOrchestrator(ConfigReportMixin):
             
             # Extract validation data
             validation_data = self._extract_validation_data(result)
+
+            if (
+                validation_data['combined_all']['po_mismatch_warnings'].empty
+                and validation_data['combined_all']['item_invalid_warnings'].empty
+                ):
+                self.logger.warning("No mismatches were found during validation, skipping save")
+                return result
             
             # Generate validation summary
             reporter = DictBasedReportGenerator(use_colors=False)
@@ -644,7 +672,7 @@ class ValidationOrchestrator(ConfigReportMixin):
             
             # Export results to Excel
             self.logger.info("📤 Exporting results to Excel...")
-            output_log = save_output_with_versioning(
+            export_log = save_output_with_versioning(
                 data=validation_data['combined_all'],
                 output_dir=self.output_dir,
                 filename_prefix=self.filename_prefix,
@@ -653,11 +681,11 @@ class ValidationOrchestrator(ConfigReportMixin):
             self.logger.info("✅ Results exported successfully!")
             
             # Add export info to result metadata
-            result.metadata['export_log'] = output_log
+            result.metadata['export_log'] = export_log
             result.metadata['validation_summary'] = validation_summary
             
             # Save change log
-            self._save_change_log(result, validation_summary, output_log)
+            self._save_change_log(result, validation_summary, export_log)
             
             return result
             

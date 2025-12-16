@@ -161,14 +161,19 @@ class ExecutionResult:
 # ============================================
 class AtomicPhase(Executable):
     """
-    Simple phase - no sub-phases
-    Atomic unit of work
+    Base class for atomic execution phases.
+    
+    Attributes:
+        RECOVERABLE_ERRORS: Tuple of exceptions that can be recovered via fallback
+        CRITICAL_ERRORS: Tuple of exceptions that are always critical
+        FALLBACK_FAILURE_IS_CRITICAL: If True, fallback failure returns CRITICAL severity
     """
     
     # Define in subclass
     RECOVERABLE_ERRORS: tuple = ()
     CRITICAL_ERRORS: tuple = ()
-    
+    FALLBACK_FAILURE_IS_CRITICAL = False  # Default: ERROR for most phases
+
     def __init__(self, name: str):
         self.name = name
     
@@ -177,19 +182,45 @@ class AtomicPhase(Executable):
     
     @abstractmethod
     def _execute_impl(self) -> Any:
-        """Implement actual logic here - can raise freely"""
-        pass
+        """
+        Implementation of phase logic.
+        Should be overridden by subclasses.
+        
+        Raises:
+            Exception: Any error that occurs during execution
+        """
+        raise NotImplementedError("Subclasses must implement _execute_impl()")
     
     @abstractmethod
     def _fallback(self) -> Any:
-        """Fallback logic if main execution fails - can raise if no fallback"""
-        pass
+        """
+        Fallback implementation when _execute_impl fails with RECOVERABLE_ERRORS.
+        Should be overridden by subclasses if fallback is possible.
+        
+        Default behavior: raise error (no fallback available)
+        
+        Raises:
+            Exception: If fallback is not possible or fails
+        """
+        raise NotImplementedError(
+            f"Phase {self.name} has no fallback implementation. "
+            "Override _fallback() if recovery is possible."
+        )
     
     def execute(self) -> ExecutionResult:
-        """Execute phase - never raises"""
+        """
+        Execute phase with comprehensive error handling.
+        
+        Never raises exceptions - always returns ExecutionResult.
+        
+        Returns:
+            ExecutionResult: Result with status, duration, and any errors
+        """
+
         start_time = datetime.now()
         
         try:
+            # Attempt normal execution
             result = self._execute_impl()
             
             return ExecutionResult(
@@ -201,7 +232,7 @@ class AtomicPhase(Executable):
             )
             
         except self.RECOVERABLE_ERRORS as e:
-            # Try fallback
+            # Try fallback for recoverable errors
             logger.warning(f"Phase {self.name} attempting fallback: {str(e)}")
             
             try:
@@ -219,17 +250,30 @@ class AtomicPhase(Executable):
                     }]
                 )
             except Exception as fallback_error:
+                # ⭐ KEY FEATURE: Use FALLBACK_FAILURE_IS_CRITICAL to determine severity
+                severity = (
+                    PhaseSeverity.CRITICAL.value 
+                    if self.FALLBACK_FAILURE_IS_CRITICAL
+                    else PhaseSeverity.ERROR.value
+                )
+                
+                logger.error(
+                    f"Phase {self.name} fallback failed with severity={severity}: "
+                    f"{str(fallback_error)}"
+                )
+                
                 return ExecutionResult(
                     name=self.name,
                     type="phase",
                     status="failed",
                     duration=(datetime.now() - start_time).total_seconds(),
-                    severity=PhaseSeverity.ERROR.value,
+                    severity=severity,
                     error=f"Fallback failed: {str(fallback_error)}",
                     traceback=traceback.format_exc()
                 )
         
         except self.CRITICAL_ERRORS as e:
+            # Critical errors always return CRITICAL severity
             logger.critical(f"Phase {self.name} critical failure: {str(e)}")
             
             return ExecutionResult(
@@ -243,6 +287,7 @@ class AtomicPhase(Executable):
             )
         
         except Exception as e:
+            # Unexpected errors return ERROR severity
             logger.error(f"Phase {self.name} unexpected error: {str(e)}")
             
             return ExecutionResult(

@@ -210,7 +210,8 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         return rm_null_productRecords_df
     
     @staticmethod
-    def _process_warnings(merged_df, comparison_cols) -> List:
+    def _process_warnings(merged_df: pd.DataFrame, 
+                          comparison_cols: List) -> List:
 
         """
         Process field mismatch warnings for valid PO numbers.
@@ -273,7 +274,7 @@ class PORequiredCriticalValidator(ConfigReportMixin):
         return results
 
     @staticmethod
-    def _process_invalid_po_warnings(invalid_productRecords) -> List:
+    def _process_invalid_po_warnings(invalid_productRecords: pd.DataFrame) -> List:
 
         """
         Process warnings for invalid PO numbers.

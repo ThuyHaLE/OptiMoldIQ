@@ -158,7 +158,7 @@ class StaticCrossDataChecker(ConfigReportMixin):
     #-------------------------------------------------#
     # SELECT AND PREPROCESS THE APPROPRIATE DATAFRAME #
     #-------------------------------------------------#
-    def _process_checking_data(self, checking_df_name):
+    def _process_checking_data(self, checking_df_name: str) -> pd.DataFrame:
         
         """
         Process and prepare checking data based on the dataframe type.
@@ -193,7 +193,9 @@ class StaticCrossDataChecker(ConfigReportMixin):
     #-------------------------------------------------#
     # 1. ITEM INFO MATCHING                           #
     #-------------------------------------------------#
-    def _check_item_info_matches(self, df_name, checking_df):
+    def _check_item_info_matches(self, 
+                                 df_name: str, 
+                                 checking_df: pd.DataFrame) -> List:
         
         """
         Check for itemCode + itemName matches in itemInfo reference table.
@@ -240,7 +242,8 @@ class StaticCrossDataChecker(ConfigReportMixin):
         return self._process_item_warnings(mismatches, df_name)
     
     @staticmethod
-    def _process_item_warnings(mismatches_df, df_name):
+    def _process_item_warnings(mismatches_df: pd.DataFrame, 
+                               df_name: str) -> List:
         
         """
         Process item info warnings following PORequiredCriticalValidator pattern.
@@ -300,7 +303,9 @@ class StaticCrossDataChecker(ConfigReportMixin):
     #-------------------------------------------------#
     # 2. RESIN INFO MATCHING                          #
     #-------------------------------------------------#
-    def _check_resin_info_matches(self, df_name, checking_df):
+    def _check_resin_info_matches(self, 
+                                  df_name: str, 
+                                  checking_df: pd.DataFrame) -> List:
         
         """
         Check for resinCode + resinName matches in resinInfo reference table.
@@ -369,7 +374,8 @@ class StaticCrossDataChecker(ConfigReportMixin):
         return all_resin_warnings
 
     @staticmethod
-    def _process_resin_warnings(mismatches_df, df_name):
+    def _process_resin_warnings(mismatches_df: pd.DataFrame, 
+                                df_name: str) -> List:
         
         """
         Process resin info warnings following PORequiredCriticalValidator pattern.
@@ -429,7 +435,9 @@ class StaticCrossDataChecker(ConfigReportMixin):
     #-------------------------------------------------#
     # 3. COMPOSITION MATCHING                         #
     #-------------------------------------------------#
-    def _check_composition_matches(self, df_name, checking_df):
+    def _check_composition_matches(self, 
+                                   df_name: str, 
+                                   checking_df: pd.DataFrame) -> List:
         
         """
         Check for complete item composition matches in itemCompositionSummary reference table.
@@ -483,7 +491,9 @@ class StaticCrossDataChecker(ConfigReportMixin):
         return self._process_composition_warnings(mismatches, df_name, composition_cols)
     
     @staticmethod
-    def _process_composition_warnings(mismatches_df, df_name, composition_fields):
+    def _process_composition_warnings(mismatches_df: pd.DataFrame, 
+                                      df_name: str, 
+                                      composition_fields: List) -> List:
         
         """
         Process composition warnings following PORequiredCriticalValidator pattern.
