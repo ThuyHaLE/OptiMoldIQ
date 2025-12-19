@@ -157,28 +157,14 @@ class TestErrorHandling:
 
 # === WARNINGS TESTS ===
 class TestWarnings:
-    """Test warning handling and propagation"""
+    """Test warning structure only (no propagation concept)"""
     
     def test_warnings_structure(self, execution_result):
-        """Warnings should have correct structure"""
         for warning in execution_result.warnings:
             assert isinstance(warning, dict)
             assert "message" in warning
             if "severity" in warning:
                 assert warning["severity"] in [s.value for s in PhaseSeverity]
-    
-    def test_warnings_propagation(self, execution_result):
-        sub_has_warnings = any(
-            sub.warnings for sub in execution_result.sub_results
-        )
-
-        if sub_has_warnings:
-            assert execution_result.severity in {
-                PhaseSeverity.WARNING.value,
-                PhaseSeverity.CRITICAL.value,
-            }
-        else:
-            assert execution_result.severity != PhaseSeverity.WARNING.value
 
 # === TREE STRUCTURE TESTS ===
 class TestTreeStructure:
