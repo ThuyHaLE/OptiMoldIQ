@@ -8,11 +8,11 @@ from loguru import logger
 from datetime import datetime
 
 from agents.autoPlanner.tools.performance import summarize_mold_machine_history
+from agents.autoPlanner.tools.mold_machine_feature_weight import suggest_weights_standard_based
 from agents.autoPlanner.tools.bootstrap import (
     calculate_feature_confidence_scores, calculate_overall_confidence, generate_confidence_report)
-from agents.autoPlanner.tools.mold_machine_feature_weight import suggest_weights_standard_based
 
-from agents.decorators import validate_init_dataframes
+from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.utils import log_dict_as_table
 
 from configs.shared.config_report_format import ConfigReportMixin
@@ -311,9 +311,9 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
             
             # Validate the resulting DataFrames
             self._validate_shared_database(df_name="mold_machine_history_summary", 
-                                        df=good_sample)
+                                           df=good_sample)
             self._validate_shared_database(df_name="mold_machine_history_summary",
-                                        df=bad_sample)
+                                           df=bad_sample)
 
             self.logger.info("Grouping completed successfully!")
             return good_sample, bad_sample
@@ -321,7 +321,17 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
         except Exception as e:  
             self.logger.error("Failed to group historical data: {}", str(e))
             raise
-
+    
+    def _validate_shared_database(self, df_name, df) -> None:
+        """Validate shared database DataFrame against expected schema."""
+        try:
+            cols = list(self.sharedDatabaseSchemas_data[df_name]['dtypes'].keys())
+            validate_dataframe(df, cols)
+            self.logger.info("✓ Validation for {} requirements: PASSED!", df_name)
+        except Exception as e:
+            logger.error("Validation failed for {} (expected cols: %s): %s", df_name, cols, e)
+            raise
+        
     #---------------------------------#
     # PHASE 2: CALCULATE CONFIDENCE   #
     #---------------------------------# 

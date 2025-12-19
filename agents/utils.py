@@ -137,6 +137,67 @@ def write_text_report(report_path: str | Path,
         logger.error("✗ Failed to save report as {}: {}", report_path, e)
         raise OSError(f"Failed to save report as {report_path}: {e}")
 
+#------------------------------------------#
+# update_weight_and_save_confidence_report #
+#------------------------------------------#
+
+def update_weight_and_save_confidence_report(
+            report_text: str,
+            output_dir: str | Path,
+            filename_prefix: str,
+            enhanced_weights: Dict[str, float]) -> str:  
+
+        output_dir = Path(output_dir)
+        
+        timestamp_now = datetime.now()
+        timestamp_str = timestamp_now.strftime("%Y-%m-%d %H:%M:%S")
+        timestamp_file = timestamp_now.strftime("%Y%m%d_%H%M")
+
+        log_entries = [f"[{timestamp_str}] Saving new version...\n"]
+
+        newest_dir = output_dir / "newest"
+        newest_dir.mkdir(parents=True, exist_ok=True)
+        historical_dir = output_dir / "historical_db"
+        historical_dir.mkdir(parents=True, exist_ok=True)
+
+        # Move all files from newest/ to historical_db/
+        archive_logs = archive_old_files(newest_dir, historical_dir)
+        log_entries.append(archive_logs)
+        
+        # Write new confidence report
+        report_path = newest_dir / f"{timestamp_file}_{filename_prefix}_report.txt"
+        write_report_log = write_text_report(report_path, report_text)
+        log_entries.append(write_report_log)
+
+        # Update historical weights log with new enhanced weights
+        weights_path = output_dir / "weights_hist.xlsx"
+        if enhanced_weights:
+            try:
+                weights_row = {
+                    "shiftNGRate": enhanced_weights.get("shiftNGRate", None),
+                    "shiftCavityRate": enhanced_weights.get("shiftCavityRate", None),
+                    "shiftCycleTimeRate": enhanced_weights.get("shiftCycleTimeRate", None),
+                    "shiftCapacityRate": enhanced_weights.get("shiftCapacityRate", None),
+                    "change_timestamp": timestamp_str
+                }
+                weights_df = pd.DataFrame([weights_row])
+
+                if weights_path.exists():
+                    old_df = pd.read_excel(weights_path)
+                    full_df = pd.concat([old_df, weights_df], ignore_index=True)
+                else:
+                    full_df = weights_df
+
+                full_df.to_excel(weights_path, index=False)
+                log_entries.append(f"  ⤷ Saved new weight change: {weights_path}")
+                logger.info("  ⤷ Saved new weight change: {}", weights_path)
+
+            except Exception as e:
+                logger.error("Failed to write weights_hist.xlsx: {}", e)
+                raise OSError(f"Failed to write weights_hist.xlsx: {e}")
+        
+        return "\n".join(log_entries)
+
 #-------------------#
 # append_change_log #
 #-------------------#
