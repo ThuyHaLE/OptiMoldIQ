@@ -37,9 +37,9 @@ class TestExecutionResultStructure:
         assert hasattr(execution_result, 'severity')
         assert hasattr(execution_result, 'duration')
     
-    def test_basic_attribute_values(self, execution_result, validation_orchestrator):
+    def test_basic_attribute_values(self, execution_result, order_progress_tracker):
         """Should have correct basic attribute values"""
-        assert execution_result.name == validation_orchestrator.__class__.__name__
+        assert execution_result.name == order_progress_tracker.__class__.__name__
         assert execution_result.type == "agent"
         assert execution_result.status in [s.value for s in ExecutionStatus]
         assert execution_result.severity in [s.value for s in PhaseSeverity]
