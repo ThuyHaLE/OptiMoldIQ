@@ -4,7 +4,7 @@ import pandas as pd
 from typing import Dict, Tuple, Any, List
 from datetime import datetime
 from configs.shared.config_report_format import ConfigReportMixin
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {

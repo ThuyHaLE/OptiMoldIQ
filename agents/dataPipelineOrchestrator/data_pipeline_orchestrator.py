@@ -11,7 +11,7 @@ from configs.shared.shared_source_config import SharedSourceConfig
 from agents.dataPipelineOrchestrator.data_collector import DataCollector
 from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
 from agents.dataPipelineOrchestrator.data_pipeline_orchestrator_healing_rules import ManualReviewNotifier
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 
 class MockNotificationHandler:
     

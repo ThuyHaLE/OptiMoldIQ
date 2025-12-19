@@ -1,5 +1,6 @@
 import inspect
 from dataclasses import fields, is_dataclass
+import pandas as pd
 
 class ConfigReportMixin:
     """
@@ -73,6 +74,21 @@ class ConfigReportMixin:
             lines.append(f"{indent}[Uninstantiated Config Class: {value.__name__}]")
             lines.append(f"{indent}⚠ Note: Pass an instance instead of class")
         
+        # Handle DataFrame
+        elif isinstance(value, pd.DataFrame):
+            preview_rows = 3
+            max_cols = 6
+            cols = list(value.columns[:max_cols])
+            suffix = "..." if len(value.columns) > max_cols else ""
+
+            lines.append(f"{indent}⤷ DataFrame:")
+            lines.append(f"{indent}  shape: {value.shape}")
+            lines.append(f"{indent}  columns ({len(value.columns)}): {cols}{suffix}")
+            lines.append(f"{indent}  preview (top {preview_rows} rows):")
+
+            preview = value.head(preview_rows).to_string(index=False)
+            lines.extend(f"{indent}    {line}" for line in preview.splitlines())
+    
         # Handle regular values
         else:
             lines.append(f"{indent}{value}")

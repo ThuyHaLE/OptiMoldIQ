@@ -18,7 +18,8 @@ from configs.shared.agent_report_format import (
     PhaseSeverity,
     ExecutionStatus,
     print_execution_tree,
-    analyze_execution)
+    analyze_execution,
+    update_change_log)
 
 # ============================================
 # DATA LOADING PHASE
@@ -201,7 +202,7 @@ class ProgressTrackingPhase(AtomicPhase):
         """Run progress tracking logic"""
         logger.info("🔄 Running progress tracking...")
         
-        # Import ProgressTracker (your existing class)
+        # Import ProgressTracker
         from agents.orderProgressTracker.tracker_utils import ProgressTracker
         
         # Extract data from loaded_data
@@ -333,7 +334,7 @@ class OrderProgressTracker(ConfigReportMixin):
         tracking_phase = ProgressTrackingPhase(self.loaded_data, self.dependency_data)
         tracking_result = tracking_phase.execute()
 
-        # Check if data loading succeeded
+        # Check if tracking succeeded
         if tracking_result.status != "success":
             self.logger.error("❌ Progress tracking failed")
             
@@ -411,6 +412,8 @@ class OrderProgressTracker(ConfigReportMixin):
             ExecutionResult: Hierarchical execution result with saved data
         """
 
+        agent_id = self.__class__.__name__
+
         try:
             # Execute tracking
             result = self.run_tracking(**kwargs)
@@ -426,79 +429,39 @@ class OrderProgressTracker(ConfigReportMixin):
                 self.logger.error("❌ Validations failed: empty or invalid tracking result, skipping save")
                 return result
             
+            tracking_summary = tracker_result['tracking_summary']
+
             # Export Excel file with versioning
             logger.info("Start excel file exporting...")
             export_log = save_output_with_versioning(
                 data = tracker_result['result'],
                 output_dir = self.output_dir,
                 filename_prefix = self.filename_prefix,
-                report_text = tracker_result['tracking_summary']
+                report_text = tracking_summary
             )
             self.logger.info("Results exported successfully!")
 
             # Add export info to result metadata
             result.metadata['export_log'] = export_log
-            result.metadata['tracking_summary'] = tracker_result['tracking_summary']
+            result.metadata['tracking_summary'] = tracking_summary
             
-            # Save change log
-            self._save_change_log(result, tracker_result['tracking_summary'], export_log)
-            
-            return result
-
-        except Exception as e:
-            self.logger.error("❌ Failed to save results: {}", str(e))
-            raise
-
-    def _save_change_log(
-        self, 
-        result: ExecutionResult,
-        tracking_summary: str,
-        export_log: str
-    ) -> None:
-        """Save change log to file."""
-        try:
-            log_path = self.output_dir / "change_log.txt"
             
             # Generate config header using mixin
             start_time = datetime.now()
             timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
             config_header = self._generate_config_report(timestamp_str, required_only=True)
             
-            # Initialize validation log entries for entire processing run
-            log_content = ["="*60]
-            log_content.append(config_header)
-            log_content.append(f"--Processing Summary--\n")
-            log_content.append(f"⤷ {self.__class__.__name__} results:\n")
-            log_content.append("EXECUTION TREE:")
+            # Save change log
+            log_path = self.output_dir / "change_log.txt"
+            message = update_change_log(agent_id, 
+                                        config_header, 
+                                        result, 
+                                        tracking_summary, 
+                                        export_log, 
+                                        log_path)
             
-            # Add execution tree (capture print output)
-            import io
-            import sys
-            old_stdout = sys.stdout
-            sys.stdout = buffer = io.StringIO()
-            print_execution_tree(result)
-            sys.stdout = old_stdout
-            log_content.append(buffer.getvalue())
-            
-            log_content.extend([
-                "",
-                "ANALYSIS:",
-                str(analyze_execution(result)),
-                "",
-                "TRACKING SUMMARY:",
-                tracking_summary,
-                "",
-                "EXPORT LOG:",
-                export_log,
-                "",
-                "="*60,
-                ""
-            ])
-            
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write("\n".join(log_content))
-            
-            self.logger.info("✓ Updated and saved change log: {}", log_path)
+            return result
 
         except Exception as e:
-            self.logger.error("✗ Failed to save change log: {}", e)
+            self.logger.error("❌ Failed to save results: {}", str(e))
+            raise

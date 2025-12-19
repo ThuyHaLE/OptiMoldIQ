@@ -15,7 +15,7 @@ from agents.utils import load_annotation_path
 from agents.validationOrchestrator.dynamic_cross_data_validator import DynamicCrossDataValidator
 from agents.validationOrchestrator.static_cross_data_checker import StaticCrossDataChecker
 from agents.validationOrchestrator.po_required_critical_validator import PORequiredCriticalValidator
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 from configs.shared.shared_source_config import SharedSourceConfig
 from configs.shared.config_report_format import ConfigReportMixin
 
@@ -28,7 +28,8 @@ from configs.shared.agent_report_format import (
     PhaseSeverity,
     ExecutionStatus,
     print_execution_tree,
-    analyze_execution)
+    analyze_execution,
+    update_change_log)
 
 # ============================================
 # DATA LOADING PHASE
@@ -647,6 +648,8 @@ class ValidationOrchestrator(ConfigReportMixin):
         Returns:
             ExecutionResult: Hierarchical execution result with saved data
         """
+        agent_id = self.__class__.__name__
+
         try:
             # Execute validations
             result = self.run_validations(**kwargs)
@@ -684,64 +687,21 @@ class ValidationOrchestrator(ConfigReportMixin):
             result.metadata['export_log'] = export_log
             result.metadata['validation_summary'] = validation_summary
             
+            # Generate config header using mixin
+            timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            config_header = self._generate_config_report(timestamp_str, required_only=True)
+
             # Save change log
-            self._save_change_log(result, validation_summary, export_log)
-            
+            log_path = self.output_dir / "change_log.txt"
+            message = update_change_log(agent_id, 
+                                        config_header, 
+                                        result, 
+                                        validation_summary, 
+                                        export_log, 
+                                        log_path)
+
             return result
             
         except Exception as e:
             self.logger.error("❌ Failed to save results: {}", str(e))
             raise
-
-    def _save_change_log(
-        self, 
-        result: ExecutionResult,
-        validation_summary: str,
-        export_log: str
-    ) -> None:
-        """Save change log to file."""
-        try:
-            log_path = self.output_dir / "change_log.txt"
-            
-            # Generate config header using mixin
-            start_time = datetime.now()
-            timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-            config_header = self._generate_config_report(timestamp_str, required_only=True)
-            
-            # Initialize validation log entries for entire processing run
-            log_content = ["="*60]
-            log_content.append(config_header)
-            log_content.append(f"--Processing Summary--\n")
-            log_content.append(f"⤷ {self.__class__.__name__} results:\n")
-            log_content.append("EXECUTION TREE:")
-            
-            # Add execution tree (capture print output)
-            import io
-            import sys
-            old_stdout = sys.stdout
-            sys.stdout = buffer = io.StringIO()
-            print_execution_tree(result)
-            sys.stdout = old_stdout
-            log_content.append(buffer.getvalue())
-            
-            log_content.extend([
-                "",
-                "ANALYSIS:",
-                str(analyze_execution(result)),
-                "",
-                "VALIDATION SUMMARY:",
-                validation_summary,
-                "",
-                "EXPORT LOG:",
-                export_log,
-                "",
-                "="*60,
-                ""
-            ])
-            
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write("\n".join(log_content))
-            
-            self.logger.info("✓ Updated and saved change log: {}", log_path)
-        except Exception as e:
-            self.logger.error("✗ Failed to save change log: {}", e)

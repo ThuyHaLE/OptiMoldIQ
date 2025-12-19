@@ -6,6 +6,7 @@ from enum import Enum
 from abc import ABC, abstractmethod
 from datetime import datetime
 import traceback
+from pathlib import Path
 from loguru import logger
 
 # ============================================
@@ -430,7 +431,6 @@ def print_execution_tree(result: ExecutionResult, indent: int = 0) -> None:
     for sub in result.sub_results:
         print_execution_tree(sub, indent + 1)
 
-
 def analyze_execution(result: ExecutionResult) -> Dict[str, Any]:
     """
     Analyze execution result and return comprehensive report
@@ -455,3 +455,87 @@ def analyze_execution(result: ExecutionResult) -> Dict[str, Any]:
         "has_critical_errors": result.has_critical_errors(),
         "depth": result.get_depth()
     }
+
+def generate_execution_tree_as_str(result: ExecutionResult) -> str:
+    """Generate a string representation of the execution tree."""   
+    import io
+    import sys
+    old_stdout = sys.stdout
+    sys.stdout = buffer = io.StringIO()
+    print_execution_tree(result)
+    sys.stdout = old_stdout
+    return "\n".join(["EXECUTION TREE:", buffer.getvalue()])
+
+def update_change_log(agent_id: str,
+                      config_header: str,
+                      result: ExecutionResult,
+                      summary: str,
+                      export_log: str, 
+                      log_path: str | Path) -> str:
+        
+    """Generate change log content."""
+
+    try:  
+        # Initialize validation log entries for entire processing run
+        log_content = [
+            "=" * 60,
+            config_header,
+            "--Processing Summary--",
+            f"⤷ {agent_id} results:",
+            generate_execution_tree_as_str(result),
+            generate_summary_export_log(summary, export_log),
+        ]
+        log_str = "\n".join(log_content)
+        logger.info("✓ Change log generated successfully")
+        message = append_change_log(log_path, log_str)
+        return message
+        
+    except Exception as e:
+        logger.error("✗ Failed to generate change log: {}", e)
+        raise
+
+def generate_summary_export_log(summary: str, export_log: str) -> str:
+    """Generate a summary export log string."""
+    log_content = [
+        "="*60,
+        "--Summary & Export Log--",
+        "",
+        "SUMMARY:",
+        summary,
+        "",
+        "EXPORT LOG:",
+        export_log,
+        "",
+        "="*60,
+        ""
+    ]
+    return "\n".join(log_content)
+
+def append_change_log(log_path: str | Path, log_str: str) -> str:
+    """
+    Append a change log string to a file.
+
+    Args:
+        log_path: Path to the log file.
+        log_str: Content to append (must be non-empty).
+
+    Returns:
+        Confirmation message.
+
+    Raises:
+        ValueError: If log_str is empty or whitespace.
+        OSError: If writing to file fails.
+    """
+    if not log_str or not log_str.strip():
+        logger.error("❌ Nothing to append. Log string is empty.")
+        raise ValueError("Log string must not be empty.")
+    log_path = Path(log_path)
+    try:
+        with log_path.open("a", encoding="utf-8") as f:
+            f.write(log_str.rstrip() + "\n")
+        message = f"✓ Updated and saved change log: {log_path}"
+        logger.info(message)
+        return message
+    except OSError as e:
+        logger.error("✗ Failed to save change log {}: {}", log_path, e)
+        raise 

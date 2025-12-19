@@ -1,6 +1,6 @@
 from agents.decorators import validate_init_dataframes
 from loguru import logger
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
+from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 import pandas as pd
 from pandas.api.types import is_object_dtype
 from datetime import datetime, timedelta
@@ -174,8 +174,8 @@ class ProgressTracker(ConfigReportMixin):
                 "log_str": tracking_log_str}
         
         except Exception as e:
-            self.logger.error("❌ Validation failed: {}", str(e))
-            raise
+            self.logger.error("Failed to process ProgressTracker: {}", str(e))
+            raise RuntimeError(f"ProgressTracker processing failed: {str(e)}") from e
     
     #---------------------------------------------------------------#
     # STEP 1: MERGE PURCHASE ORDERS WITH MOLD SPECIFICATION SUMMARY #
