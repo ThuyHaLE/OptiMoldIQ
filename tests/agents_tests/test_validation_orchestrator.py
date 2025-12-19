@@ -168,18 +168,17 @@ class TestWarnings:
                 assert warning["severity"] in [s.value for s in PhaseSeverity]
     
     def test_warnings_propagation(self, execution_result):
-        """Parent should track sub-result warnings"""
-        sub_warnings_count = sum(
-            len(sub.warnings) for sub in execution_result.sub_results
+        sub_has_warnings = any(
+            sub.warnings for sub in execution_result.sub_results
         )
-        
-        assert len(execution_result.warnings) >= 0
-        
-        if sub_warnings_count > 0:
-            assert (
-                len(execution_result.warnings) > 0 or
-                execution_result.severity == PhaseSeverity.WARNING.value
-            )
+
+        if sub_has_warnings:
+            assert execution_result.severity in {
+                PhaseSeverity.WARNING.value,
+                PhaseSeverity.CRITICAL.value,
+            }
+        else:
+            assert execution_result.severity != PhaseSeverity.WARNING.value
 
 # === TREE STRUCTURE TESTS ===
 class TestTreeStructure:
