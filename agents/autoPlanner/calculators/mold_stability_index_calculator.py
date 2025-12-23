@@ -75,7 +75,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                     - cycle_stability_threshold (float): Weight assigned to the cycle-stability feature.
                     - total_records_threshold (int): Minimum number of valid production records required
                     for processing (must be at least 30 records per day).
-            - stability_constant_config: Constant config for mol stability index calculator
+            - stability_constant_config: Constant config for mold stability index calculator
         """
         
         # Capture initialization arguments for reporting
