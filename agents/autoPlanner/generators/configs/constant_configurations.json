@@ -1,0 +1,70 @@
+{
+    "ProducingOrderPlanner": {
+
+        "PRODUCING_BASE_COLS": [
+            "poNo", "itemCode", "itemName", "poETA", "moldNo",
+            "itemQuantity", "itemRemain", "machineNo", "startedDate"],
+        
+        "PENDING_BASE_COLS": [
+            "poNo", "itemCode", "itemName", "poETA", "itemRemain"],
+
+        "PROGRESS_DECIMAL_PRECISION": 2,
+
+        "CAPACITY_MERGE_COLS": [
+            "itemCode", "moldNo", "moldName",
+            "theoreticalMoldHourCapacity", "balancedMoldHourCapacity"],
+        
+        "MACHINE_MERGE_COLS": [
+            "machineCode", "machineName", "machineTonnage", "machineNo"],
+
+        "PLASTIC_BASE_COLS": [
+            "poNo", "itemName_poNo", "itemName", "machineNo", 
+            "itemCode", "itemRemain", "theoreticalMoldHourCapacity"],
+
+        "COMPOSITION_REQUIRED_COLS": [
+            "itemCode", "plasticResin", "plasticResinQuantity",
+            "colorMasterbatch", "colorMasterbatchQuantity",
+            "additiveMasterbatch", "additiveMasterbatchQuantity"],
+        
+        "PLASITC_REQUIRED_COLS": [
+            "itemName_poNo", "estimatedOutputQuantity", "plasticResin",
+            "estimatedPlasticResinQuantity", "colorMasterbatch",
+            "estimatedColorMasterbatchQuantity", "additiveMasterbatch",
+            "estimatedAdditiveMasterbatchQuantity"],
+        
+        "MATERIAL_REQUIRED_COLS": [
+            "plasticResin", "colorMasterbatch", "additiveMasterbatch"],
+
+        "QUANTITY_MATERIAL_REQUIRED_COLS": [
+            "estimatedPlasticResinQuantity", "estimatedColorMasterbatchQuantity",
+            "estimatedAdditiveMasterbatchQuantity"]
+
+    },
+
+    "ProductionScheduleGenerator": {
+
+        "BEAUTIFUL_COLS_MAPPING": {
+            "machineCode": "Machine Code",
+            "machineNo": "Machine No.",
+            "moldNo": "Assigned Mold",
+            "poNo": "PO No.",
+            "itemQuantity": "PO Quantity",
+            "poETA": "ETA (PO Date)",
+            "priorityRank": "Priority in Machine",
+            "moldLeadTime": "Mold Lead Time"
+        },
+        
+        "PREFERRED_ORDER": [
+            "Machine No.", "Machine Code", "Assigned Mold", "PO No.", "Item Name",
+            "PO Quantity", "ETA (PO Date)", "Mold Lead Time", "Priority in Machine"],
+            
+        "PRIORITIZE_BY": [
+            "machineCode", "is_producing", "poETA", "moldLeadTime", "itemQuantity"],
+            
+        "PRIORITIZE_ASCENDING": [
+            true, true, true, true, true],
+            
+        "PRIORITIZE_NA_POSITION": "last"
+
+    }
+}

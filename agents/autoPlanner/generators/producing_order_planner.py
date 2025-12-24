@@ -146,9 +146,7 @@ class ProducingOrderPlanner(ConfigReportMixin):
                 "producing_pro_plan": pro_plan,
                 "producing_mold_plan": mold_plan,
                 "producing_plastic_plan": plastic_plan,
-                "pending_status_data": pending_status_data,
-                "pro_status_df": self.proStatus_df,
-                "mold_estimated_capacity_df": self.mold_estimated_capacity_df
+                "pending_status_data": pending_status_data
                 }
             
             # Log data summary
