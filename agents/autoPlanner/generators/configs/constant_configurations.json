@@ -66,5 +66,44 @@
             
         "PRIORITIZE_NA_POSITION": "last"
 
-    }
+    },
+
+    "PriorityMatrixCalculator": {
+
+        "DEFAULT_FEATURE_WEIGHTS": {
+            "shiftNGRate_weight": 0.1,
+            "shiftCavityRate_weight": 0.25,
+            "shiftCycleTimeRate_weight": 0.25,
+            "shiftCapacityRate_weight": 0.4
+        },
+        
+        "FEATURE_WEIGHTS_REQUIRED_COLUMNS": [
+            "shiftNGRate", "shiftCavityRate", "shiftCycleTimeRate", "shiftCapacityRate"],
+
+        "PRODUCT_RECORD_REQUIRED_COLS": [
+            "recordDate", "workingShift", "machineNo", "machineCode",
+            "itemCode", "itemName", "poNo", "moldNo", "moldShot", "moldCavity",
+            "itemTotalQuantity", "itemGoodQuantity"
+        ]
+    },
+
+    "ItemMoldCapacityEstimator": {
+
+        "SECONDS_PER_HOUR": 3600,
+
+        "DECIMAL_PRECISION": 2,
+
+        "ESTIMATED_CAPACITY_DF_COLS": [
+            "moldNo", "moldName", "acquisitionDate", "machineTonnage",
+            "moldCavityStandard", "moldSettingCycle", "theoreticalMoldHourCapacity",
+            "estimatedMoldHourCapacity", "balancedMoldHourCapacity"
+        ],
+
+        "ASSIGNED_CAPACITY_DF_COLS":  [
+                "moldNo", "moldName", "acquisitionDate", "moldCavityStandard",
+                "moldSettingCycle", "machineTonnage", "theoreticalMoldHourCapacity",
+                "balancedMoldHourCapacity"
+            ]
+                
+        }
 }

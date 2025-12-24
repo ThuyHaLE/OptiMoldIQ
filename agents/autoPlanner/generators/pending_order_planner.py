@@ -2,7 +2,7 @@ import pandas as pd
 from loguru import logger
 
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional, Any, Set
 
 from agents.decorators import validate_init_dataframes
 
@@ -15,6 +15,20 @@ from agents.autoPlanner.generators.configs.pending_planner_config import Pending
 from configs.shared.config_report_format import ConfigReportMixin
 from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 
+from dataclasses import dataclass, asdict
+
+@dataclass
+class PendingPlannerResult:
+    initial_plan: pd.DataFrame
+    assigned_molds: List
+    unassigned_molds: List
+    overloaded_machines: Set
+    not_matched_pending: pd.DataFrame
+    log_str: str
+    def to_dict(self) -> Dict:
+        """Convert dataclass to dictionary for serialization/logging."""
+        return asdict(self)
+    
 # Decorator to validate DataFrames are initialized with the correct schema
 @validate_init_dataframes(lambda self: {
     "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
@@ -40,7 +54,7 @@ class PendingOrderPlanner(ConfigReportMixin):
                  machineInfo_df: pd.DataFrame,
                  producing_status_data: pd.DataFrame,
                  pending_status_data: pd.DataFrame,
-                 mold_estimated_capacity_df: pd.DataFrame,
+                 mold_estimated_capacity: pd.DataFrame,
                  mold_machine_priority_matrix: pd.DataFrame,
                  config: PendingOrderPlannerConfig
                  ):
@@ -56,7 +70,7 @@ class PendingOrderPlanner(ConfigReportMixin):
             - machineInfo_df: Machine specifications and tonnage information
             - producing_status_data: Input DataFrame containing production orders currently in MOLDING status
             - pending_status_data: Input DataFrame containing production orders in PAUSED or PENDING status
-            - mold_estimated_capacity_df: Detailed priority molds for each item code with the highest estimated capacity
+            - mold_estimated_capacity: Detailed priority molds for each item code with the highest estimated capacity
             - mold_machine_priority_matrix: Ranked mold-machine pairs based on historical weight and actual efficiency
             - config: PendingOrderPlannerConfig containing processing parameters, including:
                 - priority_order: Priority ordering strategy
@@ -85,7 +99,7 @@ class PendingOrderPlanner(ConfigReportMixin):
         self.producing_status_data = producing_status_data
         self.pending_status_data = pending_status_data
         self.mold_machine_priority_matrix = mold_machine_priority_matrix
-        self.mold_estimated_capacity_df = mold_estimated_capacity_df
+        self.mold_estimated_capacity_df = mold_estimated_capacity
 
         self.producing_mold_list = self.producing_status_data['moldNo'].unique().tolist()
         self.producing_info_list = self.producing_status_data[['machineCode', 'moldNo']].drop_duplicates().values.tolist()
@@ -97,12 +111,9 @@ class PendingOrderPlanner(ConfigReportMixin):
         self.mold_lead_times = None
         self.not_matched_pending = None
 
-    def process(self) -> Dict[str, Any]:
+    def process_planning(self) -> PendingPlannerResult:
         """
-        Run the complete pending processing workflow
-        
-        Returns:
-            ProcessingResult: Complete results from processing
+        Generate production assignments for pending orders
         """
 
         self.logger.info("Starting PendingOrderPlanner ...")
@@ -124,30 +135,43 @@ class PendingOrderPlanner(ConfigReportMixin):
 
             # Phase 2: Execute optimization phases
             self.mold_machine_priority_matrix.set_index('moldNo')
-            final_result, log_str = self._execute_planning_phases(self.mold_machine_priority_matrix,
-                                                                  self.mold_lead_times)
-            final_result["not_matched_pending"] = self.not_matched_pending
+            initial_plan, final_assignments, log_str = self._execute_planning_phases(
+                self.mold_machine_priority_matrix,
+                self.mold_lead_times)
             planner_log_lines.append(f"{log_str}")
+
+            assigned_molds = final_assignments.assignments
+            unassigned_molds = final_assignments.unassigned_molds
+            overloaded_machines = final_assignments.overloaded_machine
             
             # Log data summary
             planner_log_lines.append("DATA EXPORT SUMMARY")
-            planner_log_lines.append(f"⤷ Initial plan: {len(final_result['initial_plan'])}")
-            planner_log_lines.append(f"⤷ Assigned molds: {len(final_result['assigned_molds'])}")
-            planner_log_lines.append(f"⤷ Unassigned molds: {len(final_result['unassigned_molds'])}")
-            planner_log_lines.append(f"⤷ Overloaded machines: {len(final_result['overloaded_machines'])}")
-            planner_log_lines.append(f"⤷ Not matched in pending data: {len(final_result['not_matched_pending'])}")
+            planner_log_lines.append(f"⤷ Initial plan: {len(initial_plan)}")
+            planner_log_lines.append(f"⤷ Assigned molds: {len(assigned_molds)}")
+            planner_log_lines.append(f"⤷ Unassigned molds: {len(unassigned_molds)}")
+            planner_log_lines.append(f"⤷ Overloaded machines: {len(overloaded_machines)}")
+            planner_log_lines.append(f"⤷ Not matched in pending data: {len(self.not_matched_pending)}")
 
             # Generate planner summary
             reporter = DictBasedReportGenerator(use_colors=False)
-            planner_summary = "\n".join(reporter.export_report(final_result))
+            planner_summary = "\n".join(reporter.export_report({"initial_plan": initial_plan,
+                                                                "assigned_molds": assigned_molds,
+                                                                "unassigned_molds": unassigned_molds,
+                                                                "overloaded_machines": overloaded_machines,
+                                                                "not_matched_pending": self.not_matched_pending
+                                                                }))
             planner_log_lines.append(f"{planner_summary}")
 
             self.logger.info("✅ Process finished!!!")
 
-            return {
-                "result": final_result, 
-                "planner_summary": planner_summary,
-                "log_str": "\n".join(planner_log_lines)}
+            return PendingPlannerResult(
+                initial_plan = initial_plan,
+                assigned_molds = assigned_molds,
+                unassigned_molds = unassigned_molds,
+                overloaded_machines = overloaded_machines,
+                not_matched_pending = self.not_matched_pending,
+                log_str = "\n".join(planner_log_lines)
+                )
             
         except Exception as e:
             self.logger.error("Processing pipeline failed: {}", str(e))
@@ -184,7 +208,7 @@ class PendingOrderPlanner(ConfigReportMixin):
             self,
             mold_machine_priority_matrix: pd.DataFrame,
             mold_lead_times: pd.DataFrame
-            ) -> Tuple[Dict[str, Any], str]:
+            ) -> Tuple[pd.DataFrame, Any, str]:
         
         """Execute both planning phases and return results"""
         
@@ -241,16 +265,9 @@ class PendingOrderPlanner(ConfigReportMixin):
             compatibility_result
         )
         
-        final_results = {
-            "initial_plan": final_summary,
-            "assigned_molds": final_assignments.assignments,
-            "unassigned_molds": final_assignments.unassigned_molds,
-            "overloaded_machines": final_assignments.overloaded_machines,
-        }
-        
         self.logger.info("✅ Process finished!!!")
         
-        return final_results, "\n".join(phase_log_lines)
+        return final_summary, final_assignments, "\n".join(phase_log_lines)
 
     def _compile_final_results(self,
                                history_result: Optional[Dict],

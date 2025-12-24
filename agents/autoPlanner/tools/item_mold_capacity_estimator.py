@@ -111,7 +111,7 @@ class ItemMoldCapacityEstimator(ConfigReportMixin):
                 f"Efficiency ({self.efficiency}) must be greater than loss ({self.loss})"
             )
         
-    def process(self) -> Dict[str, Any]:
+    def process_estimating(self) -> Dict[str, Any]:
 
         """
         Process and combine mold information from specification and detail datasets.

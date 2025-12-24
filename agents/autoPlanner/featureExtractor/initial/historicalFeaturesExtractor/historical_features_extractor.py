@@ -329,7 +329,7 @@ class FeatureWeightCalculatingPhase(AtomicPhase):
             self.config.loss,
             )
         
-        return estimator.process()
+        return estimator.process_estimating()
     
     def _calculate_feature_weight(self, 
                                   mold_estimated_capacity: pd.DataFrame): 

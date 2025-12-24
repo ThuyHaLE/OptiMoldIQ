@@ -9,6 +9,20 @@ from configs.shared.config_report_format import ConfigReportMixin
 from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 from agents.autoPlanner.tools.machine_processing import check_newest_machine_layout
 
+from dataclasses import dataclass, asdict
+
+@dataclass
+class ProducingPlannerResult:
+    producing_status_data: pd.DataFrame
+    producing_pro_plan: pd.DataFrame
+    producing_mold_plan: pd.DataFrame
+    producing_plastic_plan: pd.DataFrame
+    pending_status_data: pd.DataFrame
+    log_str: str
+    def to_dict(self) -> Dict:
+        """Convert dataclass to dictionary for serialization/logging."""
+        return asdict(self)
+
 @validate_init_dataframes(lambda self: {
     "machineInfo_df": list(self.databaseSchemas_data['staticDB']['machineInfo']['dtypes'].keys()),
     "itemCompositionSummary_df": list(self.databaseSchemas_data['staticDB']['itemCompositionSummary']['dtypes'].keys()),
@@ -65,7 +79,7 @@ class ProducingOrderPlanner(ConfigReportMixin):
                  machineInfo_df: pd.DataFrame,
                  itemCompositionSummary_df: pd.DataFrame,
                  proStatus_df: pd.DataFrame,
-                 mold_estimated_capacity_df: pd.DataFrame,
+                 mold_estimated_capacity: pd.DataFrame,
                  planner_constant_config: Dict = {}):
         
         """
@@ -77,7 +91,7 @@ class ProducingOrderPlanner(ConfigReportMixin):
             - machineInfo_df: Machine specifications and tonnage information
             - itemCompositionSummary_df: Item composition details (resin, masterbatch, etc.)
             - proStatus_df: Detailed order production progress.
-            - mold_estimated_capacity_df: Detailed priority molds for each item code with the highest estimated capacity
+            - mold_estimated_capacity: Detailed priority molds for each item code with the highest estimated capacity
             - planner_constant_config: Constant config for producing order planner
         """
 
@@ -95,13 +109,13 @@ class ProducingOrderPlanner(ConfigReportMixin):
         self.itemCompositionSummary_df = itemCompositionSummary_df
 
         self.proStatus_df = proStatus_df
-        self.mold_estimated_capacity_df = mold_estimated_capacity_df
+        self.mold_estimated_capacity_df = mold_estimated_capacity
 
         self.planner_constant_config = planner_constant_config
         if not self.planner_constant_config:
             self.logger.debug("ProducingOrderPlanner constant config not found.")
 
-    def process_planning(self) -> Dict[str, Any]:
+    def process_planning(self) -> ProducingPlannerResult:
         """
         Process production data to generate production, mold, and plastic plans.
         """
@@ -151,23 +165,31 @@ class ProducingOrderPlanner(ConfigReportMixin):
             
             # Log data summary
             planner_log_lines.append("DATA EXPORT SUMMARY")
-            planner_log_lines.append(f"⤷ Producing records: {len(final_result['producing_status_data'])}")
-            planner_log_lines.append(f"⤷ Pending records: {len(final_result['pending_status_data'])}")
-            planner_log_lines.append(f"⤷ Production plan: {len(final_result['producing_pro_plan'])}")
-            planner_log_lines.append(f"⤷ Mold plan: {len(final_result['producing_mold_plan'])}")
-            planner_log_lines.append(f"⤷ Plastic plan: {len(final_result['producing_plastic_plan'])}")
+            planner_log_lines.append(f"⤷ Producing records: {len(producing_status_data)}")
+            planner_log_lines.append(f"⤷ Pending records: {len(pending_status_data)}")
+            planner_log_lines.append(f"⤷ Production plan: {len(pro_plan)}")
+            planner_log_lines.append(f"⤷ Mold plan: {len(mold_plan)}")
+            planner_log_lines.append(f"⤷ Plastic plan: {len(plastic_plan)}")
 
             # Generate planner summary
             reporter = DictBasedReportGenerator(use_colors=False)
-            planner_summary = "\n".join(reporter.export_report(final_result))
+            planner_summary = "\n".join(reporter.export_report({"producing_status_data": producing_status_data,
+                                                                "producing_pro_plan": pro_plan,
+                                                                "producing_mold_plan": mold_plan,
+                                                                "producing_plastic_plan": plastic_plan,
+                                                                "pending_status_data": pending_status_data
+                                                                }))
             planner_log_lines.append(f"{planner_summary}")
 
             self.logger.info("✅ Process finished!!!")
 
-            return {
-                "result": final_result, 
-                "planner_summary": planner_summary,
-                "log_str": "\n".join(planner_log_lines)}
+            return ProducingPlannerResult(
+                producing_status_data = producing_status_data,
+                producing_pro_plan = pro_plan,
+                producing_mold_plan = mold_plan,
+                producing_plastic_plan = plastic_plan,
+                pending_status_data = pending_status_data,
+                log_str = "\n".join(planner_log_lines))
 
         except Exception as e:
             self.logger.error("Failed to process ProducingOrderPlanner: {}", str(e))
