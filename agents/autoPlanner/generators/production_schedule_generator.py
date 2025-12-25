@@ -379,9 +379,9 @@ class ProductionScheduleGenerator(ConfigReportMixin): # MachineAssignmentProcess
         # Sort with multiple keys efficiently
         # Priority: Producing molds first (0) → Earliest ETA (ascending) → Shortest moldLeadTime (ascending) → Smallest itemQuantity (ascending)
         df_sorted = df.sort_values(
-            by=self.planner_constant_config.get("PRIORITIZE_BY", self.PRIORITIZE_BY),
-            ascending=self.planner_constant_config.get("PRIORITIZE_ASCENDING", self.PRIORITIZE_ASCENDING),
-            na_position=self.planner_constant_config.get("PRIORITIZE_NA_POSITION", self.PRIORITIZE_NA_POSITION)
+            by=self.generator_constant_config .get("PRIORITIZE_BY", self.PRIORITIZE_BY),
+            ascending=self.generator_constant_config .get("PRIORITIZE_ASCENDING", self.PRIORITIZE_ASCENDING),
+            na_position=self.generator_constant_config .get("PRIORITIZE_NA_POSITION", self.PRIORITIZE_NA_POSITION)
             # Handle NaT dates and NaN values properly
         )
 
@@ -612,11 +612,11 @@ class ProductionScheduleGenerator(ConfigReportMixin): # MachineAssignmentProcess
 
         # Rename columns for clarity
         beautified['Item Name'] = beautified['poNo'].map(self.po_item_dict)
-        beautified = beautified.rename(columns=self.planner_constant_config.get(
+        beautified = beautified.rename(columns=self.generator_constant_config.get(
             "BEAUTIFUL_COLS_MAPPING", self.BEAUTIFUL_COLS_MAPPING))
 
         # Reorder columns logically
-        available_cols = [col for col in self.planner_constant_config.get(
+        available_cols = [col for col in self.generator_constant_config.get(
             "PREFERRED_ORDER", self.PREFERRED_ORDER) if col in beautified.columns]
         beautified = beautified[available_cols]
 

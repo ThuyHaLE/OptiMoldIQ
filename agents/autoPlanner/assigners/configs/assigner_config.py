@@ -52,5 +52,5 @@ class AssignerResult:
     assignments: List[str]
     unassigned_molds: List[str]
     stats: AssignerStats
-    overloaded_machines: set = None
+    overloaded_machines: set = set()
     log: str = ""

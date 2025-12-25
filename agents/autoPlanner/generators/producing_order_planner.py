@@ -390,8 +390,7 @@ class ProducingOrderPlanner(ConfigReportMixin):
             "MACHINE_MERGE_COLS", self.MACHINE_MERGE_COLS)
         validate_dataframe(self.machine_info_df, machine_cols)
         
-        machine_info_subset = self.machine_info_df[
-            [machine_cols]] if not self.machine_info_df.empty else pd.DataFrame()
+        machine_info_subset = self.machine_info_df[machine_cols] if not self.machine_info_df.empty else pd.DataFrame()
 
         # Create plans
         pro_plan = self._create_production_plan(output_plan_format, machine_info_subset, producing_data)

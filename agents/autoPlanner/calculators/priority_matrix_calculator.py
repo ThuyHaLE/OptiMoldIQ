@@ -15,7 +15,6 @@ from dataclasses import dataclass, asdict
 
 @dataclass
 class MatrixCalculatorResult:
-    production_status: pd.DataFrame
     priority_matrix: pd.DataFrame
     invalid_mold_list: List
     log_str: str
@@ -118,12 +117,13 @@ class PriorityMatrixCalculator(ConfigReportMixin): # MoldMachinePriorityMatrixCa
         self.proStatus_df = proStatus_df
         
         self.mold_estimated_capacity_df = mold_estimated_capacity
-        self.mold_machine_feature_weights = self._load_feature_weights(mold_machine_feature_weights)
-        
+
         # Load constant configurations
         self.calculator_constant_config = calculator_constant_config
         if not self.calculator_constant_config:
             self.logger.debug("PriorityMatrixCalculator constant config not found.")
+
+        self.mold_machine_feature_weights = self._load_feature_weights(mold_machine_feature_weights)
 
         self.efficiency = efficiency
         self.loss = loss
@@ -300,11 +300,6 @@ class PriorityMatrixCalculator(ConfigReportMixin): # MoldMachinePriorityMatrixCa
             - Prepares mold-machine historical data
             - Validates the schema of prepared data
         """
-
-        # Standardize column names to match expected schema
-        self.proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
-                                          'lastestMoldNo': 'moldNo'
-                                          }, inplace=True)
         
         # Prepare historical data for analysis
         historical_data = self._prepare_mold_machine_historical_data()
@@ -326,8 +321,14 @@ class PriorityMatrixCalculator(ConfigReportMixin): # MoldMachinePriorityMatrixCa
             - productRecords_df: Product records DataFrame
         """
 
+        # Standardize column names to match expected schema
+        proStatus_df = self.proStatus_df.copy()
+        proStatus_df.rename(columns={'lastestMachineNo': 'machineNo',
+                                     'lastestMoldNo': 'moldNo'
+                                     }, inplace=True)
+        
         # Filter to completed orders and merge with machine info
-        hist = self.proStatus_df.loc[self.proStatus_df['itemRemain'] == 0].merge(
+        hist = proStatus_df.loc[proStatus_df['itemRemain'] == 0].merge(
             self.machine_info_df[['machineNo', 'machineCode', 'machineName', 'machineTonnage']],
             how='left', 
             on=['machineNo']

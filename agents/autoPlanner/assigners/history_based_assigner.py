@@ -4,7 +4,7 @@ from typing import Tuple, List, Dict
 import time
 from agents.utils import ConfigReportMixin
 from datetime import datetime
-from agents.autoPlanner.tools.machine_assignment import (
+from agents.autoPlanner.assigners.configs.assigner_formatter import (
     log_constraint_based_optimization,
     log_load_balance_based_optimization)
 from agents.autoPlanner.assigners.configs.assigner_config import AssignerStats, AssignerResult

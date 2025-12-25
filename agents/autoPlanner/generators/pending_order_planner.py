@@ -131,7 +131,11 @@ class PendingOrderPlanner(ConfigReportMixin):
                                                                        self.mold_estimated_capacity_df)
 
             # Phase 2: Execute optimization phases
-            self.mold_machine_priority_matrix.set_index('moldNo')
+            if self.mold_machine_priority_matrix.index.name != 'moldNo':
+                if 'moldNo' in self.mold_machine_priority_matrix.columns:
+                    self.mold_machine_priority_matrix.set_index('moldNo')
+                else:
+                    raise KeyError("'moldNo' not found in index or columns")
             initial_plan, final_assignments, log_str = self._execute_planning_phases(
                 self.mold_machine_priority_matrix,
                 self.mold_lead_times)
@@ -139,7 +143,7 @@ class PendingOrderPlanner(ConfigReportMixin):
 
             assigned_molds = final_assignments.assignments
             unassigned_molds = final_assignments.unassigned_molds
-            overloaded_machines = final_assignments.overloaded_machine
+            overloaded_machines = final_assignments.overloaded_machines
             
             # Log data summary
             planner_log_lines.append("DATA EXPORT SUMMARY")
