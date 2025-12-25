@@ -68,6 +68,10 @@ class PriorityMatrixCalculator(ConfigReportMixin): # MoldMachinePriorityMatrixCa
         'itemTotalQuantity', 'itemGoodQuantity'
         ]
     
+    WEIGHT_SUM_MIN = 0.5
+        
+    WEIGHT_SUM_MAX = 2.0
+    
     def __init__(self,
                  databaseSchemas_data: Dict,
                  sharedDatabaseSchemas_data: Dict,
@@ -280,7 +284,10 @@ class PriorityMatrixCalculator(ConfigReportMixin): # MoldMachinePriorityMatrixCa
             # Check if weights sum to a reasonable total (should be close to 1.0)
             total_weight = weights[required_cols].sum()
             if not (
-                self.constant_config["WEIGHT_SUM_MIN"] <= total_weight <= self.constant_config["WEIGHT_SUM_MAX"]):
+                self.calculator_constant_config.get(
+                    "WEIGHT_SUM_MIN", 
+                    self.WEIGHT_SUM_MIN) <= total_weight <= self.calculator_constant_config.get("WEIGHT_SUM_MAX", 
+                                                                                                self.WEIGHT_SUM_MAX)):
                 self.logger.warning("Unusual total weight sum: {}. Expected close to 1.0", total_weight)
                 return False
 

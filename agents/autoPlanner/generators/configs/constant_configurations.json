@@ -84,7 +84,11 @@
             "recordDate", "workingShift", "machineNo", "machineCode",
             "itemCode", "itemName", "poNo", "moldNo", "moldShot", "moldCavity",
             "itemTotalQuantity", "itemGoodQuantity"
-        ]
+        ],
+
+        "WEIGHT_SUM_MIN": 0.5, 
+        
+        "WEIGHT_SUM_MAX": 2.0
     },
 
     "ItemMoldCapacityEstimator": {
