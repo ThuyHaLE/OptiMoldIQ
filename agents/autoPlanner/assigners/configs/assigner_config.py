@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import List, Optional, Union
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 class PriorityOrder(Enum):
@@ -52,5 +52,5 @@ class AssignerResult:
     assignments: List[str]
     unassigned_molds: List[str]
     stats: AssignerStats
-    overloaded_machines: set = set()
+    overloaded_machines: set[str] = field(default_factory=set)
     log: str = ""
