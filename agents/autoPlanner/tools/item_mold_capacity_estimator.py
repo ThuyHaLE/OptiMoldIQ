@@ -59,7 +59,7 @@ class ItemMoldCapacityEstimator(ConfigReportMixin):
     def __init__(self,
                  databaseSchemas_data: Dict,
                  sharedDatabaseSchemas_data: Dict,
-                 mold_stability_index: pd.DataFrame,
+                 mold_stability_index: pd.DataFrame | None,
                  moldSpecificationSummary_df: pd.DataFrame,
                  moldInfo_df: pd.DataFrame,
                  capacity_constant_config: Dict = {},
@@ -111,7 +111,7 @@ class ItemMoldCapacityEstimator(ConfigReportMixin):
                 f"Efficiency ({self.efficiency}) must be greater than loss ({self.loss})"
             )
         
-    def process_estimating(self) -> Dict[str, Any]:
+    def process_estimating(self) -> CapacityEstimatorResult:
 
         """
         Process and combine mold information from specification and detail datasets.
@@ -184,8 +184,9 @@ class ItemMoldCapacityEstimator(ConfigReportMixin):
     #-------------------------------------------#
     # STEP 1: LOAD MOLD STABILITY INDEX         #
     #-------------------------------------------#
-    def _validate_stability_index(self, mold_stability_index) -> None: 
-        if mold_stability_index.empty:
+    def _validate_stability_index(self, 
+                                  mold_stability_index: pd.DataFrame | None) -> None: 
+        if mold_stability_index is None:
             return self._create_initial_stability_index()
         return mold_stability_index
     

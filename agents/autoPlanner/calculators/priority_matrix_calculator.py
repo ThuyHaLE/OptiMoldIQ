@@ -2,7 +2,7 @@ import pandas as pd
 from loguru import logger
 
 from datetime import datetime
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict
 
 from configs.shared.config_report_format import ConfigReportMixin
 from configs.shared.dict_based_report_generator import DictBasedReportGenerator
@@ -77,7 +77,7 @@ class PriorityMatrixCalculator(ConfigReportMixin): # MoldMachinePriorityMatrixCa
                  moldInfo_df: pd.DataFrame,
                  proStatus_df: pd.DataFrame,
                  mold_estimated_capacity: pd.DataFrame,
-                 mold_machine_feature_weights: pd.DataFrame,
+                 mold_machine_feature_weights: pd.Series | None,
                  calculator_constant_config: Dict = {},
                  efficiency: float = 0.85,
                  loss: float = 0.03

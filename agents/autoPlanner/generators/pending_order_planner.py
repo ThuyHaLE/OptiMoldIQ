@@ -2,19 +2,17 @@ import pandas as pd
 from loguru import logger
 
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional, Any, Set
+from typing import Dict, List, Tuple, Optional, Any, Set, Union
 
 from agents.decorators import validate_init_dataframes
 
 from agents.autoPlanner.tools.machine_processing import check_newest_machine_layout
 from agents.autoPlanner.tools.plan_matching import mold_item_plan_a_matching
 from agents.autoPlanner.tools.compatibility import create_mold_machine_compatibility_matrix
-from agents.autoPlanner.assigners.configs.assigner_config import AssignerResult
-from agents.autoPlanner.generators.configs.pending_planner_config import PendingOrderPlannerConfig
 
 from configs.shared.config_report_format import ConfigReportMixin
 from configs.shared.dict_based_report_generator import DictBasedReportGenerator
-
+from agents.autoPlanner.assigners.configs.assigner_config import PriorityOrder, AssignerResult
 from dataclasses import dataclass, asdict
 
 @dataclass
@@ -56,7 +54,9 @@ class PendingOrderPlanner(ConfigReportMixin):
                  pending_status_data: pd.DataFrame,
                  mold_estimated_capacity: pd.DataFrame,
                  mold_machine_priority_matrix: pd.DataFrame,
-                 config: PendingOrderPlannerConfig
+                 priority_order: Union[str, PriorityOrder] = "priority_order_1",
+                 max_load_threshold: int = 30,
+                 log_progress_interval: int = 5
                  ):
         
         """
@@ -72,13 +72,9 @@ class PendingOrderPlanner(ConfigReportMixin):
             - pending_status_data: Input DataFrame containing production orders in PAUSED or PENDING status
             - mold_estimated_capacity: Detailed priority molds for each item code with the highest estimated capacity
             - mold_machine_priority_matrix: Ranked mold-machine pairs based on historical weight and actual efficiency
-            - config: PendingOrderPlannerConfig containing processing parameters, including:
-                - priority_order: Priority ordering strategy
-                - max_load_threshold: Maximum allowed load threshold. If None, no load constraint is applied (default=30)
-                - log_progress_interval: Interval for logging progress during optimization (default=10)
-                - use_sample_data: Whether to use sample data for testing or development purposes (default=False)
-                - efficiency: Production efficiency factor (0.0 to 1.0)
-                - loss: Production loss factor (0.0 to 1.0)
+            - priority_order: Priority ordering strategy
+            - max_load_threshold: Maximum allowed load threshold. If None, no load constraint is applied (default=30)
+            - log_progress_interval: Interval for logging progress during optimization (default=10)
         """
 
         self._capture_init_args()
@@ -104,8 +100,9 @@ class PendingOrderPlanner(ConfigReportMixin):
         self.producing_mold_list = self.producing_status_data['moldNo'].unique().tolist()
         self.producing_info_list = self.producing_status_data[['machineCode', 'moldNo']].drop_duplicates().values.tolist()
 
-        # Store configuration
-        self.config = config
+        self.priority_order = priority_order
+        self.max_load_threshold = max_load_threshold
+        self.log_progress_interval = log_progress_interval
 
         """Initialize all data containers to None"""
         self.mold_lead_times = None
@@ -374,7 +371,7 @@ class PendingOrderPlanner(ConfigReportMixin):
                 mold_lead_times,
                 self.producing_status_data,
                 self.machine_info_df,
-                self.config.max_load_threshold
+                self.max_load_threshold
             )
 
             # Run HistoryBasedAssigner
@@ -402,10 +399,6 @@ class PendingOrderPlanner(ConfigReportMixin):
 
         unassigned_molds = history_based_phase_result["assigner_result"].unassigned_molds
         unassigned_count = len(unassigned_molds)
-        
-        # Force compatibility optimization for sample data testing
-        if self.config.use_sample_data:
-            return True
             
         return unassigned_count > 0
 
@@ -448,9 +441,6 @@ class PendingOrderPlanner(ConfigReportMixin):
     
     def _prepare_unassigned_data(self, unassigned_molds: List) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Prepare data for unassigned molds"""
-        if self.config.use_sample_data:
-            return self._create_sample_data()
-        
         unassigned_items = self.mold_lead_times.loc[
             self.mold_lead_times["moldNo"].isin(unassigned_molds), 
             "itemCode"
@@ -489,9 +479,9 @@ class PendingOrderPlanner(ConfigReportMixin):
                 assigned_matrix,
                 unassigned_mold_lead_times,
                 compatibility_matrix,
-                self.config.priority_order,
-                self.config.max_load_threshold, 
-                self.config.log_progress_interval
+                self.priority_order,
+                self.max_load_threshold, 
+                self.log_progress_interval
             )
 
             # Run CompatibilityBasedAssigner
@@ -565,31 +555,3 @@ class PendingOrderPlanner(ConfigReportMixin):
             duplicates = df.duplicated(subset=['Machine No.', 'Priority in Machine'])
             if duplicates.any():
                 raise Exception(f"{name} DataFrame has duplicate priorities within machines")
-
-    @staticmethod
-    def _create_sample_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Create sample data for testing purposes (Round 3)"""
-        unassigned_mold_lead_times = pd.DataFrame({
-            'itemCode': ['10136M', '10441M', '10142M', '10250M', '24724309M',
-                         '24721319M', '24725323M', '24724326M', '24721327M'],
-            'moldNo': ['15300CBS-M-001', 'PSSC-M-001', '12002CBS-M-001', 'PGXSR-M-001',
-                       'PSPH2-M-001', '14102CAJ-M-003', 'PXNLG5-M-001', '12000CBG-M-001', '16200CBG-M-001'],
-            'totalQuantity': [100000, 10000, 15000, 44000, 2516, 180000, 155000, 340000, 175000],
-            'balancedMoldHourCapacity': [345.52, 544.58, 544.58, 636.68, 689.82, 534.3, 395.97, 1065.84, 1108.43],
-            'moldLeadTime': [10, 5, 1, 2, 1, 14, 16, 13, 7]
-        })
-        
-        unassigned_pending_data = pd.DataFrame({
-            'poNo': ['IM2812004', 'IM2901020', 'IM2902001', 'IM2902002', 'IM2902047', 
-                     'IM2902116', 'IM2902118', 'IM2902119', 'IM2902120'],
-            'itemCode': ['10136M', '10441M', '10142M', '10250M', '24724309M',
-                         '24721319M', '24725323M', '24724326M', '24721327M'],
-            'itemName': ['CT-YA-PRINTER-HEAD-4.2MM', 'ABC-TP-BODY', 'ABC-TP-LARGE-CAP-027-BG', 
-                         'ABC-TP-LARGE-CAP-055-YW', 'ABC-TP-SMALL-CAP-062-YW',
-                         'CTT-CAX-UPPER-CASE-PINK', 'CTT-CAX-LOWER-CASE-PINK', 
-                         'CTT-CAX-CARTRIDGE-BASE', 'CTT-CAX-BASE-COVER'],
-            'poETA': ['2019-02-20'] * 9,
-            'itemQuantity': [100000, 10000, 15000, 44000, 2516, 180000, 155000, 340000, 175000]
-        })
-        
-        return unassigned_mold_lead_times, unassigned_pending_data

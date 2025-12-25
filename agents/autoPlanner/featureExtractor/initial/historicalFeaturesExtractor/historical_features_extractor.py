@@ -240,7 +240,7 @@ class DependencyDataLoadingPhase(AtomicPhase):
             raise FileNotFoundError("No progress tracking change log found")
         
         progress_tracking_data = pd.read_excel(excel_file_path)
-        logger.info(f"✓ Loaded validation data ({len(progress_tracking_data)} sheets)")
+        logger.info(f"✓ Loaded tracking data ({len(progress_tracking_data)} sheets)")
         
         return {"proStatus_df": progress_tracking_data}
     
