@@ -6,7 +6,7 @@ import pandas as pd
 import os
 
 from agents.utils import (
-    load_annotation_path, read_change_log, 
+    load_annotation_path, read_change_log, camel_to_snake,
     save_output_with_versioning, update_weight_and_save_confidence_report)
 
 from configs.shared.config_report_format import ConfigReportMixin
@@ -720,7 +720,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                 export_log = save_output_with_versioning(
                     data = {"moldStabilityIndex":  mold_stability_data['mold_stability_index']},
                     output_dir = Path(self.config.shared_source_config.mold_stability_index_dir),
-                    filename_prefix = phase_name.lower(),
+                    filename_prefix = camel_to_snake(phase_name),
                     report_text = mold_stability_data['index_calculation_summary']
                 )
                 export_logs.append(phase_name)
@@ -753,7 +753,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                 export_log = update_weight_and_save_confidence_report(
                     report_text = feature_weight_data['confidence_report_text'],
                     output_dir = Path(self.config.shared_source_config.mold_machine_weights_dir),
-                    filename_prefix = phase_name.lower(),
+                    filename_prefix = camel_to_snake(phase_name),
                     enhanced_weights = feature_weight_data['enhanced_weights'])
                 export_logs.append(phase_name)
                 export_logs.append("Export Log:")

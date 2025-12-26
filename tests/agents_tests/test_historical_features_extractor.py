@@ -36,6 +36,6 @@ class TestHistoricalFeaturesExtractor(BaseAgentTests):
     
     @pytest.fixture
     def execution_result(self, agent_instance):
-        result = agent_instance.run_extraction()
+        result = agent_instance.run_extraction_and_save_results()
         assert result.status != ExecutionStatus.FAILED.value, "Agent execution failed - test setup error"
         return result

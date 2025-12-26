@@ -72,11 +72,35 @@ class DependencyProvider:
                                                      "result": result,
                                                      "config": config}
     
+    def trigger_historical_features_extractor(self, config: SharedSourceConfig) -> Dict[str, Any]:
+        """
+        Lazy load: Only run HistoricalFeaturesExtractor if requested
+        """
+        if "historical_features_extractor" not in self._cache:
+            from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
+                HistoricalFeaturesExtractor, FeaturesExtractorConfig)
+            
+            historical_features_extractor = HistoricalFeaturesExtractor(
+                config = FeaturesExtractorConfig(
+                    efficiency = 0.85,
+                    loss = 0.03,
+                    shared_source_config = config)
+                    )
+            result = historical_features_extractor.run_extraction_and_save_results()
+
+            # Cache result
+            assert result.status == ExecutionStatus.SUCCESS.value, "Dependency agent failed : HistoricalFeaturesExtractor"
+            self._cache["historical_features_extractor"] = {"status": "triggered", 
+                                                            "result": result,
+                                                            "config": config}
+        
     def trigger(self, dependency_name: str):
         if dependency_name == "ValidationOrchestrator":
             self.trigger_validation_orchestrator(self.get_shared_source_config())
         elif dependency_name == "OrderProgressTracker":
             self.trigger_order_progress_tracker(self.get_shared_source_config())
+        elif dependency_name == "HistoricalFeaturesExtractor":
+            self.trigger_historical_features_extractor(self.get_shared_source_config())
         else:
             raise ValueError(f"Unknown dependency: {dependency_name}")
         

@@ -11,7 +11,7 @@ import psutil
 import os
 import traceback
 
-from agents.utils import load_annotation_path
+from agents.utils import load_annotation_path, camel_to_snake
 from agents.validationOrchestrator.dynamic_cross_data_validator import DynamicCrossDataValidator
 from agents.validationOrchestrator.static_cross_data_checker import StaticCrossDataChecker
 from agents.validationOrchestrator.po_required_critical_validator import PORequiredCriticalValidator
@@ -341,9 +341,6 @@ class ValidationOrchestrator(ConfigReportMixin):
         self.databaseSchemas_data = None
         self.path_annotation = None
         self.loaded_dataframes = {}
-        
-        # Set up output configuration
-        self.filename_prefix = "validation_orchestrator"
         
         # Store parallel settings
         self.enable_parallel = enable_parallel
@@ -691,7 +688,7 @@ class ValidationOrchestrator(ConfigReportMixin):
             export_log = save_output_with_versioning(
                 data=validation_data['combined_all'],
                 output_dir=Path(self.config.validation_dir),
-                filename_prefix=self.filename_prefix,
+                filename_prefix=camel_to_snake(agent_id),
                 report_text=validation_summary
             )
             self.logger.info("✅ Results exported successfully!")

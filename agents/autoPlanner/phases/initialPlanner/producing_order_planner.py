@@ -156,14 +156,6 @@ class ProducingOrderPlanner(ConfigReportMixin):
             # including production plan, mold plan, and plastic plan
             pro_plan, mold_plan, plastic_plan = self._create_plans(producing_status_data)
             
-            final_result = {
-                "producing_status_data": producing_status_data,
-                "producing_pro_plan": pro_plan,
-                "producing_mold_plan": mold_plan,
-                "producing_plastic_plan": plastic_plan,
-                "pending_status_data": pending_status_data
-                }
-            
             # Log data summary
             planner_log_lines.append("DATA EXPORT SUMMARY")
             planner_log_lines.append(f"⤷ Producing records: {len(producing_status_data)}")

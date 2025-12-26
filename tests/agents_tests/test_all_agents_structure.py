@@ -56,6 +56,16 @@ def create_historical_extractor(provider):
         )
     )
 
+def create_initial_planner(provider):
+    from agents.autoPlanner.phases.initialPlanner.initial_planner import InitialPlannerConfig, InitialPlanner
+
+    config = provider.get_shared_source_config()
+    return InitialPlanner(
+        config = InitialPlannerConfig(
+            shared_source_config = config
+            )
+        )
+
 # Registry with dependency metadata
 AGENT_REGISTRY = {
 
@@ -75,6 +85,12 @@ AGENT_REGISTRY = {
         name="HistoricalFeaturesExtractor",
         factory_fn=create_historical_extractor,
         required_dependencies=["OrderProgressTracker"]  # Has deps
+    ),
+
+    "InitialPlanner": AgentFactory(
+        name="InitialPlanner",
+        factory_fn=create_initial_planner,
+        required_dependencies=["OrderProgressTracker", "HistoricalFeaturesExtractor"]  # Has deps
     )
 }
 
@@ -111,6 +127,6 @@ class TestAllAgentsStructure:
         assert isinstance(any_agent_factory.required_dependencies, list)
 
     def test_dependencies_are_known(self, any_agent_factory):
-        known = {"OrderProgressTracker", "ValidationOrchestrator"}
+        known = {"ValidationOrchestrator", "OrderProgressTracker", "HistoricalFeaturesExtractor"}
         for dep in any_agent_factory.required_dependencies:
             assert dep in known, f"Unknown dependency: {dep}"

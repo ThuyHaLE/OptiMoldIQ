@@ -7,7 +7,8 @@ from pathlib import Path
 from datetime import datetime
 
 from agents.utils import (
-    load_annotation_path, read_change_log, get_latest_change_row, save_output_with_versioning)
+    load_annotation_path, read_change_log, get_latest_change_row, 
+    camel_to_snake, save_output_with_versioning)
 
 from configs.shared.config_report_format import ConfigReportMixin
 from agents.autoPlanner.phases.initialPlanner.configs.initial_planner_config import InitialPlannerConfig
@@ -398,7 +399,8 @@ class ProducingOrderPlanningPhase(AtomicPhase):
             # Extract information as final result
             final_result = {
                 "mold_estimated_capacity": estimator_result.mold_estimated_capacity,
-                "invalid_mold_list": estimator_result.invalid_mold_list,
+                "invalid_mold_list": pd.DataFrame([{
+                    "invalid_molds": ",".join(map(str, estimator_result.invalid_mold_list))}]),
                 "producing_status_data": producing_planner_result.producing_status_data,
                 "pending_status_data": producing_planner_result.pending_status_data,
                 "producing_pro_plan": producing_planner_result.producing_pro_plan,
@@ -540,17 +542,24 @@ class PendingOrderPlanningPhase(AtomicPhase):
         except Exception as e:
             raise FileNotFoundError(f"Failed to running pending orders planner: {e}")
 
-        try:    
+        try:
+            note = pd.DataFrame([
+                {
+                "invalid_molds": ",".join(map(str, matrix_calculator_result.invalid_mold_list)),
+                "assigned_molds": ",".join(map(str, pending_planner_result.assigned_molds)),
+                "unassigned_molds": ",".join(map(str, pending_planner_result.unassigned_molds)),
+                "overloaded_machines": ",".join(map(str, pending_planner_result.overloaded_machines))
+                }
+            ])
+                
             # Extract information as final result
             final_result = {
                 "mold_machine_priority_matrix": matrix_calculator_result.priority_matrix,
-                "invalid_mold_list": matrix_calculator_result.invalid_mold_list,
                 "initial_plan": pending_planner_result.initial_plan,
-                "assigned_molds": pending_planner_result.assigned_molds,
-                "unassigned_molds": pending_planner_result.unassigned_molds,
-                "overloaded_machines": pending_planner_result.overloaded_machines,
-                "not_matched_pending": pending_planner_result.not_matched_pending         
+                "not_matched_pending": pending_planner_result.not_matched_pending,
+                "note": note
             }
+
             log_str = "\n".join([matrix_calculator_result.log_str, 
                                  pending_planner_result.log_str])
         except Exception as e:
@@ -917,14 +926,13 @@ class InitialPlanner(ConfigReportMixin):
             "ProducingOrderPlanner", 
             extraction_results,
             {'mold_estimated_capacity', 'invalid_mold_list', 'producing_status_data', 
-            'pending_status_data', 'producing_pro_plan', 'producing_mold_plan', 'producing_plastic_plan'})
+             'pending_status_data', 'producing_pro_plan', 'producing_mold_plan', 'producing_plastic_plan'})
 
         (pending_planner_result, pending_planner_data, 
          pending_planner_summary, pending_planner_log) = self._extract_single_phase_data(
             "PendingOrderPlanner", 
             extraction_results,
-            {'mold_machine_priority_matrix', 'invalid_mold_list', 'initial_plan', 'assigned_molds', 
-            'unassigned_molds', 'overloaded_machines', 'not_matched_pending'})
+            {'mold_machine_priority_matrix', 'initial_plan', 'not_matched_pending', 'note'})
             
         return (producing_planner_result, producing_planner_data, producing_planner_summary, producing_planner_log, 
                 pending_planner_result, pending_planner_data, pending_planner_summary, pending_planner_log)
@@ -943,7 +951,7 @@ class InitialPlanner(ConfigReportMixin):
             'result', {}).get(
                 'result', {}) if phase_result and phase_result.status == "success" else {}
 
-        planner_summary = phase_result.data.get(
+        phase_summary = phase_result.data.get(
                 'result', {}).get(
                     'planner_summary', "") if phase_result and phase_result.status == "success" else ""
         
@@ -952,12 +960,12 @@ class InitialPlanner(ConfigReportMixin):
                     'log_str', "") if phase_result and phase_result.status == "success" else ""
         
         if not isinstance(phase_data, dict):
-            return None, {}
+            return phase_result, {}, phase_summary, phase_log
 
         if not phase_keys.issubset(phase_data):
-            return None, {}
+            return phase_result, {}, phase_summary, phase_log
 
-        return phase_result, phase_data, planner_summary, phase_log
+        return phase_result, phase_data, phase_summary, phase_log
     
     def run_planning_and_save_results(self, **kwargs) -> ExecutionResult:
         """
@@ -1005,7 +1013,7 @@ class InitialPlanner(ConfigReportMixin):
                 export_log = save_output_with_versioning(
                     data = producing_planner_data,
                     output_dir = Path(self.config.shared_source_config.producing_processor_dir),
-                    filename_prefix = phase_name.lower(),
+                    filename_prefix = camel_to_snake(phase_name),
                     report_text = producing_planner_summary
                 )
                 export_logs.append(phase_name)
@@ -1038,7 +1046,7 @@ class InitialPlanner(ConfigReportMixin):
                 export_log = save_output_with_versioning(
                     data = pending_planner_data,
                     output_dir = Path(self.config.shared_source_config.pending_processor_dir),
-                    filename_prefix = phase_name.lower(),
+                    filename_prefix = camel_to_snake(phase_name),
                     report_text = pending_planner_summary
                 )
                 export_logs.append(phase_name)

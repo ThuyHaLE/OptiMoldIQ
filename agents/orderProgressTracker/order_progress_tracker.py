@@ -1,7 +1,7 @@
 from pathlib import Path
 from loguru import logger
 
-from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning
+from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning, camel_to_snake
 from configs.shared.shared_source_config import SharedSourceConfig
 import pandas as pd
 from datetime import datetime
@@ -293,9 +293,6 @@ class OrderProgressTracker(ConfigReportMixin):
         # These will be populated during execution
         self.loaded_data = {}
         self.dependency_data = {}
-        
-        # Set up output configuration
-        self.filename_prefix = "auto_status"
     
     def run_tracking(self, **kwargs) -> ExecutionResult:
         """
@@ -446,7 +443,7 @@ class OrderProgressTracker(ConfigReportMixin):
             export_log = save_output_with_versioning(
                 data = tracker_result['result'],
                 output_dir = Path(self.config.progress_tracker_dir),
-                filename_prefix = self.filename_prefix,
+                filename_prefix = camel_to_snake(agent_id),
                 report_text = tracking_summary
             )
             self.logger.info("Results exported successfully!")
