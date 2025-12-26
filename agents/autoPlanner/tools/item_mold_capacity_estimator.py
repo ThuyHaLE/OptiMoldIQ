@@ -260,19 +260,18 @@ class ItemMoldCapacityEstimator(ConfigReportMixin):
             raise ValueError(f"Missing required columns: {missing_cols}")
         
         # Filter only unused molds and select required columns
-        partial_df = capacity_df[capacity_df['moldNo'].isin(unused_molds)][merge_cols]
-
-        # Create empty dataframe with same structure as used_molds_df
-        empty_df = pd.DataFrame(columns=used_molds_df.columns)
-
+        partial_df = capacity_df[capacity_df['moldNo'].isin(unused_molds)].copy()[merge_cols]
+        
         # Reindex unused molds to match used molds structure
-        unused_molds_df = partial_df.reindex(columns=empty_df.columns, 
+        unused_molds_df = partial_df.reindex(columns=used_molds_df.columns, 
                                              fill_value=None)
 
         # Combine all molds
         if used_molds_df.empty:
             all_molds_df = unused_molds_df.copy()
         else:
+            # Align dtypes to preserve schema-first behavior and avoid pandas FutureWarning
+            unused_molds_df = unused_molds_df.astype(used_molds_df.dtypes)
             all_molds_df = pd.concat([used_molds_df, unused_molds_df], 
                                       ignore_index=True)
 
