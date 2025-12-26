@@ -2,14 +2,49 @@ import pandas as pd
 import re
 import ast
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from configs.shared.config_report_format import ConfigReportMixin
+from configs.shared.dict_based_report_generator import DictBasedReportGenerator
+from typing import Dict, List, Tuple, Any
+from datetime import datetime
 from loguru import logger
 
-class MachineAssignmentProcessor:
+class ProductionScheduleGenerator(ConfigReportMixin): # MachineAssignmentProcessor
 
     """
-    A class to handle manufacturing assignment processing with optimized methods.
+    A comprehensive class for taking a machine-mold assignment matrix and related reference
+    data, then converting and enriching the matrix into a human-readable
+    tabular format suitable for reporting, analysis, or downstream processing.
+
+    The initialization step stores all required inputs for later transformation,
+    including:
+        - The raw assigned matrix representing production assignments
+        - Mold lead-time and capacity reference data
+        - Pending (non-producing) order information
+        - Machine master data
+        - Supporting producing mold and production metadata lists
     """
+
+    BEAUTIFUL_COLS_MAPPING = {
+        'machineCode': 'Machine Code',
+        'machineNo': 'Machine No.',
+        'moldNo': 'Assigned Mold',
+        'poNo': 'PO No.',
+        'itemQuantity': 'PO Quantity',
+        'poETA': 'ETA (PO Date)',
+        'priorityRank': 'Priority in Machine',
+        'moldLeadTime': 'Mold Lead Time'
+        }
+    
+    PREFERRED_ORDER = [
+        'Machine No.', 'Machine Code', 'Assigned Mold', 'PO No.', 'Item Name',
+        'PO Quantity', 'ETA (PO Date)', 'Mold Lead Time', 'Priority in Machine'
+        ]
+    
+    PRIORITIZE_BY = ['machineCode', 'is_producing', 'poETA', 'moldLeadTime', 'itemQuantity']
+
+    PRIORITIZE_ASCENDING = [True, True, True, True, True]
+
+    PRIORITIZE_NA_POSITION = 'last'
 
     def __init__(self,
                  assigned_matrix: pd.DataFrame,
@@ -17,8 +52,28 @@ class MachineAssignmentProcessor:
                  pending_data: pd.DataFrame,
                  machine_info_df: pd.DataFrame,
                  producing_mold_list: List,
-                 producing_info_list: List):
+                 producing_info_list: List,
+                 generator_constant_config: Dict = {}):
 
+        """
+        Initialize ProductionScheduleGenerator for transforming an assigned production matrix 
+        into a readable, structured DataFrame.
+
+        Args:
+            - assigned_matrix: Raw assignment matrix representing machine-mold or machine-order allocations. 
+            - mold_lead_times : Reference DataFrame containing mold lead-time and/or capacity information 
+                used during enrichment or estimation steps.
+            - pending_data: DataFrame of pending or paused production orders, used to complement the producing assignments.
+            - machine_info_df: Master data containing machine information (e.g. machine code, name, tonnage).
+            - producing_mold_list: List of molds currently involved in production, 
+                used to filter or map producing-related records.
+            - producing_info_list: List of additional producing order metadata aligned with the assigned matrix structure.
+            - generator_constant_config: Constant config for production schedule generator
+        """
+         
+        self._capture_init_args()
+
+        # Initialize logger with class context for better debugging and monitoring
         self.logger = logger.bind(class_="MachineAssignmentProcessor")
 
         self.assigned_matrix = assigned_matrix
@@ -30,55 +85,89 @@ class MachineAssignmentProcessor:
 
         self.po_item_dict = dict(zip(self.pending_data ['poNo'], 
                                      self.pending_data ['itemName']))
+        
+        self.generator_constant_config = generator_constant_config
+        if not self.generator_constant_config:
+            self.logger.debug("ProductionScheduleGenerator constant config not found.")
 
         # Cache frequently used mappings
         self._item_to_po_mapping = None
         self._lead_time_mapping = None
         self._machine_info_mapping = None
 
-    @property
-    def item_to_po_mapping(self) -> Dict[str, List[Tuple]]:
+    def process_generating(self) -> Dict[str, Any]:
 
-        """Cached mapping from itemCode to PO info."""
+        """
+        Execute transforming an assigned production matrix into a readable, structured DataFrame.
+        """
 
-        if self._item_to_po_mapping is None:
-            self._item_to_po_mapping = (
-                self.pending_data
-                .assign(poInfo=lambda df: list(zip(df['poNo'], df['itemQuantity'], df['poETA'])))
-                .groupby('itemCode')['poInfo']
-                .apply(list)
-                .to_dict()
-            )
-        return self._item_to_po_mapping
+        self.logger.info("Starting ProductionScheduleGenerator...")
 
-    @property
-    def lead_time_mapping(self) -> Dict[str, float]:
+        # Generate config header using mixin
+        start_time = datetime.now()
+        timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str)
+        
+        # Initialize validation log entries for entire processing run
+        generator_log_lines = [config_header]
+        generator_log_lines.append(f"--Processing Summary--\n")
+        generator_log_lines.append(f"⤷ {self.__class__.__name__} results:\n")
 
-        """Cached mapping from moldNo to moldLeadTime."""
+        try:
+            # Step 1: Generate assignment summary
+            assignment_summary = self.get_assignment_summary()
 
-        if self._lead_time_mapping is None:
-            lead_times_unique = self.mold_lead_times.drop_duplicates(subset=['moldNo', 'itemCode'])
-            if len(lead_times_unique) < len(self.mold_lead_times):
-                self.logger.warning("Found {} duplicate moldNo entries in lead_times. Using first occurrence.",
-                                    len(self.mold_lead_times) - len(lead_times_unique))
-            self._lead_time_mapping = lead_times_unique.set_index('moldNo')['moldLeadTime'].to_dict()
-        return self._lead_time_mapping
+            # Step 2: Convert item codes to PO numbers
+            converted_df = self.convert_itemcode_to_pono(assignment_summary)
 
-    @property
-    def machine_info_mapping(self) -> Dict[str, str]:
+            # Step 3: Flatten the data
+            flattened_df = self.flatten_assignments(converted_df)
 
-        """Cached mapping from machineCode to machineNo."""
+            # Step 4: Prioritize by machine
+            prioritized_df = self.prioritize_by_machine(flattened_df)
 
-        if self._machine_info_mapping is None:
-            self._machine_info_mapping = self.machine_info_df.set_index('machineCode')['machineNo'].to_dict()
-        return self._machine_info_mapping
+            # Step 5: Optimize and beautify the final result
+            optimized_df = self.optimize_mold_assignment(prioritized_df)
+            final_result = self.beautify_dataframe(optimized_df)
 
+            # Log data summary
+            generator_log_lines.append("DATA EXPORT SUMMARY")
+            generator_log_lines.append(
+                f"⤷ Convert item codes to PO numbers: {len(converted_df)} - {converted_df.columns}")
+            generator_log_lines.append(
+                f"⤷ Flatten the data: {len(flattened_df)} - {flattened_df.columns}")
+            generator_log_lines.append(
+                f"⤷ Prioritize by machine: {len(prioritized_df)} - {prioritized_df.columns}")
+            generator_log_lines.append(
+                f"⤷ Pipeline completed successfully. Final result: {len(final_result)} - {final_result.columns}")
+    
+            # Generate planner summary
+            reporter = DictBasedReportGenerator(use_colors=False)
+            generator_summary = "\n".join(reporter.export_report({"ProductionSchedule": final_result}))
+            generator_log_lines.append(f"{generator_summary}")
+
+            self.logger.info("✅ Process finished!!!")
+
+            return {
+                "result": final_result, 
+                "planner_summary": generator_summary,
+                "log_str": "\n".join(generator_log_lines)}
+
+        except Exception as e:
+            self.logger.error("Failed to process ProductionScheduleGenerator: {}", str(e))
+            raise RuntimeError(f"ProductionScheduleGenerator processing failed: {str(e)}") from e
+    
+    #------------------------------------------------#
+    # STEP 1: GENERATE ASSIGNMENT SUMMARY            #
+    #------------------------------------------------#
     def get_assignment_summary(self) -> pd.DataFrame:
+
         """
         Convert detailed assignment matrix into readable summary format.
         Optimized with vectorized operations.
         """
-        logger.info("Generating assignment summary...")
+
+        self.logger.info("Generating assignment summary...")
 
         # Handle duplicate moldNo in lead_times by taking first occurrence
         lead_times_unique = self.mold_lead_times[['itemCode', 'moldNo']].drop_duplicates(subset=['itemCode', 'moldNo'])
@@ -89,9 +178,9 @@ class MachineAssignmentProcessor:
 
         # Merge without validation first, then check manually if needed
         df = (self.assigned_matrix
-            .reset_index()
-            .merge(lead_times_unique,
-                    how='left', on='moldNo'))
+              .reset_index()
+              .merge(lead_times_unique, 
+                     how='left', on='moldNo'))
 
         # Vectorized string operations
         df['pairItemMold'] = '(' + df['moldNo'] + ',' + df['itemCode'] + ')'
@@ -108,15 +197,20 @@ class MachineAssignmentProcessor:
         df_t['assignedMolds'] = df_t[mold_columns].apply(
             lambda row: ','.join(row[row != 0].index.astype(str)), 
             axis=1
-        )
+            )
 
         result = df_t.reset_index()[['machineCode', 'assignedMolds']]
         result.columns.name = None
 
-        logger.info("Generated summary for {} machines", len(result))
+        self.logger.info("Generated summary for {} machines", len(result))
+
         return result
 
-    def convert_itemcode_to_pono(self, assignment_df: pd.DataFrame) -> pd.DataFrame:
+    #------------------------------------------------#
+    # STEP 2: CONVERT ITEM CODES TO PO NUMBERS       #
+    #------------------------------------------------#
+    def convert_itemcode_to_pono(self, 
+                                 assignment_df: pd.DataFrame) -> pd.DataFrame:
 
         """
         Convert assignedMolds from (moldNo,itemCode) to (moldNo,(poNo,quantity,ETA)).
@@ -172,8 +266,28 @@ class MachineAssignmentProcessor:
         )
 
         self.logger.info("Conversion completed")
+
         return df
 
+    @property
+    def item_to_po_mapping(self) -> Dict[str, List[Tuple]]:
+
+        """Cached mapping from itemCode to PO info."""
+
+        if self._item_to_po_mapping is None:
+            self._item_to_po_mapping = (
+                self.pending_data
+                .assign(poInfo=lambda df: list(zip(df['poNo'], df['itemQuantity'], df['poETA'])))
+                .groupby('itemCode')['poInfo']
+                .apply(list)
+                .to_dict()
+            )
+
+        return self._item_to_po_mapping
+    
+    #------------------------------------------------#
+    # STEP 3: FLATTEN THE DATA                       #
+    #------------------------------------------------#
     def flatten_assignments(self, df: pd.DataFrame) -> pd.DataFrame:
 
         """
@@ -196,6 +310,7 @@ class MachineAssignmentProcessor:
                     'poETA': None,
                     'moldLeadTime': None
                 })
+                
             else:
                 for mold_no, items in molds.items():
                     mold_lead_time = self.lead_time_mapping.get(mold_no)
@@ -212,9 +327,28 @@ class MachineAssignmentProcessor:
                     ])
 
         result = pd.DataFrame(rows)
+
         self.logger.info("Flattened to {} rows", len(result))
+
         return result
 
+    @property
+    def lead_time_mapping(self) -> Dict[str, float]:
+
+        """Cached mapping from moldNo to moldLeadTime."""
+
+        if self._lead_time_mapping is None:
+            lead_times_unique = self.mold_lead_times.drop_duplicates(subset=['moldNo', 'itemCode'])
+            if len(lead_times_unique) < len(self.mold_lead_times):
+                self.logger.warning("Found {} duplicate moldNo entries in lead_times. Using first occurrence.",
+                                    len(self.mold_lead_times) - len(lead_times_unique))
+            self._lead_time_mapping = lead_times_unique.set_index('moldNo')['moldLeadTime'].to_dict()
+
+        return self._lead_time_mapping
+    
+    #------------------------------------------------#
+    # STEP 4: PRIORITIZE BY MACHINE                  #
+    #------------------------------------------------#
     def prioritize_by_machine(self,
                               flattened_df: pd.DataFrame) -> pd.DataFrame:
 
@@ -245,9 +379,10 @@ class MachineAssignmentProcessor:
         # Sort with multiple keys efficiently
         # Priority: Producing molds first (0) → Earliest ETA (ascending) → Shortest moldLeadTime (ascending) → Smallest itemQuantity (ascending)
         df_sorted = df.sort_values(
-            by=['machineCode', 'is_producing', 'poETA', 'moldLeadTime', 'itemQuantity'],
-            ascending=[True, True, True, True, True],
-            na_position='last'  # Handle NaT dates and NaN values properly
+            by=self.generator_constant_config.get("PRIORITIZE_BY", self.PRIORITIZE_BY),
+            ascending=self.generator_constant_config.get("PRIORITIZE_ASCENDING", self.PRIORITIZE_ASCENDING),
+            na_position=self.generator_constant_config.get("PRIORITIZE_NA_POSITION", self.PRIORITIZE_NA_POSITION)
+            # Handle NaT dates and NaN values properly
         )
 
         # Create a mask for rows with actual assignments (i.e., moldNo is not null)
@@ -264,10 +399,15 @@ class MachineAssignmentProcessor:
         # Drop the temporary helper column
         df_sorted = df_sorted.drop('is_producing', axis=1)
 
-        self.logger.info("Prioritization completed with producing molds → ETA → moldLeadTime → itemQuantity priority")
+        self.logger.info("Prioritization completed")
+
         return df_sorted.reset_index(drop=True)
 
-    def optimize_mold_assignment(self, df: pd.DataFrame):
+    #------------------------------------------------#
+    # STEP 5: OPTIMIZE AND BEAUTIFY THE FINAL RESULT #
+    #------------------------------------------------#
+    def optimize_mold_assignment(self, 
+                                 df: pd.DataFrame) -> pd.DataFrame:
         """
         Optimize mold assignment to machines to avoid unnecessary transfers.
         Move ALL jobs with the same mold to the target machine for efficiency.
@@ -280,6 +420,8 @@ class MachineAssignmentProcessor:
         Returns:
             Optimized DataFrame and information about the changes made
         """
+        
+        self.logger.info("Optimizing mold assignment...")
 
         # Create a copy to avoid modifying the original data
         df_optimized = df.copy()
@@ -311,14 +453,14 @@ class MachineAssignmentProcessor:
                 continue
 
             # Get existing jobs on target machine (excluding empty rows)
-            existing_jobs_on_target = df_optimized[
-                (df_optimized['machineCode'] == machine_code) &
-                (~pd.isna(df_optimized['moldNo'])) &
-                (df_optimized['moldNo'] != '') &
-                (~pd.isna(df_optimized['poNo'])) &
-                (df_optimized['poNo'] != '') &
-                (df_optimized['itemQuantity'] > 0)
-            ].copy()
+            #existing_jobs_on_target = df_optimized[
+            #    (df_optimized['machineCode'] == machine_code) &
+            #    (~pd.isna(df_optimized['moldNo'])) &
+            #    (df_optimized['moldNo'] != '') &
+            #    (~pd.isna(df_optimized['poNo'])) &
+            #    (df_optimized['poNo'] != '') &
+            #    (df_optimized['itemQuantity'] > 0)
+            #    ].copy()
 
             # Remove empty rows from target machine
             empty_rows = df_optimized[
@@ -337,7 +479,7 @@ class MachineAssignmentProcessor:
             jobs_to_move = df_optimized[
                 (df_optimized['moldNo'] == requested_mold) &
                 (df_optimized['machineCode'] != machine_code)
-            ].copy()
+                ].copy()
 
             moved_jobs = []
 
@@ -378,7 +520,7 @@ class MachineAssignmentProcessor:
 
             # If there were existing jobs on target machine, push their priorities down
             if existing_job_indices:
-                num_moved_jobs = len(moved_job_indices)
+                #num_moved_jobs = len(moved_job_indices)
 
                 # Sort existing jobs by their current priority
                 existing_jobs_data = [(idx, df_optimized.loc[idx, 'priorityRank']) for idx in existing_job_indices]
@@ -433,10 +575,65 @@ class MachineAssignmentProcessor:
             self.logger.info("Final priority on machine {}:", machine_code)
             for _, row in final_target_jobs.iterrows():
                 self.logger.info("  Priority {}: {} - {}",
-                              row['priorityRank'], row['moldNo'], row['poNo'])
+                                 row['priorityRank'], row['moldNo'], row['poNo'])
+                
+        self.logger.info("Optimization completed")
 
-        return df_optimized
+        return df_optimized    
 
+    def beautify_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        """
+        Enhanced beautification with better formatting and column organization.
+        """
+
+        self.logger.info("Beautifying dataframe...")
+
+        beautified = df.copy()
+
+        # Enhanced date formatting
+        if 'poETA' in beautified.columns:
+            beautified['poETA'] = pd.to_datetime(beautified['poETA'], errors='coerce')
+
+        # Better numeric formatting
+        if 'itemQuantity' in beautified.columns:
+            beautified['itemQuantity'] = (
+                pd.to_numeric(beautified['itemQuantity'], errors='coerce')
+                .fillna(0)
+                .astype('Int64')  # Nullable integer type
+            )
+
+        # Add machine info if not present
+        if 'machineNo' not in beautified.columns and 'machineCode' in beautified.columns:
+            beautified['machineNo'] = beautified['machineCode'].map(self.machine_info_mapping)
+
+        # Sort by machine number
+        beautified = self.sort_by_machine_number(beautified)
+
+        # Rename columns for clarity
+        beautified['Item Name'] = beautified['poNo'].map(self.po_item_dict)
+        beautified = beautified.rename(columns=self.generator_constant_config.get(
+            "BEAUTIFUL_COLS_MAPPING", self.BEAUTIFUL_COLS_MAPPING))
+
+        # Reorder columns logically
+        available_cols = [col for col in self.generator_constant_config.get(
+            "PREFERRED_ORDER", self.PREFERRED_ORDER) if col in beautified.columns]
+        beautified = beautified[available_cols]
+
+        self.logger.info("Beautification completed")
+
+        return beautified
+    
+    @property
+    def machine_info_mapping(self) -> Dict[str, str]:
+
+        """Cached mapping from machineCode to machineNo."""
+
+        if self._machine_info_mapping is None:
+            self._machine_info_mapping = self.machine_info_df.set_index('machineCode')['machineNo'].to_dict()
+
+        return self._machine_info_mapping
+    
     @staticmethod
     def sort_by_machine_number(df: pd.DataFrame) -> pd.DataFrame:
 
@@ -469,96 +666,3 @@ class MachineAssignmentProcessor:
         )
 
         return df_sorted
-
-    def beautify_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-
-        """
-        Enhanced beautification with better formatting and column organization.
-        """
-
-        self.logger.info("Beautifying dataframe...")
-
-        beautified = df.copy()
-
-        # Enhanced date formatting
-        if 'poETA' in beautified.columns:
-            beautified['poETA'] = pd.to_datetime(beautified['poETA'], errors='coerce')
-
-        # Better numeric formatting
-        if 'itemQuantity' in beautified.columns:
-            beautified['itemQuantity'] = (
-                pd.to_numeric(beautified['itemQuantity'], errors='coerce')
-                .fillna(0)
-                .astype('Int64')  # Nullable integer type
-            )
-
-        # Add machine info if not present
-        if 'machineNo' not in beautified.columns and 'machineCode' in beautified.columns:
-            beautified['machineNo'] = beautified['machineCode'].map(self.machine_info_mapping)
-
-        # Sort by machine number
-        beautified = self.sort_by_machine_number(beautified)
-
-        # Rename columns for clarity
-        column_mapping = {
-            'machineCode': 'Machine Code',
-            'machineNo': 'Machine No.',
-            'moldNo': 'Assigned Mold',
-            'poNo': 'PO No.',
-            'itemQuantity': 'PO Quantity',
-            'poETA': 'ETA (PO Date)',
-            'priorityRank': 'Priority in Machine',
-            'moldLeadTime': 'Mold Lead Time'
-        }
-
-        beautified['Item Name'] = beautified['poNo'].map(self.po_item_dict)
-        beautified = beautified.rename(columns=column_mapping)
-
-        # Reorder columns logically
-        preferred_order = [
-            'Machine No.', 'Machine Code', 'Assigned Mold', 'PO No.', 'Item Name',
-            'PO Quantity', 'ETA (PO Date)', 'Mold Lead Time', 'Priority in Machine'
-        ]
-
-        # Only include columns that exist
-        available_cols = [col for col in preferred_order if col in beautified.columns]
-        beautified = beautified[available_cols]
-
-        self.logger.info("Beautification completed")
-        return beautified
-
-    def process_all(self) -> pd.DataFrame:
-
-        """
-        Execute the complete processing pipeline with error handling.
-        """
-
-        try:
-            self.logger.info("Starting complete assignment processing pipeline...")
-
-            # Step 1: Generate assignment summary
-            assignment_summary = self.get_assignment_summary()
-
-            # Step 2: Convert item codes to PO numbers
-            converted_df = self.convert_itemcode_to_pono(assignment_summary)
-            self.logger.info("Convert item codes to PO numbers: {} - {}", len(converted_df), converted_df.columns)
-
-            # Step 3: Flatten the data
-            flattened_df = self.flatten_assignments(converted_df)
-            self.logger.info("Flatten the data: {} - {}", len(flattened_df), flattened_df.columns)
-
-            # Step 4: Prioritize by machine
-            prioritized_df = self.prioritize_by_machine(flattened_df)
-            self.logger.info("Prioritize by machine: {} - {}", len(prioritized_df), prioritized_df.columns)
-
-            # Step 5: Optimize and beautify the final result
-            optimized_df = self.optimize_mold_assignment(prioritized_df)
-            final_result = self.beautify_dataframe(optimized_df)
-            self.logger.info("Pipeline completed successfully. Final result: {} - ", 
-                             len(final_result), final_result.columns)
-
-            return final_result
-
-        except Exception as e:
-            self.logger.error("Error in processing pipeline: {}", e)
-            raise

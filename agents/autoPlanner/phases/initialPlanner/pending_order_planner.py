@@ -22,6 +22,7 @@ class PendingPlannerResult:
     unassigned_molds: List
     overloaded_machines: Set
     not_matched_pending: pd.DataFrame
+    planner_summary: str
     log_str: str
     def to_dict(self) -> Dict:
         """Convert dataclass to dictionary for serialization/logging."""
@@ -171,6 +172,7 @@ class PendingOrderPlanner(ConfigReportMixin):
                 unassigned_molds = unassigned_molds,
                 overloaded_machines = overloaded_machines,
                 not_matched_pending = self.not_matched_pending,
+                planner_summary = planner_summary,
                 log_str = "\n".join(planner_log_lines)
                 )
             

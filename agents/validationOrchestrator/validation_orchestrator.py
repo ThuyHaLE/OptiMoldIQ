@@ -2,7 +2,7 @@ from loguru import logger
 from agents.utils import save_output_with_versioning
 from pathlib import Path
 import pandas as pd
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, NoReturn
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
@@ -121,7 +121,7 @@ class DataLoadingPhase(AtomicPhase):
             'dataframes': loaded_dfs
         }
     
-    def _fallback(self) -> Dict[str, Any]:
+    def _fallback(self) -> NoReturn:
         """
         No valid fallback for data loading.
         Raise to ensure CRITICAL severity is applied.
@@ -289,18 +289,32 @@ class ValidationOrchestrator(ConfigReportMixin):
             'databaseSchemas_path': str,
             'annotation_path': str,
             'validation_dir': str,
+            'validation_change_log_path': str
         },
         'enable_parallel': bool,
         'max_workers': Optional[int]
     }
 
-    def __init__(
-        self,
-        shared_source_config: SharedSourceConfig,
-        enable_parallel: bool = False,
-        max_workers: Optional[int] = None
-    ):
-        """Initialize the ValidationOrchestrator."""
+    def __init__(self,
+                 shared_source_config: SharedSourceConfig,
+                 enable_parallel: bool = False,
+                 max_workers: Optional[int] = None
+                 ):
+    
+        """
+        Initialize the ValidationOrchestrator agent
+        
+        Args:
+            config (SharedSourceConfig): Configuration containing validation parameters, including:
+                - validation_df_name (List[str]): List of dataframe names that require validation.
+                Supported values: ["purchaseOrders", "productRecords"].
+                - annotation_path (str): Path to the JSON file containing path annotations.
+                - databaseSchemas_path (str): Path to database schemas used for validation.
+                - validation_change_log_path (str): Path to the ValidationOrchestrator change log.
+                - validation_dir (str): Default directory for validation outputs and temporary files.
+            enable_parallel (bool): Enable parallel processing. Defaults to False.
+            max_workers (int, optional): Number of worker threads/processes used for parallel execution. Defaults to None.
+        """
         
         # Capture initialization arguments for reporting
         self._capture_init_args()
@@ -330,7 +344,6 @@ class ValidationOrchestrator(ConfigReportMixin):
         
         # Set up output configuration
         self.filename_prefix = "validation_orchestrator"
-        self.output_dir = Path(self.config.validation_dir)
         
         # Store parallel settings
         self.enable_parallel = enable_parallel
@@ -677,7 +690,7 @@ class ValidationOrchestrator(ConfigReportMixin):
             self.logger.info("📤 Exporting results to Excel...")
             export_log = save_output_with_versioning(
                 data=validation_data['combined_all'],
-                output_dir=self.output_dir,
+                output_dir=Path(self.config.validation_dir),
                 filename_prefix=self.filename_prefix,
                 report_text=validation_summary
             )
@@ -692,13 +705,13 @@ class ValidationOrchestrator(ConfigReportMixin):
             config_header = self._generate_config_report(timestamp_str, required_only=True)
 
             # Save change log
-            log_path = self.output_dir / "change_log.txt"
             message = update_change_log(agent_id, 
                                         config_header, 
                                         result, 
                                         validation_summary, 
                                         export_log, 
-                                        log_path)
+                                        Path(self.config.validation_change_log_path)
+                                        )
 
             return result
             

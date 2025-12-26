@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict
 from loguru import logger
 from datetime import datetime
 
@@ -18,6 +18,7 @@ class ProducingPlannerResult:
     producing_mold_plan: pd.DataFrame
     producing_plastic_plan: pd.DataFrame
     pending_status_data: pd.DataFrame
+    planner_summary: str
     log_str: str
     def to_dict(self) -> Dict:
         """Convert dataclass to dictionary for serialization/logging."""
@@ -189,6 +190,7 @@ class ProducingOrderPlanner(ConfigReportMixin):
                 producing_mold_plan = mold_plan,
                 producing_plastic_plan = plastic_plan,
                 pending_status_data = pending_status_data,
+                planner_summary = planner_summary,
                 log_str = "\n".join(planner_log_lines))
 
         except Exception as e:

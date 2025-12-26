@@ -27,12 +27,14 @@ class SharedSourceConfig:
     progress_tracker_change_log_path: Optional[str] = None
 
     features_extractor_dir: Optional[str] = None
+    features_extractor_change_log_path: Optional[str] = None
     mold_stability_index_dir: Optional[str] = None
     mold_stability_index_change_log_path: Optional[str] = None
     mold_machine_weights_dir: Optional[str] = None
     mold_machine_weights_hist_path: Optional[str] = None
 
     initial_planner_dir: Optional[str] = None
+    initial_planner_change_log_path: Optional[str] = None
     producing_processor_dir: Optional[str] = None
     producing_processor_change_log_path: Optional[str] = None
     pending_processor_dir: Optional[str] = None
@@ -78,6 +80,8 @@ class SharedSourceConfig:
 
         self.features_extractor_dir = (
             self.features_extractor_dir or f"{self.default_dir}/HistoricalFeaturesExtractor")
+        self.features_extractor_change_log_path = (
+            self.features_extractor_change_log_path or f"{self.features_extractor_dir}/change_log.txt")
         self.mold_stability_index_dir = (
             self.mold_stability_index_dir or f"{self.features_extractor_dir}/MoldStabilityIndexCalculator")
         self.mold_stability_index_change_log_path = (
@@ -89,6 +93,8 @@ class SharedSourceConfig:
         
         self.initial_planner_dir = (
             self.initial_planner_dir or f'{self.default_dir}/AutoPlanner/InitialPlanner')
+        self.initial_planner_change_log_path = (
+            self.initial_planner_change_log_path or f'{self.initial_planner_dir}/change_log.txt')
         self.producing_processor_dir = (
             self.producing_processor_dir or f'{self.initial_planner_dir}/ProducingProcessor')
         self.producing_processor_change_log_path = (

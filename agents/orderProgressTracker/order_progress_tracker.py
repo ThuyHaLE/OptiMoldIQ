@@ -6,7 +6,7 @@ from configs.shared.shared_source_config import SharedSourceConfig
 import pandas as pd
 from datetime import datetime
 import os
-from typing import Dict, Any
+from typing import Dict, Any, NoReturn
 from configs.shared.config_report_format import ConfigReportMixin
 
 # Import agent report format components
@@ -117,7 +117,7 @@ class DataLoadingPhase(AtomicPhase):
             'dataframes': loaded_dfs
         }
     
-    def _fallback(self) -> Dict[str, Any]:
+    def _fallback(self) -> NoReturn:
         """
         No valid fallback for data loading.
         Raise to ensure CRITICAL severity is applied.
@@ -226,7 +226,7 @@ class ProgressTrackingPhase(AtomicPhase):
         
         return tracker_result
     
-    def _fallback(self) -> Dict[str, Any]:
+    def _fallback(self) -> NoReturn:
         """
         No valid fallback for progress tracking.
         Raise to ensure CRITICAL severity is applied.
@@ -254,11 +254,22 @@ class OrderProgressTracker(ConfigReportMixin):
         'annotation_path': str,
         'databaseSchemas_path': str,
         'validation_change_log_path': str,
-        'progress_tracker_dir': str
+        'progress_tracker_dir': str,
+        'progress_tracker_change_log_path': str
     }
     
     def __init__(self, config: SharedSourceConfig):
-        """Initialize the OrderProgressTracker agent"""
+        """
+        Initialize the OrderProgressTracker agent
+        
+        Args:        
+            config: SharedSourceConfig containing processing parameters, including:
+                - annotation_path (str): Path to the JSON file containing path annotations.
+                - databaseSchemas_path (str): Path to database schema for validation.
+                - validation_change_log_path (str): Path to the ValidationOrchestrator change log.
+                - progress_tracker_dir (str): Default directory for output and temporary files.
+                - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log.
+        """
         
         # Capture initialization arguments for reporting
         self._capture_init_args()
@@ -285,7 +296,6 @@ class OrderProgressTracker(ConfigReportMixin):
         
         # Set up output configuration
         self.filename_prefix = "auto_status"
-        self.output_dir = Path(self.config.progress_tracker_dir)
     
     def run_tracking(self, **kwargs) -> ExecutionResult:
         """
@@ -435,7 +445,7 @@ class OrderProgressTracker(ConfigReportMixin):
             logger.info("Start excel file exporting...")
             export_log = save_output_with_versioning(
                 data = tracker_result['result'],
-                output_dir = self.output_dir,
+                output_dir = Path(self.config.progress_tracker_dir),
                 filename_prefix = self.filename_prefix,
                 report_text = tracking_summary
             )
@@ -445,20 +455,19 @@ class OrderProgressTracker(ConfigReportMixin):
             result.metadata['export_log'] = export_log
             result.metadata['tracking_summary'] = tracking_summary
             
-            
             # Generate config header using mixin
             start_time = datetime.now()
             timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
             config_header = self._generate_config_report(timestamp_str, required_only=True)
             
-            # Save change log
-            log_path = self.output_dir / "change_log.txt"
+            # Save change log    
             message = update_change_log(agent_id, 
                                         config_header, 
                                         result, 
                                         tracking_summary, 
                                         export_log, 
-                                        log_path)
+                                        Path(self.config.progress_tracker_change_log_path)
+                                        )
             
             return result
 
