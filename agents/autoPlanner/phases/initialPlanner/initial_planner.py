@@ -899,7 +899,7 @@ class InitialPlanner(ConfigReportMixin):
         
         return final_result
     
-    def _extract_historical_data(self,
+    def _extract_planning_data(self,
                                  result: ExecutionResult) -> Tuple[
                                      ExecutionResult, Dict, str, str,
                                      ExecutionResult, Dict, str, str]:
@@ -971,7 +971,7 @@ class InitialPlanner(ConfigReportMixin):
 
         try:
             # Execute extraction
-            result = self.run_extraction(**kwargs)
+            result = self.process_planning(**kwargs)
             
             # Check if extraction succeeded
             if result.has_critical_errors():
@@ -982,7 +982,7 @@ class InitialPlanner(ConfigReportMixin):
             (producing_planner_result, producing_planner_data, 
              producing_planner_summary, producing_planner_log, 
              pending_planner_result, pending_planner_data, 
-             pending_planner_summary, pending_planner_log) = self._extract_historical_data(result)
+             pending_planner_summary, pending_planner_log) = self._extract_planning_data(result)
             
             if not producing_planner_data and not pending_planner_data:
                 self.logger.error(
