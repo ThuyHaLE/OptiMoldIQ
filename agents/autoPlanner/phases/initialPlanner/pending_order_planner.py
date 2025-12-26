@@ -307,7 +307,7 @@ class PendingOrderPlanner(ConfigReportMixin):
 
         try:
 
-            from agents.autoPlanner.generators.production_schedule_generator import ProductionScheduleGenerator
+            from agents.autoPlanner.phases.initialPlanner.production_schedule_generator import ProductionScheduleGenerator
 
             generator = ProductionScheduleGenerator(
                 assigned_matrix,
