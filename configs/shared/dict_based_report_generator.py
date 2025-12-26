@@ -11,15 +11,15 @@ class DictBasedReportGenerator:
     
     def __init__(self, 
                  use_colors: bool = True, 
-                 max_rows: int = 100, 
-                 max_cols: int = 20):
+                 max_rows: int = None, 
+                 max_cols: int = None):
         """
         Initialize the DictBasedReportGenerator.
         
         Args:
             use_colors: Whether to use ANSI color codes in output
-            max_rows: Maximum number of rows to display for DataFrames
-            max_cols: Maximum number of columns to display for DataFrames
+            max_rows: Maximum number of rows to display for DataFrames (None = show all)
+            max_cols: Maximum number of columns to display for DataFrames (None = show all)
         """
         self.max_rows = max_rows
         self.max_cols = max_cols
@@ -87,16 +87,16 @@ class DictBasedReportGenerator:
         # Get basic info
         shape_info = f"{self.colors['info']}📊 Shape: {self.colors['number']}{df.shape[0]}{self.colors['reset']} rows × {self.colors['number']}{df.shape[1]}{self.colors['reset']} columns"
         
-        # Truncate if necessary
+        # Truncate if necessary (only if max_rows/max_cols are set)
         display_df = df.copy()
         truncated_rows = False
         truncated_cols = False
         
-        if len(df) > self.max_rows:
+        if self.max_rows and len(df) > self.max_rows:
             display_df = pd.concat([df.head(self.max_rows//2), df.tail(self.max_rows//2)])
             truncated_rows = True
             
-        if len(df.columns) > self.max_cols:
+        if self.max_cols and len(df.columns) > self.max_cols:
             display_df = display_df.iloc[:, :self.max_cols]
             truncated_cols = True
         
@@ -286,22 +286,46 @@ class DictBasedReportGenerator:
                      content: Any, 
                      title: str = None,
                      header: str = None,
-                     footer: str = None):
+                     footer: str = None,
+                     max_display_rows: int = None,
+                     max_display_cols: int = None):
         """
-        Print a formatted report with an optional title.
+        Generate a formatted report with optional title and display limits override.
         
         Args:
             content: The content to generate a report for
             title: Optional title for the report
+            header: Optional header text (currently unused)
+            footer: Optional footer text (currently unused)
+            max_display_rows: Override instance max_rows for this export (None = use instance value)
+            max_display_cols: Override instance max_cols for this export (None = use instance value)
+            
+        Returns:
+            List of formatted report lines
         """
-        lines = []
+        # Temporarily override display limits if specified
+        original_max_rows = self.max_rows
+        original_max_cols = self.max_cols
+        
+        if max_display_rows is not None:
+            self.max_rows = max_display_rows
+        if max_display_cols is not None:
+            self.max_cols = max_display_cols
+        
+        try:
+            lines = []
 
-        if title:
-            title_color = self.colors['bold'] + self.colors['header']
-            lines.append(f"\n{title_color}{'='*60}{self.colors['reset']}")
-            lines.append(f"{title_color}{title.center(60)}{self.colors['reset']}")
-            lines.append(f"{title_color}{'='*60}{self.colors['reset']}\n")
+            if title:
+                title_color = self.colors['bold'] + self.colors['header']
+                lines.append(f"\n{title_color}{'='*60}{self.colors['reset']}")
+                lines.append(f"{title_color}{title.center(60)}{self.colors['reset']}")
+                lines.append(f"{title_color}{'='*60}{self.colors['reset']}\n")
 
-        lines.append(self.generate_report(content))
-
-        return lines
+            lines.append(self.generate_report(content))
+            
+            return lines
+        
+        finally:
+            # Always restore original values
+            self.max_rows = original_max_rows
+            self.max_cols = original_max_cols
