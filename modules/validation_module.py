@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-
+from dataclasses import asdict
 from agents.validationOrchestrator.validation_orchestrator import SharedSourceConfig, ValidationOrchestrator
 
 class ValidationModule(BaseModule):
@@ -54,19 +54,15 @@ class ValidationModule(BaseModule):
     
     @property
     def dependencies(self) -> List[str]:
-        """No dependencies - this is typically the first module"""
-        return []
+        """One dependency - this is the second module"""
+        return ['DataPipelineOrchestrator']
     
     @property
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
         return [
-            'validation_orchestrator_result',
-            'validation_df_name',
-            'dataschemas_path',
-            'annotation_path',
-            'validation_dir',
-            'validation_change_log_path',
+            'validation_result',
+            'shared_configs',
             'enable_parallel',
             'max_workers'
         ]
@@ -103,8 +99,8 @@ class ValidationModule(BaseModule):
             # Create orchestrator
             validation_orchestrator = ValidationOrchestrator(
                 shared_source_config=self.shared_config,
-                enable_parallel = self.validation_config.enable_parallel,
-                max_workers = self.validation_config.max_workers)
+                enable_parallel = self.validation_config.get('enable_parallel', True),
+                max_workers = self.validation_config.get('max_workers', None))
 
             # Run validations
             self.logger.info("Running validations...")
@@ -116,18 +112,14 @@ class ValidationModule(BaseModule):
             return ModuleResult(
                 status='success',
                 data={
-                    'validation_results': validation_result,
+                    'validation_result': validation_result,
                 },
                 message='Validation completed successfully',
                 context_updates={
-                    'validation_orchestrator_result': validation_result,
-                    'validation_df_name': self.shared_config.validation_df_name,
-                    'dataschemas_path': self.shared_config.databaseSchemas_path,
-                    'annotation_path': self.shared_config.annotation_path,
-                    'validation_dir': self.shared_config.validation_dir,
-                    'validation_change_log_path': self.shared_config.validation_change_log_path,
-                    'enable_parallel': self.validation_config.enable_parallel,
-                    'max_workers': self.validation_config.max_workers
+                    'validation_result': validation_result,
+                    'shared_configs': asdict(self.shared_config),
+                    'enable_parallel': self.validation_config.get('enable_parallel', True),
+                    'max_workers': self.validation_config.get('max_workers', None)
                 }
             )
             

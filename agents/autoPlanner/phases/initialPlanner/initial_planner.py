@@ -609,14 +609,15 @@ class InitialPlanner(ConfigReportMixin):
                 'mold_stability_index_change_log_path': str,
                 'initial_planner_dir': str,
                 'initial_planner_change_log_path': str,
+                'initial_planner_constant_config_path': str,
                 'pending_processor_dir': str,
                 'pending_processor_change_log_path': str,
                 'producing_processor_dir': str,
                 'producing_processor_change_log_path': str
                 },
             "priority_order": str,
-            "max_load_threshold": int,
-            "log_progress_interval": int,
+            'max_load_threshold': int,
+            'log_progress_interval': int,
             'efficiency': float,
             'loss': float
             }
@@ -632,22 +633,24 @@ class InitialPlanner(ConfigReportMixin):
             config: InitialPlannerConfig containing processing parameters
             including:
                 - shared_source_config: 
-                    - annotation_path: Path to the JSON file containing path annotations
-                    - databaseSchemas_path: Path to database schemas JSON file for validation
-                    - sharedDatabaseSchemas_path: Path to shared database schemas JSON file for validation
-                    - progress_tracker_change_log_path: Path to the OrderProgressTracker change log
-                    - mold_machine_weights_hist_path: Path to mold-machine feature weights (from MoldMachineFeatureWeightCalculator)
-                    - mold_stability_index_change_log_path: Path to the MoldStabilityIndexCalculator change log
-                    - initial_planner_dir: Base directory for storing reports
-                    - initial_planner_change_log_path: Path to the InitialPlanner change log
-                    - pending_processor_dir: Base directory for storing reports
-                    - pending_processor_change_log_path: Path to the ProducingOrderPlanner change log
-                    - producing_processor_dir: Base directory for storing reports
-                    - producing_processor_change_log_path: Path to the PendingOrderPlanner change log
-                - priority_order: Priority ordering strategy
-                - max_load_threshold: Maximum allowed load threshold. If None, no load constraint is applied
-                - efficiency: Production efficiency factor (0.0 to 1.0)
-                - loss: Production loss factor (0.0 to 1.0)
+                    - annotation_path (str): Path to the JSON file containing path annotations
+                    - databaseSchemas_path (str): Path to database schemas JSON file for validation
+                    - sharedDatabaseSchemas_path (str): Path to shared database schemas JSON file for validation
+                    - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log
+                    - mold_machine_weights_hist_path (str): Path to mold-machine feature weights (from MoldMachineFeatureWeightCalculator)
+                    - mold_stability_index_change_log_path (str): Path to the MoldStabilityIndexCalculator change log
+                    - initial_planner_dir (str): Base directory for storing reports
+                    - initial_planner_change_log_path (str): Path to the InitialPlanner change log
+                    - initial_planner_constant_config_path (str): Path to the InitialPlanner constant config.
+                    - pending_processor_dir (str): Base directory for storing reports
+                    - pending_processor_change_log_path (str): Path to the ProducingOrderPlanner change log
+                    - producing_processor_dir (str): Base directory for storing reports
+                    - producing_processor_change_log_path (str): Path to the PendingOrderPlanner change log
+                - priority_order (str): Priority ordering strategy
+                - max_load_threshold (int): Maximum allowed load threshold. If None, no load constraint is applied
+                - log_progress_interval (int): Interval at which progress logs are emitted during processing.
+                - efficiency (float): Production efficiency factor (0.0 to 1.0)
+                - loss (float): Production loss factor (0.0 to 1.0)
         """
 
         self._capture_init_args()

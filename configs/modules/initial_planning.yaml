@@ -1,0 +1,121 @@
+# configs/modules/initial_planning.yaml
+
+# Project root directory
+project_root: "."
+
+# ========================
+# VALIDATION MODULE CONFIG
+# ========================
+initial_planning:
+#REQUIRED_FIELDS = {
+#        'config': {
+#            'shared_source_config': {
+#                'annotation_path': str,
+#                'databaseSchemas_path': str,
+#                'sharedDatabaseSchemas_path': str,
+#                'progress_tracker_change_log_path': str,
+#                'mold_machine_weights_hist_path': str,
+#                'mold_stability_index_change_log_path': str,
+#                'initial_planner_dir': str,
+#                'initial_planner_change_log_path': str,
+#                'initial_planner_constant_config_path': str, 
+#                'producing_processor_dir': str,
+#                'producing_processor_change_log_path': str
+#                'pending_processor_dir': str,
+#                'pending_processor_change_log_path': str,
+#                },
+#            "priority_order": str,
+#            "max_load_threshold": int,
+#            "log_progress_interval": int,
+#            'efficiency': float,
+#            'loss': float
+#            }
+#        }
+
+  shared_source_config:
+    # --------------------------------------------
+    # BASE DIRECTORIES (Required - it will be resolved with project_root)
+    # --------------------------------------------
+    db_dir: "tests/mock_database" 
+    default_dir: 'tests/shared_db'
+
+    # --------------------------------------------
+    # OPTIONAL OVERRIDES
+    # Uncomment to override default paths
+    # --------------------------------------------
+    
+    # Annotation path  
+    # Default: {default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json
+    # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json"
+
+    # Database schemas path
+    # Default: {db_dir}/databaseSchemas.json
+    # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+
+    # Shared database schemas path
+    # Default: {self.db_dir}/sharedDatabaseSchemas.json
+    # sharedDatabaseSchemas_path = "tests/mock_database/sharedDatabaseSchemas.json"
+
+    # Progress tracker change log
+    # Default: {progress_tracker_dir}/change_log.txt
+    # progress_tracker_change_log_path: "tests/shared_db/OrderProgressTracker/change_log.txt"
+
+    # Mold machine weights hist path: 
+    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx
+    # mold_machine_weights_hist_path: "tests/shared_db/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx"
+
+    # Mold stability index calculator change log
+    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt
+    # mold_stability_index_change_log_path: "tests/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt"
+
+    # Initial planner directory
+    # Default: {self.default_dir}/AutoPlanner/InitialPlanner
+    # initial_planner_dir: "tests/shared_db/AutoPlanner/InitialPlanner"
+
+    # Initial planner change log
+    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/change_log.txt
+    # initial_planner_change_log_path: "tests/shared_db/AutoPlanner/InitialPlanner/change_log.txt"
+
+    # Initial planner constant config
+    # Default: agents/autoPlanner/phases/initialPlanner/configs/constant_configurations.json
+    # initial_planner_constant_config_path: "agents/autoPlanner/phases/initialPlanner/configs/constant_configurations.json"
+
+    # Producing orders planner directory
+    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/ProducingProcessor
+    # producing_processor_dir: "tests/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor"
+
+    # Producing orders planner change log
+    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/ProducingProcessor/change_log.txt
+    # producing_processor_change_log_path: "tests/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor/change_log.txt"
+
+    # Pending orders planner directory
+    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/PendingProcessor
+    # pending_processor_dir: "tests/shared_db/AutoPlanner/InitialPlanner/PendingProcessor"
+
+    # Pending orders planner change log
+    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/PendingProcessor/change_log.txt
+    # pending_processor_change_log_path: "tests/shared_db/AutoPlanner/InitialPlanner/PendingProcessor/change_log.txt"
+
+    # Database schemas path
+    # Default: {db_dir}/databaseSchemas.json
+    # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+
+  # Priority ordering strategy
+  # Default: priority_order_1
+  # priority_order: "priority_order_1"
+  
+  # Maximum allowed load threshold. If None, no load constraint is applied
+  # Default: 30
+  # max_load_threshold: 30
+
+  # Interval at which progress logs are emitted during processing
+  # Default: 10
+  # log_progress_interval: 10
+  
+  # Production efficiency factor (0.0 to 1.0)
+  # Default: 0.85
+  # efficiency: 0.85
+  
+  # Production loss factor (0.0 to 1.0)
+  # Default: 0.03
+  # loss: 0.03

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-
+from dataclasses import asdict
 from agents.orderProgressTracker.order_progress_tracker import SharedSourceConfig, OrderProgressTracker
 
 class ProgressTrackingModule(BaseModule):
@@ -64,12 +64,8 @@ class ProgressTrackingModule(BaseModule):
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
         return [
-            'progress_tracking_result',
-            'dataschemas_path',
-            'annotation_path',
-            'validation_change_log_path',
-            'progress_tracker_change_log_path',
-            'progress_tracker_constant_config_path'
+            'tracking_results',
+            'configs'
         ]
         
     def execute(self, 
@@ -107,12 +103,8 @@ class ProgressTrackingModule(BaseModule):
                 },
                 message='Tracking completed successfully',
                 context_updates={
-                    'progress_tracking_result': tracker_result,
-                    'dataschemas_path': self.shared_config.databaseSchemas_path,
-                    'annotation_path': self.shared_config.annotation_path,
-                    'validation_change_log_path': self.shared_config.validation_change_log_path,
-                    'progress_tracker_change_log_path': self.shared_config.progress_tracker_change_log_path,
-                    'progress_tracker_constant_config_path': self.shared_config.progress_tracker_constant_config_path
+                    'tracking_results': tracker_result,
+                    'configs': asdict(self.shared_config)
                 }
             )
 

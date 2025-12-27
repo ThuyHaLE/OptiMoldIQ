@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-
+from dataclasses import asdict
 from configs.shared.shared_source_config import SharedSourceConfig
 from agents.autoPlanner.calculators.configs.feature_weight_config import FeatureWeightConfig
 from agents.autoPlanner.calculators.configs.mold_stability_config import MoldStabilityConfig
@@ -80,18 +80,15 @@ class FeaturesExtractingModule(BaseModule):
     
     @property
     def dependencies(self) -> List[str]:
-        """No dependencies - this is typically the first module"""
-        return []
+        """One dependency - this is the second module"""
+        return ['OrderProgressTracker']
     
     @property
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
         return [
-            'features_extractor_result',
-            'features_extractor_log',
-            'dataschemas_path',
-            'sharedschemas_path',
-            'annotation_path'
+            'extraction_results',
+            'configs'
         ]
 
     def execute(self, 
@@ -155,7 +152,7 @@ class FeaturesExtractingModule(BaseModule):
 
             # Run extracting
             self.logger.info("Running extracting...")
-            results, log_str = extractor.run_extraction()
+            extractor_result = extractor.run_extraction_and_save_results()
 
             self.logger.info("Features extraction execution completed!")
  
@@ -163,16 +160,12 @@ class FeaturesExtractingModule(BaseModule):
             return ModuleResult(
                 status='success',
                 data={
-                    'extraction_results': results,
-                    'extraction_log': log_str
+                    'extraction_results': extractor_result,
                 },
                 message='Features extraction completed successfully',
                 context_updates={
-                    'features_extractor_result': results,
-                    'features_extractor_log': log_str,
-                    'dataschemas_path': self.extractor_config.shared_source_config.databaseSchemas_path,
-                    'sharedschemas_path': self.extractor_config.shared_source_config.sharedDatabaseSchemas_path,
-                    'annotation_path': self.extractor_config.shared_source_config.annotation_path
+                    'extraction_results': extractor_result,
+                    'configs': asdict(self.extractor_config)
                 }
             )
 
