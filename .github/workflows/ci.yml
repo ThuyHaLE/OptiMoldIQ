@@ -96,14 +96,33 @@ jobs:
       - name: 🔍 Find correct working directory
         id: find-dir
         run: |
+          echo "=== DEBUG: Current location ==="
+          pwd
+          echo ""
+          echo "=== DEBUG: Directory structure ==="
+          ls -la
+          echo ""
+          echo "=== DEBUG: Looking for project folders ==="
+          find . -maxdepth 3 -type d -name "agents" -o -name "tests" -o -name "modules"
+          echo ""
+          
           if [ -d "agents" ] && [ -d "tests" ]; then
             CORRECT_PATH=$(pwd)
+            echo "✓ Found at root: $CORRECT_PATH"
           elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/tests" ]; then
             CORRECT_PATH=$(pwd)/OptiMoldIQ
+            echo "✓ Found in OptiMoldIQ/: $CORRECT_PATH"
           else
-            echo "Error: Cannot find project structure"
+            echo "❌ Error: Cannot find project structure"
             exit 1
           fi
+          
+          echo ""
+          echo "=== DEBUG: Checking structure at $CORRECT_PATH ==="
+          ls -la "$CORRECT_PATH"
+          echo ""
+          echo "=== DEBUG: Contents of tests/ ==="
+          ls -la "$CORRECT_PATH/tests/" 2>/dev/null || echo "tests/ not found"
           
           echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
           echo "working_dir=$CORRECT_PATH" >> $GITHUB_OUTPUT
@@ -126,7 +145,7 @@ jobs:
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           export PYTHONPATH=$(pwd):$PYTHONPATH
-          pytest tests/module_tests/ \
+          pytest tests/modules_tests/ \
             -v \
             --tb=short \
             -m "not integration and not requires_agent" \
@@ -201,7 +220,7 @@ jobs:
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           export PYTHONPATH=$(pwd):$PYTHONPATH
-          pytest tests/agent_tests/ \
+          pytest tests/agents_tests/ \
             -v \
             --tb=short \
             --ignore=tests/set_up_shared_db/ \
@@ -275,7 +294,7 @@ jobs:
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           export PYTHONPATH=$(pwd):$PYTHONPATH
-          pytest tests/module_tests/ \
+          pytest tests/modules_tests/ \
             -v \
             --tb=short \
             -m "integration or requires_agent" \
