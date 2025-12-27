@@ -1,3 +1,4 @@
+# configs/module_registry.yaml
 # Module Registry Configuration
 # This file maps module names to their config files
 # 
@@ -21,6 +22,11 @@ ProgressTrackingModule:
   config_path: configs/modules/progress_tracking.yaml
   enabled: true
   description: Production progess tracking
+
+InitialPlanningModule:
+  config_path: configs/modules/initial_planning.yaml
+  enabled: true
+  description: Initial planning
 
 AnalyticsModule:
   config_path: configs/modules/analytics.yaml
