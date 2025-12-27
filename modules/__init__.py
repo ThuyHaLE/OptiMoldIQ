@@ -6,6 +6,8 @@ from modules.analytics_module import AnalyticsModule
 from modules.dashboard_module import DashboardModule
 from modules.validation_module import ValidationModule
 from modules.progress_tracking_module import ProgressTrackingModule
+from modules.initial_planning_module import InitialPlanningModule
+from modules.features_extracting_module import FeaturesExtractingModule
 
 # Registry of availble modules
 AVAILABLE_MODULES = {
@@ -13,7 +15,9 @@ AVAILABLE_MODULES = {
     'AnalyticsModule': AnalyticsModule,
     'DashboardModule': DashboardModule,
     'ValidationModule': ValidationModule,
-    'ProgressTrackingModule': ProgressTrackingModule
+    'ProgressTrackingModule': ProgressTrackingModule,
+    'FeaturesExtractingModule': FeaturesExtractingModule,
+    'InitialPlanningModule': InitialPlanningModule
 }
 
 def get_module(name: str, config: dict = None) -> BaseModule:
@@ -48,7 +52,10 @@ __all__ = [
     'AnalyticsModule',
     'DashboardModule',
     'ValidationModule',
-    'ProgressTrackingModule'
+    'ProgressTrackingModule',
+    'FeaturesExtractingModule',
+    'InitialPlanningModule'
+    
     
     'get_module',
     'list_available_modules',

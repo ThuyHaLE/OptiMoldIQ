@@ -1,4 +1,5 @@
-# tests/base_agent_tests.py
+# tests/agents_tests/base_agent_tests.py
+
 import pytest
 from configs.shared.agent_report_format import ExecutionStatus, PhaseSeverity
 from abc import ABC, abstractmethod

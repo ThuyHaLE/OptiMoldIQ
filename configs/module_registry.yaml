@@ -23,6 +23,11 @@ ProgressTrackingModule:
   enabled: true
   description: Production progess tracking
 
+FeaturesExtractingModule:
+  config_path: configs/modules/features_extracting.yaml
+  enabled: true
+  description: Historical features extrating
+
 InitialPlanningModule:
   config_path: configs/modules/initial_planning.yaml
   enabled: true
