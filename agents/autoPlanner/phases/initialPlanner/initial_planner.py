@@ -35,9 +35,6 @@ class DataLoadingPhase(AtomicPhase):
     RECOVERABLE_ERRORS = (FileNotFoundError, pd.errors.EmptyDataError, KeyError)
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Data loading is critical!
-    
-    CONSTANT_CONFIG_PATH = (
-        "agents/autoPlanner/phases/initialPlanner/configs/constant_configurations.json")
 
     def __init__(self, config: InitialPlannerConfig):
         super().__init__("DataLoading")
@@ -138,7 +135,7 @@ class DataLoadingPhase(AtomicPhase):
         
         # Load constant configurations
         constant_config = self._load_annotation(
-            self.CONSTANT_CONFIG_PATH, 
+            self.config.initial_planner_constant_config_path, 
             "constant config"
         )
         if not constant_config:

@@ -35,9 +35,6 @@ class DataLoadingPhase(AtomicPhase):
     RECOVERABLE_ERRORS = (FileNotFoundError, pd.errors.EmptyDataError, KeyError)
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Data loading is critical!
-    
-    CONSTANT_CONFIG_PATH = (
-        "agents/autoPlanner/featureExtractor/initial/historicalFeaturesExtractor/constant_configurations.json")
 
     def __init__(self, config: FeaturesExtractorConfig):
         super().__init__("DataLoading")
@@ -51,8 +48,8 @@ class DataLoadingPhase(AtomicPhase):
         try:
             # Load constant configurations
             constant_config = load_annotation_path(
-                Path(self.CONSTANT_CONFIG_PATH).parent,
-                Path(self.CONSTANT_CONFIG_PATH).name)
+                Path(self.config.features_extractor_constant_config_path).parent,
+                Path(self.config.features_extractor_constant_config_path).name)
             if not constant_config:
                 logger.debug("HistoricalFeaturesExtractor constant config not found in loaded YAML dict")
         except Exception as e:

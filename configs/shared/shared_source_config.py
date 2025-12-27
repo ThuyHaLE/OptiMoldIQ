@@ -16,24 +16,42 @@ class SharedSourceConfig:
     databaseSchemas_path: Optional[str] = None
     sharedDatabaseSchemas_path: Optional[str] = None
 
+    #--------------------------#
+    # DataPipelineOrchestrator #
+    #--------------------------#
     data_pipeline_dir: Optional[str] = None
     annotation_path: Optional[str] = None
 
+    #------------------------#
+    # ValidationOrchestrator #
+    #------------------------#
     validation_dir: Optional[str] = None
     validation_df_name: List[str] = field(default_factory=lambda: ["productRecords", "purchaseOrders"])
     validation_change_log_path: Optional[str] = None
 
+    #----------------------#
+    # OrderProgressTracker #
+    #----------------------#
     progress_tracker_dir: Optional[str] = None
     progress_tracker_change_log_path: Optional[str] = None
+    progress_tracker_constant_config_path: Optional[str] = None
 
+    #-----------------------------#
+    # HistoricalFeaturesExtractor #
+    #-----------------------------#
     features_extractor_dir: Optional[str] = None
+    features_extractor_constant_config_path: Optional[str] = None
     features_extractor_change_log_path: Optional[str] = None
     mold_stability_index_dir: Optional[str] = None
     mold_stability_index_change_log_path: Optional[str] = None
     mold_machine_weights_dir: Optional[str] = None
     mold_machine_weights_hist_path: Optional[str] = None
 
+    #----------------#
+    # InitialPlanner #
+    #----------------#
     initial_planner_dir: Optional[str] = None
+    initial_planner_constant_config_path: Optional[str] = None
     initial_planner_change_log_path: Optional[str] = None
     producing_processor_dir: Optional[str] = None
     producing_processor_change_log_path: Optional[str] = None
@@ -63,23 +81,40 @@ class SharedSourceConfig:
         self.sharedDatabaseSchemas_path = (
             self.sharedDatabaseSchemas_path or f"{self.db_dir}/sharedDatabaseSchemas.json")
 
+        #--------------------------#
+        # DataPipelineOrchestrator #
+        #--------------------------#
         self.data_pipeline_dir = (
             self.data_pipeline_dir or f"{self.default_dir}/DataPipelineOrchestrator")
         self.annotation_path = (
             self.annotation_path or f"{self.data_pipeline_dir}/DataLoaderAgent/newest/path_annotations.json")
         
+        #------------------------#
+        # ValidationOrchestrator #
+        #------------------------#
         self.validation_dir = (
             self.validation_dir or f"{self.default_dir}/ValidationOrchestrator")
         self.validation_change_log_path = (
             self.validation_change_log_path or f"{self.validation_dir}/change_log.txt")
 
+        #----------------------#
+        # OrderProgressTracker #
+        #----------------------#
         self.progress_tracker_dir = (
             self.progress_tracker_dir or f"{self.default_dir}/OrderProgressTracker")
         self.progress_tracker_change_log_path = (
             self.progress_tracker_change_log_path or f"{self.progress_tracker_dir}/change_log.txt")
+        self.progress_tracker_constant_config_path = (
+            self.progress_tracker_constant_config_path or "agents/orderProgressTracker/pro_status_schema.json")
 
+        #-----------------------------#
+        # HistoricalFeaturesExtractor #
+        #-----------------------------#
         self.features_extractor_dir = (
             self.features_extractor_dir or f"{self.default_dir}/HistoricalFeaturesExtractor")
+        self.features_extractor_constant_config_path = (
+            self.features_extractor_constant_config_path or 
+            "agents/autoPlanner/featureExtractor/initial/historicalFeaturesExtractor/constant_configurations.json")
         self.features_extractor_change_log_path = (
             self.features_extractor_change_log_path or f"{self.features_extractor_dir}/change_log.txt")
         self.mold_stability_index_dir = (
@@ -90,9 +125,15 @@ class SharedSourceConfig:
             self.mold_machine_weights_dir or f"{self.features_extractor_dir}/MoldMachineFeatureWeightCalculator")
         self.mold_machine_weights_hist_path = (
             self.mold_machine_weights_hist_path or f"{self.mold_machine_weights_dir}/weights_hist.xlsx")
-        
+
+        #----------------#
+        # InitialPlanner #
+        #----------------#
         self.initial_planner_dir = (
             self.initial_planner_dir or f'{self.default_dir}/AutoPlanner/InitialPlanner')
+        self.initial_planner_constant_config_path = (
+            self.initial_planner_constant_config_path or 
+            "agents/autoPlanner/phases/initialPlanner/configs/constant_configurations.json")
         self.initial_planner_change_log_path = (
             self.initial_planner_change_log_path or f'{self.initial_planner_dir}/change_log.txt')
         self.producing_processor_dir = (
@@ -172,10 +213,9 @@ class SharedSourceConfig:
 
         return normalized
 
-    def validate_requirements(
-        self, 
-        required_fields: Dict[str, Type]
-    ) -> Tuple[bool, Optional[List[str]]]:
+    def validate_requirements(self, 
+                              required_fields: Dict[str, Type]
+                              ) -> Tuple[bool, Optional[List[str]]]:
         """
         Validate whether the configuration satisfies the required constraints.
         

@@ -30,8 +30,6 @@ class DataLoadingPhase(AtomicPhase):
     RECOVERABLE_ERRORS = (FileNotFoundError, pd.errors.EmptyDataError, KeyError)
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Data loading is critical!
-    
-    DEFAUTL_SCHEMA_PATH = "agents/orderProgressTracker/pro_status_schema.json"
 
     def __init__(self, config: SharedSourceConfig):
         super().__init__("DataLoading")
@@ -44,8 +42,8 @@ class DataLoadingPhase(AtomicPhase):
         # Load database schema for productRecords_df
         try:
             pro_status_schema = load_annotation_path(
-                Path(self.DEFAUTL_SCHEMA_PATH).parent,
-                Path(self.DEFAUTL_SCHEMA_PATH).name)
+                Path(self.config.progress_tracker_constant_config_path).parent,
+                Path(self.config.progress_tracker_constant_config_path).name)
         except Exception as e:
             raise FileNotFoundError(f"Failed to database schema for productRecords_df: {e}")
         

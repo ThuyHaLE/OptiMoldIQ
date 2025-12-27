@@ -4,10 +4,18 @@ import ast
 from collections import defaultdict
 from configs.shared.config_report_format import ConfigReportMixin
 from configs.shared.dict_based_report_generator import DictBasedReportGenerator
+from agents.decorators import validate_init_dataframes
 from typing import Dict, List, Tuple, Any
 from datetime import datetime
 from loguru import logger
 
+@validate_init_dataframes(lambda self: {
+        'assigned_matrix': [],  # Index is 'moldNo'
+        'mold_lead_times': ['itemCode', 'moldNo', 'totalQuantity', 'balancedMoldHourCapacity', 'moldLeadTime'],
+        'pending_data': ['poNo', 'itemName', 'itemCode', 'itemQuantity', 'poETA'],
+        'machine_info_df': ['machineNo', 'machineCode', 'machineName', 'manufacturerName', 'machineTonnage']
+    }
+)
 class ProductionScheduleGenerator(ConfigReportMixin): # MachineAssignmentProcessor
 
     """
@@ -82,9 +90,6 @@ class ProductionScheduleGenerator(ConfigReportMixin): # MachineAssignmentProcess
         self.machine_info_df = machine_info_df
         self.producing_mold_list = producing_mold_list
         self.producing_info_list = producing_info_list
-
-        self.po_item_dict = dict(zip(self.pending_data ['poNo'], 
-                                     self.pending_data ['itemName']))
         
         self.generator_constant_config = generator_constant_config
         if not self.generator_constant_config:
@@ -611,7 +616,8 @@ class ProductionScheduleGenerator(ConfigReportMixin): # MachineAssignmentProcess
         beautified = self.sort_by_machine_number(beautified)
 
         # Rename columns for clarity
-        beautified['Item Name'] = beautified['poNo'].map(self.po_item_dict)
+        po_item_dict = dict(zip(self.pending_data['poNo'], self.pending_data['itemName']))
+        beautified['Item Name'] = beautified['poNo'].map(po_item_dict)
         beautified = beautified.rename(columns=self.generator_constant_config.get(
             "BEAUTIFUL_COLS_MAPPING", self.BEAUTIFUL_COLS_MAPPING))
 
