@@ -1,3 +1,5 @@
+# modules/registry/registry_loader.py
+
 import yaml
 import json
 from pathlib import Path

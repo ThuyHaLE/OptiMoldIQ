@@ -58,7 +58,7 @@ class ProgressTrackingModule(BaseModule):
     @property
     def dependencies(self) -> List[str]:
         """No dependencies - this is typically the first module"""
-        return []
+        return ['ValidationOrchestrator']
     
     @property
     def context_outputs(self) -> List[str]:
