@@ -6,8 +6,8 @@ from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 
 from configs.shared.shared_source_config import SharedSourceConfig
-from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.feature_weight_config import FeatureWeightConfig
-from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.configs.mold_stability_config import MoldStabilityConfig
+from agents.autoPlanner.calculators.configs.feature_weight_config import FeatureWeightConfig
+from agents.autoPlanner.calculators.configs.mold_stability_config import MoldStabilityConfig
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
     HistoricalFeaturesExtractor, FeaturesExtractorConfig)
 
@@ -35,6 +35,8 @@ class FeaturesExtractingModule(BaseModule):
 
     def _build_extractor_config(self) -> FeaturesExtractorConfig:
         return FeaturesExtractorConfig(
+            efficiency = self.extracting_config.get('efficiency', None),
+            loss = self.extracting_config.get('loss', None),
             shared_source_config = self._build_shared_config(),
             mold_stability_config = self._build_stability_config(),
             feature_weight_config = self._build_weight_config())
@@ -101,33 +103,44 @@ class FeaturesExtractingModule(BaseModule):
         Args:
             context: Shared context (empty for first module)
             self.config: Configuration containing:
+
                 - project_root: Project root directory
+                
+                - efficiency (float): Global efficiency threshold to classify good/bad records.
+                
+                - loss (float): Global allowable production loss threshold.
+                
                 - shared_source_config: 
-                    - features_extractor_dir (str): Base directory for storing reports.
-                    - mold_stability_index_dir (str): Default directory for output and temporary files.
-                    - annotation_path (str): Path to the JSON file containing path annotations
+                    - annotation_path (str): Path to the JSON file containing path annotations.
                     - databaseSchemas_path (str): Path to database schema for validation.
                     - sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
                     - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log.
+                    - mold_stability_index_dir (str): Default directory for output and temporary files.
                     - mold_stability_index_change_log_path (str): Path to the MoldStabilityIndexCalculator change log.
                     - mold_machine_weights_dir (str): Base directory for storing reports.
+                    - mold_machine_weights_hist_path (str): Path to the MoldMachineFeatureWeightCalculator weight hist.
+                    - features_extractor_dir (str): Base directory for storing reports.
+                    - features_extractor_change_log_path (str): Path to the HistoricalFeaturesExtractor change log.
+                    - features_extractor_constant_config_path (str): Path to the HistoricalFeaturesExtractor constant config.
+                
                 - feature_weight_config
-                    - efficiency (float): Efficiency threshold to classify good/bad records.
-                    - loss (float): Allowable production loss threshold.
+                    - efficiency (float): Inherited from FeaturesExtractorConfig.efficiency.
+                    - loss (float): Inherited from FeaturesExtractorConfig.loss.
                     - scaling (str): Method to scale feature impacts ('absolute' or 'relative').
                     - confidence_weight (float): Weight assigned to confidence scores in final weight calculation.
                     - n_bootstrap (int): Number of bootstrap samples for confidence interval estimation.
                     - confidence_level (float): Desired confidence level for statistical tests.
                     - min_sample_size (int): Minimum sample size required for reliable estimation.
                     - feature_weights (dict): Optional preset weights for features.
-                    - targets (dict): Target metrics and their optimization directions or goals.
+                    - targets (dict): Target metrics and optimization directions or goals.
+                
                 - mold_stability_config
-                    - efficiency (float): Production efficiency score.
-                    - loss (float): Production loss value.
-                    - cavity_stability_threshold (float): Weight assigned to the cavity-stability feature.
-                    - cycle_stability_threshold (float): Weight assigned to the cycle-stability feature.
+                    - efficiency (float): Inherited from FeaturesExtractorConfig.efficiency.
+                    - loss (float): Inherited from FeaturesExtractorConfig.loss.
+                    - cavity_stability_threshold (float): Threshold for cavity stability.
+                    - cycle_stability_threshold (float): Threshold for cycle stability.
                     - total_records_threshold (int): Minimum number of valid production records required
-                    for processing (must be at least 30 records per day).
+                    (at least 30 records per day).
             dependencies: Empty dict (no dependencies)
             
         Returns:

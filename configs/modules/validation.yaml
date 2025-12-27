@@ -7,26 +7,48 @@ project_root: "."
 # VALIDATION MODULE CONFIG
 # ========================
 validation:
-  #REQUIRED_FIELDS = 
-  #'shared_source_config': {
-  #   'validation_df_name': List[str],
-  #   'databaseSchemas_path': str,
-  #   'annotation_path': str,
-  #   'validation_dir': str,
-  #   },
-  #'enable_parallel': bool,
-  #'max_workers': Optional[int]
+#REQUIRED_FIELDS = 
+#'shared_source_config': {
+#   'validation_df_name': List[str],
+#   'databaseSchemas_path': str,
+#   'annotation_path': str,
+#   'validation_dir': str,
+#   'validation_change_log_path': str
+#   },
+#'enable_parallel': bool,
+#'max_workers': Optional[int]
 
   shared_source_config:
-    # Source data directory (dynamic database)
+    # --------------------------------------------
+    # BASE DIRECTORIES (Required - it will be resolved with project_root)
+    # --------------------------------------------
     db_dir: "tests/mock_database" 
-    # => dynamic_db_dir = f"{self.db_dir}/dynamicDatabase"
-    # => databaseSchemas_path = f"{self.db_dir}/databaseSchemas.json"
-
     default_dir: 'tests/shared_db'
-    #annotation_path = f"{default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json" 
-    #validation_dir = f"{self.default_dir}/ValidationOrchestrator"
-    #validation_df_name = ["productRecords", "purchaseOrders"]
+
+    # --------------------------------------------
+    # OPTIONAL OVERRIDES
+    # Uncomment to override default paths
+    # --------------------------------------------
+    
+    # List of dataframe names that require validation.
+    # Default: ["productRecords", "purchaseOrders"]
+    # validation_df_name: ["productRecords", "purchaseOrders"]
+
+    # Database schemas path
+    # Default: {db_dir}/databaseSchemas.json
+    # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+    
+    # Annotation path  
+    # Default: {default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json
+    # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json"
+    
+    # Validation directory
+    # Default: {self.default_dir}/ValidationOrchestrator"
+    # validation_dir: "tests/shared_db/ValidationOrchestrator"
+
+    # Validation change log
+    # Default: {default_dir}/ValidationOrchestrator/change_log.txt
+    # validation_change_log_path: "tests/shared_db/ValidationOrchestrator/change_log.txt"
 
   enable_parallel: true
 

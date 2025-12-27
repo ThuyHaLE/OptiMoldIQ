@@ -62,9 +62,11 @@ class ValidationModule(BaseModule):
         """Keys that this module writes to context"""
         return [
             'validation_orchestrator_result',
-            'validation_orchestrator_log',
+            'validation_df_name',
             'dataschemas_path',
             'annotation_path',
+            'validation_dir',
+            'validation_change_log_path',
             'enable_parallel',
             'max_workers'
         ]
@@ -80,10 +82,12 @@ class ValidationModule(BaseModule):
             self.config: Configuration containing:
                 - project_root: Project root directory
                 - validation:
-                    - validation_df_name: List df name for validation (default: ["productRecords", "purchaseOrders"])
-                    - annotation_path: Path to annotations
-                    - databaseSchemas_path: Path to database schemas
-                    - validation_dir: Default directory for outputs
+                    - validation_df_name (List[str]): List of dataframe names that require validation.
+                    Supported values: ["purchaseOrders", "productRecords"].
+                    - annotation_path (str): Path to the JSON file containing path annotations.
+                    - databaseSchemas_path (str): Path to database schemas used for validation.
+                    - validation_change_log_path (str): Path to the ValidationOrchestrator change log.
+                    - validation_dir (str): Default directory for validation outputs and temporary files.
                 - enable_parallel: enable parallel process (default: False)
                 - max_workers: max workers for parallel process (default: None - auto)
             dependencies: Empty dict (no dependencies)
@@ -91,20 +95,20 @@ class ValidationModule(BaseModule):
         Returns:
             ModuleResult with pipeline execution results
         """
-        
+
         self.logger = logger.bind(class_="ValidationModule")
 
         try:
             
             # Create orchestrator
-            orchestrator = ValidationOrchestrator(
+            validation_orchestrator = ValidationOrchestrator(
                 shared_source_config=self.shared_config,
                 enable_parallel = self.validation_config.enable_parallel,
                 max_workers = self.validation_config.max_workers)
 
             # Run validations
             self.logger.info("Running validations...")
-            results, log_str = orchestrator.run_validations_and_save_results()
+            validation_result = validation_orchestrator.run_validations_and_save_results()
 
             self.logger.info("Validation execution completed!")
  
@@ -112,15 +116,16 @@ class ValidationModule(BaseModule):
             return ModuleResult(
                 status='success',
                 data={
-                    'validation_results': results,
-                    'validation_log': log_str
+                    'validation_results': validation_result,
                 },
                 message='Validation completed successfully',
                 context_updates={
-                    'validation_orchestrator_result': results,
-                    'validation_orchestrator_log': log_str,
+                    'validation_orchestrator_result': validation_result,
+                    'validation_df_name': self.shared_config.validation_df_name,
                     'dataschemas_path': self.shared_config.databaseSchemas_path,
                     'annotation_path': self.shared_config.annotation_path,
+                    'validation_dir': self.shared_config.validation_dir,
+                    'validation_change_log_path': self.shared_config.validation_change_log_path,
                     'enable_parallel': self.validation_config.enable_parallel,
                     'max_workers': self.validation_config.max_workers
                 }

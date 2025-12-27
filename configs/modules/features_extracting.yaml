@@ -7,63 +7,173 @@ project_root: "."
 # FEATURES EXTRACTING MODULE CONFIG
 # =================================
 features_extracting:
-  #REQUIRED_FIELDS = {'config': {
-  #          'shared_source_config': {
-  #              'databaseSchemas_path': str,
-  #              'sharedDatabaseSchemas_path': str,
-  #              'annotation_path': str,
-  #              'progress_tracker_change_log_path': str,
-  #              'mold_stability_index_change_log_path': str,
-  #              'mold_machine_weights_dir': str,
-  #              'mold_stability_index_dir': str,
-  #              'features_extractor_dir': str},
-  #          'feature_weight_config': {
-  #              'efficiency': float,
-  #              'loss': float,
-  #              'scaling': str,
-  #              'confidence_weight': float,
-  #              'n_bootstrap': int,
-  #              'confidence_level': float,
-  #              'min_sample_size': int,
-  #              'feature_weights': dict,
-  #              'targets': dict},
-  #          'mold_stability_config': {
-  #              'efficiency': float,
-  #              'loss': float,
-  #              'cavity_stability_threshold': float,
-  #              'cycle_stability_threshold': float,
-  #              'total_records_threshold': int}}}
+#REQUIRED_FIELDS = {
+#        'config': {
+#            'efficiency': float,
+#            'loss': float,
+#            'shared_source_config': {
+#                'databaseSchemas_path': str,
+#                'sharedDatabaseSchemas_path': str,
+#                'annotation_path': str,
+#                'progress_tracker_change_log_path': str,
+#                'mold_machine_weights_dir': str,
+#                'mold_machine_weights_hist_path': str,
+#                'mold_stability_index_dir': str,
+#                'mold_stability_index_change_log_path': str,
+#                'features_extractor_dir': str,
+#                'features_extractor_change_log_path': str,
+#                'features_extractor_constant_config_path': str
+#                },
+#            'feature_weight_config': {
+#                'efficiency': float,
+#                'loss': float,
+#                'scaling': str,
+#                'confidence_weight': float,
+#                'n_bootstrap': int,
+#                'confidence_level': float,
+#                'min_sample_size': int,
+#                'feature_weights': dict,
+#                'targets': dict
+#                },
+#            'mold_stability_config': {
+#                'efficiency': float,
+#                'loss': float,
+#                'cavity_stability_threshold': float,
+#                'cycle_stability_threshold': float,
+#                'total_records_threshold': int
+#                }
+#            }
+#    }
+
+  # --------------------------------------------
+  # GLOBAL PROCESSING PARAMETERS (propagated to sub-configs)
+  # --------------------------------------------
+
+  # Global efficiency threshold to classify good/bad records.
+  # Default: 0.85
+  # efficiency: 0.85
+
+  # Global allowable production loss threshold.
+  # Default: 0.03
+  # loss: 0.03
+
   shared_source_config:
-    # Source data directory (dynamic database)
+
+    # --------------------------------------------
+    # BASE DIRECTORIES (Required - it will be resolved with project_root)
+    # --------------------------------------------
     db_dir: "tests/mock_database" 
-    #=> databaseSchemas_path = f"{self.db_dir}/databaseSchemas.json"
-    #=> sharedDatabaseSchemas_path = f"{self.db_dir}/sharedDatabaseSchemas.json"
     default_dir: 'tests/shared_db'
-    #=> annotation_path = f"{default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json" 
-    #=> progress_tracker_change_log_path = f"{self.default_dir}/OrderProgressTracker/change_log.txt"
-    #=> mold_stability_index_change_log_path = f"{self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt"
-    #=> mold_machine_weights_dir = f"{self.default_dir}/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator"
-    #=> mold_stability_index_dir = f"{self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator"
-    #=> features_extractor_dir = f"{self.default_dir}/HistoricalFeaturesExtractor"
+
+    # --------------------------------------------
+    # OPTIONAL OVERRIDES
+    # Uncomment to override default paths
+    # --------------------------------------------
+    
+    # Database schemas path
+    # Default: {db_dir}/databaseSchemas.json
+    # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+
+    # Shared database schemas path
+    # Default: {self.db_dir}/sharedDatabaseSchemas.json
+    # sharedDatabaseSchemas_path = "tests/mock_database/sharedDatabaseSchemas.json"
+    
+    # Annotation path  
+    # Default: {default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json
+    # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json"
+
+    # Progress tracker change log
+    # Default: {progress_tracker_dir}/change_log.txt
+    # progress_tracker_change_log_path: "tests/shared_db/OrderProgressTracker/change_log.txt"
+
+    # Mold stability index calculator directory
+    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator
+    # mold_stability_index_dir: "tests/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator"
+
+    # Mold stability index calculator change log
+    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt
+    # mold_stability_index_change_log_path: "tests/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt"
+    
+    # Mold machine weights calculator directory
+    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator
+    # mold_machine_weights_dir: "tests/shared_db/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator"
+
+    # Mold machine weights hist path: 
+    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx
+    # mold_machine_weights_hist_path: "tests/shared_db/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx"
+
+    # Features extractor directory
+    # Default: {self.default_dir}/HistoricalFeaturesExtractor
+    # features_extractor_dir: "tests/shared_db/HistoricalFeaturesExtractor"
+
+    # Features extractor change log
+    # Default: {self.default_dir}/HistoricalFeaturesExtractor/change_log.txt
+    # features_extractor_change_log_path: "tests/shared_db/HistoricalFeaturesExtractor/change_log.txt"
+
+    # Features extractor constant config
+    # Default: agents/autoPlanner/featureExtractor/initial/historicalFeaturesExtractor/constant_configurations.json
+    # features_extractor_constant_config_path: "agents/autoPlanner/featureExtractor/initial/historicalFeaturesExtractor/constant_configurations.json"
   
-  #feature_weight_config:
-  #  efficiency: 0.85
-  #  loss: 0.03
-  #  scaling: 'absolute'
-  #  confidence_weight: 0.3
-  #  n_bootstrap: 500
-  #  confidence_level: 0.95
-  #  min_sample_size: 10
-  #  feature_weights: null
-  #  targets:
-  #    shiftNGRate: 'minimize'
-  #    shiftCavityRate: 1.0
-  #    shiftCycleTimeRate: 1.0
-  #    shiftCapacityRate: 1.0
+  # feature_weight_config:
+
+    # Inherited efficiency from FeaturesExtractorConfig.efficiency
+    # Default: 0.85
+    # efficiency: 0.85
+
+    # Inherited loss from FeaturesExtractorConfig.loss
+    # Default: 0.03
+    # loss: 0.03
+
+    # Method to scale feature impacts ('absolute' or 'relative')
+    # Default: absolute
+    # scaling: 'absolute'
+
+    # Weight assigned to confidence scores in final weight calculation
+    # Default: 0.3
+    # confidence_weight: 0.3
+
+    # Number of bootstrap samples for confidence interval estimation
+    # Default: 500
+    # n_bootstrap: 500
+
+    # Desired confidence level for statistical tests
+    # Default: 0.95
+    # confidence_level: 0.95
+
+    # Minimum sample size required for reliable estimation
+    # Default: 10
+    # min_sample_size: 10
+
+    # Optional preset weights for features
+    # Default: None
+    # feature_weights: null
+
+    # Target metrics and optimization directions or goals
+    # Default: {targets: {shiftNGRate: 'minimize', shiftCavityRate: 1.0, shiftCycleTimeRate: 1.0, shiftCapacityRate: 1.0}}
+    # targets:
+      # shiftNGRate: 'minimize'
+      # shiftCavityRate: 1.0
+      # shiftCycleTimeRate: 1.0
+      # shiftCapacityRate: 1.0
   
-  #mold_stability_config:
-  #  efficiency: 0.85
-  #  loss: 0.03
-  #  cavity_stability_threshold: 0.6
-  #  cycle_stability_threshold: 0.4
-  #  total_records_threshold: 30
+  # mold_stability_config:
+
+    # Inherited efficiency from FeaturesExtractorConfig.efficiency
+    # Default: 0.85
+    # efficiency: 0.85
+
+    # Inherited loss from FeaturesExtractorConfig.loss
+    # Default: 0.03
+    # loss: 0.03
+    
+    # Threshold for cavity stability
+    # Default: 0.6
+    # cavity_stability_threshold: 0.6
+
+    # Threshold for cycle stability
+    # Default: 0.4
+    # cycle_stability_threshold: 0.4
+
+    # Minimum number of valid production records required (at least 30 records per day)
+    # Default: 30
+    # total_records_threshold: 30

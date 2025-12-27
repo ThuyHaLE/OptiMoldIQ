@@ -6,18 +6,47 @@ project_root: "."
 # ===============================
 # PROGRESS TRACKING MODULE CONFIG
 # ===============================
+
 progress_tracking:
-# REQUIRED_FIELDS = {
-# 'annotation_path': str, 
-# 'databaseSchemas_path': str, 
-# 'validation_change_log_path': str, 
-# 'progress_tracker_dir': str}
+# REQUIRED_FIELDS = 
+#{'annotation_path': str,
+#'databaseSchemas_path': str,
+#'validation_change_log_path': str,
+#'progress_tracker_dir': str,
+#'progress_tracker_change_log_path': str,
+#'progress_tracker_constant_config_path': str}
 
-  # Source data directory (dynamic database)
+  # --------------------------------------------
+  # BASE DIRECTORIES (Required - it will be resolved with project_root)
+  # --------------------------------------------
   db_dir: "tests/mock_database" 
-  # => databaseSchemas_path = f"{self.db_dir}/databaseSchemas.json"
-
-  default_dir: 'tests/shared_db'
-  #annotation_path = f"{default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json" 
-  #validation_change_log_path = f"{self.default_dir}/ValidationOrchestrator/change_log.txt"
-  #progress_tracker_dir = f"{self.default_dir}/OrderProgressTracker"
+  default_dir: "tests/shared_db"
+  
+  # --------------------------------------------
+  # OPTIONAL OVERRIDES
+  # Uncomment to override default paths
+  # --------------------------------------------
+  
+  # Database schemas path
+  # Default: {db_dir}/databaseSchemas.json
+  # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+  
+  # Annotation path  
+  # Default: {default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json
+  # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json"
+  
+  # Validation change log
+  # Default: {default_dir}/ValidationOrchestrator/change_log.txt
+  # validation_change_log_path: "tests/shared_db/ValidationOrchestrator/change_log.txt"
+  
+  # Progress tracker directory
+  # Default: {default_dir}/OrderProgressTracker
+  # progress_tracker_dir: "tests/shared_db/OrderProgressTracker"
+  
+  # Progress tracker change log
+  # Default: {progress_tracker_dir}/change_log.txt
+  # progress_tracker_change_log_path: "tests/shared_db/OrderProgressTracker/change_log.txt"
+  
+  # Progress tracker constant config
+  # Default: agents/orderProgressTracker/pro_status_schema.json
+  # progress_tracker_constant_config_path: "agents/orderProgressTracker/pro_status_schema.json"

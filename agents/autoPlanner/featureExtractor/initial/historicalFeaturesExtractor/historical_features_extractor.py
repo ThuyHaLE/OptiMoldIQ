@@ -393,7 +393,8 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                 'mold_stability_index_dir': str,
                 'mold_stability_index_change_log_path': str,
                 'features_extractor_dir': str,
-                'features_extractor_change_log_path': str
+                'features_extractor_change_log_path': str,
+                'features_extractor_constant_config_path': str
                 },
             'feature_weight_config': {
                 'efficiency': float,
@@ -438,6 +439,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                     - mold_machine_weights_hist_path (str): Path to the MoldMachineFeatureWeightCalculator weight hist.
                     - features_extractor_dir (str): Base directory for storing reports.
                     - features_extractor_change_log_path (str): Path to the HistoricalFeaturesExtractor change log.
+                    - features_extractor_constant_config_path (str): Path to the HistoricalFeaturesExtractor constant config.
                 
                 - feature_weight_config:
                     - efficiency (float): Inherited from FeaturesExtractorConfig.efficiency.

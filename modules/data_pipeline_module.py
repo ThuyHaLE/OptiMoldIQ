@@ -20,16 +20,21 @@ class DataPipelineModule(BaseModule):
         # Load YAML as dict (via BaseModule)
         super().__init__(config_path)
         
+        # Store project root
+        self.project_root = Path(self.config.get('project_root', '.'))
+
         # Convert dict to SharedSourceConfig
         self.shared_config = self._build_shared_config()
 
     def _build_shared_config(self) -> SharedSourceConfig:
         """Build SharedSourceConfig from loaded YAML dict"""
-        project_root = Path(self.config.get('project_root', '.'))
         pipeline_config = self.config.get('data_pipeline', {})
+
         if not pipeline_config:
             self.logger.debug("Using default SharedSourceConfig")
-        resolved_config = self._resolve_paths(shared_source_config)
+
+        resolved_config = self._resolve_paths(pipeline_config)
+        
         return SharedSourceConfig(**resolved_config)
 
     def _resolve_paths(self, config: dict) -> dict:

@@ -7,14 +7,35 @@ project_root: "."
 # DATA PIPELINE MODULE CONFIG
 # ===========================
 data_pipeline:
-  #REQUIRED_FIELDS = {'dynamic_db_dir': str, 'databaseSchemas_path': str, 'annotation_path': str, 'data_pipeline_dir': str}
+#REQUIRED_FIELDS = 
+#{'dynamic_db_dir': str,
+#'databaseSchemas_path': str,
+#'data_pipeline_dir': str,
+#'annotation_path': str}
 
-  # Source data directory (dynamic database)
+  # --------------------------------------------
+  # BASE DIRECTORIES (Required - it will be resolved with project_root)
+  # --------------------------------------------
   db_dir: "tests/mock_database" 
-  # => dynamic_db_dir = f"{self.db_dir}/dynamicDatabase"
-  # => databaseSchemas_path = f"{self.db_dir}/databaseSchemas.json"
-
   default_dir: 'tests/shared_db'
-  #data_pipeline_dir = f"{default_dir}/DataPipelineOrchestrator"
-  #annotation_path = f"{data_pipeline_dir}/DataLoaderAgent/newest/path_annotations.json" 
+
+  # --------------------------------------------
+  # OPTIONAL OVERRIDES
+  # Uncomment to override default paths
+  # --------------------------------------------
+
+  # Path to dynamic database
+  # Default: {self.db_dir}/dynamicDatabase
+  # dynamic_db_dir: "tests/mock_database/dynamicDatabase"
+
+  # Path to database schemas
+  # Default: {self.db_dir}/databaseSchemas.json
+  # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
   
+  # DataPipelineOrchestrator directory
+  # Default: {default_dir}/DataPipelineOrchestrator
+  # data_pipeline_dir: "tests/shared_db/DataPipelineOrchestrator"
+
+  # Path to annotations
+  # Default: {data_pipeline_dir}/DataLoaderAgent/newest/path_annotations.json
+  # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json" 
