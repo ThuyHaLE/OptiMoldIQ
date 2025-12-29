@@ -1,8 +1,8 @@
 # tests/modules_tests/conftest.py - Module-specific fixtures
 
 """
-Module testing conftest - provides module registry and dependency management
-FIXED: Updated to return ModuleResult instead of dict
+Module testing conftest - provides module registry and REAL dependency execution
+FIXED: Uses real agents like agent tests do (no more mocking)
 """
 
 import pytest
@@ -21,10 +21,7 @@ from configs.shared.agent_report_format import ExecutionStatus
 
 @pytest.fixture(scope="session")
 def module_registry():
-    """
-    Load module registry once for entire test session
-    Similar to dependency_provider for agents
-    """
+    """Load module registry once for entire test session"""
     return ModuleRegistryLoader.load_registry('configs/module_registry.yaml')
 
 
@@ -49,18 +46,21 @@ def enabled_modules(module_registry, available_modules):
 
 
 # ============================================================================
-# MODULE DEPENDENCY PROVIDER (Like agent's DependencyProvider) - FIXED
+# MODULE DEPENDENCY PROVIDER - FIXED: Uses REAL agents
 # ============================================================================
 
 class ModuleDependencyProvider:
     """
-    Manages module test dependencies
-    Reuses agent results when needed (don't re-run agents for each module test)
-    NOW RETURNS ModuleResult objects
+    Manages module test dependencies by running REAL agents
+    Similar to agent's DependencyProvider but for module context
+    
+    Key difference from agents/conftest.py:
+    - Agents return AgentResult
+    - Modules need context dict with ModuleResult objects
     """
     
     def __init__(self):
-        self._cache: Dict[str, ModuleResult] = {}
+        self._cache: Dict[str, Any] = {}
         self._test_dirs = self._setup_test_dirs()
     
     def _setup_test_dirs(self) -> Dict[str, Path]:
@@ -76,7 +76,7 @@ class ModuleDependencyProvider:
         return dirs
     
     def get_shared_source_config(self) -> SharedSourceConfig:
-        """Get basic config for module testing"""
+        """Get basic config for testing"""
         if "shared_config" not in self._cache:
             config = SharedSourceConfig(
                 db_dir=str(self._test_dirs["db_dir"]),
@@ -85,126 +85,139 @@ class ModuleDependencyProvider:
             self._cache["shared_config"] = config
         return self._cache["shared_config"]
     
-    def get_mock_context(self, dependencies: list = None) -> Dict[str, ModuleResult]:
-        """
-        Get mock context with specified dependencies
-        
-        Args:
-            dependencies: List of dependency names needed
-            
-        Returns:
-            Mock context dict with ModuleResult objects
-        """
-        context = {}
-        
-        if dependencies:
-            for dep in dependencies:
-                if dep == "OrderProgressTracker":
-                    context[dep] = self.get_order_progress_tracker_result()
-                elif dep == "HistoricalFeaturesExtractor":
-                    context[dep] = self.get_historical_features_result()
-                elif dep == "ValidationOrchestrator":
-                    context[dep] = self.get_validation_orchestrator_result()
-                else:
-                    # Generic mock for unknown dependencies
-                    context[dep] = ModuleResult(
-                        status='success',
-                        data={'mock': f'mock_data_for_{dep}'},
-                        message=f'Mock result for {dep}'
-                    )
-        
-        return context
+    # ========================================================================
+    # TRIGGER REAL DEPENDENCIES (like agents/conftest.py)
+    # ========================================================================
     
-    def get_order_progress_tracker_result(self) -> ModuleResult:
+    def trigger_order_progress_tracker(self):
         """
-        Get OrderProgressTracker result (real or mock)
-        Only runs once and caches
+        Run OrderProgressTracker agent and cache result
+        This creates real data in shared_db that modules can read
         """
         if "order_progress_tracker" not in self._cache:
-            # Option 1: Use real agent (slow but accurate)
-            # from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-            # tracker = OrderProgressTracker(config=self.get_shared_source_config())
-            # result = tracker.run_tracking_and_save_results()
-            
-            # Option 2: Use mock (fast for unit tests)
-            result = self._create_mock_agent_result("OrderProgressTracker")
-            
-            self._cache["order_progress_tracker"] = result
-        
-        return self._cache["order_progress_tracker"]
-    
-    def get_historical_features_result(self) -> ModuleResult:
-        """Get HistoricalFeaturesExtractor result (mock)"""
-        if "historical_features_extractor" not in self._cache:
-            result = self._create_mock_agent_result("HistoricalFeaturesExtractor")
-            self._cache["historical_features_extractor"] = result
-        
-        return self._cache["historical_features_extractor"]
-    
-    def get_validation_orchestrator_result(self) -> ModuleResult:
-        """Get ValidationOrchestrator result (mock)"""
-        if "validation_orchestrator" not in self._cache:
-            result = self._create_mock_agent_result("ValidationOrchestrator")
-            self._cache["validation_orchestrator"] = result
-        
-        return self._cache["validation_orchestrator"]
-    
-    def _create_mock_agent_result(self, agent_name: str) -> ModuleResult:
-        """Create a mock agent result for testing - NOW RETURNS ModuleResult"""
-        return ModuleResult(
-            status='success',
-            data={
-                'agent': agent_name,
-                'processed_records': 100,
-                'timestamp': '2024-01-01T00:00:00'
-            },
-            message=f'Mock result for {agent_name}'
-        )
-    
-    def trigger_real_agent(self, agent_name: str):
-        """
-        Trigger real agent execution (for integration tests)
-        Similar to agent_tests/conftest.py
-        """
-        config = self.get_shared_source_config()
-        
-        if agent_name == "OrderProgressTracker":
             from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-            agent = OrderProgressTracker(config=config)
-            result = agent.run_tracking_and_save_results()
-            assert result.status == ExecutionStatus.SUCCESS.value
             
-            # Convert to ModuleResult
-            module_result = ModuleResult(
-                status='success',
-                data=result.data if hasattr(result, 'data') else {},
-                message=result.message if hasattr(result, 'message') else 'Success'
-            )
-            self._cache["order_progress_tracker"] = module_result
+            config = self.get_shared_source_config()
+            tracker = OrderProgressTracker(config=config)
+            result = tracker.run_tracking_and_save_results()
             
-        elif agent_name == "HistoricalFeaturesExtractor":
+            assert result.status == ExecutionStatus.SUCCESS.value, \
+                "Dependency agent failed: OrderProgressTracker"
+            
+            # Cache the agent result AND config
+            self._cache["order_progress_tracker"] = {
+                "status": "triggered",
+                "result": result,
+                "config": config
+            }
+    
+    def trigger_historical_features_extractor(self):
+        """
+        Run HistoricalFeaturesExtractor agent and cache result
+        """
+        if "historical_features_extractor" not in self._cache:
             from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
                 HistoricalFeaturesExtractor, FeaturesExtractorConfig)
-            agent = HistoricalFeaturesExtractor(
+            
+            config = self.get_shared_source_config()
+            extractor = HistoricalFeaturesExtractor(
                 config=FeaturesExtractorConfig(
                     efficiency=0.85,
                     loss=0.03,
                     shared_source_config=config
                 )
             )
-            result = agent.run_extraction_and_save_results()
-            assert result.status == ExecutionStatus.SUCCESS.value
+            result = extractor.run_extraction_and_save_results()
             
-            # Convert to ModuleResult
-            module_result = ModuleResult(
-                status='success',
-                data=result.data if hasattr(result, 'data') else {},
-                message=result.message if hasattr(result, 'message') else 'Success'
+            assert result.status == ExecutionStatus.SUCCESS.value, \
+                "Dependency agent failed: HistoricalFeaturesExtractor"
+            
+            self._cache["historical_features_extractor"] = {
+                "status": "triggered",
+                "result": result,
+                "config": config
+            }
+    
+    def trigger_validation_orchestrator(self):
+        """
+        Run ValidationOrchestrator agent and cache result
+        """
+        if "validation_orchestrator" not in self._cache:
+            from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
+            
+            config = self.get_shared_source_config()
+            orchestrator = ValidationOrchestrator(
+                shared_source_config=config,
+                enable_parallel=False,
+                max_workers=None
             )
-            self._cache["historical_features_extractor"] = module_result
+            result = orchestrator.run_validations_and_save_results()
             
+            assert result.status == ExecutionStatus.SUCCESS.value, \
+                "Dependency agent failed: ValidationOrchestrator"
+            
+            self._cache["validation_orchestrator"] = {
+                "status": "triggered",
+                "result": result,
+                "config": config
+            }
+    
+    def trigger(self, dependency_name: str):
+        """
+        Generic trigger method - delegates to specific trigger methods
+        Same interface as agents/conftest.py
+        """
+        if dependency_name == "OrderProgressTracker":
+            self.trigger_order_progress_tracker()
+        elif dependency_name == "HistoricalFeaturesExtractor":
+            self.trigger_historical_features_extractor()
+        elif dependency_name == "ValidationOrchestrator":
+            self.trigger_validation_orchestrator()
         else:
-            raise ValueError(f"Unknown agent: {agent_name}")
+            raise ValueError(f"Unknown dependency: {dependency_name}")
+    
+    # ========================================================================
+    # MODULE CONTEXT BUILDER - Converts agent results to module context
+    # ========================================================================
+    
+    def get_module_context(self, dependencies: list = None) -> Dict[str, ModuleResult]:
+        """
+        Build module context from real agent results
+        
+        This is the KEY difference from agents/conftest.py:
+        - Agents just need dependencies to run
+        - Modules need a context dict with ModuleResult objects
+        
+        Args:
+            dependencies: List of dependency names (e.g., ['OrderProgressTracker'])
+            
+        Returns:
+            Dict mapping dependency name to ModuleResult
+            
+        Usage:
+            context = provider.get_module_context(['OrderProgressTracker'])
+            module.safe_execute(context)
+        """
+        context = {}
+        
+        if dependencies:
+            for dep in dependencies:
+                # Trigger the real agent if not already run
+                self.trigger(dep)
+                
+                # Convert agent result to ModuleResult for context
+                agent_cache = self._cache.get(dep.lower().replace(" ", "_"))
+                if agent_cache:
+                    agent_result = agent_cache["result"]
+                    
+                    # Convert AgentResult to ModuleResult
+                    context[dep] = ModuleResult(
+                        status='success',
+                        data=agent_result.data if hasattr(agent_result, 'data') else {},
+                        message=agent_result.message if hasattr(agent_result, 'message') else 'Success'
+                    )
+        
+        return context
     
     def cleanup(self):
         """Cleanup test artifacts"""
@@ -218,7 +231,7 @@ class ModuleDependencyProvider:
 def module_dependency_provider():
     """
     Session-scoped dependency provider for modules
-    Similar to agent's dependency_provider
+    Runs real agents and caches results
     """
     provider = ModuleDependencyProvider()
     yield provider
@@ -230,12 +243,20 @@ def module_dependency_provider():
 # ============================================================================
 
 @pytest.fixture
-def mock_module_context(module_dependency_provider):
+def module_context(module_dependency_provider):
     """
-    Provides a basic mock context for module testing
-    Can be customized per test
+    Provides module context with real dependencies
+    
+    Usage in test:
+        def test_module(module_context):
+            # Trigger dependencies you need
+            context = module_context(['OrderProgressTracker'])
+            result = module.safe_execute(context)
     """
-    return module_dependency_provider.get_mock_context()
+    def _get_context(dependencies: list = None):
+        return module_dependency_provider.get_module_context(dependencies)
+    
+    return _get_context
 
 
 @pytest.fixture
@@ -264,8 +285,9 @@ def module_fixture_factory(module_registry, available_modules):
     Factory fixture to create module instances for testing
     
     Usage in test:
-        def test_something(module_fixture_factory):
+        def test_something(module_fixture_factory, module_context):
             module = module_fixture_factory('InitialPlanningModule')
+            context = module_context(['OrderProgressTracker'])
             result = module.safe_execute(context)
     """
     def _create_module(module_name: str, config_path: str = None):
@@ -286,7 +308,7 @@ def module_fixture_factory(module_registry, available_modules):
 
 
 # ============================================================================
-# PYTEST HOOKS (Module-specific)
+# PYTEST HOOKS
 # ============================================================================
 
 def pytest_configure(config):
@@ -295,27 +317,23 @@ def pytest_configure(config):
         "markers", "module_test: mark test as module test"
     )
     config.addinivalue_line(
-        "markers", "requires_agent: mark test as requiring real agent execution"
+        "markers", "requires_dependencies: mark test as requiring real dependencies"
     )
 
 
 def pytest_collection_modifyitems(config, items):
     """
     Modify test collection for module tests
-    Add markers automatically
+    Auto-add markers
     """
     for item in items:
         # Auto-mark module tests
         if "module_tests" in str(item.fspath):
             item.add_marker(pytest.mark.module_test)
-        
-        # Mark tests that require real agents
-        if "integration" in item.nodeid.lower():
-            item.add_marker(pytest.mark.requires_agent)
 
 
 # ============================================================================
-# HELPER FIXTURES - FIXED
+# HELPER FIXTURES
 # ============================================================================
 
 @pytest.fixture
@@ -329,23 +347,13 @@ def assert_module_success():
 
 
 @pytest.fixture
-def create_mock_dependencies():
+def shared_source_config(module_dependency_provider):
     """
-    Helper to create mock dependencies on-the-fly
-    NOW RETURNS ModuleResult objects
+    Quick access to shared config
     
     Usage:
-        def test_something(create_mock_dependencies):
-            deps = create_mock_dependencies(['OrderProgressTracker'])
-            module.safe_execute(deps)
+        def test_something(shared_source_config):
+            # Use config directly
+            ...
     """
-    def _create(dep_names: list) -> Dict[str, ModuleResult]:
-        return {
-            dep: ModuleResult(
-                status='success',
-                data={'mock': dep},
-                message=f'Mock {dep}'
-            )
-            for dep in dep_names
-        }
-    return _create
+    return module_dependency_provider.get_shared_source_config()

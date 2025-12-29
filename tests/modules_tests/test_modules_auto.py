@@ -3,14 +3,12 @@
 """
 Auto-discovery module testing system
 Tests all available modules automatically with pytest integration
-NOW WITH CONFTEST FIXTURES! 🎉
-FIXED: Updated for new validate_dependencies() signature and ModuleResult context
+FIXED: Now uses REAL dependencies from conftest (no more mocking!)
 """
 
 import pytest
 from pathlib import Path
 from typing import Dict, Any, Type
-from unittest.mock import patch
 
 from modules import AVAILABLE_MODULES, BaseModule
 from modules.base_module import ModuleResult
@@ -24,16 +22,12 @@ class TestModulesAutomatically:
     """
     Automatically test all enabled modules using pytest parametrization
     Each module becomes a separate test case
-    
-    Uses fixtures from conftest.py for dependency management
     """
     
     @pytest.fixture
     def module_fixture(self, request, module_registry):
         """
         Fixture that provides module class and config for each test
-        
-        Uses module_registry from conftest.py (session-scoped)
         
         Returns:
             tuple: (module_name, module_class, config_path, module_info)
@@ -87,7 +81,6 @@ class TestModulesAutomatically:
         
         config_path_obj = Path(config_path)
         
-        # Test with existing config
         if config_path_obj.exists():
             module = module_class(config_path)
             assert module.config is not None
@@ -96,7 +89,7 @@ class TestModulesAutomatically:
             pytest.skip(f"Config file not found: {config_path}")
     
     # ========================================================================
-    # TEST 3: DEPENDENCY VALIDATION (FIXED)
+    # TEST 3: DEPENDENCY VALIDATION
     # ========================================================================
     
     @pytest.mark.parametrize('module_fixture',
@@ -115,7 +108,7 @@ class TestModulesAutomatically:
             # Should fail with empty context
             assert not is_valid
             
-            # Test with full context - NOW USING ModuleResult
+            # Test with mock context (for validation only, not execution)
             mock_context = {
                 dep: ModuleResult(
                     status='success',
@@ -131,7 +124,7 @@ class TestModulesAutomatically:
             assert is_valid
     
     # ========================================================================
-    # TEST 4: ERROR HANDLING (FIXED)
+    # TEST 4: ERROR HANDLING
     # ========================================================================
     
     @pytest.mark.parametrize('module_fixture',
@@ -151,7 +144,7 @@ class TestModulesAutomatically:
         
         module.execute = mock_error_execute
         
-        # Prepare context with all dependencies - NOW USING ModuleResult
+        # Prepare context with all dependencies
         test_context = {
             dep: ModuleResult(
                 status='success',
@@ -161,7 +154,6 @@ class TestModulesAutomatically:
             for dep in module.dependencies
         }
         
-        # FIXED: Removed dependencies parameter
         result = module.safe_execute(context=test_context)
         
         # Restore original
@@ -207,95 +199,24 @@ class TestModulesAutomatically:
 
 
 # ============================================================================
-# TESTS WITH MOCK DEPENDENCIES (Using conftest fixtures) - FIXED
+# TESTS WITH REAL DEPENDENCIES (Using conftest fixtures)
 # ============================================================================
 
-class TestModulesWithMockDependencies:
+class TestModulesWithRealDependencies:
     """
-    Test modules with mock dependencies from conftest.py
-    These tests use ModuleDependencyProvider
+    Test modules with REAL dependencies from conftest.py
+    These tests trigger real agents and test actual module execution
     """
     
     @pytest.mark.parametrize('module_name', 
                             [name for name in AVAILABLE_MODULES.keys()])
-    def test_module_with_mock_context(self, 
-                                      module_name,
-                                      module_fixture_factory,
-                                      module_dependency_provider):
-        """
-        Test module execution with mock dependencies
-        Uses fixtures from conftest.py
-        """
-        # Get module from factory
-        try:
-            module = module_fixture_factory(module_name)
-        except pytest.skip.Exception:
-            pytest.skip(f"Module {module_name} not available")
-        
-        # Get mock context for this module's dependencies
-        mock_context = module_dependency_provider.get_mock_context(
-            dependencies=module.dependencies
-        )
-        
-        # Validate dependencies are satisfied
-        is_valid = module.validate_dependencies(mock_context)
-        assert is_valid, f"Mock context validation failed"
-    
-    @pytest.mark.parametrize('module_name',
-                            [name for name in AVAILABLE_MODULES.keys()])
-    def test_module_execution_with_mocks(self,
-                                        module_name,
-                                        module_fixture_factory,
-                                        create_mock_dependencies):
-        """
-        Test module execution using mock dependencies
-        """
-        try:
-            module = module_fixture_factory(module_name)
-        except pytest.skip.Exception:
-            pytest.skip(f"Module {module_name} not available")
-        
-        # Skip if no dependencies (can't test execution without real agents)
-        if not module.dependencies:
-            pytest.skip(f"Module {module_name} has no dependencies to mock")
-        
-        # Create mock dependencies - NOW RETURNS ModuleResult
-        mock_deps = create_mock_dependencies(module.dependencies)
-        
-        # Mock the execute method to avoid running real agent
-        with patch.object(module, 'execute') as mock_execute:
-            mock_execute.return_value = ModuleResult(
-                status='success',
-                data={'mocked': True},
-                message='Mock execution'
-            )
-            
-            result = module.safe_execute(mock_deps)
-            
-            assert result.status == 'success'
-
-
-# ============================================================================
-# INTEGRATION TESTS (with real agents)
-# ============================================================================
-
-class TestModulesIntegration:
-    """
-    Integration tests - run modules with REAL agent dependencies
-    Marked as @pytest.mark.integration (slow)
-    """
-    
-    @pytest.mark.integration
-    @pytest.mark.requires_agent
-    @pytest.mark.parametrize('module_name', 
-                            [name for name in AVAILABLE_MODULES.keys()])
-    def test_module_with_real_agents(self,
+    def test_module_context_building(self, 
                                      module_name,
                                      module_fixture_factory,
-                                     module_dependency_provider):
+                                     module_context):
         """
-        Test module with real agent execution
-        Only runs when explicitly requested (slow!)
+        Test that module context can be built with real dependencies
+        Does NOT execute module, just validates context
         """
         try:
             module = module_fixture_factory(module_name)
@@ -305,30 +226,123 @@ class TestModulesIntegration:
         if not module.dependencies:
             pytest.skip(f"Module {module_name} has no dependencies")
         
-        # Trigger real agent execution for dependencies
+        # Build context with real dependencies
+        context = module_context(module.dependencies)
+        
+        # Validate context is properly built
+        assert isinstance(context, dict)
         for dep in module.dependencies:
-            try:
-                module_dependency_provider.trigger_real_agent(dep)
-            except ValueError as e:
-                pytest.skip(f"Cannot trigger agent {dep}: {e}")
+            assert dep in context
+            assert isinstance(context[dep], ModuleResult)
+            assert context[dep].status == 'success'
         
-        # Get context with real agent results
-        context = module_dependency_provider.get_mock_context(
-            dependencies=module.dependencies
-        )
-        
-        # Execute module (this will fail if agent hasn't actually run)
-        # Uncomment to actually test:
-        # result = module.safe_execute(context)
-        # assert result.is_success()
-        
-        # For now, just validate context is ready
+        # Validate dependencies are satisfied
         is_valid = module.validate_dependencies(context)
-        assert is_valid, f"Real agent context validation failed"
+        assert is_valid, f"Real dependency context validation failed"
+    
+    @pytest.mark.integration
+    @pytest.mark.requires_dependencies
+    @pytest.mark.parametrize('module_name',
+                            [name for name in AVAILABLE_MODULES.keys()])
+    def test_module_execution_with_real_deps(self,
+                                            module_name,
+                                            module_fixture_factory,
+                                            module_context,
+                                            assert_module_success):
+        """
+        Test module execution with REAL agent dependencies
+        Marked as integration test (slow!)
+        """
+        try:
+            module = module_fixture_factory(module_name)
+        except pytest.skip.Exception:
+            pytest.skip(f"Module {module_name} not available")
+        
+        if not module.dependencies:
+            pytest.skip(f"Module {module_name} has no dependencies to test")
+        
+        # Build context with real dependencies
+        # This triggers real agent execution via conftest
+        context = module_context(module.dependencies)
+        
+        # Execute module
+        result = module.safe_execute(context)
+        
+        # Assert success
+        assert_module_success(result)
 
 
 # ============================================================================
-# COMPREHENSIVE TEST (runs all checks on each module) - FIXED
+# INTEGRATION TESTS (with specific real agents)
+# ============================================================================
+
+class TestModulesIntegration:
+    """
+    Integration tests for specific modules with known dependencies
+    """
+    
+    @pytest.mark.integration
+    @pytest.mark.requires_dependencies
+    def test_initial_planning_module_integration(self,
+                                                 module_fixture_factory,
+                                                 module_context,
+                                                 assert_module_success):
+        """
+        Test InitialPlanningModule with real OrderProgressTracker
+        """
+        try:
+            module = module_fixture_factory('InitialPlanningModule')
+        except pytest.skip.Exception:
+            pytest.skip("InitialPlanningModule not available")
+        
+        # Build context with real dependencies
+        context = module_context(['OrderProgressTracker', 'HistoricalFeaturesExtractor'])
+        
+        # Execute
+        result = module.safe_execute(context)
+        
+        # Assert
+        assert_module_success(result)
+        assert 'plan' in result.data or 'planning' in result.data
+    
+    @pytest.mark.integration
+    @pytest.mark.requires_dependencies
+    def test_validation_module_integration(self,
+                                          module_fixture_factory,
+                                          module_context,
+                                          assert_module_success):
+        """
+        Test modules that depend on ValidationOrchestrator
+        """
+        # Find modules that depend on ValidationOrchestrator
+        validation_modules = [
+            name for name, cls in AVAILABLE_MODULES.items()
+            if hasattr(cls(None), 'dependencies') and 
+               'ValidationOrchestrator' in cls(None).dependencies
+        ]
+        
+        if not validation_modules:
+            pytest.skip("No modules depend on ValidationOrchestrator")
+        
+        # Test first one
+        module_name = validation_modules[0]
+        try:
+            module = module_fixture_factory(module_name)
+        except pytest.skip.Exception:
+            pytest.skip(f"Module {module_name} not available")
+        
+        # Build context
+        context = module_context(module.dependencies)
+        
+        # Execute
+        result = module.safe_execute(context)
+        
+        # Assert
+        assert_module_success(result)
+
+
+# ============================================================================
+# COMPREHENSIVE TEST (runs all checks on each module)
 # ============================================================================
 
 class TestModulesComprehensive:
@@ -363,7 +377,7 @@ class TestModulesComprehensive:
         except Exception as e:
             results['tests']['creation'] = f'FAIL: {str(e)}'
             results['failed'] += 1
-            return results  # Can't continue without module instance
+            return results
         
         # Test 2: Config Loading
         try:
@@ -385,13 +399,11 @@ class TestModulesComprehensive:
             results['tests']['attributes'] = f'FAIL: {str(e)}'
             results['failed'] += 1
         
-        # Test 4: Dependency Validation - FIXED
+        # Test 4: Dependency Validation
         try:
-            # Empty context
             is_valid = module.validate_dependencies({})
             if module.dependencies:
                 assert not is_valid
-                # Full context with ModuleResult
                 mock_context = {
                     dep: ModuleResult(
                         status='success',
@@ -408,7 +420,7 @@ class TestModulesComprehensive:
             results['tests']['dependency_validation'] = f'FAIL: {str(e)}'
             results['failed'] += 1
         
-        # Test 5: Error Handling - FIXED
+        # Test 5: Error Handling
         try:
             original = module.execute
             module.execute = lambda *a, **k: (_ for _ in ()).throw(ValueError("Test"))
@@ -445,7 +457,6 @@ class TestModulesComprehensive:
     def test_all_enabled_modules(self, enabled_modules):
         """
         Test all enabled modules and generate comprehensive report
-        Uses enabled_modules fixture from conftest.py
         """
         if not enabled_modules:
             pytest.skip("No enabled modules in registry")
@@ -484,7 +495,6 @@ class TestModulesComprehensive:
         print(f"TOTAL: {total_passed} passed, {total_failed} failed")
         print("="*80)
         
-        # Fail if any module failed
         assert total_failed == 0, f"{total_failed} test(s) failed across modules"
 
 
@@ -494,13 +504,13 @@ class TestModulesComprehensive:
 
 @pytest.mark.smoke
 def test_module_registry_exists(module_registry):
-    """Quick test that registry file exists - uses conftest fixture"""
+    """Quick test that registry file exists"""
     assert isinstance(module_registry, dict)
 
 
 @pytest.mark.smoke
 def test_available_modules_exist(available_modules):
-    """Test that AVAILABLE_MODULES is populated - uses conftest fixture"""
+    """Test that AVAILABLE_MODULES is populated"""
     assert isinstance(available_modules, dict)
     assert len(available_modules) > 0
 
@@ -533,7 +543,7 @@ def test_registry_modules_exist_in_code(module_registry, available_modules):
 
 @pytest.mark.smoke
 def test_at_least_one_module_enabled(enabled_modules):
-    """Sanity check that at least one module is enabled - uses conftest fixture"""
+    """Sanity check that at least one module is enabled"""
     assert len(enabled_modules) > 0, "No modules enabled in registry!"
 
 
@@ -543,37 +553,46 @@ def test_at_least_one_module_enabled(enabled_modules):
 
 def test_module_fixture_factory_works(module_fixture_factory):
     """Test that module_fixture_factory from conftest works"""
-    # Try to create a module (will skip if not available)
     if AVAILABLE_MODULES:
         first_module = list(AVAILABLE_MODULES.keys())[0]
         try:
             module = module_fixture_factory(first_module)
             assert module is not None
         except pytest.skip.Exception:
-            pass  # Expected if module not in registry
+            pass
 
 
-def test_create_mock_dependencies_helper(create_mock_dependencies):
-    """Test that create_mock_dependencies helper from conftest works"""
-    mock_deps = create_mock_dependencies(['Dependency1', 'Dependency2'])
+def test_module_context_builder(module_context):
+    """Test that module_context from conftest works"""
+    # Build context for dummy dependencies
+    context = module_context(['TestDep1', 'TestDep2'])
     
-    assert isinstance(mock_deps, dict)
-    assert 'Dependency1' in mock_deps
-    assert 'Dependency2' in mock_deps
+    assert isinstance(context, dict)
+    assert 'TestDep1' in context
+    assert 'TestDep2' in context
     
-    # FIXED: Check for ModuleResult
-    assert isinstance(mock_deps['Dependency1'], ModuleResult)
-    assert mock_deps['Dependency1'].status == 'success'
+    # Check for ModuleResult objects
+    assert isinstance(context['TestDep1'], ModuleResult)
+    assert context['TestDep1'].status == 'success'
 
 
 def test_module_dependency_provider_available(module_dependency_provider):
     """Test that module_dependency_provider from conftest is available"""
     assert module_dependency_provider is not None
     
-    # Test getting mock context
-    mock_context = module_dependency_provider.get_mock_context(['TestDep'])
-    assert isinstance(mock_context, dict)
-    assert 'TestDep' in mock_context
+    # Test config
+    config = module_dependency_provider.get_shared_source_config()
+    assert config is not None
     
-    # FIXED: Check for ModuleResult
-    assert isinstance(mock_context['TestDep'], ModuleResult)
+    # Test context building
+    context = module_dependency_provider.get_module_context(['TestDep'])
+    assert isinstance(context, dict)
+    assert 'TestDep' in context
+    assert isinstance(context['TestDep'], ModuleResult)
+
+
+def test_shared_source_config_fixture(shared_source_config):
+    """Test that shared_source_config fixture works"""
+    assert shared_source_config is not None
+    assert hasattr(shared_source_config, 'db_dir')
+    assert hasattr(shared_source_config, 'default_dir')
