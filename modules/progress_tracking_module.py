@@ -56,10 +56,13 @@ class ProgressTrackingModule(BaseModule):
         return "ProgressTrackingModule"
     
     @property
-    def dependencies(self) -> List[str]:
-        """No dependencies - this is typically the first module"""
-        return ['DataPipelineModule', 'ValidationModule']
-    
+    def dependencies(self) -> Dict[str, str]:
+        """Two dependencies - this is typically the third module"""
+        return {
+            'DataPipelineModule': self.shared_config.annotation_path, 
+            'ValidationModule': self.shared_config.validation_change_log_path, 
+        }
+
     @property
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
@@ -68,7 +71,7 @@ class ProgressTrackingModule(BaseModule):
             'configs'
         ]
         
-    def execute(self, context: Dict) -> ModuleResult:
+    def execute(self, context, dependency_policy) -> ModuleResult:
         """
         Execute OrderProgressTracker.
         

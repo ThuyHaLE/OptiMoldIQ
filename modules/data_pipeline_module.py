@@ -53,9 +53,9 @@ class DataPipelineModule(BaseModule):
         return "DataPipelineModule"
     
     @property
-    def dependencies(self) -> List[str]:
+    def dependencies(self) -> Dict[str, str]:
         """No dependencies - this is typically the first module"""
-        return []
+        return {}
     
     @property
     def context_outputs(self) -> List[str]:
@@ -67,7 +67,7 @@ class DataPipelineModule(BaseModule):
             'annotation_path'
         ]
     
-    def execute(self, context: Dict) -> ModuleResult:
+    def execute(self, context, dependency_policy) -> ModuleResult:
         """
         Execute DataPipelineOrchestrator.
         

@@ -53,9 +53,11 @@ class ValidationModule(BaseModule):
         return "ValidationModule"
     
     @property
-    def dependencies(self) -> List[str]:
+    def dependencies(self) -> Dict[str, str]:
         """One dependency - this is the second module"""
-        return ['DataPipelineModule']
+        return {
+            'DataPipelineModule': self.shared_config.annotation_path, 
+        }
     
     @property
     def context_outputs(self) -> List[str]:
@@ -67,7 +69,7 @@ class ValidationModule(BaseModule):
             'max_workers'
         ]
 
-    def execute(self, context: Dict) -> ModuleResult:
+    def execute(self, context, dependency_policy) -> ModuleResult:
         """
         Execute ValidationOrchestrator.
         

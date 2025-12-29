@@ -79,9 +79,13 @@ class FeaturesExtractingModule(BaseModule):
         return "FeaturesExtractingModule"
     
     @property
-    def dependencies(self) -> List[str]:
-        """One dependency - this is the second module"""
-        return ['DataPipelineModule', 'ValidationModule', 'ProgressTrackingModule']
+    def dependencies(self) -> Dict[str, str]:
+        """Three dependencies - this is the four module"""
+        return {
+            'DataPipelineModule': self.extractor_config.shared_source_config.annotation_path, 
+            'ValidationModule': self.extractor_config.shared_source_config.validation_change_log_path, 
+            'ProgressTrackingModule': self.extractor_config.shared_source_config.progress_tracker_change_log_path
+            }
     
     @property
     def context_outputs(self) -> List[str]:
@@ -91,7 +95,7 @@ class FeaturesExtractingModule(BaseModule):
             'configs'
         ]
 
-    def execute(self, context: Dict) -> ModuleResult:
+    def execute(self, context, dependency_policy) -> ModuleResult:
         
         """
         Execute FeaturesExtractingModule.

@@ -29,9 +29,12 @@ class DashboardModule(BaseModule):
         return "DashboardModule"
     
     @property
-    def dependencies(self) -> List[str]:
-        """No dependencies - this is typically the first module"""
-        return ['DataPipelineModule', 'ValidationModule']
+    def dependencies(self) -> Dict[str, str]:
+        """Two dependencies - this is typically the third module"""
+        return {
+            'DataPipelineModule': "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json",
+            'ValidationModule': "tests/shared_db/ValidationOrchestrator/change_log.txt"
+        }
 
     @property
     def context_outputs(self) -> List[str]:
@@ -41,7 +44,7 @@ class DashboardModule(BaseModule):
             'dashboard_builder_log'
         ]
     
-    def execute(self, context: Dict) -> ModuleResult:
+    def execute(self, context, dependency_policy) -> ModuleResult:
         """
         Execute DashboardBuilder with auto-configuration.
         

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import yaml
 from loguru import logger
+from modules.dependency_policies.strict import StrictContextPolicy
 
 @dataclass
 class ModuleResult:
@@ -107,11 +108,13 @@ class BaseModule(ABC):
         pass
     
     @property
-    def dependencies(self) -> List[str]:
+    def dependencies(self) -> Dict[str, str]:
         """
-        List of context keys required by this module.
+        Dict of dependency keys required by this module.
         
-        Example: ['data_pipeline_result', 'validation_result']
+        Example: {
+            'DataPipelineModule': "./DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json", 
+            'ValidationModule']: "./ValidationOrchestrator/change_log.txt"}
         """
         return []
     
@@ -124,44 +127,35 @@ class BaseModule(ABC):
         """
         return []
     
-    def validate_dependencies(self, context: Dict[str, ModuleResult]) -> tuple[bool, List[str]]:
-        """
-        Validate that all required dependencies exist in the context and succeeded.
-        
-        Returns:
-            (is_valid, list_of_missing_or_failed_dependencies)
-        """
-        missing = []
-        for dep in self.dependencies:
-            if dep not in context:
-                missing.append(f"{dep} (not found)")
-                self.logger.debug(f"❌ Dependency '{dep}': not found")
-            elif not context[dep].is_success():
-                missing.append(f"{dep} (failed)")
-                self.logger.debug(f"❌ Dependency '{dep}': {context[dep].status}")
-        
-        return len(missing) == 0, missing
-    
     def safe_execute(self,
-                     context: Dict[str, ModuleResult]) -> ModuleResult:
+                     context: Dict[str, ModuleResult],
+                     dependency_policy = None) -> ModuleResult:
         """
         Wrapper around execute() with error handling.
         """
         try:
             
             # Validate dependencies first
-            is_valid, missing = self.validate_dependencies(context)
-            if not is_valid:
+            if dependency_policy is None:
+                dependency_policy = StrictContextPolicy()
+            
+            workflow_modules = list(context.keys()) 
+            dep_valid_result = dependency_policy.validate(self.dependencies, 
+                                                          context,
+                                                          workflow_modules)
+            if not dep_valid_result.is_valid:
                 return ModuleResult(
                     status='failed',
                     data=None,
-                    message=f"Missing dependencies: {missing}",
-                    errors=missing
+                    message=f"Missing dependencies: {dep_valid_result.missing}",
+                    errors=dep_valid_result
                 )
             
             # Execute module
             self.logger.info(f"Executing {self.module_name}")
-            result = self.execute(context)
+            result = self.execute(context, dependency_policy)
+            
+            result.context_updates['dep_valid_result'] = dep_valid_result
             
             if result.is_success():
                 self.logger.info(f"{self.module_name} completed successfully")

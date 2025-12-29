@@ -66,9 +66,14 @@ class InitialPlanningModule(BaseModule):
         return "InitialPlanningModule"
     
     @property
-    def dependencies(self) -> List[str]:
-        """Two dependencies - this is the third module"""
-        return ['DataPipelineModule', 'ValidationModule', "ProgressTrackingModule", "FeaturesExtractingModule"]
+    def dependencies(self) -> Dict[str, str]:
+        """For dependencies - this is the fifth module"""
+        return {
+            'DataPipelineModule': self.planner_config.shared_source_config.annotation_path, 
+            'ValidationModule': self.planner_config.shared_source_config.validation_change_log_path, 
+            'ProgressTrackingModule': self.planner_config.shared_source_config.progress_tracker_change_log_path,
+            'FeaturesExtractingModule': self.planner_config.shared_source_config.features_extractor_change_log_path
+        }
     
     @property
     def context_outputs(self) -> List[str]:
@@ -78,7 +83,7 @@ class InitialPlanningModule(BaseModule):
             'configs'
         ]
 
-    def execute(self, context: Dict) -> ModuleResult:
+    def execute(self, context, dependency_policy) -> ModuleResult:
         """
         Execute InitialPlanningModule.
         
