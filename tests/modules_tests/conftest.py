@@ -1,18 +1,18 @@
 # tests/modules_tests/conftest.py - Module-specific fixtures
 
 """
-Module testing conftest - provides module registry and REAL dependency execution
-FIXED: Uses real agents like agent tests do (no more mocking)
+Module testing conftest - provides module registry and dependency management
+Automatically triggers real module dependencies (no mocking - uses shared DB)
 """
 
 import pytest
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Set
+from loguru import logger
 
 from modules.registry.registry_loader import ModuleRegistryLoader
 from modules.base_module import ModuleResult
 from configs.shared.shared_source_config import SharedSourceConfig
-from configs.shared.agent_report_format import ExecutionStatus
 
 
 # ============================================================================
@@ -21,7 +21,10 @@ from configs.shared.agent_report_format import ExecutionStatus
 
 @pytest.fixture(scope="session")
 def module_registry():
-    """Load module registry once for entire test session"""
+    """
+    Load module registry once for entire test session
+    Similar to dependency_provider for agents
+    """
     return ModuleRegistryLoader.load_registry('configs/module_registry.yaml')
 
 
@@ -46,21 +49,96 @@ def enabled_modules(module_registry, available_modules):
 
 
 # ============================================================================
-# MODULE DEPENDENCY PROVIDER - FIXED: Uses REAL agents
+# DEPENDENCY GRAPH BUILDER
 # ============================================================================
 
-class ModuleDependencyProvider:
+class ModuleDependencyGraph:
     """
-    Manages module test dependencies by running REAL agents
-    Similar to agent's DependencyProvider but for module context
-    
-    Key difference from agents/conftest.py:
-    - Agents return AgentResult
-    - Modules need context dict with ModuleResult objects
+    Builds and resolves module dependency graph
+    Ensures modules are executed in correct order
     """
     
-    def __init__(self):
-        self._cache: Dict[str, Any] = {}
+    def __init__(self, module_registry: Dict, available_modules: Dict):
+        self.module_registry = module_registry
+        self.available_modules = available_modules
+        self._execution_cache: Dict[str, ModuleResult] = {}
+    
+    def get_execution_order(self, module_name: str) -> List[str]:
+        """
+        Get execution order for a module and all its dependencies
+        Returns list in execution order (dependencies first)
+        
+        Example: If C depends on B, B depends on A
+        Returns: ['A', 'B', 'C']
+        """
+        visited = set()
+        order = []
+        
+        def dfs(name: str):
+            if name in visited:
+                return
+            
+            visited.add(name)
+            
+            # Get module class
+            if name not in self.available_modules:
+                logger.warning(f"Module {name} not found in AVAILABLE_MODULES")
+                return
+            
+            module_class = self.available_modules[name]
+            
+            # Get module config
+            if name not in self.module_registry:
+                logger.warning(f"Module {name} not found in registry")
+                return
+            
+            config_path = self.module_registry[name].get('config_path')
+            
+            # Instantiate to get dependencies
+            try:
+                module = module_class(config_path)
+                deps = module.dependencies
+                
+                # Visit dependencies first
+                for dep in deps:
+                    dfs(dep)
+                
+                # Add this module after dependencies
+                order.append(name)
+                
+            except Exception as e:
+                logger.error(f"Failed to instantiate {name}: {e}")
+        
+        dfs(module_name)
+        return order
+    
+    def get_all_dependencies(self, module_name: str) -> Set[str]:
+        """
+        Get all dependencies (direct and transitive) for a module
+        
+        Returns:
+            Set of module names that are dependencies
+        """
+        execution_order = self.get_execution_order(module_name)
+        # Remove the module itself, keep only dependencies
+        return set(execution_order[:-1]) if execution_order else set()
+
+
+# ============================================================================
+# MODULE DEPENDENCY EXECUTOR
+# ============================================================================
+
+class ModuleDependencyExecutor:
+    """
+    Executes modules with their dependencies
+    Uses shared database - NO MOCKING
+    """
+    
+    def __init__(self, module_registry: Dict, available_modules: Dict):
+        self.module_registry = module_registry
+        self.available_modules = available_modules
+        self.dependency_graph = ModuleDependencyGraph(module_registry, available_modules)
+        self._execution_results: Dict[str, ModuleResult] = {}
         self._test_dirs = self._setup_test_dirs()
     
     def _setup_test_dirs(self) -> Dict[str, Path]:
@@ -75,147 +153,114 @@ class ModuleDependencyProvider:
             dir_path.mkdir(parents=True, exist_ok=True)
         return dirs
     
-    def get_shared_source_config(self) -> SharedSourceConfig:
-        """Get basic config for testing"""
-        if "shared_config" not in self._cache:
-            config = SharedSourceConfig(
-                db_dir=str(self._test_dirs["db_dir"]),
-                default_dir=str(self._test_dirs["shared_dir"])
-            )
-            self._cache["shared_config"] = config
-        return self._cache["shared_config"]
-    
-    # ========================================================================
-    # TRIGGER REAL DEPENDENCIES (like agents/conftest.py)
-    # ========================================================================
-    
-    def trigger_order_progress_tracker(self):
+    def execute_with_dependencies(self, module_name: str) -> Dict[str, ModuleResult]:
         """
-        Run OrderProgressTracker agent and cache result
-        This creates real data in shared_db that modules can read
-        """
-        if "order_progress_tracker" not in self._cache:
-            from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-            
-            config = self.get_shared_source_config()
-            tracker = OrderProgressTracker(config=config)
-            result = tracker.run_tracking_and_save_results()
-            
-            assert result.status == ExecutionStatus.SUCCESS.value, \
-                "Dependency agent failed: OrderProgressTracker"
-            
-            # Cache the agent result AND config
-            self._cache["order_progress_tracker"] = {
-                "status": "triggered",
-                "result": result,
-                "config": config
-            }
-    
-    def trigger_historical_features_extractor(self):
-        """
-        Run HistoricalFeaturesExtractor agent and cache result
-        """
-        if "historical_features_extractor" not in self._cache:
-            from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
-                HistoricalFeaturesExtractor, FeaturesExtractorConfig)
-            
-            config = self.get_shared_source_config()
-            extractor = HistoricalFeaturesExtractor(
-                config=FeaturesExtractorConfig(
-                    efficiency=0.85,
-                    loss=0.03,
-                    shared_source_config=config
-                )
-            )
-            result = extractor.run_extraction_and_save_results()
-            
-            assert result.status == ExecutionStatus.SUCCESS.value, \
-                "Dependency agent failed: HistoricalFeaturesExtractor"
-            
-            self._cache["historical_features_extractor"] = {
-                "status": "triggered",
-                "result": result,
-                "config": config
-            }
-    
-    def trigger_validation_orchestrator(self):
-        """
-        Run ValidationOrchestrator agent and cache result
-        """
-        if "validation_orchestrator" not in self._cache:
-            from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
-            
-            config = self.get_shared_source_config()
-            orchestrator = ValidationOrchestrator(
-                shared_source_config=config,
-                enable_parallel=False,
-                max_workers=None
-            )
-            result = orchestrator.run_validations_and_save_results()
-            
-            assert result.status == ExecutionStatus.SUCCESS.value, \
-                "Dependency agent failed: ValidationOrchestrator"
-            
-            self._cache["validation_orchestrator"] = {
-                "status": "triggered",
-                "result": result,
-                "config": config
-            }
-    
-    def trigger(self, dependency_name: str):
-        """
-        Generic trigger method - delegates to specific trigger methods
-        Same interface as agents/conftest.py
-        """
-        if dependency_name == "OrderProgressTracker":
-            self.trigger_order_progress_tracker()
-        elif dependency_name == "HistoricalFeaturesExtractor":
-            self.trigger_historical_features_extractor()
-        elif dependency_name == "ValidationOrchestrator":
-            self.trigger_validation_orchestrator()
-        else:
-            raise ValueError(f"Unknown dependency: {dependency_name}")
-    
-    # ========================================================================
-    # MODULE CONTEXT BUILDER - Converts agent results to module context
-    # ========================================================================
-    
-    def get_module_context(self, dependencies: list = None) -> Dict[str, ModuleResult]:
-        """
-        Build module context from real agent results
-        
-        This is the KEY difference from agents/conftest.py:
-        - Agents just need dependencies to run
-        - Modules need a context dict with ModuleResult objects
+        Execute a module and all its dependencies
+        Returns context with all dependency results
         
         Args:
-            dependencies: List of dependency names (e.g., ['OrderProgressTracker'])
+            module_name: The module to execute
             
         Returns:
-            Dict mapping dependency name to ModuleResult
-            
-        Usage:
-            context = provider.get_module_context(['OrderProgressTracker'])
-            module.safe_execute(context)
+            Dict[str, ModuleResult] - context with all results
         """
+        # Get execution order
+        execution_order = self.dependency_graph.get_execution_order(module_name)
+        
+        logger.info(f"📋 Execution order for {module_name}: {execution_order}")
+        
         context = {}
         
-        if dependencies:
-            for dep in dependencies:
-                # Trigger the real agent if not already run
-                self.trigger(dep)
+        # Execute in order
+        for mod_name in execution_order:
+            if mod_name in self._execution_results:
+                # Already executed, reuse result
+                logger.info(f"♻️  Reusing cached result for {mod_name}")
+                context[mod_name] = self._execution_results[mod_name]
+            else:
+                # Execute module
+                logger.info(f"🚀 Executing {mod_name}...")
+                result = self._execute_single_module(mod_name, context)
                 
-                # Convert agent result to ModuleResult for context
-                agent_cache = self._cache.get(dep.lower().replace(" ", "_"))
-                if agent_cache:
-                    agent_result = agent_cache["result"]
-                    
-                    # Convert AgentResult to ModuleResult
-                    context[dep] = ModuleResult(
-                        status='success',
-                        data=agent_result.data if hasattr(agent_result, 'data') else {},
-                        message=agent_result.message if hasattr(agent_result, 'message') else 'Success'
-                    )
+                # Cache result
+                self._execution_results[mod_name] = result
+                context[mod_name] = result
+                
+                if not result.is_success():
+                    logger.error(f"❌ {mod_name} failed: {result.message}")
+                    # Stop execution if dependency fails
+                    break
+                else:
+                    logger.success(f"✅ {mod_name} completed successfully")
+        
+        return context
+    
+    def _execute_single_module(self, module_name: str, context: Dict[str, ModuleResult]) -> ModuleResult:
+        """
+        Execute a single module with given context
+        
+        Args:
+            module_name: Module to execute
+            context: Context with dependency results
+            
+        Returns:
+            ModuleResult
+        """
+        try:
+            # Get module class
+            module_class = self.available_modules[module_name]
+            
+            # Get config
+            config_path = self.module_registry[module_name].get('config_path')
+            
+            # Instantiate
+            module = module_class(config_path)
+            
+            # Execute with context
+            result = module.safe_execute(context)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to execute {module_name}: {e}")
+            return ModuleResult(
+                status='failed',
+                data=None,
+                message=f"Execution error: {str(e)}",
+                errors=[str(e)]
+            )
+    
+    def get_context_for_module(self, module_name: str) -> Dict[str, ModuleResult]:
+        """
+        Get context (all dependency results) for a module
+        Only executes dependencies, NOT the module itself
+        
+        Args:
+            module_name: Module needing context
+            
+        Returns:
+            Dict[str, ModuleResult] with dependency results
+        """
+        # Get only dependencies (not the module itself)
+        dependencies = self.dependency_graph.get_all_dependencies(module_name)
+        
+        if not dependencies:
+            logger.info(f"Module {module_name} has no dependencies")
+            return {}
+        
+        logger.info(f"Getting context for {module_name}, dependencies: {dependencies}")
+        
+        context = {}
+        
+        # Execute each dependency
+        for dep_name in dependencies:
+            if dep_name in self._execution_results:
+                context[dep_name] = self._execution_results[dep_name]
+            else:
+                # Execute dependency chain
+                dep_context = self.execute_with_dependencies(dep_name)
+                # Take only the final result
+                context[dep_name] = dep_context[dep_name]
         
         return context
     
@@ -228,14 +273,22 @@ class ModuleDependencyProvider:
 
 
 @pytest.fixture(scope="session")
-def module_dependency_provider():
+def module_dependency_executor(module_registry, available_modules):
     """
-    Session-scoped dependency provider for modules
-    Runs real agents and caches results
+    Session-scoped dependency executor for modules
+    Manages real module execution with shared database
     """
-    provider = ModuleDependencyProvider()
-    yield provider
-    provider.cleanup()
+    executor = ModuleDependencyExecutor(module_registry, available_modules)
+    yield executor
+    executor.cleanup()
+
+
+@pytest.fixture(scope="session")
+def module_dependency_graph(module_registry, available_modules):
+    """
+    Provides dependency graph for analyzing module relationships
+    """
+    return ModuleDependencyGraph(module_registry, available_modules)
 
 
 # ============================================================================
@@ -243,18 +296,18 @@ def module_dependency_provider():
 # ============================================================================
 
 @pytest.fixture
-def module_context(module_dependency_provider):
+def module_context_factory(module_dependency_executor):
     """
-    Provides module context with real dependencies
+    Factory to get context for any module
+    Automatically executes dependencies
     
-    Usage in test:
-        def test_module(module_context):
-            # Trigger dependencies you need
-            context = module_context(['OrderProgressTracker'])
-            result = module.safe_execute(context)
+    Usage:
+        def test_my_module(module_context_factory):
+            context = module_context_factory('InitialPlanningModule')
+            # context now contains ProgressTrackingModule and FeaturesExtractingModule results
     """
-    def _get_context(dependencies: list = None):
-        return module_dependency_provider.get_module_context(dependencies)
+    def _get_context(module_name: str) -> Dict[str, ModuleResult]:
+        return module_dependency_executor.get_context_for_module(module_name)
     
     return _get_context
 
@@ -285,9 +338,8 @@ def module_fixture_factory(module_registry, available_modules):
     Factory fixture to create module instances for testing
     
     Usage in test:
-        def test_something(module_fixture_factory, module_context):
+        def test_something(module_fixture_factory):
             module = module_fixture_factory('InitialPlanningModule')
-            context = module_context(['OrderProgressTracker'])
             result = module.safe_execute(context)
     """
     def _create_module(module_name: str, config_path: str = None):
@@ -308,7 +360,7 @@ def module_fixture_factory(module_registry, available_modules):
 
 
 # ============================================================================
-# PYTEST HOOKS
+# PYTEST HOOKS (Module-specific)
 # ============================================================================
 
 def pytest_configure(config):
@@ -317,19 +369,26 @@ def pytest_configure(config):
         "markers", "module_test: mark test as module test"
     )
     config.addinivalue_line(
-        "markers", "requires_dependencies: mark test as requiring real dependencies"
+        "markers", "requires_dependencies: mark test as requiring real dependency execution"
+    )
+    config.addinivalue_line(
+        "markers", "no_dependencies: mark test as not requiring dependencies (unit test)"
     )
 
 
 def pytest_collection_modifyitems(config, items):
     """
     Modify test collection for module tests
-    Auto-add markers
+    Add markers automatically
     """
     for item in items:
         # Auto-mark module tests
         if "module_tests" in str(item.fspath):
             item.add_marker(pytest.mark.module_test)
+        
+        # Mark tests with dependencies
+        if "with_dependencies" in item.nodeid.lower():
+            item.add_marker(pytest.mark.requires_dependencies)
 
 
 # ============================================================================
@@ -347,13 +406,39 @@ def assert_module_success():
 
 
 @pytest.fixture
-def shared_source_config(module_dependency_provider):
+def create_empty_context():
     """
-    Quick access to shared config
+    Create an empty context (for modules with no dependencies)
     
     Usage:
-        def test_something(shared_source_config):
-            # Use config directly
-            ...
+        def test_module_without_deps(module_fixture_factory, create_empty_context):
+            module = module_fixture_factory('DataPipelineModule')
+            context = create_empty_context()
+            result = module.safe_execute(context)
     """
-    return module_dependency_provider.get_shared_source_config()
+    def _create() -> Dict[str, ModuleResult]:
+        return {}
+    return _create
+
+
+@pytest.fixture
+def print_dependency_graph(module_dependency_graph):
+    """
+    Helper to print dependency graph for debugging
+    
+    Usage:
+        def test_something(print_dependency_graph):
+            print_dependency_graph('InitialPlanningModule')
+    """
+    def _print(module_name: str):
+        order = module_dependency_graph.get_execution_order(module_name)
+        deps = module_dependency_graph.get_all_dependencies(module_name)
+        
+        print(f"\n{'='*60}")
+        print(f"Dependency Analysis for: {module_name}")
+        print(f"{'='*60}")
+        print(f"Execution Order: {' → '.join(order)}")
+        print(f"Dependencies: {deps}")
+        print(f"{'='*60}\n")
+    
+    return _print
