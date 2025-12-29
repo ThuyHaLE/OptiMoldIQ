@@ -1,6 +1,5 @@
 # modules/dependency_policies/base.py
 
-from modules.base_module import ModuleResult
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
 from dataclasses import dataclass
@@ -30,7 +29,7 @@ class DependencyPolicy(ABC):
     @abstractmethod
     def validate(self,
                  dependencies: Dict[str, str],
-                 context: Dict[str, ModuleResult],
+                 context: Dict[str, "ModuleResult"],
                  workflow_modules: List[str] = None
                  ) -> DependencyValidationResult:
         """

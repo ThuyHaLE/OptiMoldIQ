@@ -126,7 +126,10 @@ class BaseModule(ABC):
         """
         return []
     
-    def validate_dependencies(self, context, dependency_policy):
+    def validate_dependencies(self, 
+                              context: Dict[str, ModuleResult], 
+                              dependency_policy: "DependencyPolicy" = None
+                              ) -> "DependencyValidationResult":
         
         if dependency_policy is None:
             from modules.dependency_policies.strict import StrictContextPolicy
@@ -141,7 +144,8 @@ class BaseModule(ABC):
     
     def safe_execute(self,
                      context: Dict[str, ModuleResult],
-                     dependency_policy = None) -> ModuleResult:
+                     dependency_policy: "DependencyPolicy" = None
+                     ) -> ModuleResult:
         """
         Wrapper around execute() with error handling.
         """
