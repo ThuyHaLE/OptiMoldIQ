@@ -126,6 +126,19 @@ class BaseModule(ABC):
         """
         return []
     
+    def validate_dependencies(self, context, dependency_policy):
+        
+        if dependency_policy is None:
+            from modules.dependency_policies.strict import StrictContextPolicy
+            dependency_policy = StrictContextPolicy()
+        
+        workflow_modules = list(context.keys()) 
+        dep_valid_result = dependency_policy.validate(self.dependencies, 
+                                                      context,
+                                                      workflow_modules)
+        
+        return dep_valid_result
+    
     def safe_execute(self,
                      context: Dict[str, ModuleResult],
                      dependency_policy = None) -> ModuleResult:
@@ -135,14 +148,8 @@ class BaseModule(ABC):
         try:
 
             # Validate dependencies first
-            if dependency_policy is None:
-                from modules.dependency_policies.strict import StrictContextPolicy
-                dependency_policy = StrictContextPolicy()
-            
-            workflow_modules = list(context.keys()) 
-            dep_valid_result = dependency_policy.validate(self.dependencies, 
-                                                          context,
-                                                          workflow_modules)
+            dep_valid_result = self.validate_dependencies(context, dependency_policy)
+
             if not dep_valid_result.is_valid:
                 return ModuleResult(
                     status='failed',
