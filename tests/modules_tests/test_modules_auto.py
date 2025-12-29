@@ -149,13 +149,12 @@ class TestModulesAutomatically:
             assert len(dep_valid_result.missing) == 0
     
     @pytest.mark.parametrize('module_fixture', 
-                            [name for name in AVAILABLE_MODULES.keys()],
-                            indirect=True)
-    def test_validate_dependencies_with_all_policies(module_fixture, 
+                             [name for name in AVAILABLE_MODULES.keys()],
+                             indirect=True)
+    def test_validate_dependencies_with_all_policies(self, 
+                                                     module_fixture, 
                                                      all_dependency_policies):
-        """
-        Test BaseModule.validate_dependencies with all available dependency policies.
-        """
+        
         module_name, module_class, config_path, _ = module_fixture
         module = module_class(config_path)
 
