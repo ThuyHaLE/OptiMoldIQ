@@ -54,7 +54,7 @@ __all__ = [
     'ValidationModule',
     'ProgressTrackingModule',
     'FeaturesExtractingModule',
-    'InitialPlanningModule'
+    'InitialPlanningModule',
     
     
     'get_module',

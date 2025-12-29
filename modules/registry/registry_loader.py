@@ -1,5 +1,12 @@
 # modules/registry/registry_loader.py
 
+"""
+⚠️ EXPERIMENTAL / NOT USED IN PRODUCTION
+
+Dynamic module discovery via filesystem scanning.
+Current pipeline uses static registry in modules/__init__.py
+"""
+
 import yaml
 import json
 from pathlib import Path
