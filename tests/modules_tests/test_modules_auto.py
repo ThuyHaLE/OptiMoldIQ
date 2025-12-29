@@ -111,12 +111,12 @@ class TestModulesAutomatically:
         module = module_class(config_path)
         
         # Test with empty context
-        is_valid, missing = module.validate_dependencies({})
-        
+        dep_valid_result = module.validate_dependencies({})
+         
         if module.dependencies:
             # Should fail with empty context
-            assert not is_valid
-            assert len(missing) > 0
+            assert not dep_valid_result.is_valid
+            assert len(dep_valid_result.missing) > 0
             
             # Test with successful mock context
             mock_context = {
@@ -127,9 +127,9 @@ class TestModulesAutomatically:
                 )
                 for dep in module.dependencies
             }
-            is_valid, missing = module.validate_dependencies(mock_context)
-            assert is_valid
-            assert len(missing) == 0
+            dep_valid_result = module.validate_dependencies(mock_context)
+            assert dep_valid_result.is_valid
+            assert len(dep_valid_result.missing) == 0
             
             # Test with failed dependency
             failed_context = {
@@ -140,13 +140,13 @@ class TestModulesAutomatically:
                 )
                 for dep in module.dependencies
             }
-            is_valid, missing = module.validate_dependencies(failed_context)
-            assert not is_valid
-            assert len(missing) == len(module.dependencies)
+            dep_valid_result = module.validate_dependencies(failed_context)
+            assert not dep_valid_result.is_valid
+            assert len(dep_valid_result.missing) == len(module.dependencies)
         else:
             # No dependencies - should always pass
-            assert is_valid
-            assert len(missing) == 0
+            assert dep_valid_result.is_valid
+            assert len(dep_valid_result.missing) == 0
     
     # ========================================================================
     # TEST 4: INTERFACE COMPLIANCE
@@ -221,8 +221,8 @@ class TestModulesWithDependencies:
         context = module_context_factory(module_name)
         
         # Validate all dependencies succeeded
-        is_valid, missing = module.validate_dependencies(context)
-        assert is_valid, f"Dependencies failed or missing: {missing}"
+        dep_valid_result = module.validate_dependencies(context)
+        assert dep_valid_result.is_valid, f"Dependencies failed or missing: {dep_valid_result.missing}"
         
         # All dependencies should be successful
         for dep_name in module.dependencies:
