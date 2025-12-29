@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 import yaml
 from loguru import logger
-from modules.dependency_policies.strict import StrictContextPolicy
 
 @dataclass
 class ModuleResult:
@@ -134,9 +133,10 @@ class BaseModule(ABC):
         Wrapper around execute() with error handling.
         """
         try:
-            
+
             # Validate dependencies first
             if dependency_policy is None:
+                from modules.dependency_policies.strict import StrictContextPolicy
                 dependency_policy = StrictContextPolicy()
             
             workflow_modules = list(context.keys()) 
