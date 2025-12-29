@@ -91,7 +91,7 @@ class FeaturesExtractingModule(BaseModule):
             'configs'
         ]
 
-    def execute(self) -> ModuleResult:
+    def execute(self, context: Dict) -> ModuleResult:
         
         """
         Execute FeaturesExtractingModule.

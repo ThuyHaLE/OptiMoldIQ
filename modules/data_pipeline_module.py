@@ -67,7 +67,7 @@ class DataPipelineModule(BaseModule):
             'annotation_path'
         ]
     
-    def execute(self) -> ModuleResult:
+    def execute(self, context: Dict) -> ModuleResult:
         """
         Execute DataPipelineOrchestrator.
         

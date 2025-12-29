@@ -68,7 +68,7 @@ class ProgressTrackingModule(BaseModule):
             'configs'
         ]
         
-    def execute(self) -> ModuleResult:
+    def execute(self, context: Dict) -> ModuleResult:
         """
         Execute OrderProgressTracker.
         

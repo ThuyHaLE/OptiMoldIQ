@@ -37,7 +37,7 @@ class AnalyticsModule(BaseModule):
             'analytics_orchestrator_log'
         ]
     
-    def execute(self) -> ModuleResult:
+    def execute(self, context: Dict) -> ModuleResult:
         
         """Execute AnalyticsOrchestrator with auto-configuration logic
         

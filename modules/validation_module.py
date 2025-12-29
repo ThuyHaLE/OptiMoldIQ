@@ -67,7 +67,7 @@ class ValidationModule(BaseModule):
             'max_workers'
         ]
 
-    def execute(self) -> ModuleResult:
+    def execute(self, context: Dict) -> ModuleResult:
         """
         Execute ValidationOrchestrator.
         

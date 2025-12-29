@@ -19,6 +19,9 @@ class ModuleResult:
     def is_success(self) -> bool:
         return self.status == 'success'
     
+    def is_skipped(self) -> bool:
+        return self.status == 'skipped'
+    
     def is_failed(self) -> bool:
         return self.status == 'failed'
 
@@ -79,7 +82,7 @@ class BaseModule(ABC):
             return {}
 
     @abstractmethod
-    def execute(self) -> ModuleResult:
+    def execute(self, context: Dict[str, ModuleResult]) -> ModuleResult:
         """
         Execute the module logic.
     
@@ -158,7 +161,7 @@ class BaseModule(ABC):
             
             # Execute module
             self.logger.info(f"Executing {self.module_name}")
-            result = self.execute()
+            result = self.execute(context)
             
             if result.is_success():
                 self.logger.info(f"{self.module_name} completed successfully")
