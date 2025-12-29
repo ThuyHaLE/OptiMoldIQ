@@ -8,16 +8,17 @@ from loguru import logger
 
 @dataclass
 class DependencyValidationResult:
-    """Result of dependency validation"""
-    workflow_modules: List[str] = None
     is_valid: bool
     missing: List[str]
     resolved_from: Dict[str, str]  # dep_name -> source ('context' | 'database')
+    workflow_modules: List[str] = None
     warnings: List[str] = None
     
     def __post_init__(self):
         if self.warnings is None:
             self.warnings = []
+        if self.workflow_modules is None:
+            self.workflow_modules = []
 
 
 class DependencyPolicy(ABC):

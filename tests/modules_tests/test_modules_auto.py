@@ -178,7 +178,7 @@ class TestModulesAutomatically:
         
         # Check property types
         assert isinstance(module.module_name, str)
-        assert isinstance(module.dependencies, list)
+        assert isinstance(module.dependencies, dict)
         assert isinstance(module.context_outputs, list)
 
 
