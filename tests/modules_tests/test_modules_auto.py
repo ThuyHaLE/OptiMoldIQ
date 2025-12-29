@@ -148,6 +148,35 @@ class TestModulesAutomatically:
             assert dep_valid_result.is_valid
             assert len(dep_valid_result.missing) == 0
     
+    @pytest.mark.parametrize('module_fixture', 
+                            [name for name in AVAILABLE_MODULES.keys()],
+                            indirect=True)
+    def test_validate_dependencies_with_all_policies(module_fixture, 
+                                                     all_dependency_policies):
+        """
+        Test BaseModule.validate_dependencies with all available dependency policies.
+        """
+        module_name, module_class, config_path, _ = module_fixture
+        module = module_class(config_path)
+
+        # Prepare a mock context
+        mock_context = {
+            dep: ModuleResult(status='success', data={'mock': True}, message=f"Mock {dep}")
+            for dep in module.dependencies
+        }
+
+        for policy_cls in all_dependency_policies:
+            policy = policy_cls()
+            dep_valid_result = module.validate_dependencies(mock_context, dependency_policy=policy)
+
+            assert hasattr(dep_valid_result, "is_valid")
+            assert hasattr(dep_valid_result, "missing")
+
+            if module.dependencies:
+                assert isinstance(dep_valid_result.missing, list)
+            else:
+                assert dep_valid_result.is_valid
+
     # ========================================================================
     # TEST 4: INTERFACE COMPLIANCE
     # ========================================================================

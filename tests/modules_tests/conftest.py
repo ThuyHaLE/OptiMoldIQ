@@ -48,6 +48,13 @@ def enabled_modules(module_registry, available_modules):
     return enabled
 
 
+
+# Fixture provide all available dependency policies
+@pytest.fixture(scope="session")
+def all_dependency_policies():
+    from modules.dependency_policies import AVAILABLE_POLICIES
+    return list(AVAILABLE_POLICIES.values())
+
 # ============================================================================
 # DEPENDENCY GRAPH BUILDER
 # ============================================================================
