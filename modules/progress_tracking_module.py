@@ -64,13 +64,11 @@ class ProgressTrackingModule(BaseModule):
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
         return [
-            'tracking_results',
+            'tracking_result',
             'configs'
         ]
         
-    def execute(self, 
-                context: Dict, 
-                dependencies: Dict) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute OrderProgressTracker.
         
@@ -94,21 +92,41 @@ class ProgressTrackingModule(BaseModule):
 
             # Log report
             self.logger.info("Tracking execution completed!")
+
+            # ✅ CHECK if it has critical errors in sub-results
+            if tracker_result.has_critical_errors():
+                failed_paths = tracker_result.get_failed_paths()
+                return ModuleResult(
+                    status='failed',
+                    data={'tracking_result': tracker_result},
+                    message=f'Tracking has critical errors in: {failed_paths}',
+                    errors=failed_paths
+                )
             
-            # Return success result
+            # ✅ CHECK STATUS from ExecutionResult
+            if tracker_result.status == 'failed':
+                return ModuleResult(
+                    status='failed',
+                    data={'tracking_result': tracker_result},
+                    message=f'Tracking failed: {tracker_result.error}',
+                    errors=[tracker_result.error] if tracker_result.error else []
+                )
+        
+            # ✅ SUCCESS case
             return ModuleResult(
                 status='success',
                 data={
-                    'tracking_results': tracker_result,
+                    'tracking_result': tracker_result,
                 },
                 message='Tracking completed successfully',
                 context_updates={
-                    'tracking_results': tracker_result,
+                    'tracking_result': tracker_result,
                     'configs': asdict(self.shared_config)
                 }
             )
 
         except Exception as e:
+            # ❌ Only catch NOT expected exception (agent crash)
             self.logger.error(f"Tracking failed: {e}", exc_info=True)
             return ModuleResult(
                 status='failed',

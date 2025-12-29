@@ -87,13 +87,12 @@ class FeaturesExtractingModule(BaseModule):
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
         return [
-            'extraction_results',
+            'extraction_result',
             'configs'
         ]
 
-    def execute(self, 
-                context: Dict, 
-                dependencies: Dict) -> ModuleResult:
+    def execute(self) -> ModuleResult:
+        
         """
         Execute FeaturesExtractingModule.
         
@@ -155,21 +154,41 @@ class FeaturesExtractingModule(BaseModule):
             extractor_result = extractor.run_extraction_and_save_results()
 
             self.logger.info("Features extraction execution completed!")
+
+            # ✅ CHECK if it has critical errors in sub-results
+            if extractor_result.has_critical_errors():
+                failed_paths = extractor_result.get_failed_paths()
+                return ModuleResult(
+                    status='failed',
+                    data={'extraction_result': extractor_result},
+                    message=f'Features extraction has critical errors in: {failed_paths}',
+                    errors=failed_paths
+                )
+            
+            # ✅ CHECK STATUS from ExecutionResult
+            if extractor_result.status == 'failed':
+                return ModuleResult(
+                    status='failed',
+                    data={'extraction_result': extractor_result},
+                    message=f'Features extraction failed: {extractor_result.error}',
+                    errors=[extractor_result.error] if extractor_result.error else []
+                )
  
-            # Return success result
+            # ✅ SUCCESS case
             return ModuleResult(
                 status='success',
                 data={
-                    'extraction_results': extractor_result,
+                    'extraction_result': extractor_result,
                 },
                 message='Features extraction completed successfully',
                 context_updates={
-                    'extraction_results': extractor_result,
+                    'extraction_result': extractor_result,
                     'configs': asdict(self.extractor_config)
                 }
             )
 
         except Exception as e:
+            # ❌ Only catch NOT expected exception (agent crash)
             self.logger.error(f"Features extraction failed: {e}", exc_info=True)
             return ModuleResult(
                 status='failed',

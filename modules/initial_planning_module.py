@@ -74,13 +74,11 @@ class InitialPlanningModule(BaseModule):
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
         return [
-            'planner_result',
+            'planning_result',
             'configs'
         ]
 
-    def execute(self, 
-                context: Dict, 
-                dependencies: Dict) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute InitialPlanningModule.
         
@@ -124,26 +122,46 @@ class InitialPlanningModule(BaseModule):
             self.logger.info("Running planning...")
             planner_result = initial_planner.run_planning_and_save_results()
 
-            self.logger.info("Initial planning execution completed!")
+            self.logger.info("Initial planner execution completed!")
+
+            # ✅ CHECK if it has critical errors in sub-results
+            if planner_result.has_critical_errors():
+                failed_paths = planner_result.get_failed_paths()
+                return ModuleResult(
+                    status='failed',
+                    data={'planning_result': planner_result},
+                    message=f'Initial planner has critical errors in: {failed_paths}',
+                    errors=failed_paths
+                )
+            
+            # ✅ CHECK STATUS from ExecutionResult
+            if planner_result.status == 'failed':
+                return ModuleResult(
+                    status='failed',
+                    data={'planning_result': planner_result},
+                    message=f'Initial planner failed: {planner_result.error}',
+                    errors=[planner_result.error] if planner_result.error else []
+                )
  
-            # Return success result
+            # ✅ SUCCESS case
             return ModuleResult(
                 status='success',
                 data={
-                    'planner_result': planner_result,
+                    'planning_result': planner_result,
                 },
-                message='Initial planning completed successfully',
+                message='Initial planner completed successfully',
                 context_updates={
-                    'planner_result': planner_result,
+                    'planning_result': planner_result,
                     'configs': asdict(self.planner_config)
                 }
             )
 
         except Exception as e:
-            self.logger.error(f"Initial planning failed: {e}", exc_info=True)
+            # ❌ Only catch NOT expected exception (agent crash)
+            self.logger.error(f"Initial planner failed: {e}", exc_info=True)
             return ModuleResult(
                 status='failed',
                 data=None,
-                message=f"Initial planning execution failed: {str(e)}",
+                message=f"Initial planner execution failed: {str(e)}",
                 errors=[str(e)]
             )

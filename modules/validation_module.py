@@ -55,7 +55,7 @@ class ValidationModule(BaseModule):
     @property
     def dependencies(self) -> List[str]:
         """One dependency - this is the second module"""
-        return ['DataPipelineOrchestrator']
+        return []
     
     @property
     def context_outputs(self) -> List[str]:
@@ -67,9 +67,7 @@ class ValidationModule(BaseModule):
             'max_workers'
         ]
 
-    def execute(self, 
-                context: Dict, 
-                dependencies: Dict) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute ValidationOrchestrator.
         
@@ -107,8 +105,27 @@ class ValidationModule(BaseModule):
             validation_result = validation_orchestrator.run_validations_and_save_results()
 
             self.logger.info("Validation execution completed!")
+
+            # ✅ CHECK if it has critical errors in sub-results
+            if validation_result.has_critical_errors():
+                failed_paths = validation_result.get_failed_paths()
+                return ModuleResult(
+                    status='failed',
+                    data={'validation_result': validation_result},
+                    message=f'Validation has critical errors in: {failed_paths}',
+                    errors=failed_paths
+                )
+            
+            # ✅ CHECK STATUS from ExecutionResult
+            if validation_result.status == 'failed':
+                return ModuleResult(
+                    status='failed',
+                    data={'validation_result': validation_result},
+                    message=f'Validation failed: {validation_result.error}',
+                    errors=[validation_result.error] if validation_result.error else []
+                )
  
-            # Return success result
+            # ✅ SUCCESS case
             return ModuleResult(
                 status='success',
                 data={
@@ -124,6 +141,7 @@ class ValidationModule(BaseModule):
             )
             
         except Exception as e:
+            # ❌ Only catch NOT expected exception (agent crash)
             self.logger.error(f"Validation failed: {e}", exc_info=True)
             return ModuleResult(
                 status='failed',

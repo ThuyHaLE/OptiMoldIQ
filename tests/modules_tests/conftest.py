@@ -2,6 +2,7 @@
 
 """
 Module testing conftest - provides module registry and dependency management
+FIXED: Updated to return ModuleResult instead of dict
 """
 
 import pytest
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 from modules.registry.registry_loader import ModuleRegistryLoader
+from modules.base_module import ModuleResult
 from configs.shared.shared_source_config import SharedSourceConfig
 from configs.shared.agent_report_format import ExecutionStatus
 
@@ -47,17 +49,18 @@ def enabled_modules(module_registry, available_modules):
 
 
 # ============================================================================
-# MODULE DEPENDENCY PROVIDER (Like agent's DependencyProvider)
+# MODULE DEPENDENCY PROVIDER (Like agent's DependencyProvider) - FIXED
 # ============================================================================
 
 class ModuleDependencyProvider:
     """
     Manages module test dependencies
     Reuses agent results when needed (don't re-run agents for each module test)
+    NOW RETURNS ModuleResult objects
     """
     
     def __init__(self):
-        self._cache: Dict[str, Any] = {}
+        self._cache: Dict[str, ModuleResult] = {}
         self._test_dirs = self._setup_test_dirs()
     
     def _setup_test_dirs(self) -> Dict[str, Path]:
@@ -82,7 +85,7 @@ class ModuleDependencyProvider:
             self._cache["shared_config"] = config
         return self._cache["shared_config"]
     
-    def get_mock_context(self, dependencies: list = None) -> Dict[str, Any]:
+    def get_mock_context(self, dependencies: list = None) -> Dict[str, ModuleResult]:
         """
         Get mock context with specified dependencies
         
@@ -90,7 +93,7 @@ class ModuleDependencyProvider:
             dependencies: List of dependency names needed
             
         Returns:
-            Mock context dict with dependency data
+            Mock context dict with ModuleResult objects
         """
         context = {}
         
@@ -104,14 +107,15 @@ class ModuleDependencyProvider:
                     context[dep] = self.get_validation_orchestrator_result()
                 else:
                     # Generic mock for unknown dependencies
-                    context[dep] = {
-                        'status': 'success',
-                        'data': f'mock_data_for_{dep}'
-                    }
+                    context[dep] = ModuleResult(
+                        status='success',
+                        data={'mock': f'mock_data_for_{dep}'},
+                        message=f'Mock result for {dep}'
+                    )
         
         return context
     
-    def get_order_progress_tracker_result(self) -> Dict[str, Any]:
+    def get_order_progress_tracker_result(self) -> ModuleResult:
         """
         Get OrderProgressTracker result (real or mock)
         Only runs once and caches
@@ -129,7 +133,7 @@ class ModuleDependencyProvider:
         
         return self._cache["order_progress_tracker"]
     
-    def get_historical_features_result(self) -> Dict[str, Any]:
+    def get_historical_features_result(self) -> ModuleResult:
         """Get HistoricalFeaturesExtractor result (mock)"""
         if "historical_features_extractor" not in self._cache:
             result = self._create_mock_agent_result("HistoricalFeaturesExtractor")
@@ -137,7 +141,7 @@ class ModuleDependencyProvider:
         
         return self._cache["historical_features_extractor"]
     
-    def get_validation_orchestrator_result(self) -> Dict[str, Any]:
+    def get_validation_orchestrator_result(self) -> ModuleResult:
         """Get ValidationOrchestrator result (mock)"""
         if "validation_orchestrator" not in self._cache:
             result = self._create_mock_agent_result("ValidationOrchestrator")
@@ -145,17 +149,17 @@ class ModuleDependencyProvider:
         
         return self._cache["validation_orchestrator"]
     
-    def _create_mock_agent_result(self, agent_name: str) -> Dict[str, Any]:
-        """Create a mock agent result for testing"""
-        return {
-            'status': ExecutionStatus.SUCCESS.value,
-            'agent': agent_name,
-            'data': {
+    def _create_mock_agent_result(self, agent_name: str) -> ModuleResult:
+        """Create a mock agent result for testing - NOW RETURNS ModuleResult"""
+        return ModuleResult(
+            status='success',
+            data={
+                'agent': agent_name,
                 'processed_records': 100,
                 'timestamp': '2024-01-01T00:00:00'
             },
-            'message': f'Mock result for {agent_name}'
-        }
+            message=f'Mock result for {agent_name}'
+        )
     
     def trigger_real_agent(self, agent_name: str):
         """
@@ -169,7 +173,14 @@ class ModuleDependencyProvider:
             agent = OrderProgressTracker(config=config)
             result = agent.run_tracking_and_save_results()
             assert result.status == ExecutionStatus.SUCCESS.value
-            self._cache["order_progress_tracker"] = result
+            
+            # Convert to ModuleResult
+            module_result = ModuleResult(
+                status='success',
+                data=result.data if hasattr(result, 'data') else {},
+                message=result.message if hasattr(result, 'message') else 'Success'
+            )
+            self._cache["order_progress_tracker"] = module_result
             
         elif agent_name == "HistoricalFeaturesExtractor":
             from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
@@ -183,7 +194,14 @@ class ModuleDependencyProvider:
             )
             result = agent.run_extraction_and_save_results()
             assert result.status == ExecutionStatus.SUCCESS.value
-            self._cache["historical_features_extractor"] = result
+            
+            # Convert to ModuleResult
+            module_result = ModuleResult(
+                status='success',
+                data=result.data if hasattr(result, 'data') else {},
+                message=result.message if hasattr(result, 'message') else 'Success'
+            )
+            self._cache["historical_features_extractor"] = module_result
             
         else:
             raise ValueError(f"Unknown agent: {agent_name}")
@@ -297,14 +315,13 @@ def pytest_collection_modifyitems(config, items):
 
 
 # ============================================================================
-# HELPER FIXTURES
+# HELPER FIXTURES - FIXED
 # ============================================================================
 
 @pytest.fixture
 def assert_module_success():
     """Helper fixture for asserting module success"""
     def _assert(result):
-        from modules.base_module import ModuleResult
         assert isinstance(result, ModuleResult)
         assert result.status == 'success', f"Module failed: {result.message}"
         assert result.data is not None
@@ -315,19 +332,20 @@ def assert_module_success():
 def create_mock_dependencies():
     """
     Helper to create mock dependencies on-the-fly
+    NOW RETURNS ModuleResult objects
     
     Usage:
         def test_something(create_mock_dependencies):
             deps = create_mock_dependencies(['OrderProgressTracker'])
             module.safe_execute(deps)
     """
-    def _create(dep_names: list) -> Dict[str, Any]:
+    def _create(dep_names: list) -> Dict[str, ModuleResult]:
         return {
-            dep: {
-                'status': 'success',
-                'data': f'mock_{dep}',
-                'timestamp': '2024-01-01'
-            }
+            dep: ModuleResult(
+                status='success',
+                data={'mock': dep},
+                message=f'Mock {dep}'
+            )
             for dep in dep_names
         }
     return _create

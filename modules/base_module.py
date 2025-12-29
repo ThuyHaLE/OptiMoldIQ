@@ -79,16 +79,21 @@ class BaseModule(ABC):
             return {}
 
     @abstractmethod
-    def execute(self, context: Dict[str, Any], dependencies: Dict[str, Any]) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute the module logic.
+    
+        Implementation should:
+        1. Read required data from shared database
+        2. Process the data
+        3. Write results back to shared database
+        4. Return ModuleResult with status
         
-        Args:
-            context: Shared context dict containing data from previous modules
-            dependencies: Dict containing data from its dependencies
-            
+        Note: The actual data is stored in shared database.
+            ModuleResult.data can contain metadata/summary only.
+        
         Returns:
-            ModuleResult with status and data
+            ModuleResult with status ('success'|'failed'|'skipped')
         """
         pass
     
@@ -116,29 +121,30 @@ class BaseModule(ABC):
         """
         return []
     
-    def validate_dependencies(self, context: Dict[str, Any]) -> tuple[bool, List[str]]:
+    def validate_dependencies(self, context: Dict[str, ModuleResult]) -> tuple[bool, List[str]]:
         """
-        Validate that all required dependencies exist in the context.
+        Validate that all required dependencies exist in the context and succeeded.
         
         Returns:
-            (is_valid, list_of_missing_dependencies)
+            (is_valid, list_of_missing_or_failed_dependencies)
         """
         missing = []
         for dep in self.dependencies:
             if dep not in context:
-                missing.append(dep)
+                missing.append(f"{dep} (not found)")
+                self.logger.debug(f"❌ Dependency '{dep}': not found")
+            elif not context[dep].is_success():
+                missing.append(f"{dep} (failed)")
+                self.logger.debug(f"❌ Dependency '{dep}': {context[dep].status}")
         
         return len(missing) == 0, missing
     
     def safe_execute(self,
-                     context: Dict[str, Any],
-                     dependencies: Dict[str, Any] = None) -> ModuleResult:
+                     context: Dict[str, ModuleResult]) -> ModuleResult:
         """
         Wrapper around execute() with error handling.
         """
         try:
-            if dependencies is None:
-                dependencies = {}
             
             # Validate dependencies first
             is_valid, missing = self.validate_dependencies(context)
@@ -152,7 +158,7 @@ class BaseModule(ABC):
             
             # Execute module
             self.logger.info(f"Executing {self.module_name}")
-            result = self.execute(context, dependencies)
+            result = self.execute()
             
             if result.is_success():
                 self.logger.info(f"{self.module_name} completed successfully")

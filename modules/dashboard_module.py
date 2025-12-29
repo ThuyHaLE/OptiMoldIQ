@@ -41,9 +41,7 @@ class DashboardModule(BaseModule):
             'dashboard_builder_log'
         ]
     
-    def execute(self, 
-                context: Dict, 
-                dependencies: Dict) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute DashboardBuilder with auto-configuration.
         

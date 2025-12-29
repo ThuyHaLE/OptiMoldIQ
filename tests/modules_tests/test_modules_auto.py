@@ -4,6 +4,7 @@
 Auto-discovery module testing system
 Tests all available modules automatically with pytest integration
 NOW WITH CONFTEST FIXTURES! 🎉
+FIXED: Updated for new validate_dependencies() signature and ModuleResult context
 """
 
 import pytest
@@ -95,7 +96,7 @@ class TestModulesAutomatically:
             pytest.skip(f"Config file not found: {config_path}")
     
     # ========================================================================
-    # TEST 3: DEPENDENCY VALIDATION
+    # TEST 3: DEPENDENCY VALIDATION (FIXED)
     # ========================================================================
     
     @pytest.mark.parametrize('module_fixture',
@@ -108,26 +109,29 @@ class TestModulesAutomatically:
         module = module_class(config_path)
         
         # Test with empty context
-        is_valid, missing = module.validate_dependencies({})
+        is_valid = module.validate_dependencies({})
         
         if module.dependencies:
             # Should fail with empty context
             assert not is_valid
-            assert len(missing) > 0
-            assert set(missing) == set(module.dependencies)
             
-            # Test with full context
-            mock_context = {dep: f"mock_{dep}" for dep in module.dependencies}
-            is_valid, missing = module.validate_dependencies(mock_context)
+            # Test with full context - NOW USING ModuleResult
+            mock_context = {
+                dep: ModuleResult(
+                    status='success',
+                    data={'mock': True},
+                    message=f'Mock {dep}'
+                )
+                for dep in module.dependencies
+            }
+            is_valid = module.validate_dependencies(mock_context)
             assert is_valid
-            assert len(missing) == 0
         else:
             # No dependencies - should always pass
             assert is_valid
-            assert len(missing) == 0
     
     # ========================================================================
-    # TEST 4: ERROR HANDLING
+    # TEST 4: ERROR HANDLING (FIXED)
     # ========================================================================
     
     @pytest.mark.parametrize('module_fixture',
@@ -147,10 +151,18 @@ class TestModulesAutomatically:
         
         module.execute = mock_error_execute
         
-        # Prepare context with all dependencies
-        test_context = {dep: f"mock_{dep}" for dep in module.dependencies}
+        # Prepare context with all dependencies - NOW USING ModuleResult
+        test_context = {
+            dep: ModuleResult(
+                status='success',
+                data={'test': True},
+                message=f'Test {dep}'
+            )
+            for dep in module.dependencies
+        }
         
-        result = module.safe_execute(context=test_context, dependencies={})
+        # FIXED: Removed dependencies parameter
+        result = module.safe_execute(context=test_context)
         
         # Restore original
         module.execute = original_execute
@@ -195,7 +207,7 @@ class TestModulesAutomatically:
 
 
 # ============================================================================
-# TESTS WITH MOCK DEPENDENCIES (Using conftest fixtures)
+# TESTS WITH MOCK DEPENDENCIES (Using conftest fixtures) - FIXED
 # ============================================================================
 
 class TestModulesWithMockDependencies:
@@ -226,8 +238,8 @@ class TestModulesWithMockDependencies:
         )
         
         # Validate dependencies are satisfied
-        is_valid, missing = module.validate_dependencies(mock_context)
-        assert is_valid, f"Mock context missing: {missing}"
+        is_valid = module.validate_dependencies(mock_context)
+        assert is_valid, f"Mock context validation failed"
     
     @pytest.mark.parametrize('module_name',
                             [name for name in AVAILABLE_MODULES.keys()])
@@ -247,7 +259,7 @@ class TestModulesWithMockDependencies:
         if not module.dependencies:
             pytest.skip(f"Module {module_name} has no dependencies to mock")
         
-        # Create mock dependencies
+        # Create mock dependencies - NOW RETURNS ModuleResult
         mock_deps = create_mock_dependencies(module.dependencies)
         
         # Mock the execute method to avoid running real agent
@@ -311,12 +323,12 @@ class TestModulesIntegration:
         # assert result.is_success()
         
         # For now, just validate context is ready
-        is_valid, missing = module.validate_dependencies(context)
-        assert is_valid, f"Real agent context missing: {missing}"
+        is_valid = module.validate_dependencies(context)
+        assert is_valid, f"Real agent context validation failed"
 
 
 # ============================================================================
-# COMPREHENSIVE TEST (runs all checks on each module)
+# COMPREHENSIVE TEST (runs all checks on each module) - FIXED
 # ============================================================================
 
 class TestModulesComprehensive:
@@ -373,15 +385,22 @@ class TestModulesComprehensive:
             results['tests']['attributes'] = f'FAIL: {str(e)}'
             results['failed'] += 1
         
-        # Test 4: Dependency Validation
+        # Test 4: Dependency Validation - FIXED
         try:
             # Empty context
-            is_valid, missing = module.validate_dependencies({})
+            is_valid = module.validate_dependencies({})
             if module.dependencies:
                 assert not is_valid
-                # Full context
-                mock_context = {dep: f"mock_{dep}" for dep in module.dependencies}
-                is_valid, missing = module.validate_dependencies(mock_context)
+                # Full context with ModuleResult
+                mock_context = {
+                    dep: ModuleResult(
+                        status='success',
+                        data={'mock': True},
+                        message=f'Mock {dep}'
+                    )
+                    for dep in module.dependencies
+                }
+                is_valid = module.validate_dependencies(mock_context)
                 assert is_valid
             results['tests']['dependency_validation'] = 'PASS'
             results['passed'] += 1
@@ -389,11 +408,18 @@ class TestModulesComprehensive:
             results['tests']['dependency_validation'] = f'FAIL: {str(e)}'
             results['failed'] += 1
         
-        # Test 5: Error Handling
+        # Test 5: Error Handling - FIXED
         try:
             original = module.execute
             module.execute = lambda *a, **k: (_ for _ in ()).throw(ValueError("Test"))
-            ctx = {dep: f"mock_{dep}" for dep in module.dependencies}
+            ctx = {
+                dep: ModuleResult(
+                    status='success',
+                    data={'mock': True},
+                    message=f'Mock {dep}'
+                )
+                for dep in module.dependencies
+            }
             result = module.safe_execute(ctx)
             module.execute = original
             assert result.status == 'failed'
@@ -534,7 +560,10 @@ def test_create_mock_dependencies_helper(create_mock_dependencies):
     assert isinstance(mock_deps, dict)
     assert 'Dependency1' in mock_deps
     assert 'Dependency2' in mock_deps
-    assert mock_deps['Dependency1']['status'] == 'success'
+    
+    # FIXED: Check for ModuleResult
+    assert isinstance(mock_deps['Dependency1'], ModuleResult)
+    assert mock_deps['Dependency1'].status == 'success'
 
 
 def test_module_dependency_provider_available(module_dependency_provider):
@@ -545,3 +574,6 @@ def test_module_dependency_provider_available(module_dependency_provider):
     mock_context = module_dependency_provider.get_mock_context(['TestDep'])
     assert isinstance(mock_context, dict)
     assert 'TestDep' in mock_context
+    
+    # FIXED: Check for ModuleResult
+    assert isinstance(mock_context['TestDep'], ModuleResult)

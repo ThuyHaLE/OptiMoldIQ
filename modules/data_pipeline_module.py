@@ -67,9 +67,7 @@ class DataPipelineModule(BaseModule):
             'annotation_path'
         ]
     
-    def execute(self, 
-                context: Dict, 
-                dependencies: Dict) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute DataPipelineOrchestrator.
         
@@ -104,8 +102,8 @@ class DataPipelineModule(BaseModule):
             return ModuleResult(
                 status='success',
                 data={
-                    'pipeline_results': results,
-                    'pipeline_log': log_str
+                    'data_pipeline_result': results,
+                    'data_pipeline_log': log_str
                 },
                 message='DataPipeline completed successfully',
                 context_updates={
