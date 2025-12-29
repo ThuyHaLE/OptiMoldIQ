@@ -81,7 +81,7 @@ class FeaturesExtractingModule(BaseModule):
     @property
     def dependencies(self) -> List[str]:
         """One dependency - this is the second module"""
-        return ['ProgressTrackingModule']
+        return ['DataPipelineModule', 'ValidationModule', 'ProgressTrackingModule']
     
     @property
     def context_outputs(self) -> List[str]:

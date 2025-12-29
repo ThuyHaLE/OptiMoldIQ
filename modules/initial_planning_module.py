@@ -68,7 +68,7 @@ class InitialPlanningModule(BaseModule):
     @property
     def dependencies(self) -> List[str]:
         """Two dependencies - this is the third module"""
-        return ["ProgressTrackingModule", "FeaturesExtractingModule"]
+        return ['DataPipelineModule', 'ValidationModule', "ProgressTrackingModule", "FeaturesExtractingModule"]
     
     @property
     def context_outputs(self) -> List[str]:

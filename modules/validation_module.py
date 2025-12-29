@@ -55,7 +55,7 @@ class ValidationModule(BaseModule):
     @property
     def dependencies(self) -> List[str]:
         """One dependency - this is the second module"""
-        return []
+        return ['DataPipelineModule']
     
     @property
     def context_outputs(self) -> List[str]:
