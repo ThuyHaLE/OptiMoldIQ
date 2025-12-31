@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any, Set, Tuple, NoReturn
+from typing import Dict, Any, Set, Tuple, List, NoReturn
 from loguru import logger
 from datetime import datetime
 import pandas as pd
@@ -36,9 +36,12 @@ class DataLoadingPhase(AtomicPhase):
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Data loading is critical!
 
-    def __init__(self, config: FeaturesExtractorConfig):
+    def __init__(self, 
+                 config: FeaturesExtractorConfig,
+                 data_container: Dict[str, Any]):
         super().__init__("DataLoading")
         self.config = config.shared_source_config
+        self.data_container = data_container
     
     def _execute_impl(self) -> Dict[str, Any]:
         """Load all required data"""
@@ -123,6 +126,14 @@ class DataLoadingPhase(AtomicPhase):
             
             raise FileNotFoundError("\n".join(error_msg))
         
+        self.data_container.update({
+            'constant_config': constant_config,
+            'databaseSchemas_data': databaseSchemas_data,
+            'sharedDatabaseSchemas_data': sharedDatabaseSchemas_data,
+            'path_annotation': path_annotation,
+            'dataframes': loaded_dfs
+        })
+
         logger.info("✓ All data loaded successfully ({} DataFrames)", len(loaded_dfs))
         
         return {
@@ -158,11 +169,11 @@ class MoldStabilityCalculatingPhase(AtomicPhase):
     
     def __init__(self, 
                  config: FeaturesExtractorConfig,
-                 loaded_data: Dict[str, Any]):
+                 data_container: Dict[str, Any]):
         super().__init__("MoldStabilityIndexCalculator")
 
         self.config = config
-        self.loaded_data = loaded_data
+        self.loaded_data = data_container
 
     def _execute_impl(self) -> Dict[str, Any]:
         """Run mold stability calculator logic"""
@@ -218,9 +229,12 @@ class DependencyDataLoadingPhase(AtomicPhase):
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Critical - cannot continue without progress tracking data
     
-    def __init__(self, config: FeaturesExtractorConfig):
+    def __init__(self, 
+                 config: FeaturesExtractorConfig,
+                 dependency_data_container: Dict[str, Any]):
         super().__init__("DependencyDataLoading")
         self.config = config.shared_source_config
+        self.dependency_data_container = dependency_data_container
     
     def _execute_impl(self) -> Dict[str, Any]:
         """Load progress tracking data from dependency"""
@@ -237,6 +251,9 @@ class DependencyDataLoadingPhase(AtomicPhase):
             raise FileNotFoundError("No progress tracking change log found")
         
         progress_tracking_data = pd.read_excel(excel_file_path)
+
+        self.dependency_data_container.update({"proStatus_df": progress_tracking_data})
+
         logger.info(f"✓ Loaded tracking data ({len(progress_tracking_data)} sheets)")
         
         return {"proStatus_df": progress_tracking_data}
@@ -266,29 +283,19 @@ class FeatureWeightCalculatingPhase(AtomicPhase):
     
     def __init__(self, 
                  config: FeaturesExtractorConfig,
-                 loaded_data: Dict[str, Any],
-                 dependency_data: Dict[str, Any], 
-                 index_calculating_data: Dict[str, Any]):
+                 data_container: Dict[str, Any], 
+                 dependency_data_container: Dict[str, Any], 
+                 index_data_container: Dict[str, Any]):
         super().__init__("MoldMachineFeatureWeightCalculator")
 
         self.config = config
-        self.dependency_data = dependency_data
-        self.index_calculating_data = index_calculating_data
-        
-        self.constant_config = loaded_data.get('constant_config', {})
-        self.databaseSchemas_data = loaded_data['databaseSchemas_data']
-        self.sharedDatabaseSchemas_data = loaded_data['sharedDatabaseSchemas_data']
-
-        # Load required dataframes
-        dataframes = loaded_data['dataframes']
-        self.moldSpecificationSummary_df = dataframes["moldSpecificationSummary_df"]
-        self.moldInfo_df = dataframes["moldInfo_df"]
-        self.productRecords_df = dataframes["productRecords_df"]
+        self.loaded_data = data_container
+        self.dependency_data = dependency_data_container
+        self.index_calculating_data = index_data_container
 
     def _execute_impl(self) -> Dict[str, Any]:
         """Run feature weight calulator logic"""
         logger.info("🔄 Running feature weight calulator...")
-        
         
         try:
             # Running mold capacity estimator
@@ -312,15 +319,24 @@ class FeatureWeightCalculatingPhase(AtomicPhase):
 
         logger.info("🔄 Running mold stability calculator...")
         # Constant configurations for ItemMoldCapacityEstimator
-        capacity_constant_config = self.constant_config.get("ItemMoldCapacityEstimator", {})
+        constant_config = self.loaded_data.get('constant_config', {})
+        capacity_constant_config = constant_config.get("ItemMoldCapacityEstimator", {})
+
+        databaseSchemas_data = self.loaded_data['databaseSchemas_data']
+        sharedDatabaseSchemas_data = self.loaded_data['sharedDatabaseSchemas_data']
+
+        # Load required dataframes
+        dataframes = self.loaded_data['dataframes']
+        moldSpecificationSummary_df = dataframes["moldSpecificationSummary_df"]
+        moldInfo_df = dataframes["moldInfo_df"]
 
         # Initialize and run estimator
         estimator = ItemMoldCapacityEstimator(
-            self.databaseSchemas_data,
-            self.sharedDatabaseSchemas_data,
+            databaseSchemas_data,
+            sharedDatabaseSchemas_data,
             self.index_calculating_data["mold_stability_index"],
-            self.moldSpecificationSummary_df,
-            self.moldInfo_df,
+            moldSpecificationSummary_df,
+            moldInfo_df,
             capacity_constant_config,
             self.config.efficiency,
             self.config.loss,
@@ -336,14 +352,23 @@ class FeatureWeightCalculatingPhase(AtomicPhase):
             MoldMachineFeatureWeightCalculator)
         
         # Constant configurations for MoldMachineFeatureWeightCalculator
-        weight_constant_config = self.constant_config.get("MoldMachineFeatureWeightCalculator", {})
+        constant_config = self.loaded_data.get('constant_config', {})
+        weight_constant_config = constant_config.get("MoldMachineFeatureWeightCalculator", {})
+
+        databaseSchemas_data = self.loaded_data['databaseSchemas_data']
+        sharedDatabaseSchemas_data = self.loaded_data['sharedDatabaseSchemas_data']
+
+        # Load required dataframes
+        dataframes = self.loaded_data['dataframes']
+        moldInfo_df = dataframes["moldInfo_df"]
+        productRecords_df = dataframes["productRecords_df"]
 
         # Initialize and run calculator
         calculator = MoldMachineFeatureWeightCalculator(
-            self.databaseSchemas_data,
-            self.sharedDatabaseSchemas_data, 
-            self.productRecords_df,
-            self.moldInfo_df,
+            databaseSchemas_data,
+            sharedDatabaseSchemas_data, 
+            productRecords_df,
+            moldInfo_df,
             self.dependency_data["proStatus_df"],
             mold_estimated_capacity,
             self.config.feature_weight_config,
@@ -479,10 +504,6 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
             )
         self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
 
-        self.loaded_data = {}
-        self.dependency_data = {} 
-        self.index_calculating_data = {}
-
     def run_extraction(self) -> ExecutionResult:
         """
         Execute the complete historical features extraction pipeline.
@@ -499,133 +520,51 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
 
         self.logger.info("Starting HistoricalFeaturesExtractor ...")
 
-        # Create data loading phase
-        data_phase = DataLoadingPhase(self.config)
-
-        # Execute data loading first
-        self.logger.info("📂 Step 1: Loading data...")
-        data_result = data_phase.execute()
-
-        # Check if data loading succeeded
-        if data_result.status != "success":
-            self.logger.error("❌ Data loading failed, cannot proceed with validations")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="HistoricalFeaturesExtractor",
-                type="agent",
-                status="failed",
-                duration=data_result.duration,
-                severity=data_result.severity,
-                sub_results=[data_result],
-                total_sub_executions=1,
-                error="Data loading failed"
-            )
+        # ============================================
+        # ✨ CREATE SHARED CONTAINER
+        # ============================================
+        shared_data = {}  # This will be populated by DataLoadingPhase
+        index_calculating_data = {} # This will be populated by MoldStabilityCalculatingPhase
+        dependency_data = {} # This will be populated by DependencyDataLoadingPhase
         
-        self.loaded_data = data_result.data.get('result', {})
-        self.logger.info("✓ Data loaded successfully")
-
-        # Phase 1: Mold Stability Index Calculation
-        self.logger.info("🔍 Step 2: Running mold stability index calculating ...")
-        index_calculating_phase = MoldStabilityCalculatingPhase(self.config, self.loaded_data)
-        index_calculating_result = index_calculating_phase.execute()
-
-        # Check if stability index calculating succeeded
-        if index_calculating_result.status != "success":
-            self.logger.error("❌ Progress tracking failed")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="HistoricalFeaturesExtractor",
-                type="agent",
-                status="failed",
-                duration=index_calculating_result.duration,
-                severity=index_calculating_result.severity,
-                sub_results=[data_result, index_calculating_result],
-                total_sub_executions=2,
-                error="Error processing MoldStabilityCalculator"
-            )
-
-        self.index_calculating_data = index_calculating_result.data.get('result', {})
-        self.logger.info("✓ Mold stability index calculated successfully")
-
-        # Loading dependency data
-        self.logger.info("📂 Step 3: Loading dependency data...")
-        dependency_data_phase = DependencyDataLoadingPhase(self.config)
-        dependency_data_result = dependency_data_phase.execute()
-
-        # Check if dependency data loading succeeded
-        if dependency_data_result.status != "success":
-            self.logger.error("❌ Dependency data loading failed, cannot proceed with feature weight calculator")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="HistoricalFeaturesExtractor",
-                type="agent",
-                status="failed",
-                duration=dependency_data_result.duration,
-                severity=dependency_data_result.severity,
-                sub_results=[data_result, index_calculating_result, dependency_data_result],
-                total_sub_executions=3,
-                error="Dependency data loading failed"
-            )
-
-        self.dependency_data = dependency_data_result.data.get('result', {})
-        self.logger.info("✓ Dependency data loaded successfully")
-
-        # Phase 2: Feature Weight Calculation
-        self.logger.info("🔍 Step 4: Running feature weight calculating ...")
-        weight_calculating_phase = FeatureWeightCalculatingPhase(self.config, 
-                                                                 self.loaded_data, 
-                                                                 self.dependency_data,
-                                                                 self.index_calculating_data)
-        weight_calculating_result = weight_calculating_phase.execute()
-
-        # Check if feature weight calculating succeeded
-        if weight_calculating_result.status != "success":
-            self.logger.error("❌ Progress tracking failed")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="HistoricalFeaturesExtractor",
-                type="agent",
-                status="failed",
-                duration=weight_calculating_result.duration,
-                severity=weight_calculating_result.severity,
-                sub_results=[data_result, index_calculating_result, dependency_data_result, weight_calculating_result],
-                total_sub_executions=4,
-                error="Error processing FeatureWeightCalculator"
-            )
-
-        # Combine data loading + validations into final result
-        total_duration = (data_result.duration + 
-                          index_calculating_result.duration + 
-                          dependency_data_result.duration + 
-                          weight_calculating_result.duration)
+        # ============================================
+        # BUILD PHASE LIST WITH SHARED CONTAINER
+        # ============================================
+        phases: List[Executable] = []
         
-        final_result = ExecutionResult(
-            name="HistoricalFeaturesExtractor",
-            type="agent",
-            status=weight_calculating_result.status,
-            duration=total_duration,
-            severity=weight_calculating_result.severity,
-            sub_results=[data_result, index_calculating_result, dependency_data_result, weight_calculating_result],
-            total_sub_executions= 4,
-            warnings=weight_calculating_result.warnings
-        )
+        # Phase 1: Data Loading (always required)
+        phases.append(DataLoadingPhase(self.config, shared_data))
         
-        # Log completion
-        self.logger.info("✅ HistoricalFeaturesExtractor completed in {:.2f}s!", final_result.duration)
+        # Phase 2: Mold Stability Index Calculation
+        phases.append(MoldStabilityCalculatingPhase(self.config, shared_data, index_calculating_data))
 
-        # Print execution tree for visibility
+        # Phase 3: Dependency data Loading (always required)
+        phases.append(DependencyDataLoadingPhase(self.config, dependency_data))
+
+        # Phase 4: Feature Weight Calculation
+        phases.append(FeatureWeightCalculatingPhase(self.config, 
+                                                    shared_data, 
+                                                    dependency_data,
+                                                    index_calculating_data))
+
+        # ============================================
+        # EXECUTE USING COMPOSITE AGENT
+        # ============================================
+        agent = CompositeAgent("HistoricalFeaturesExtractor", phases)
+        result = agent.execute()
+        
+        # ============================================
+        # PRINT EXECUTION TREE & ANALYSIS
+        # ============================================
+        self.logger.info("✅ HistoricalFeaturesExtractor completed in {:.2f}s!", result.duration)
+        
         print("\n" + "="*60)
-        print("VALIDATION EXECUTION TREE")
+        print("EXECUTION TREE")
         print("="*60)
-        print_execution_tree(final_result)
+        print_execution_tree(result)
         print("="*60 + "\n")
         
-        # Print analysis
-        analysis = analyze_execution(final_result)
+        analysis = analyze_execution(result)
         print("EXECUTION ANALYSIS:")
         print(f"  Status: {analysis['status']}")
         print(f"  Duration: {analysis['duration']:.2f}s")
@@ -636,7 +575,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
             print(f"  Failed Paths: {analysis['failed_paths']}")
         print("="*60 + "\n")
         
-        return final_result
+        return result
     
     def _extract_historical_data(self, result: ExecutionResult
                                  ) -> Tuple[ExecutionResult, Dict, 

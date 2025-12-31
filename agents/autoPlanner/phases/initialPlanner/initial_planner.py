@@ -1,6 +1,6 @@
 import pandas as pd
 from loguru import logger
-from typing import Dict, Any, Optional, NoReturn, Tuple, Set
+from typing import Dict, Any, Optional, NoReturn, Tuple, Set, List
 
 import os
 from pathlib import Path
@@ -36,9 +36,12 @@ class DataLoadingPhase(AtomicPhase):
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Data loading is critical!
 
-    def __init__(self, config: InitialPlannerConfig):
+    def __init__(self, 
+                 config: InitialPlannerConfig,
+                 data_container: Dict[str, Any]):
         super().__init__("DataLoading")
         self.config = config.shared_source_config
+        self.data_container = data_container
     
     def _load_annotation(self, path: str, name: str) -> Dict:
 
@@ -159,6 +162,17 @@ class DataLoadingPhase(AtomicPhase):
         
         logger.info("📊 Loading DataFrames from parquet files...")
         loaded_dfs = self._load_dataframes(path_annotation)
+
+        self.data_container.update({
+            'constant_config': constant_config,
+            'component_configs': loaded_configs,
+            'databaseSchemas_data': databaseSchemas_data,
+            'sharedDatabaseSchemas_data': sharedDatabaseSchemas_data,
+            'path_annotation': path_annotation,
+            'dataframes': loaded_dfs
+        })
+
+
         logger.info("✓ All data loaded successfully ({} DataFrames)", len(loaded_dfs))
         
         return {
@@ -192,9 +206,12 @@ class DependencyDataLoadingPhase(AtomicPhase):
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Critical - cannot continue without progress tracking data
     
-    def __init__(self, config: InitialPlannerConfig):
+    def __init__(self, 
+                 config: InitialPlannerConfig,
+                 dependency_data_container: Dict[str, Any]):
         super().__init__("DependencyDataLoading")
         self.config = config.shared_source_config
+        self.dependency_data_container = dependency_data_container
     
     def _execute_impl(self) -> Dict[str, Any]:
         """Load progress tracking data from dependency"""
@@ -211,6 +228,9 @@ class DependencyDataLoadingPhase(AtomicPhase):
             raise FileNotFoundError("No progress tracking change log found")
         
         progress_tracking_data = pd.read_excel(excel_file_path)
+
+        self.dependency_data_container.update({"proStatus_df": progress_tracking_data})
+
         logger.info(f"✓ Loaded tracking data ({len(progress_tracking_data)} sheets)")
         
         return {"proStatus_df": progress_tracking_data}
@@ -237,9 +257,12 @@ class OptionalDependencyDataLoadingPhase(AtomicPhase):
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = False  # ⭐ Optional - can continue without this data
     
-    def __init__(self, config: InitialPlannerConfig):
+    def __init__(self, 
+                 config: InitialPlannerConfig,
+                 optional_data_container: Dict[str, Any]):
         super().__init__("OptionalDependencyDataLoading")
         self.config = config.shared_source_config
+        self.optional_data_container = optional_data_container
     
     def _load_mold_stability_index(self) -> Optional[pd.DataFrame]:
         """Load mold stability index"""
@@ -280,6 +303,11 @@ class OptionalDependencyDataLoadingPhase(AtomicPhase):
         else:
             logger.info("⚠ Feature weights not available")
         
+        self.optional_data_container.update({
+            "moldStability_df": moldStability_df,
+            "featureWeights_series": featureWeights_series
+            })
+
         return {
             "moldStability_df": moldStability_df,
             "featureWeights_series": featureWeights_series
@@ -288,6 +316,11 @@ class OptionalDependencyDataLoadingPhase(AtomicPhase):
     def _fallback(self) -> Dict[str, Any]:
         """Fallback: return None for all optional data"""
         logger.warning("Using fallback - no optional dependency data available")
+        
+        self.optional_data_container.update({
+            "moldStability_df": None,
+            "featureWeights_series": None
+            })
         
         return {
             "moldStability_df": None,
@@ -306,26 +339,17 @@ class ProducingOrderPlanningPhase(AtomicPhase):
     
     def __init__(self, 
                  config: InitialPlannerConfig,
-                 loaded_data: Dict[str, Any],
-                 dependency_data: Dict[str, Any], 
-                 optional_dependency_data: Dict[str, Any]):
+                 data_container: Dict[str, Any],
+                 dependency_data_container: Dict[str, Any], 
+                 optional_data_container: Dict[str, Any],
+                 planning_data_container: Dict[str, Any]):
         super().__init__("ProducingOrderPlanner")
 
         self.config = config
-        
-        self.constant_configs = loaded_data.get('component_configs', {})
-        self.databaseSchemas_data = loaded_data['databaseSchemas_data']
-        self.sharedDatabaseSchemas_data = loaded_data['sharedDatabaseSchemas_data']
-        # Load required dataframes
-        dataframes = loaded_data['dataframes']
-        self.moldSpecificationSummary_df = dataframes["moldSpecificationSummary_df"]
-        self.moldInfo_df = dataframes["moldInfo_df"]
-        self.machineInfo_df = dataframes["machineInfo_df"]
-        self.itemCompositionSummary_df = dataframes["itemCompositionSummary_df"]
-        
-        self.pro_status = dependency_data["proStatus_df"]
-
-        self.optional_dependency_data = optional_dependency_data
+        self.loaded_data = data_container
+        self.dependency_data = dependency_data_container
+        self.optional_dependency_data = optional_data_container
+        self.planning_data_container = planning_data_container
 
     def _estimate_mold_capacity(self):
         # Import ItemMoldCapacityEstimator
@@ -333,14 +357,24 @@ class ProducingOrderPlanningPhase(AtomicPhase):
 
         logger.info("🔄 Running mold stability calculator...")
 
+        constant_configs = self.loaded_data.get('component_configs', {})
+
+        databaseSchemas_data = self.loaded_data['databaseSchemas_data']
+        sharedDatabaseSchemas_data = self.loaded_data['sharedDatabaseSchemas_data']
+
+        # Load required dataframes
+        dataframes = self.loaded_data['dataframes']
+        moldSpecificationSummary_df = dataframes["moldSpecificationSummary_df"]
+        moldInfo_df = dataframes["moldInfo_df"]
+
         # Initialize and run estimator
         estimator = ItemMoldCapacityEstimator(
-            self.databaseSchemas_data,
-            self.sharedDatabaseSchemas_data,
+            databaseSchemas_data,
+            sharedDatabaseSchemas_data,
             self.optional_dependency_data.get("moldStability_df", None),
-            self.moldSpecificationSummary_df,
-            self.moldInfo_df,
-            self.constant_configs.get('capacity_constant_config', {}),
+            moldSpecificationSummary_df,
+            moldInfo_df,
+            constant_configs.get('capacity_constant_config', {}),
             self.config.efficiency,
             self.config.loss,
             )
@@ -356,26 +390,36 @@ class ProducingOrderPlanningPhase(AtomicPhase):
 
         logger.info("🔄 Running producing orders planner...")
 
-        pro_status = pro_status.copy()
-        pro_status.rename(columns={'lastestMachineNo': 'machineNo',
-                                   'lastestMoldNo': 'moldNo'
-                                   }, inplace=True)
+        constant_configs = self.loaded_data.get('component_configs', {})
+
+        databaseSchemas_data = self.loaded_data['databaseSchemas_data']
+        sharedDatabaseSchemas_data = self.loaded_data['sharedDatabaseSchemas_data']
+
+        # Load required dataframes
+        dataframes = self.loaded_data['dataframes']
+        machineInfo_df = dataframes["machineInfo_df"]
+        itemCompositionSummary_df = dataframes["itemCompositionSummary_df"]
         
         # Initialize and run planner
         planner = ProducingOrderPlanner(
-            self.databaseSchemas_data,
-            self.sharedDatabaseSchemas_data,
-            self.machineInfo_df,
-            self.itemCompositionSummary_df,
+            databaseSchemas_data,
+            sharedDatabaseSchemas_data,
+            machineInfo_df,
+            itemCompositionSummary_df,
             pro_status,
             mold_estimated_capacity,
-            self.constant_configs.get('planner_constant_config', {}))
+            constant_configs.get('planner_constant_config', {}))
         
         return planner.process_planning()
     
     def _execute_impl(self) -> Dict[str, Any]:
         """Run producing orders planner logic"""
         logger.info("🔄 Running producing orders planner...")
+        
+        pro_status = self.dependency_data["proStatus_df"].copy()
+        pro_status.rename(columns={'lastestMachineNo': 'machineNo',
+                                   'lastestMoldNo': 'moldNo'
+                                   }, inplace=True)
         
         try:
             # Running mold capacity estimator
@@ -386,7 +430,7 @@ class ProducingOrderPlanningPhase(AtomicPhase):
         
         try: 
             # Generate production, mold, and plastic plans for producing orders
-            producing_planner_result = self._producing_order_planning(self.pro_status,
+            producing_planner_result = self._producing_order_planning(pro_status,
                                                                       estimator_result.mold_estimated_capacity)
             logger.info("✓ ProducingOrderPlanner completed")
         except Exception as e:
@@ -408,6 +452,13 @@ class ProducingOrderPlanningPhase(AtomicPhase):
         except Exception as e:
             raise FileNotFoundError(f"Failed to extracting information as final result: {e}")
         
+        self.planning_data_container.update({
+            "result": final_result,
+            "has_pending_status": len(producing_planner_result.pending_status_data) > 0,
+            "planner_summary": producing_planner_result.planner_summary,
+            "log_str": log_str
+        })
+
         return {
             "result": final_result,
             "has_pending_status": len(producing_planner_result.pending_status_data) > 0,
@@ -439,28 +490,17 @@ class PendingOrderPlanningPhase(AtomicPhase):
     
     def __init__(self, 
                  config: InitialPlannerConfig,
-                 loaded_data: Dict[str, Any],
-                 dependency_data: Dict[str, Any], 
-                 optional_dependency_data: Dict[str, Any],
-                 producing_planning_result: Dict[str, Any]):
+                 data_container: Dict[str, Any],
+                 dependency_data_container: Dict[str, Any], 
+                 optional_data_container: Dict[str, Any],
+                 planning_data_container: Dict[str, Any]):
         super().__init__("PendingOrderPlanner")
 
         self.config = config
-        
-        self.constant_configs = loaded_data.get('component_configs', {})
-        self.databaseSchemas_data = loaded_data['databaseSchemas_data']
-        self.sharedDatabaseSchemas_data = loaded_data['sharedDatabaseSchemas_data']
-        # Load required dataframes
-        dataframes = loaded_data['dataframes']
-        self.productRecords_df = dataframes["productRecords_df"]
-        self.machineInfo_df = dataframes["machineInfo_df"]
-        self.moldInfo_df = dataframes["moldInfo_df"]
-        
-        self.pro_status = dependency_data["proStatus_df"]
-
-        self.optional_dependency_data = optional_dependency_data
-
-        self.producing_planning_data = producing_planning_result["result"]                                          
+        self.loaded_data = data_container
+        self.dependency_data = dependency_data_container
+        self.optional_dependency_data = optional_data_container
+        self.planning_data_container = planning_data_container
 
     def _calculate_priority_matrix(self,
                                    pro_status: pd.DataFrame,
@@ -471,16 +511,27 @@ class PendingOrderPlanningPhase(AtomicPhase):
 
         logger.info("🔄 Running mold-machine priority matrix calculator...")
 
+        constant_configs = self.loaded_data.get('component_configs', {})
+
+        databaseSchemas_data = self.loaded_data['databaseSchemas_data']
+        sharedDatabaseSchemas_data = self.loaded_data['sharedDatabaseSchemas_data']
+
+        # Load required dataframes
+        dataframes = self.loaded_data['dataframes']
+        productRecords_df = dataframes["productRecords_df"]
+        machineInfo_df = dataframes["machineInfo_df"]
+        moldInfo_df = dataframes["moldInfo_df"]
+
         calculator = PriorityMatrixCalculator(
-            self.databaseSchemas_data,
-            self.sharedDatabaseSchemas_data,
-            self.productRecords_df,
-            self.machineInfo_df,
-            self.moldInfo_df,
+            databaseSchemas_data,
+            sharedDatabaseSchemas_data,
+            productRecords_df,
+            machineInfo_df,
+            moldInfo_df,
             pro_status,
             mold_estimated_capacity,
             self.optional_dependency_data.get("featureWeights_series", None),
-            self.constant_configs.get('calculator_constant_config', {}),
+            constant_configs.get('calculator_constant_config', {}),
             self.config.efficiency,
             self.config.loss
         )
@@ -498,12 +549,21 @@ class PendingOrderPlanningPhase(AtomicPhase):
 
         logger.info("🔄 Running mold-machine priority matrix calculator...")
         
+        constant_configs = self.loaded_data.get('component_configs', {})
+        databaseSchemas_data = self.loaded_data['databaseSchemas_data']
+        sharedDatabaseSchemas_data = self.loaded_data['sharedDatabaseSchemas_data']
+
+        # Load required dataframes
+        dataframes = self.loaded_data['dataframes']
+        machineInfo_df = dataframes["machineInfo_df"]
+        moldInfo_df = dataframes["moldInfo_df"]
+
         planner = PendingOrderPlanner(
-            self.databaseSchemas_data,
-            self.sharedDatabaseSchemas_data,
-            self.constant_configs.get("generator_constant_config", {}),
-            self.moldInfo_df,
-            self.machineInfo_df,
+            databaseSchemas_data,
+            sharedDatabaseSchemas_data,
+            constant_configs.get("generator_constant_config", {}),
+            moldInfo_df,
+            machineInfo_df,
             producing_status_data,
             pending_status_data,
             mold_estimated_capacity,
@@ -518,22 +578,26 @@ class PendingOrderPlanningPhase(AtomicPhase):
     def _execute_impl(self) -> Dict[str, Any]:
         """Run pending orders planner logic"""
         logger.info("🔄 Running pending orders planner...")
-        
+
+        producing_planning_data = self.planning_data_container["result"] 
+        pro_status = self.dependency_data["proStatus_df"]
+
         try:
             # Running mold-machine priority matrix calculator
             matrix_calculator_result = self._calculate_priority_matrix(
-                self.pro_status,
-                self.producing_planning_data["mold_estimated_capacity"])
+                pro_status,
+                producing_planning_data["mold_estimated_capacity"])
             logger.info("✓ PriorityMatrixCalculator completed")
         except Exception as e:
             raise FileNotFoundError(f"Failed to running mold-machine priority matrix calculator: {e}")
         
         try: 
             # Generate production assignments (machine-mold-item) for pending orders
+             
             pending_planner_result = self._pending_order_planning(
-                self.producing_planning_data["producing_status_data"],
-                self.producing_planning_data["pending_status_data"],
-                self.producing_planning_data["mold_estimated_capacity"],
+                producing_planning_data["producing_status_data"],
+                producing_planning_data["pending_status_data"],
+                producing_planning_data["mold_estimated_capacity"],
                 matrix_calculator_result.priority_matrix)
             logger.info("✓ PendingOrderPlanner completed")
         except Exception as e:
@@ -674,11 +738,6 @@ class InitialPlanner(ConfigReportMixin):
         self.validate_configuration()
         self.logger.info("✓ Validation for production efficiency factor and loss factor: PASSED!")
 
-        self.loaded_data = {}
-        self.dependency_data = {} 
-        self.optional_dependency_data = {}
-        self.producing_planning_data = {}
-
     def validate_configuration(self) -> bool:
         """
         Validate that all required configurations are accessible.
@@ -724,178 +783,60 @@ class InitialPlanner(ConfigReportMixin):
 
         self.logger.info("Starting InitialPlanner ...")
 
-        # Create data loading phase
-        data_phase = DataLoadingPhase(self.config)
-
-        # Execute data loading first
-        self.logger.info("📂 Step 1: Loading data...")
-        data_result = data_phase.execute()
-
-        # Check if data loading succeeded
-        if data_result.status != "success":
-            self.logger.error("❌ Data loading failed, cannot proceed with validations")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="InitialPlanner",
-                type="agent",
-                status="failed",
-                duration=data_result.duration,
-                severity=data_result.severity,
-                sub_results=[data_result],
-                total_sub_executions=1,
-                error="Data loading failed"
-            )
-        
-        self.loaded_data = data_result.data.get('result', {})
-        self.logger.info("✓ Data loaded successfully")
-
-        # Loading dependency data
-        self.logger.info("📂 Step 2: Loading dependency data...")
-        dependency_data_phase = DependencyDataLoadingPhase(self.config)
-        dependency_data_result = dependency_data_phase.execute()
-
-        # Check if dependency data loading succeeded
-        if dependency_data_result.status != "success":
-            self.logger.error("❌ Dependency data loading failed, cannot proceed with the next steps")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="InitialPlanner",
-                type="agent",
-                status="failed",
-                duration=dependency_data_result.duration,
-                severity=dependency_data_result.severity,
-                sub_results=[data_result, dependency_data_result],
-                total_sub_executions=2,
-                error="Dependency data loading failed"
-            )
-
-        self.dependency_data = dependency_data_result.data.get('result', {})
-        self.logger.info("✓ Dependency data loaded successfully")
-
-        # Loading optional dependency data
-        self.logger.info("📂 Step 3: Loading optinal dependency data...")
-        optional_dependency_data_phase = OptionalDependencyDataLoadingPhase(self.config)
-        optional_dependency_data_result = optional_dependency_data_phase.execute()
-        self.optional_dependency_data = optional_dependency_data_result.data.get('result', {})
-        self.logger.info("✓ Optional dependency data loaded successfully")
-
-        # Phase 1: ProducingOrderPlanner
-        self.logger.info("🔍 Step 4: Running mold stability index calculating ...")
-        producing_planning_phase = ProducingOrderPlanningPhase(self.config, 
-                                                               self.loaded_data,
-                                                               self.dependency_data, 
-                                                               self.optional_dependency_data)
-        producing_planning_result = producing_planning_phase.execute()
-
-        # Check if producing planning succeeded
-        if producing_planning_result.status != "success":
-            self.logger.error("❌ Progress tracking failed")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="InitialPlanner",
-                type="agent",
-                status="failed",
-                duration=producing_planning_result.duration,
-                severity=producing_planning_result.severity,
-                sub_results=[data_result, dependency_data_result, 
-                             optional_dependency_data_result, 
-                             producing_planning_result],
-                total_sub_executions=4,
-                error="Error processing ProducingOrderPlanner"
-            )
-
-        self.producing_planning_data = producing_planning_result.data.get('result', {})
-        self.logger.info("✓ Producing orders planned successfully")
-
-        if self.producing_planning_data["has_pending_status"]:
-            # Trigger if has pending status
-
-            # Phase 2: PendingOrderPlanner
-            self.logger.info("🔍 Step 5: Running mold stability index calculating ...")
-            pending_planning_phase = PendingOrderPlanningPhase(self.config, 
-                                                               self.loaded_data,
-                                                               self.dependency_data, 
-                                                               self.optional_dependency_data,
-                                                               self.producing_planning_data)
-            pending_planning_result = pending_planning_phase.execute()
-
-            # Check if pending planning succeeded
-            if pending_planning_result.status != "success":
-                self.logger.error("❌ Progress tracking failed")
+         # ============================================
+        # ✨ CREATE SHARED CONTAINER
+        # ============================================
+        shared_data = {}  # This will be populated by DataLoadingPhase
+        dependency_data = {} # This will be populated by DependencyDataLoadingPhase
+        optional_dependency_data = {} # This will be populated by OptionalDependencyDataLoadingPhase
+        producing_planning_data = {} # This will be populated by ProducingOrderPlanningPhase
                 
-                # Return early with failed result
-                return ExecutionResult(
-                    name="InitialPlanner",
-                    type="agent",
-                    status="failed",
-                    duration=pending_planning_result.duration,
-                    severity=pending_planning_result.severity,
-                    sub_results=[data_result, dependency_data_result, 
-                                 optional_dependency_data_result, 
-                                 producing_planning_result,
-                                 pending_planning_result],
-                    total_sub_executions=5,
-                    error="Error processing PendingOrderPlanner"
-                )
-            
-            self.logger.info("✓ Pending orders planned successfully")
-
-            # Combine data loading + validations into final result
-            total_duration = (data_result.duration + 
-                              dependency_data_result.duration + 
-                              optional_dependency_data_result.duration + 
-                              producing_planning_result.duration + 
-                              pending_planning_result.duration)
-            
-            final_result = ExecutionResult(
-                name="InitialPlanner",
-                type="agent",
-                status=pending_planning_result.status,
-                duration=total_duration,
-                severity=pending_planning_result.severity,
-                sub_results=[data_result, dependency_data_result, 
-                             optional_dependency_data_result, 
-                             producing_planning_result,
-                             pending_planning_result],
-                total_sub_executions= 5,
-                warnings=pending_planning_result.warnings
-            )
+        # ============================================
+        # BUILD PHASE LIST WITH SHARED CONTAINER
+        # ============================================
+        phases: List[Executable] = []
         
-        else:
-            # Combine data loading + validations into final result
-            total_duration = (data_result.duration + 
-                              dependency_data_result.duration + 
-                              optional_dependency_data_result.duration + 
-                              producing_planning_result.duration)
-            
-            final_result = ExecutionResult(
-                name="InitialPlanner",
-                type="agent",
-                status=producing_planning_result.status,
-                duration=total_duration,
-                severity=producing_planning_result.severity,
-                sub_results=[data_result, dependency_data_result, 
-                             optional_dependency_data_result, 
-                             producing_planning_result],
-                total_sub_executions= 4,
-                warnings=producing_planning_result.warnings
-            )
-            
-        # Log completion
-        self.logger.info("✅ InitialPlanner completed in {:.2f}s!", final_result.duration)
+        # Phase 1: Data Loading (always required)
+        phases.append(DataLoadingPhase(self.config, shared_data))
+        
+        # Phase 2: Dependency data Loading (always required)
+        phases.append(DependencyDataLoadingPhase(self.config, dependency_data))
 
-        # Print execution tree for visibility
+        # Phase 3: Optinal dependency data Loading
+        phases.append(OptionalDependencyDataLoadingPhase(self.config, optional_dependency_data))
+ 
+        # Phase 4: Producing Order Planner
+        phases.append(ProducingOrderPlanningPhase(self.config, 
+                                                  shared_data,
+                                                  dependency_data, 
+                                                  optional_dependency_data,
+                                                  producing_planning_data))
+        
+        # Phase 5: Pending Order Planner
+        phases.append(PendingOrderPlanningPhase(self.config, 
+                                                shared_data,
+                                                dependency_data, 
+                                                optional_dependency_data,
+                                                producing_planning_data))
+
+        # ============================================
+        # EXECUTE USING COMPOSITE AGENT
+        # ============================================
+        agent = CompositeAgent("HistoricalFeaturesExtractor", phases)
+        result = agent.execute()
+        
+        # ============================================
+        # PRINT EXECUTION TREE & ANALYSIS
+        # ============================================
+        self.logger.info("✅ HistoricalFeaturesExtractor completed in {:.2f}s!", result.duration)
+        
         print("\n" + "="*60)
-        print("VALIDATION EXECUTION TREE")
+        print("EXECUTION TREE")
         print("="*60)
-        print_execution_tree(final_result)
+        print_execution_tree(result)
         print("="*60 + "\n")
         
-        # Print analysis
-        analysis = analyze_execution(final_result)
+        analysis = analyze_execution(result)
         print("EXECUTION ANALYSIS:")
         print(f"  Status: {analysis['status']}")
         print(f"  Duration: {analysis['duration']:.2f}s")
@@ -906,7 +847,7 @@ class InitialPlanner(ConfigReportMixin):
             print(f"  Failed Paths: {analysis['failed_paths']}")
         print("="*60 + "\n")
         
-        return final_result
+        return result
     
     def _extract_planning_data(self,
                                  result: ExecutionResult) -> Tuple[

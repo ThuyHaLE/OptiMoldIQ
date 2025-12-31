@@ -19,14 +19,14 @@ class PhaseSeverity(Enum):
     ERROR = "error"
     CRITICAL = "critical"
 
-
 class ExecutionStatus(Enum):
     """Execution status values"""
-    SUCCESS = "success"
-    WARNING = "warning"
-    PARTIAL = "partial"
-    FAILED = "failed"
-
+    SUCCESS = "success"        # Fully successful
+    DEGRADED = "degraded"      # Successful, but fallback was used
+    WARNING = "warning"        # Successful with warnings
+    PARTIAL = "partial"        # Some sub-phases failed
+    FAILED = "failed"          # Completely failed
+    SKIPPED = "skipped"        # Skipped due to unmet dependencies
 
 # ============================================
 # BASE EXECUTABLE - Common interface
@@ -227,7 +227,7 @@ class AtomicPhase(Executable):
             return ExecutionResult(
                 name=self.name,
                 type="phase",
-                status="success",
+                status=ExecutionStatus.SUCCESS.value,
                 duration=(datetime.now() - start_time).total_seconds(),
                 data={"result": result}
             )
@@ -241,15 +241,21 @@ class AtomicPhase(Executable):
                 return ExecutionResult(
                     name=self.name,
                     type="phase",
-                    status="success",
+                    status=ExecutionStatus.DEGRADED.value,  # ⭐ Degraded!
                     duration=(datetime.now() - start_time).total_seconds(),
                     severity=PhaseSeverity.WARNING.value,
-                    data={"result": result, "fallback_used": True},
+                    data={
+                        "result": result, 
+                        "fallback_used": True,
+                        "original_error": str(e)
+                    },
                     warnings=[{
-                        "message": f"Fallback used: {str(e)}",
-                        "severity": PhaseSeverity.WARNING.value
+                        "message": f"Fallback used due to: {str(e)}",
+                        "severity": PhaseSeverity.WARNING.value,
+                        "phase": self.name
                     }]
                 )
+            
             except Exception as fallback_error:
                 # ⭐ KEY FEATURE: Use FALLBACK_FAILURE_IS_CRITICAL to determine severity
                 severity = (
@@ -259,18 +265,21 @@ class AtomicPhase(Executable):
                 )
                 
                 logger.error(
-                    f"Phase {self.name} fallback failed with severity={severity}: "
-                    f"{str(fallback_error)}"
+                    f"Phase {self.name} fallback failed with severity={severity}"
                 )
                 
                 return ExecutionResult(
                     name=self.name,
                     type="phase",
-                    status="failed",
+                    status=ExecutionStatus.FAILED.value,
                     duration=(datetime.now() - start_time).total_seconds(),
                     severity=severity,
                     error=f"Fallback failed: {str(fallback_error)}",
-                    traceback=traceback.format_exc()
+                    traceback=traceback.format_exc(),
+                    metadata={
+                        "original_error": str(e),
+                        "fallback_error": str(fallback_error)
+                    }
                 )
         
         except self.CRITICAL_ERRORS as e:
@@ -280,7 +289,7 @@ class AtomicPhase(Executable):
             return ExecutionResult(
                 name=self.name,
                 type="phase",
-                status="failed",
+                status=ExecutionStatus.FAILED.value,
                 duration=(datetime.now() - start_time).total_seconds(),
                 severity=PhaseSeverity.CRITICAL.value,
                 error=str(e),
@@ -294,7 +303,7 @@ class AtomicPhase(Executable):
             return ExecutionResult(
                 name=self.name,
                 type="phase",
-                status="failed",
+                status=ExecutionStatus.FAILED.value,
                 duration=(datetime.now() - start_time).total_seconds(),
                 severity=PhaseSeverity.ERROR.value,
                 error=str(e),
@@ -307,75 +316,57 @@ class AtomicPhase(Executable):
 # ============================================
 class CompositeAgent(Executable):
     """
-    Agent that contains sub-phases or sub-agents
-    Can be used as a phase in parent agent
+    Agent that contains sub-phases or sub-agents.
+    Automatically handles execution, aggregation, and error handling.
     """
     
     def __init__(self, name: str, executables: List[Executable]):
         self.name = name
-        self.executables = executables  # Can be phases or agents!
+        self.executables = executables
     
     def get_name(self) -> str:
         return self.name
     
     def execute(self) -> ExecutionResult:
-        """
-        Execute all sub-executables
-        NEVER raises - always returns ExecutionResult
-        """
+        """Execute all sub-executables with automatic aggregation"""
         start_time = datetime.now()
         sub_results = []
         warnings = []
         
         for executable in self.executables:
-            # Execute sub-phase/sub-agent
-            result = executable.execute()  # No try-catch needed!
+            result = executable.execute()
             sub_results.append(result)
-            
-            # Collect warnings
             warnings.extend(result.warnings)
             
-            # Check if should stop
+            # ⭐ CRITICAL failure → stop immediately
             if result.has_critical_errors():
                 logger.error(
                     f"Critical failure in {executable.get_name()}, "
                     f"stopping {self.name}"
                 )
                 
-                # Skip remaining executables
+                # Mark remaining executables as skipped
                 for remaining in self.executables[len(sub_results):]:
                     sub_results.append(ExecutionResult(
                         name=remaining.get_name(),
                         type="phase" if isinstance(remaining, AtomicPhase) else "agent",
-                        status="skipped",
+                        status=ExecutionStatus.SKIPPED.value,
                         duration=0.0,
                         skipped_reason=f"Dependency {executable.get_name()} failed critically"
                     ))
                 break
             
-            # Non-critical failures - log and continue
-            if result.status == "failed":
+            # Non-critical failures → log warning and continue
+            if result.status == ExecutionStatus.FAILED.value:
                 warnings.append({
                     "message": f"{executable.get_name()} failed but continuing",
                     "severity": result.severity
                 })
         
-        # Determine overall status
         duration = (datetime.now() - start_time).total_seconds()
         
-        # Auto-compute status from sub-results
-        if any(r.has_critical_errors() for r in sub_results):
-            status = ExecutionStatus.FAILED.value
-            severity = PhaseSeverity.CRITICAL.value
-        elif not all(r.status == "success" for r in sub_results):
-            status = ExecutionStatus.PARTIAL.value
-            severity = PhaseSeverity.ERROR.value
-        elif warnings:
-            status = ExecutionStatus.SUCCESS.value
-            severity = PhaseSeverity.WARNING.value
-        else:
-            status = ExecutionStatus.SUCCESS.value
-            severity = PhaseSeverity.INFO.value
+        # ✨ Use updated aggregation logic with DEGRADED support
+        status, severity = self._aggregate_status(sub_results)
         
         return ExecutionResult(
             name=self.name,
@@ -391,27 +382,52 @@ class CompositeAgent(Executable):
                 "expected_executions": len(self.executables)
             }
         )
-
+    
+    def _aggregate_status(self, results: List[ExecutionResult]) -> tuple[str, str]:
+        """
+        Compute overall status with degraded tracking.
+        
+        Priority:
+        1. CRITICAL errors → FAILED
+        2. Any failures → PARTIAL
+        3. Any degraded (fallback used) → DEGRADED
+        4. Any warnings → WARNING
+        5. All success → SUCCESS
+        """
+        # Check for critical errors
+        if any(r.has_critical_errors() for r in results):
+            return ExecutionStatus.FAILED.value, PhaseSeverity.CRITICAL.value
+        
+        # Check for failures
+        if any(r.status == ExecutionStatus.FAILED.value for r in results):
+            return ExecutionStatus.PARTIAL.value, PhaseSeverity.ERROR.value
+        
+        # ✨ Check for degraded (fallback used)
+        if any(r.status == ExecutionStatus.DEGRADED.value for r in results):
+            return ExecutionStatus.DEGRADED.value, PhaseSeverity.WARNING.value
+        
+        # Check for warnings
+        if any(r.severity == PhaseSeverity.WARNING.value for r in results):
+            return ExecutionStatus.WARNING.value, PhaseSeverity.WARNING.value
+        
+        # All good
+        return ExecutionStatus.SUCCESS.value, PhaseSeverity.INFO.value
 
 # ============================================
 # UTILITY FUNCTIONS
 # ============================================
 def print_execution_tree(result: ExecutionResult, indent: int = 0) -> None:
-    """
-    Print execution result as a tree
-    
-    Args:
-        result: ExecutionResult to print
-        indent: Current indentation level
-    """
+    """Print execution tree with degraded status indicator"""
     prefix = "  " * indent
     icon = "📦" if result.type == "agent" else "⚙️"
     
     status_icons = {
-        "success": "✓",
-        "failed": "✗",
-        "skipped": "⊘",
-        "partial": "⚡"
+        ExecutionStatus.SUCCESS.value: "✓",
+        ExecutionStatus.DEGRADED.value: "⚠️",  # ✨ New icon
+        ExecutionStatus.WARNING.value: "⚡",
+        ExecutionStatus.FAILED.value: "✗",
+        ExecutionStatus.SKIPPED.value: "⊘",
+        ExecutionStatus.PARTIAL.value: "◐"
     }
     status_icon = status_icons.get(result.status, "?")
     
@@ -423,7 +439,20 @@ def print_execution_tree(result: ExecutionResult, indent: int = 0) -> None:
     }
     severity_icon = severity_colors.get(result.severity, "")
     
-    print(f"{prefix}{icon} {result.name} {status_icon} {severity_icon} ({result.duration:.2f}s)")
+    # Show fallback indicator
+    fallback_indicator = ""
+    if result.data.get("fallback_used"):
+        fallback_indicator = " [FALLBACK]"
+    
+    print(
+        f"{prefix}{icon} {result.name} {status_icon}{fallback_indicator} "
+        f"{severity_icon} ({result.duration:.2f}s)"
+    )
+    
+    # Show original error if fallback was used
+    if result.data.get("fallback_used"):
+        original_error = result.data.get("original_error", "Unknown")
+        print(f"{prefix}   └─ Recovered from: {original_error}")
     
     if result.error:
         print(f"{prefix}   └─ Error: {result.error}")

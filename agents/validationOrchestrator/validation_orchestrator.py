@@ -221,7 +221,6 @@ class POValidationPhase(AtomicPhase):
             "log_str": "Fallback: PO validation skipped due to error\n"
             }
     
-
 class DynamicValidationPhase(AtomicPhase):
     """Phase for dynamic cross-data validation"""
     
@@ -472,10 +471,23 @@ class ValidationOrchestrator(ConfigReportMixin):
         if any(r.has_critical_errors() for r in sub_results):
             status = ExecutionStatus.FAILED.value
             severity = PhaseSeverity.CRITICAL.value
-        elif not all(r.status == "success" for r in sub_results):
+        
+        # Check for failures
+        if any(r.status == ExecutionStatus.FAILED.value for r in sub_results):
             status = ExecutionStatus.PARTIAL.value
             severity = PhaseSeverity.ERROR.value
-        else:
+
+        # ✨ Check for degraded (fallback used)
+        if any(r.status == ExecutionStatus.DEGRADED.value for r in sub_results):
+            status = ExecutionStatus.DEGRADED.value
+            severity = PhaseSeverity.WARNING.value
+
+        # Check for warnings
+        if any(r.severity == PhaseSeverity.WARNING.value for r in sub_results):
+            status = ExecutionStatus.WARNING.value
+            severity = PhaseSeverity.WARNING.value
+
+        else: 
             status = ExecutionStatus.SUCCESS.value
             severity = PhaseSeverity.INFO.value
         
@@ -567,7 +579,7 @@ class ValidationOrchestrator(ConfigReportMixin):
         
         # Print execution tree for visibility
         print("\n" + "="*60)
-        print("VALIDATION EXECUTION TREE")
+        print("EXECUTION TREE")
         print("="*60)
         print_execution_tree(final_result)
         print("="*60 + "\n")

@@ -6,7 +6,7 @@ from configs.shared.shared_source_config import SharedSourceConfig
 import pandas as pd
 from datetime import datetime
 import os
-from typing import Dict, Any, NoReturn
+from typing import Dict, Any, NoReturn, List
 from configs.shared.config_report_format import ConfigReportMixin
 
 # Import agent report format components
@@ -31,9 +31,12 @@ class DataLoadingPhase(AtomicPhase):
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = True  # ⭐ Data loading is critical!
 
-    def __init__(self, config: SharedSourceConfig):
+    def __init__(self, 
+                 config: SharedSourceConfig,
+                 data_container: Dict[str, Any]):
         super().__init__("DataLoading")
         self.config = config
+        self.data_container = data_container
     
     def _execute_impl(self) -> Dict[str, Any]:
         """Load all required data"""
@@ -106,6 +109,13 @@ class DataLoadingPhase(AtomicPhase):
             
             raise FileNotFoundError("\n".join(error_msg))
         
+        self.data_container.update({
+            'pro_status_schema': pro_status_schema,
+            'databaseSchemas_data': databaseSchemas_data,
+            'path_annotation': path_annotation,
+            'dataframes': loaded_dfs
+        })
+
         logger.info("✓ All data loaded successfully ({} DataFrames)", len(loaded_dfs))
         
         return {
@@ -137,9 +147,12 @@ class DependencyDataLoadingPhase(AtomicPhase):
     CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
     FALLBACK_FAILURE_IS_CRITICAL = False  # Not critical - can continue without validation data
     
-    def __init__(self, config: SharedSourceConfig):
+    def __init__(self, 
+                 config: SharedSourceConfig,
+                 dependency_data_container: Dict[str, Any]):
         super().__init__("DependencyDataLoading")
         self.config = config
+        self.dependency_data_container = dependency_data_container
     
     def _execute_impl(self) -> Dict[str, Any]:
         """Load validation data from dependency"""
@@ -157,6 +170,9 @@ class DependencyDataLoadingPhase(AtomicPhase):
         
         # Read all sheets from the Excel file
         validation_data = self._collect_validation_data(excel_file_path)
+
+        self.dependency_data_container.update({"validation_data": validation_data})
+
         logger.info(f"✓ Loaded validation data ({len(validation_data)} sheets)")
         
         return {"validation_data": validation_data}
@@ -177,6 +193,9 @@ class DependencyDataLoadingPhase(AtomicPhase):
     def _fallback(self) -> Dict[str, Any]:
         """Fallback: return empty validation results"""
         logger.warning("Using fallback for DependencyDataLoadingPhase - returning empty results")
+
+        self.dependency_data_container.update({"validation_data": {}})
+
         return {"validation_data": {}}
 
 # ============================================
@@ -190,11 +209,11 @@ class ProgressTrackingPhase(AtomicPhase):
     FALLBACK_FAILURE_IS_CRITICAL = True  # Can return partial results
     
     def __init__(self, 
-                 loaded_data: Dict[str, Any], 
-                 dependency_data: Dict[str, Any]):
+                 data_container: Dict[str, Any], 
+                 dependency_data_container: Dict[str, Any]):
         super().__init__("ProgressTracking")
-        self.loaded_data = loaded_data
-        self.dependency_data = dependency_data
+        self.loaded_data = data_container
+        self.dependency_data = dependency_data_container
     
     def _execute_impl(self) -> Dict[str, Any]:
         """Run progress tracking logic"""
@@ -288,11 +307,6 @@ class OrderProgressTracker(ConfigReportMixin):
         
         # Store config
         self.config = config
-
-        # NOTE: Data loading is now handled by DataLoadingPhase and DependencyDataLoadingPhase
-        # These will be populated during execution
-        self.loaded_data = {}
-        self.dependency_data = {}
     
     def run_tracking(self, **kwargs) -> ExecutionResult:
         """
@@ -304,85 +318,43 @@ class OrderProgressTracker(ConfigReportMixin):
 
         self.logger.info("Starting OrderProgressTracker ...")
 
-        # Create data loading phase
-        data_phase = DataLoadingPhase(self.config)
+        # ============================================
+        # ✨ CREATE SHARED CONTAINER
+        # ============================================
+        shared_data = {}  # This will be populated by DataLoadingPhase
+        dependency_data = {} # This will be populated by DependencyDataLoadingPhase
+        # ============================================
+        # BUILD PHASE LIST WITH SHARED CONTAINER
+        # ============================================
+        phases: List[Executable] = []
         
-        # Execute data loading first
-        self.logger.info("📂 Step 1: Loading data...")
-        data_result = data_phase.execute()
+        # Phase 1: Data Loading (always required)
+        phases.append(DataLoadingPhase(self.config, shared_data))
+
+        # Phase 2: Dependency data Loading (always required)
+        phases.append(DependencyDataLoadingPhase(self.config, dependency_data))
+
+        # Phase 3: Progress Tracking
+        phases.append(ProgressTrackingPhase(shared_data, dependency_data))
+
+        # ============================================
+        # EXECUTE USING COMPOSITE AGENT
+        # ============================================
+        agent = CompositeAgent("OrderProgressTracker", phases)
+        result = agent.execute()
         
-        # Check if data loading succeeded
-        if data_result.status != "success":
-            self.logger.error("❌ Data loading failed, cannot proceed with validations")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="OrderProgressTracker",
-                type="agent",
-                status="failed",
-                duration=data_result.duration,
-                severity=data_result.severity,
-                sub_results=[data_result],
-                total_sub_executions=1,
-                error="Data loading failed"
-            )
-
-        self.loaded_data = data_result.data.get('result', {})
-        self.logger.info("✓ Data loaded successfully")
-
-        self.logger.info("📂 Step 2: Loading dependency data...")
-        dependency_data_phase = DependencyDataLoadingPhase(self.config)
-        dependency_data_result = dependency_data_phase.execute()
-        self.dependency_data = dependency_data_result.data.get('result', {})
-
-        self.logger.info("✓ Dependency data loaded successfully")
-
-        self.logger.info("🔍 Step 3: Running tracking...")
-        tracking_phase = ProgressTrackingPhase(self.loaded_data, self.dependency_data)
-        tracking_result = tracking_phase.execute()
-
-        # Check if tracking succeeded
-        if tracking_result.status != "success":
-            self.logger.error("❌ Progress tracking failed")
-            
-            # Return early with failed result
-            return ExecutionResult(
-                name="OrderProgressTracker",
-                type="agent",
-                status="failed",
-                duration=tracking_result.duration,
-                severity=tracking_result.severity,
-                sub_results=[data_result, dependency_data_result, tracking_result],
-                total_sub_executions=3,
-                error="Error processing OrderProgressTracker"
-            )
-
-        # Combine data loading + validations into final result
-        total_duration = data_result.duration + dependency_data_result.duration + tracking_result.duration
+        # ============================================
+        # PRINT EXECUTION TREE & ANALYSIS
+        # ============================================
+        self.logger.info("✅ OrderProgressTracker completed in {:.2f}s!", result.duration)
         
-        final_result = ExecutionResult(
-            name="OrderProgressTracker",
-            type="agent",
-            status=tracking_result.status,
-            duration=total_duration,
-            severity=tracking_result.severity,
-            sub_results=[data_result, dependency_data_result, tracking_result],
-            total_sub_executions= 3,
-            warnings=tracking_result.warnings
-        )
-        
-        # Log completion
-        self.logger.info("✅ OrderProgressTracker completed in {:.2f}s!", final_result.duration)
-        
-        # Print execution tree for visibility
         print("\n" + "="*60)
-        print("VALIDATION EXECUTION TREE")
+        print("EXECUTION TREE")
         print("="*60)
-        print_execution_tree(final_result)
+        print_execution_tree(result)
         print("="*60 + "\n")
         
-        # Print analysis
-        analysis = analyze_execution(final_result)
+        analysis = analyze_execution(result)
         print("EXECUTION ANALYSIS:")
         print(f"  Status: {analysis['status']}")
         print(f"  Duration: {analysis['duration']:.2f}s")
@@ -393,7 +365,7 @@ class OrderProgressTracker(ConfigReportMixin):
             print(f"  Failed Paths: {analysis['failed_paths']}")
         print("="*60 + "\n")
         
-        return final_result
+        return result
     
     def _extract_tracking_data(self, result: ExecutionResult) -> Dict[str, Any]:
         """Extract tracking data from ExecutionResult hierarchy."""
