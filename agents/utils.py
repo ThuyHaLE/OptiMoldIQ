@@ -11,6 +11,30 @@ from typing import Dict, Any, Optional, List, Iterable
 import inspect
 from dataclasses import fields, is_dataclass
 
+def load_json(json_path: str):
+    """Load JSON file with error handling"""
+    
+    try:
+        path = Path(json_path)
+
+        if not path.exists():
+            logger.warning(f"JSON file not found: {json_path}")
+            return None
+        
+        if path.suffix.lower() != '.json':
+            logger.error(f"Invalid file extension: {json_path}. Expected .json file")
+            return None
+        
+        logger.info(f'Loading data from {json_path}')
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON format in {json_path}: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"Error loading {json_path}: {str(e)}")
+        return None
+        
 def camel_to_snake(name: str) -> str:
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()

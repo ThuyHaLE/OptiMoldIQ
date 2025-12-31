@@ -58,6 +58,34 @@ class SharedSourceConfig:
     pending_processor_dir: Optional[str] = None
     pending_processor_change_log_path: Optional[str] = None
 
+    #-----------------------#
+    # AnalyticsOrchestrator #
+    #-----------------------#
+    analytics_orchestrator_dir: Optional[str] = None
+    analytics_orchestrator_log_path: Optional[str] = None
+
+    #------------------------#
+    # HardwareChangeAnalyzer #
+    #------------------------#
+    hardware_change_analyzer_dir: Optional[str] = None
+    hardware_change_analyzer_log_path: Optional[str] = None
+    machine_layout_tracker_dir: Optional[str] = None
+    machine_layout_tracker_change_log_path: Optional[str] = None
+    mold_machine_pair_tracker_dir: Optional[str] = None
+    mold_machine_pair_tracker_change_log_path: Optional[str] = None
+
+    #-------------------------------#
+    # MultiLevelPerformanceAnalyzer #
+    #-------------------------------#
+    multi_level_performance_analyzer_dir: Optional[str] = None
+    multi_level_performance_analyzer_log_path: Optional[str] = None
+    day_level_processor_dir: Optional[str] = None
+    day_level_processor_log_path: Optional[str] = None
+    month_level_processor_dir: Optional[str] = None
+    month_level_processor_log_path: Optional[str] = None
+    year_level_processor_dir: Optional[str] = None
+    year_level_processor_log_path: Optional[str] = None
+
     # Control validation behavior
     strict_validation: bool = False  # If True, validate all paths exist
     auto_create_dirs: bool = False   # If True, create missing directories
@@ -144,6 +172,55 @@ class SharedSourceConfig:
             self.pending_processor_dir or f'{self.initial_planner_dir}/PendingProcessor')
         self.pending_processor_change_log_path = (
             self.pending_processor_change_log_path or f'{self.pending_processor_dir}/change_log.txt')
+        
+        #-----------------------#
+        # AnalyticsOrchestrator #
+        #-----------------------#
+        self.analytics_orchestrator_dir = (
+            self.analytics_orchestrator_dir or f'{self.default_dir}/AnalyticsOrchestrator')
+        self.analytics_orchestrator_log_path = (
+            self.analytics_orchestrator_log_path or f"{self.analytics_orchestrator_dir}/change_log.txt")
+
+        #------------------------#
+        # HardwareChangeAnalyzer #
+        #------------------------#
+        self.hardware_change_analyzer_dir = (
+            self.hardware_change_analyzer_dir or f'{self.analytics_orchestrator_dir}/HardwareChangeAnalyzer')
+        self.hardware_change_analyzer_log_path = (
+            self.hardware_change_analyzer_log_path or f"{self.hardware_change_analyzer_dir}/change_log.txt")
+
+        self.machine_layout_tracker_dir = (
+            self.machine_layout_tracker_dir or f'{self.hardware_change_analyzer_dir}/MachineLayoutTracker')
+        self.machine_layout_tracker_change_log_path = (
+            self.machine_layout_tracker_change_log_path or f"{self.machine_layout_tracker_dir}/change_log.txt")
+
+        self.mold_machine_pair_tracker_dir = (
+            self.mold_machine_pair_tracker_dir or f'{self.hardware_change_analyzer_dir}/MoldMachinePairTracker')
+        self.mold_machine_pair_tracker_change_log_path = (
+            self.mold_machine_pair_tracker_change_log_path or f"{self.mold_machine_pair_tracker_dir}/change_log.txt")
+
+        #-------------------------------#
+        # MultiLevelPerformanceAnalyzer #
+        #-------------------------------#
+        self.multi_level_performance_analyzer_dir = (
+            self.multi_level_performance_analyzer_dir or f'{self.analytics_orchestrator_dir}/MultiLevelPerformanceAnalyzer')
+        self.multi_level_performance_analyzer_log_path  = (
+            self.multi_level_performance_analyzer_log_path  or f"{self.multi_level_performance_analyzer_dir}/change_log.txt")
+        
+        self.day_level_processor_dir = (
+            self.day_level_processor_dir or f'{self.multi_level_performance_analyzer_dir}/DayLevelDataProcessor')
+        self.day_level_processor_log_path  = (
+            self.day_level_processor_log_path or f"{self.day_level_processor_dir}/change_log.txt")
+        
+        self.month_level_processor_dir = (
+            self.month_level_processor_dir or f'{self.multi_level_performance_analyzer_dir}/MonthLevelDataProcessor')
+        self.month_level_processor_log_path  = (
+            self.month_level_processor_log_path or f"{self.month_level_processor_dir}/change_log.txt")
+        
+        self.year_level_processor_dir = (
+            self.year_level_processor_dir or f'{self.multi_level_performance_analyzer_dir}/YearLevelDataProcessor')
+        self.year_level_processor_log_path  = (
+            self.year_level_processor_log_path  or f"{self.year_level_processor_dir}/change_log.txt")
 
     def _validate_all_paths(self):
         """Validate all path fields"""
