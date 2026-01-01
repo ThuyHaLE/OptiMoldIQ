@@ -16,6 +16,7 @@ from configs.shared.agent_report_format import (
     AtomicPhase,
     CompositeAgent,
     print_execution_summary,
+    format_execution_tree,
     update_change_log)
 
 # ============================================
@@ -415,7 +416,7 @@ class OrderProgressTracker(ConfigReportMixin):
             # Save change log    
             message = update_change_log(agent_id, 
                                         config_header, 
-                                        result, 
+                                        format_execution_tree(result), 
                                         tracking_summary, 
                                         export_log, 
                                         Path(self.config.progress_tracker_change_log_path)

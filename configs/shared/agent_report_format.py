@@ -1,7 +1,7 @@
 # configs/shared/agent_report_format.py
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TypedDict, Callable, Tuple
 from enum import Enum
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -27,6 +27,18 @@ class ExecutionStatus(Enum):
     PARTIAL = "partial"        # Some sub-phases failed
     FAILED = "failed"          # Completely failed
     SKIPPED = "skipped"        # Skipped due to unmet dependencies
+
+class SaveDecision(Enum):
+    """Why a phase result was saved or skipped"""
+    SAVED = "saved"
+    SKIPPED_NO_RESULT = "skipped_no_result"
+    SKIPPED_NOT_ROUTED = "skipped_not_routed"
+    SKIPPED_DISABLED = "skipped_disabled"
+    SKIPPED_NOT_SAVABLE = "skipped_not_savable"
+    SKIPPED_DISABLED_SAVABLE = "skipped_disabled_savable"
+    SKIPPED_NO_SAVE_FN = "skipped_no_save_fn"
+    SKIPPED_INVALID_PATHS = "skipped_invalid_paths"  # ✨ New
+    FAILED = "failed"
 
 # ============================================
 # BASE EXECUTABLE - Common interface
@@ -310,7 +322,6 @@ class AtomicPhase(Executable):
                 traceback=traceback.format_exc()
             )
 
-
 # ============================================
 # COMPOSITE AGENT - Branch node
 # ============================================
@@ -416,69 +427,59 @@ class CompositeAgent(Executable):
 # ============================================
 # UTILITY FUNCTIONS
 # ============================================
-def print_execution_summary(final_result):
-    # Print execution tree for visibility
-    print("\n" + "="*60)
-    print("EXECUTION TREE")
-    print("="*60)
-    print_execution_tree(final_result)
-    print("="*60 + "\n")
-    
-    # Print analysis
-    analysis = analyze_execution(final_result)
-    print("EXECUTION ANALYSIS:")
-    print(f"  Status: {analysis['status']}")
-    print(f"  Duration: {analysis['duration']:.2f}s")
-    print(f"  Complete: {analysis['complete']}")
-    print(f"  All Successful: {analysis['all_successful']}")
-    print(f"  Statistics: {analysis['statistics']}")
-    if analysis['failed_paths']:
-        print(f"  Failed Paths: {analysis['failed_paths']}")
-    print("="*60 + "\n")
+class SaveRoute(TypedDict, total=False):
+    """Configuration for saving a phase result"""
+    enabled: bool
+    savable: bool
+    should_save: bool
+    save_fn: Optional[Callable[[Dict], Dict]]
+    input_dict: Optional[Dict]
 
-def print_execution_tree(result: ExecutionResult, indent: int = 0) -> None:
-    """Print execution tree with degraded status indicator"""
-    prefix = "  " * indent
-    icon = "📦" if result.type == "agent" else "⚙️"
+@dataclass
+class SaveResult:
+    """Result of attempting to save a phase"""
+    decision: SaveDecision
+    message: str
+    metadata: Optional[Dict] = None
+    error: Optional[Exception] = None
+    log_entries: list[str] = field(default_factory=list)
     
-    status_icons = {
-        ExecutionStatus.SUCCESS.value: "✓",
-        ExecutionStatus.DEGRADED.value: "⚠️",  # ✨ New icon
-        ExecutionStatus.WARNING.value: "⚡",
-        ExecutionStatus.FAILED.value: "✗",
-        ExecutionStatus.SKIPPED.value: "⊘",
-        ExecutionStatus.PARTIAL.value: "◐"
-    }
-    status_icon = status_icons.get(result.status, "?")
+    def add_log(self, msg: str) -> None:
+        """Add log entry and update message"""
+        self.log_entries.append(msg)
+        self.message = "\n".join(self.log_entries)
+
+# ============================================
+# PRINT EXECUTION SUMMARY
+# ============================================
+def print_execution_summary(final_result: ExecutionResult) -> None:
+    """Print execution summary (thin wrapper for logging)"""
+    print(format_execution_summary(final_result))
+
+def format_execution_summary(final_result: ExecutionResult) -> str:
+    """Format complete execution summary as string"""
+    analysis = analyze_execution(final_result)
     
-    severity_colors = {
-        PhaseSeverity.CRITICAL.value: "🔴",
-        PhaseSeverity.ERROR.value: "🟠",
-        PhaseSeverity.WARNING.value: "🟡",
-        PhaseSeverity.INFO.value: ""
-    }
-    severity_icon = severity_colors.get(result.severity, "")
+    lines = [
+        "=" * 60,
+        "EXECUTION TREE",
+        "=" * 60,
+        format_execution_tree(final_result),
+        "=" * 60,
+        "",
+        "EXECUTION ANALYSIS:",
+        f"  Status: {analysis['status']}",
+        f"  Duration: {analysis['duration']:.2f}s",
+        f"  Complete: {analysis['complete']}",
+        f"  All Successful: {analysis['all_successful']}",
+        f"  Statistics: {analysis['statistics']}"
+    ]
     
-    # Show fallback indicator
-    fallback_indicator = ""
-    if result.data.get("fallback_used"):
-        fallback_indicator = " [FALLBACK]"
+    if analysis['failed_paths']:
+        lines.append(f"  Failed Paths: {analysis['failed_paths']}")
     
-    print(
-        f"{prefix}{icon} {result.name} {status_icon}{fallback_indicator} "
-        f"{severity_icon} ({result.duration:.2f}s)"
-    )
-    
-    # Show original error if fallback was used
-    if result.data.get("fallback_used"):
-        original_error = result.data.get("original_error", "Unknown")
-        print(f"{prefix}   └─ Recovered from: {original_error}")
-    
-    if result.error:
-        print(f"{prefix}   └─ Error: {result.error}")
-    
-    for sub in result.sub_results:
-        print_execution_tree(sub, indent + 1)
+    lines.append("=" * 60)
+    return "\n".join(lines)
 
 def analyze_execution(result: ExecutionResult) -> Dict[str, Any]:
     """
@@ -505,48 +506,336 @@ def analyze_execution(result: ExecutionResult) -> Dict[str, Any]:
         "depth": result.get_depth()
     }
 
-def generate_execution_tree_as_str(result: ExecutionResult) -> str:
-    """Generate a string representation of the execution tree."""   
-    import io
-    import sys
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
-    print_execution_tree(result)
-    sys.stdout = old_stdout
-    return "\n".join(["EXECUTION TREE:", buffer.getvalue()])
+def format_execution_tree(result: ExecutionResult, 
+                          indent: int = 0) -> str:
+    """Format execution tree as string (pure function)"""
+    lines = []
+    prefix = "  " * indent
+    icon = "📦" if result.type == "agent" else "⚙️"
+    
+    status_icons = {
+        ExecutionStatus.SUCCESS.value: "✓",
+        ExecutionStatus.DEGRADED.value: "⚠️",
+        ExecutionStatus.WARNING.value: "⚡",
+        ExecutionStatus.FAILED.value: "✗",
+        ExecutionStatus.SKIPPED.value: "⊘",
+        ExecutionStatus.PARTIAL.value: "◐"
+    }
+    status_icon = status_icons.get(result.status, "?")
+    
+    severity_colors = {
+        PhaseSeverity.CRITICAL.value: "🔴",
+        PhaseSeverity.ERROR.value: "🟠",
+        PhaseSeverity.WARNING.value: "🟡",
+        PhaseSeverity.INFO.value: ""
+    }
+    severity_icon = severity_colors.get(result.severity, "")
+    
+    fallback_indicator = " [FALLBACK]" if result.data.get("fallback_used") else ""
+    
+    lines.append(
+        f"{prefix}{icon} {result.name} {status_icon}{fallback_indicator} "
+        f"{severity_icon} ({result.duration:.2f}s)"
+    )
+    
+    if result.data.get("fallback_used"):
+        original_error = result.data.get("original_error", "Unknown")
+        lines.append(f"{prefix}   └─ Recovered from: {original_error}")
+    
+    if result.error:
+        lines.append(f"{prefix}   └─ Error: {result.error}")
+    
+    for sub in result.sub_results:
+        lines.append(format_execution_tree(sub, indent + 1))
+    
+    return "\n".join(lines)
+
+# ============================================
+# SAVE PHASE RESULTS
+# ============================================
+def save_result(save_routing: Dict[str, SaveRoute],
+                result: 'ExecutionResult'
+                ) -> Tuple[Dict[str, SaveRoute], Dict[str, Dict]]:
+    """
+    Save phase results based on routing configuration.
+    
+    Args:
+        save_routing: Mapping of phase names to save configurations
+        result: ExecutionResult containing sub_results to process
+    
+    Returns:
+        Tuple of (updated_save_routing, export_metadata)
+        
+    Example:
+        >>> routing = {"phase1": {"enabled": True, "save_fn": my_saver}}
+        >>> routing, metadata = save_result(routing, execution_result)
+    """
+    export_metadata = {}
+    
+    for phase_result in result.sub_results:
+        phase_name = phase_result.name
+        
+        # Skip if not in routing
+        if phase_name not in save_routing:
+            logger.debug(f"[SAVE][{phase_name}] skipped: not in save_routing")
+            continue
+        
+        # Initialize export metadata
+        export_metadata[phase_name] = {
+            "metadata": None,
+            "export_log": None,
+        }
+        
+        route = save_routing[phase_name]
+        
+        # Process save
+        save_outcome = process_phase_save(phase_name, phase_result, route)
+        
+        # Record outcome
+        export_metadata[phase_name]["metadata"] = save_outcome.metadata
+        export_metadata[phase_name]["export_log"] = save_outcome.message
+    
+    return save_routing, export_metadata
+
+def process_phase_save(phase_name: str,
+                       phase_result: 'ExecutionResult',
+                       route: SaveRoute
+                       ) -> SaveResult:
+    """
+    Process save logic for a single phase.
+    
+    Args:
+        phase_name: Name of the phase
+        phase_result: ExecutionResult from phase execution
+        route: Save routing configuration
+    
+    Returns:
+        SaveResult with outcome and logs
+    """
+    # Extract result data from phase
+    result_data = (phase_result.data or {}).get("result", {})
+    
+    if not result_data:
+        msg = f"[SAVE][{phase_name}] skipped: result is not available"
+        logger.warning(msg)
+        return SaveResult(
+            decision=SaveDecision.SKIPPED_NO_RESULT,
+            message=msg,
+            log_entries=[msg]
+        )
+    
+    # Validate paths early
+    save_paths = route.get("save_paths", {})
+    paths_valid, path_error, validated_paths = validate_save_paths(
+        phase_name, 
+        save_paths
+    )
+    
+    if not paths_valid:
+        msg = f"[SAVE][{phase_name}] skipped: invalid paths - {path_error}"
+        logger.warning(msg)
+        route["should_save"] = False
+        return SaveResult(
+            decision=SaveDecision.SKIPPED_INVALID_PATHS,  # ✨ New decision
+            message=msg,
+            log_entries=[msg]
+        )
+    
+    # Update route with phase information
+    route.update({
+        "savable": result_data.get("savable", False),
+        "input_dict": {
+            "name": phase_result.name,
+            "status": phase_result.status,
+            "result": result_data.get("payload", {}),
+            "execution_summary": format_execution_summary(phase_result),
+            "output_dir": Path(route.get("save_paths").get("output_dir")),
+            "change_log_path": Path(route.get("save_paths").get("change_log_path")),
+            "change_log_header": route.get("change_log_header", "")
+        }
+    })
+    
+    enabled = route.get("enabled", False)
+    savable = route.get("savable", False)
+    
+    # Determine if should save
+    should_save, decision, reason = evaluate_save_flags(enabled, savable)
+    
+    if not should_save:
+        msg = f"[SAVE][{phase_name}] skipped: {reason}"
+        log_level = logger.warning if enabled and not savable else logger.info
+        log_level(msg)
+        route["should_save"] = False
+        return SaveResult(
+            decision=decision,
+            message=msg,
+            log_entries=[msg]
+        )
+    
+    # Validate save function
+    save_fn = route.get("save_fn")
+    if not callable(save_fn):
+        msg = f"[SAVE][{phase_name}] skipped: save_fn is not callable"
+        logger.warning(msg)
+        route["should_save"] = False
+        return SaveResult(
+            decision=SaveDecision.SKIPPED_NO_SAVE_FN,
+            message=msg,
+            log_entries=[msg]
+        )
+    
+    # Execute save
+    route["should_save"] = True
+    acceptance_msg = f"[SAVE][{phase_name}] accepted: {reason}"
+    logger.info(acceptance_msg)
+    
+    save_outcome = save_phase_result(
+        phase_name,
+        route["input_dict"],
+        save_fn
+    )
+    
+    # Prepend acceptance message
+    save_outcome.add_log(acceptance_msg)
+    
+    return save_outcome
+
+def validate_save_paths(save_paths: Dict[str, Any]
+                        ) -> Tuple[bool, Optional[str], Dict[str, Path]]:
+    """Simple path validation - just convert and check not None"""
+    if not save_paths:
+        return False, "save_paths not provided", {}
+    
+    required = ["output_dir", "change_log_path"]
+    validated = {}
+    
+    for key in required:
+        if key not in save_paths or save_paths[key] is None:
+            return False, f"missing or None: {key}", {}
+        
+        try:
+            path = Path(save_paths[key])
+            # Create parent dirs
+            if key.endswith("_dir"):
+                path.mkdir(parents=True, exist_ok=True)
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+            
+            validated[key] = path
+        except Exception as e:
+            return False, f"invalid {key}: {e}", {}
+    
+    return True, None, validated
+
+def evaluate_save_flags(enabled: bool, 
+                        savable: bool
+                        ) -> Tuple[bool, SaveDecision, str]:
+    """
+    Determine if phase should be saved based on configuration flags.
+    
+    Args:
+        enabled: Whether saving is enabled by user input
+        savable: Whether phase allows saving
+    
+    Returns:
+        (should_save, decision_reason, human_readable_message)
+    """
+    if not enabled and not savable:
+        return (
+            False,
+            SaveDecision.SKIPPED_DISABLED,
+            "disabled by input & not savable by phase"
+        )
+    
+    if not enabled and savable:
+        return (
+            False,
+            SaveDecision.SKIPPED_DISABLED_SAVABLE,
+            "disabled by input (phase allows saving)"
+        )
+    
+    if enabled and not savable:
+        return (
+            False,
+            SaveDecision.SKIPPED_NOT_SAVABLE,
+            "enabled by input but phase marked unsavable"
+        )
+    
+    return (
+        True,
+        SaveDecision.SAVED,
+        "enabled by input & savable by phase"
+    )
+
+def save_phase_result(phase_name: str,
+                      phase_data: Dict,
+                      save_fn: Callable[[Dict], Dict]
+                      ) -> SaveResult:
+    """
+    Execute save function for a phase.
+    
+    Args:
+        phase_name: Name of the phase being saved
+        phase_data: Processed phase data dict with keys:
+            - name: Phase name
+            - status: Execution status
+            - result: Payload data
+            - execution_summary: Formatted summary
+        save_fn: Save function that processes phase_data
+    
+    Returns:
+        SaveResult with outcome and metadata
+    """
+    try:
+        metadata = save_fn(phase_data) or {}
+        msg = f"[SAVE][{phase_name}] succeeded"
+        logger.info(msg)
+        return SaveResult(
+            decision=SaveDecision.SAVED,
+            message=msg,
+            metadata=metadata,
+            log_entries=[msg]
+        )
+    except Exception as e:
+        msg = f"[SAVE][{phase_name}] failed: {e}"
+        logger.exception(msg)
+        return SaveResult(
+            decision=SaveDecision.FAILED,
+            message=msg,
+            error=e,
+            log_entries=[msg]
+        )
 
 def update_change_log(agent_id: str,
                       config_header: str,
-                      result: ExecutionResult,
+                      format_execution_tree: str,
                       summary: str,
-                      export_log: str, 
+                      export_log: str,
                       log_path: str | Path) -> str:
-        
-    """Generate change log content."""
-
-    try:  
-        # Initialize validation log entries for entire processing run
-        log_content = [
-            "=" * 60,
-            config_header,
-            "--Processing Summary--",
-            f"⤷ {agent_id} results:",
-            generate_execution_tree_as_str(result),
-            generate_summary_export_log(summary, export_log),
-        ]
-        log_str = "\n".join(log_content)
+    """Update change log file with new entry"""
+    try:
+        log_content = format_change_log_entry(
+            agent_id, config_header, format_execution_tree, summary, export_log)
         logger.info("✓ Change log generated successfully")
-        message = append_change_log(log_path, log_str)
-        return message
-        
+        return append_change_log(log_path, log_content)
     except Exception as e:
         logger.error("✗ Failed to generate change log: {}", e)
         raise
 
-def generate_summary_export_log(summary: str, export_log: str) -> str:
-    """Generate a summary export log string."""
-    log_content = [
-        "="*60,
+def format_change_log_entry(agent_id: str,
+                            config_header: str,
+                            format_execution_tree: str,
+                            summary: str,
+                            export_log: str) -> str:
+    """Generate change log content as string"""
+    sections = [
+        "=" * 60,
+        config_header,
+        "--Processing Summary--",
+        f"⤷ {agent_id} results:",
+        "EXECUTION TREE:",
+        format_execution_tree,
+        "=" * 60,
         "--Summary & Export Log--",
         "",
         "SUMMARY:",
@@ -555,10 +844,10 @@ def generate_summary_export_log(summary: str, export_log: str) -> str:
         "EXPORT LOG:",
         export_log,
         "",
-        "="*60,
+        "=" * 60,
         ""
     ]
-    return "\n".join(log_content)
+    return "\n".join(sections)
 
 def append_change_log(log_path: str | Path, log_str: str) -> str:
     """

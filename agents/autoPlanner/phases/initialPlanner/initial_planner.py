@@ -20,6 +20,7 @@ from configs.shared.agent_report_format import (
     AtomicPhase,
     CompositeAgent,
     print_execution_summary,
+    format_execution_tree,
     update_change_log)
 
 # ============================================
@@ -952,7 +953,7 @@ class InitialPlanner(ConfigReportMixin):
                 # Save change log
                 message = update_change_log(producing_planner_result.name, 
                                             config_header, 
-                                            producing_planner_result, 
+                                            format_execution_tree(producing_planner_result), 
                                             producing_planner_summary, 
                                             export_log, 
                                             Path(self.config.shared_source_config.producing_processor_change_log_path)
@@ -985,7 +986,7 @@ class InitialPlanner(ConfigReportMixin):
                 # Save change log
                 message = update_change_log(phase_name, 
                                             config_header, 
-                                            pending_planner_result, 
+                                            format_execution_tree(pending_planner_result), 
                                             pending_planner_summary, 
                                             export_log, 
                                             Path(self.config.shared_source_config.pending_processor_change_log_path))
@@ -1003,7 +1004,7 @@ class InitialPlanner(ConfigReportMixin):
             # Save pipeline change log
             message = update_change_log(agent_id, 
                                         config_header, 
-                                        result, 
+                                        format_execution_tree(result), 
                                         "\n".join(pipeline_log_lines), 
                                         "\n".join(export_logs), 
                                         Path(self.config.shared_source_config.initial_planner_change_log_path)

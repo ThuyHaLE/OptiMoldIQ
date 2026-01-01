@@ -20,6 +20,7 @@ from configs.shared.agent_report_format import (
     AtomicPhase,
     CompositeAgent,
     print_execution_summary,
+    format_execution_tree,
     update_change_log)
 
 # ============================================
@@ -661,7 +662,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                 # Save change log
                 message = update_change_log(mold_stability_result.name, 
                                             config_header, 
-                                            mold_stability_result, 
+                                            format_execution_tree(mold_stability_result), 
                                             mold_stability_data['index_calculation_summary'], 
                                             export_log, 
                                             Path(self.config.shared_source_config.mold_stability_index_change_log_path)
@@ -693,7 +694,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                 # Save change log
                 message = update_change_log(phase_name, 
                                             config_header, 
-                                            feature_weight_result, 
+                                            format_execution_tree(feature_weight_result), 
                                             feature_weight_data['confidence_report_text'], 
                                             export_log, 
                                             Path(self.config.shared_source_config.mold_machine_weights_hist_path)
@@ -712,7 +713,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
             # Save pipeline change log
             message = update_change_log(agent_id, 
                                         config_header, 
-                                        result, 
+                                        format_execution_tree(result), 
                                         "\n".join(pipeline_log_lines), 
                                         "\n".join(export_logs), 
                                         Path(self.config.shared_source_config.features_extractor_change_log_path)

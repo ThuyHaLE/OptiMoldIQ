@@ -28,6 +28,7 @@ from configs.shared.agent_report_format import (
     PhaseSeverity,
     ExecutionStatus,
     print_execution_summary,
+    format_execution_tree,
     update_change_log)
 
 # ============================================
@@ -699,7 +700,7 @@ class ValidationOrchestrator(ConfigReportMixin):
             # Save change log
             message = update_change_log(agent_id, 
                                         config_header, 
-                                        result, 
+                                        format_execution_tree(result), 
                                         validation_summary, 
                                         export_log, 
                                         Path(self.config.validation_change_log_path)
