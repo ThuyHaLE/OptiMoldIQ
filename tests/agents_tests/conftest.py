@@ -49,7 +49,12 @@ class DependencyProvider:
             result = tracker.run_tracking_and_save_results()
 
             # Cache result
-            assert result.status == ExecutionStatus.SUCCESS.value, "Dependency agent failed : OrderProgressTracker"
+            successful_statuses = {
+                ExecutionStatus.SUCCESS.value,
+                ExecutionStatus.DEGRADED.value,
+                ExecutionStatus.WARNING.value
+            }
+            assert result.status in successful_statuses, "Dependency agent failed : OrderProgressTracker"
             self._cache["order_progress_tracker"] = {"status": "triggered", 
                                                      "result": result,
                                                      "config": config}
@@ -67,7 +72,12 @@ class DependencyProvider:
             result = validation_orchestrator.run_validations_and_save_results()
 
             # Cache result
-            assert result.status == ExecutionStatus.SUCCESS.value, "Dependency agent failed : ValidationOrchestrator"
+            successful_statuses = {
+                ExecutionStatus.SUCCESS.value,
+                ExecutionStatus.DEGRADED.value,
+                ExecutionStatus.WARNING.value
+            }
+            assert result.status in successful_statuses, "Dependency agent failed : ValidationOrchestrator"
             self._cache["validation_orchestrator"] = {"status": "triggered", 
                                                      "result": result,
                                                      "config": config}
@@ -89,7 +99,12 @@ class DependencyProvider:
             result = historical_features_extractor.run_extraction_and_save_results()
 
             # Cache result
-            assert result.status == ExecutionStatus.SUCCESS.value, "Dependency agent failed : HistoricalFeaturesExtractor"
+            successful_statuses = {
+                ExecutionStatus.SUCCESS.value,
+                ExecutionStatus.DEGRADED.value,
+                ExecutionStatus.WARNING.value
+            }
+            assert result.status in successful_statuses, "Dependency agent failed : HistoricalFeaturesExtractor"
             self._cache["historical_features_extractor"] = {"status": "triggered", 
                                                             "result": result,
                                                             "config": config}

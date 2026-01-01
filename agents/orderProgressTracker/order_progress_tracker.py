@@ -15,10 +15,7 @@ from configs.shared.agent_report_format import (
     ExecutionResult,
     AtomicPhase,
     CompositeAgent,
-    PhaseSeverity,
-    ExecutionStatus,
-    print_execution_tree,
-    analyze_execution,
+    print_execution_summary,
     update_change_log)
 
 # ============================================
@@ -348,22 +345,8 @@ class OrderProgressTracker(ConfigReportMixin):
         # ============================================
         self.logger.info("✅ OrderProgressTracker completed in {:.2f}s!", result.duration)
         
-        print("\n" + "="*60)
-        print("EXECUTION TREE")
-        print("="*60)
-        print_execution_tree(result)
-        print("="*60 + "\n")
-        
-        analysis = analyze_execution(result)
-        print("EXECUTION ANALYSIS:")
-        print(f"  Status: {analysis['status']}")
-        print(f"  Duration: {analysis['duration']:.2f}s")
-        print(f"  Complete: {analysis['complete']}")
-        print(f"  All Successful: {analysis['all_successful']}")
-        print(f"  Statistics: {analysis['statistics']}")
-        if analysis['failed_paths']:
-            print(f"  Failed Paths: {analysis['failed_paths']}")
-        print("="*60 + "\n")
+        # Print execution tree for visibility
+        print_execution_summary(result)
         
         return result
     

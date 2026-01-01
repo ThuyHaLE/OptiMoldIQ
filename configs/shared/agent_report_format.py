@@ -416,6 +416,26 @@ class CompositeAgent(Executable):
 # ============================================
 # UTILITY FUNCTIONS
 # ============================================
+def print_execution_summary(final_result):
+    # Print execution tree for visibility
+    print("\n" + "="*60)
+    print("EXECUTION TREE")
+    print("="*60)
+    print_execution_tree(final_result)
+    print("="*60 + "\n")
+    
+    # Print analysis
+    analysis = analyze_execution(final_result)
+    print("EXECUTION ANALYSIS:")
+    print(f"  Status: {analysis['status']}")
+    print(f"  Duration: {analysis['duration']:.2f}s")
+    print(f"  Complete: {analysis['complete']}")
+    print(f"  All Successful: {analysis['all_successful']}")
+    print(f"  Statistics: {analysis['statistics']}")
+    if analysis['failed_paths']:
+        print(f"  Failed Paths: {analysis['failed_paths']}")
+    print("="*60 + "\n")
+
 def print_execution_tree(result: ExecutionResult, indent: int = 0) -> None:
     """Print execution tree with degraded status indicator"""
     prefix = "  " * indent

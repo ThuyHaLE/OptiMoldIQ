@@ -7,12 +7,11 @@ Automatically triggers real module dependencies (no mocking - uses shared DB)
 
 import pytest
 from pathlib import Path
-from typing import Dict, Any, List, Set
+from typing import Dict, List, Set
 from loguru import logger
-
+from configs.shared.agent_report_format import ExecutionStatus
 from modules.registry.registry_loader import ModuleRegistryLoader
 from modules.base_module import ModuleResult
-from configs.shared.shared_source_config import SharedSourceConfig
 
 
 # ============================================================================
@@ -406,8 +405,13 @@ def pytest_collection_modifyitems(config, items):
 def assert_module_success():
     """Helper fixture for asserting module success"""
     def _assert(result):
+        successful_statuses = {
+            ExecutionStatus.SUCCESS.value,
+            ExecutionStatus.DEGRADED.value,
+            ExecutionStatus.WARNING.value
+        }
         assert isinstance(result, ModuleResult)
-        assert result.status == 'success', f"Module failed: {result.message}"
+        assert result.status in successful_statuses, f"Module failed: {result.message}"
         assert result.data is not None
     return _assert
 

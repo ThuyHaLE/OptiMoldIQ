@@ -27,8 +27,7 @@ from configs.shared.agent_report_format import (
     CompositeAgent,
     PhaseSeverity,
     ExecutionStatus,
-    print_execution_tree,
-    analyze_execution,
+    print_execution_summary,
     update_change_log)
 
 # ============================================
@@ -578,23 +577,7 @@ class ValidationOrchestrator(ConfigReportMixin):
         self.logger.info("✅ ValidationOrchestrator completed in {:.2f}s!", final_result.duration)
         
         # Print execution tree for visibility
-        print("\n" + "="*60)
-        print("EXECUTION TREE")
-        print("="*60)
-        print_execution_tree(final_result)
-        print("="*60 + "\n")
-        
-        # Print analysis
-        analysis = analyze_execution(final_result)
-        print("EXECUTION ANALYSIS:")
-        print(f"  Status: {analysis['status']}")
-        print(f"  Duration: {analysis['duration']:.2f}s")
-        print(f"  Complete: {analysis['complete']}")
-        print(f"  All Successful: {analysis['all_successful']}")
-        print(f"  Statistics: {analysis['statistics']}")
-        if analysis['failed_paths']:
-            print(f"  Failed Paths: {analysis['failed_paths']}")
-        print("="*60 + "\n")
+        print_execution_summary(final_result)
         
         return final_result
 
