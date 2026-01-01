@@ -165,11 +165,13 @@ class MoldStabilityCalculatingPhase(AtomicPhase):
     
     def __init__(self, 
                  config: FeaturesExtractorConfig,
-                 data_container: Dict[str, Any]):
+                 data_container: Dict[str, Any], 
+                 index_data_container: Dict[str, Any]):
         super().__init__("MoldStabilityIndexCalculator")
 
         self.config = config
         self.loaded_data = data_container
+        self.index_data_container = index_data_container
 
     def _execute_impl(self) -> Dict[str, Any]:
         """Run mold stability calculator logic"""
@@ -199,6 +201,9 @@ class MoldStabilityCalculatingPhase(AtomicPhase):
             stability_constant_config)
         
         calculator_result = calculator.process()
+
+        self.index_data_container.update(calculator_result.to_dict())
+        
         logger.info("✓ MoldStabilityIndexCalculator completed")
         
         return calculator_result.to_dict()
