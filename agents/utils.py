@@ -285,7 +285,9 @@ def load_annotation_path(source_path: str = 'agents/shared_db/DataLoaderAgent/ne
 # read_change_log #
 #-----------------#
 
-def read_change_log(folder_path, target_name):
+def read_change_log(folder_path, 
+                    target_name, 
+                    pattern: str = r'Saved new file:\s*(.+)'):
 
     """
     Read a log file in the given folder and extract the path to the latest saved Excel file.
@@ -308,7 +310,7 @@ def read_change_log(folder_path, target_name):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             log_text = f.read()
-            newest_files = extract_latest_saved_files(log_text)
+            newest_files = extract_latest_saved_files(log_text, pattern)
 
             if not newest_files:
                 logger.warning(f"No file information found saved in '{target_name}'")
@@ -328,9 +330,10 @@ def read_change_log(folder_path, target_name):
         logger.error("Error reading file '{}': {}", target_name, str(e))
         raise
 
-def extract_latest_saved_files(log_text: str) -> Optional[List[str]]:
+def extract_latest_saved_files(log_text: str,
+                               pattern: str = r'Saved new file:\s*(.+)') -> Optional[List[str]]:
     """
-    Extract all saved file names from the most recent EXPORT LOG section.
+    Extract all saved file paths from the most recent EXPORT LOG section.
     """
     if not log_text.strip():
         return None
@@ -349,8 +352,8 @@ def extract_latest_saved_files(log_text: str) -> Optional[List[str]]:
     if not export_section:
         return None
 
-    # Extract all "Saved new file" entries from this section
-    saved_files = re.findall(r'Saved new file:\s*(.+)', export_section)
+    # Extract all pattern entries from this section
+    saved_files = re.findall(pattern, export_section)
 
     return [f.strip() for f in saved_files] if saved_files else None
 

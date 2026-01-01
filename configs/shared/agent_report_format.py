@@ -626,10 +626,7 @@ def process_phase_save(phase_name: str,
     
     # Validate paths early
     save_paths = route.get("save_paths", {})
-    paths_valid, path_error, validated_paths = validate_save_paths(
-        phase_name, 
-        save_paths
-    )
+    paths_valid, path_error, validated_paths = validate_save_paths(save_paths)
     
     if not paths_valid:
         msg = f"[SAVE][{phase_name}] skipped: invalid paths - {path_error}"

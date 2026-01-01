@@ -186,12 +186,8 @@ class MoldMachinePairTracker(ConfigReportMixin):
         all_pairs = set()
         if not mold_machines_dict:
             return all_pairs
-    
-        # Get the latest date's mapping
-        latest_date = max(mold_machines_dict.keys())
-        latest_mapping = mold_machines_dict[latest_date]
 
-        for mold, machines in latest_mapping.items():
+        for mold, machines in mold_machines_dict.items():
             for machine in machines:
                 all_pairs.add((mold, machine))
         return all_pairs
