@@ -560,15 +560,21 @@ def save_result(save_routing: Dict[str, SaveRoute],
     Save phase results based on routing configuration.
     
     Args:
-        save_routing: Mapping of phase names to save configurations
-        result: ExecutionResult containing sub_results to process
+        save_routing: Mapping of phase names to save configurations.
+                      Will be modified in-place to add runtime state.
     
     Returns:
-        Tuple of (updated_save_routing, export_metadata)
-        
-    Example:
-        >>> routing = {"phase1": {"enabled": True, "save_fn": my_saver}}
-        >>> routing, metadata = save_result(routing, execution_result)
+        Tuple of:
+        - save_routing: Updated with runtime state for each phase:
+            - savable (bool): Whether phase result is savable
+            - phase_result (dict): Payload from phase execution
+            - should_save (bool): Final decision to save
+            - save_input_dict (dict, optional): Input passed to save_fn if saved
+        - export_metadata: Summary of save outcomes per phase
+    
+    Note:
+        save_routing is modified in-place. Config fields (enabled, save_fn, 
+        save_paths) remain unchanged, but runtime fields are added.
     """
     export_metadata = {}
     
@@ -594,7 +600,7 @@ def save_result(save_routing: Dict[str, SaveRoute],
         # Record outcome
         export_metadata[phase_name]["metadata"] = save_outcome.metadata
         export_metadata[phase_name]["export_log"] = save_outcome.message
-    
+
     return save_routing, export_metadata
 
 def process_phase_save(phase_name: str,
@@ -614,12 +620,32 @@ def process_phase_save(phase_name: str,
     """
     # Extract result data from phase
     result_data = (phase_result.data or {}).get("result", {})
-    
+
     if not result_data:
         msg = f"[SAVE][{phase_name}] skipped: result is not available"
         logger.warning(msg)
         return SaveResult(
             decision=SaveDecision.SKIPPED_NO_RESULT,
+            message=msg,
+            log_entries=[msg]
+        )
+    
+    # Update route with runtime flags
+    route["savable"] = result_data.get("savable", False)
+    route["phase_result"] = result_data.get("payload", {})
+
+    # Determine if should save
+    enabled = route.get("enabled", False)
+    savable = route.get("savable", False)
+    should_save, decision, reason = evaluate_save_flags(enabled, savable)
+    
+    if not should_save:
+        msg = f"[SAVE][{phase_name}] skipped: {reason}"
+        log_level = logger.warning if enabled and not savable else logger.info
+        log_level(msg)
+        route["should_save"] = False
+        return SaveResult(
+            decision=decision,
             message=msg,
             log_entries=[msg]
         )
@@ -638,37 +664,6 @@ def process_phase_save(phase_name: str,
             log_entries=[msg]
         )
     
-    # Update route with phase information
-    route.update({
-        "savable": result_data.get("savable", False),
-        "input_dict": {
-            "name": phase_result.name,
-            "status": phase_result.status,
-            "result": result_data.get("payload", {}),
-            "execution_summary": format_execution_summary(phase_result),
-            "output_dir": Path(route.get("save_paths").get("output_dir")),
-            "change_log_path": Path(route.get("save_paths").get("change_log_path")),
-            "change_log_header": route.get("change_log_header", "")
-        }
-    })
-    
-    enabled = route.get("enabled", False)
-    savable = route.get("savable", False)
-    
-    # Determine if should save
-    should_save, decision, reason = evaluate_save_flags(enabled, savable)
-    
-    if not should_save:
-        msg = f"[SAVE][{phase_name}] skipped: {reason}"
-        log_level = logger.warning if enabled and not savable else logger.info
-        log_level(msg)
-        route["should_save"] = False
-        return SaveResult(
-            decision=decision,
-            message=msg,
-            log_entries=[msg]
-        )
-    
     # Validate save function
     save_fn = route.get("save_fn")
     if not callable(save_fn):
@@ -682,13 +677,27 @@ def process_phase_save(phase_name: str,
         )
     
     # Execute save
+    # Build save input dict with validated paths
+    save_input_dict = {
+        "name": phase_result.name,
+        "status": phase_result.status,
+        "result": result_data.get("payload", {}),
+        "execution_summary": format_execution_summary(phase_result),
+        "output_dir": Path(validated_paths["output_dir"]),  # ✅ Use validated paths
+        "change_log_path": Path(validated_paths["change_log_path"]),  # ✅
+        "change_log_header": route.get("change_log_header", "")
+    }
+
+    # Update route with save decision
     route["should_save"] = True
+    route["save_input_dict"] = save_input_dict 
+
     acceptance_msg = f"[SAVE][{phase_name}] accepted: {reason}"
     logger.info(acceptance_msg)
     
     save_outcome = save_phase_result(
         phase_name,
-        route["input_dict"],
+        route["save_input_dict"],
         save_fn
     )
     

@@ -1,5 +1,4 @@
 from loguru import logger
-from agents.utils import save_output_with_versioning
 from pathlib import Path
 import pandas as pd
 from typing import Dict, Any, List, Optional, NoReturn
@@ -10,7 +9,7 @@ import multiprocessing as mp
 import psutil
 import os
 import traceback
-
+from agents.validationOrchestrator.save_output_formatter import save_validatation_data
 from agents.utils import load_annotation_path, camel_to_snake
 from agents.validationOrchestrator.dynamic_cross_data_validator import DynamicCrossDataValidator
 from agents.validationOrchestrator.static_cross_data_checker import StaticCrossDataChecker
@@ -29,6 +28,7 @@ from configs.shared.agent_report_format import (
     ExecutionStatus,
     print_execution_summary,
     format_execution_tree,
+    save_result,
     update_change_log)
 
 # ============================================
@@ -177,15 +177,18 @@ class StaticValidationPhase(AtomicPhase):
         result = checker.run_validations()
         
         logger.info("✓ StaticCrossDataChecker completed")
-        return result
+        return {
+            "payload": result,
+            "savable": True
+        }
     
     def _fallback(self) -> Dict[str, Any]:
         """Fallback: return empty validation results"""
         logger.warning("Using fallback for StaticCrossDataChecker - returning empty results")
         return {
-            "result": pd.DataFrame(),
-            "log_str": "Fallback: static cross validation skipped due to error\n"
-            }
+            "payload": None,
+            "savable": False
+        }
     
 class POValidationPhase(AtomicPhase):
     """Phase for purchase order required field validation"""
@@ -211,15 +214,18 @@ class POValidationPhase(AtomicPhase):
         result = validator.run_validations()
         
         logger.info("✓ PORequiredCriticalValidator completed")
-        return result
+        return {
+            "payload": result,
+            "savable": True
+        }
     
     def _fallback(self) -> Dict[str, Any]:
         """Fallback: return empty validation results"""
         logger.warning("Using fallback for PORequiredFieldValidation - returning empty results")
         return {
-            "result": pd.DataFrame(),
-            "log_str": "Fallback: PO validation skipped due to error\n"
-            }
+            "payload": None,
+            "savable": False
+        }
     
 class DynamicValidationPhase(AtomicPhase):
     """Phase for dynamic cross-data validation"""
@@ -243,7 +249,7 @@ class DynamicValidationPhase(AtomicPhase):
         self.moldSpecificationSummary_df = moldSpecificationSummary_df
         self.moldInfo_df = moldInfo_df
         self.itemCompositionSummary_df = itemCompositionSummary_df
-    
+     
     def _execute_impl(self) -> Dict[str, Any]:
         """Execute dynamic validation"""
         logger.info("📋 Running DynamicCrossDataValidator...")
@@ -259,18 +265,18 @@ class DynamicValidationPhase(AtomicPhase):
         result = validator.run_validations()
         
         logger.info("✓ DynamicCrossDataValidator completed")
-        return result
+        return {
+            "payload": result,
+            "savable": True
+        }
     
     def _fallback(self) -> Dict[str, Any]:
         """Fallback: return empty validation results"""
         logger.warning("Using fallback for DynamicCrossDataValidation - returning empty results")
         return {
-            "result": {
-                'mismatch_warnings': {},
-                'invalid_warnings': {}
-                }, 
-            "log_str": "Fallback: Dynamic cross validation skipped due to error\n"
-            }
+            "payload": None,
+            "savable": True
+        }
     
 # ============================================
 # MAIN VALIDATION ORCHESTRATOR
@@ -347,6 +353,33 @@ class ValidationOrchestrator(ConfigReportMixin):
         
         # Setup parallel processing configuration
         self._setup_parallel_config()
+
+        self.save_routing = {
+            "StaticCrossDataValidation": {
+                "enabled": False,
+                "save_fn": None,
+                "save_paths": {
+                    "output_dir": None,
+                    "change_log_path": None
+                    }
+                },
+            "PORequiredFieldValidation": {
+                "enabled": False,
+                "save_fn": None,
+                "save_paths": {
+                    "output_dir": None,
+                    "change_log_path": None
+                    }
+                },
+            "DynamicCrossDataValidation":{
+                "enabled": False,
+                "save_fn": None,
+                "save_paths": {
+                    "output_dir": None,
+                    "change_log_path": None
+                    }
+                }
+            }
 
     def _setup_parallel_config(self) -> None:
         """Setup parallel processing configuration based on system resources."""
@@ -574,78 +607,15 @@ class ValidationOrchestrator(ConfigReportMixin):
             }
         )
         
-        # Log completion
+        # ============================================
+        # PRINT EXECUTION TREE & ANALYSIS
+        # ============================================
         self.logger.info("✅ ValidationOrchestrator completed in {:.2f}s!", final_result.duration)
         
         # Print execution tree for visibility
         print_execution_summary(final_result)
         
         return final_result
-
-    def _extract_validation_data(self, result: ExecutionResult) -> Dict[str, Any]:
-        """Extract validation data from ExecutionResult hierarchy."""
-        
-        # Skip first sub_result (DataLoading phase)
-        validation_results = [r for r in result.sub_results if r.name != "DataLoading"]
-        
-        # Find results by phase name
-        static_result = next((r for r in validation_results 
-                            if r.name == "StaticCrossDataValidation"), None)
-        po_result = next((r for r in validation_results 
-                         if r.name == "PORequiredFieldValidation"), None)
-        dynamic_result = next((r for r in validation_results 
-                             if r.name == "DynamicCrossDataValidation"), None)
-        
-        # Extract data from successful results
-        static_data = static_result.data.get(
-            'result', {}).get(
-                'result', {}) if static_result and static_result.status == "success" else {}
-        
-        po_data = po_result.data.get(
-            'result', {}).get(
-                'result', pd.DataFrame()) if po_result and po_result.status == "success" else pd.DataFrame()
-        
-        dynamic_data = dynamic_result.data.get(
-            'result', {}).get(
-                'result', {}) if dynamic_result and dynamic_result.status == "success" else {}
-        
-        # Combine results
-        return self._combine_validation_results(static_data, po_data, dynamic_data)
-
-    def _combine_validation_results(self,
-                                    static_data: Dict[str, Any],
-                                    po_data: Any,
-                                    dynamic_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Combine results from all validation processes."""
-        
-        static_mismatch_warnings_purchase = static_data.get('purchaseOrders', pd.DataFrame())
-        static_mismatch_warnings_product = static_data.get('productRecords', pd.DataFrame())
-        po_required_mismatch_warnings = po_data if isinstance(po_data, pd.DataFrame) else pd.DataFrame()
-        dynamic_invalid_warnings = dynamic_data.get('invalid_warnings', pd.DataFrame())
-        dynamic_mismatch_warnings = dynamic_data.get('mismatch_warnings', pd.DataFrame())
-        
-        final_df = pd.concat([
-            dynamic_mismatch_warnings,
-            static_mismatch_warnings_purchase,
-            static_mismatch_warnings_product,
-            po_required_mismatch_warnings
-        ], ignore_index=True)
-        
-        return {
-            'static_mismatch': {
-                'purchaseOrders': static_mismatch_warnings_purchase,
-                'productRecords': static_mismatch_warnings_product
-            },
-            'po_required_mismatch': po_required_mismatch_warnings,
-            'dynamic_mismatch': {
-                'invalid_items': dynamic_invalid_warnings,
-                'info_mismatches': dynamic_mismatch_warnings
-            },
-            'combined_all': {
-                'po_mismatch_warnings': final_df,
-                'item_invalid_warnings': dynamic_invalid_warnings
-            }
-        }
 
     def run_validations_and_save_results(self, **kwargs) -> ExecutionResult:
         """
@@ -656,58 +626,59 @@ class ValidationOrchestrator(ConfigReportMixin):
         """
         agent_id = self.__class__.__name__
 
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, required_only=True)
+
         try:
             # Execute validations
             result = self.run_validations(**kwargs)
-            
-            # Check if validations succeeded
-            if result.has_critical_errors():
-                self.logger.error("❌ Validations failed with critical errors, skipping save")
-                return result
-            
-            # Extract validation data
-            validation_data = self._extract_validation_data(result)
 
-            if (
-                validation_data['combined_all']['po_mismatch_warnings'].empty
-                and validation_data['combined_all']['item_invalid_warnings'].empty
-                ):
-                self.logger.warning("No mismatches were found during validation, skipping save")
-                return result
+            # Process save routing and collect metadata
+            save_routing, export_metadata = save_result(self.save_routing, result)
             
-            # Generate validation summary
+            # Save validatation data
+            export_log = save_validatation_data(save_routing=save_routing,
+                                                validation_dir=Path(self.config.validation_dir),
+                                                filename_prefix=camel_to_snake(agent_id)
+                                                )
+            
+            # Update result metadata
+            result.metadata.update({
+                'save_routing': save_routing,
+                'export_metadata': export_metadata
+            })
+            
+            pipeline_log_lines = []
+            for phase_name, phase_export in export_metadata.items():
+                pipeline_log_lines.append(f"⤷ Phase: {phase_name}")
+                
+                if phase_export and phase_export.get('metadata'):
+                    log_content = phase_export['metadata'].get('export_log', 'No log available')
+                    pipeline_log_lines.append(log_content)
+                else:
+                    pipeline_log_lines.append(phase_export.get('export_log', 'No export log'))
+            
+            pipeline_log_lines.append(f"⤷ Agent: {agent_id}")
+            pipeline_log_lines.append(export_log)
+
+            # Generate summary report
             reporter = DictBasedReportGenerator(use_colors=False)
-            validation_summary = "\n".join(reporter.export_report(validation_data))
+            summary = "\n".join(reporter.export_report(save_routing))
             
-            # Export results to Excel
-            self.logger.info("📤 Exporting results to Excel...")
-            export_log = save_output_with_versioning(
-                data=validation_data['combined_all'],
-                output_dir=Path(self.config.validation_dir),
-                filename_prefix=camel_to_snake(agent_id),
-                report_text=validation_summary
+            # Save pipeline change log
+            message = update_change_log(
+                agent_id, 
+                config_header, 
+                format_execution_tree(result), 
+                summary, 
+                "\n".join(pipeline_log_lines), 
+                Path(self.config.validation_change_log_path)
             )
-            self.logger.info("✅ Results exported successfully!")
             
-            # Add export info to result metadata
-            result.metadata['export_log'] = export_log
-            result.metadata['validation_summary'] = validation_summary
-            
-            # Generate config header using mixin
-            timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            config_header = self._generate_config_report(timestamp_str, required_only=True)
-
-            # Save change log
-            message = update_change_log(agent_id, 
-                                        config_header, 
-                                        format_execution_tree(result), 
-                                        validation_summary, 
-                                        export_log, 
-                                        Path(self.config.validation_change_log_path)
-                                        )
+            self.logger.info(f"Pipeline log saved: {message}")
 
             return result
-            
+    
         except Exception as e:
             self.logger.error("❌ Failed to save results: {}", str(e))
             raise

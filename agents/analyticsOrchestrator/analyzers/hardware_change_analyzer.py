@@ -402,38 +402,49 @@ class HardwareChangeAnalyzer(ConfigReportMixin):
         agent = CompositeAgent("HardwareChangeAnalyzer", phases)
         result = agent.execute()
         
-        save_routing, metadata = save_result(self.save_routing, result)
+        # Process save routing and collect metadata
+        save_routing, export_metadata = save_result(self.save_routing, result)
+        
+        # Update result metadata
+        result.metadata.update({
+            'save_routing': save_routing,
+            'export_metadata': export_metadata
+        })
 
-        result.metadata.update({'save_routing': save_routing})
-        result.metadata.update(metadata)
-
-        # Save log if requested
+        # ============================================
+        # SAVE PIPELINE LOG IF REQUESTED
+        # ============================================
         if self.config.save_hardware_change_analyzer_log:
-            # Combine pipeline log lines
             pipeline_log_lines = []
-            for phase, export_log in metadata.items():
-                pipeline_log_lines.extend([
-                    f"⤷ Phase: {phase}",
-                    export_log['metadata']['export_log']
-                    ])
             
+            for phase_name, phase_export in export_metadata.items():
+                pipeline_log_lines.append(f"⤷ Phase: {phase_name}")
+                if phase_export and phase_export.get('metadata'):
+                    log_content = phase_export['metadata'].get('export_log', 'No log available')
+                    pipeline_log_lines.append(log_content)
+                else:
+                    pipeline_log_lines.append(phase_export.get('export_log', 'No export log'))
+            
+            # Generate summary report
             reporter = DictBasedReportGenerator(use_colors=False)
-            summary = "\n".join(reporter.export_report(self.save_routing))
-
+            summary = "\n".join(reporter.export_report(save_routing))
+            
             # Save pipeline change log
-            message = update_change_log(agent_id, 
-                                        config_header, 
-                                        format_execution_tree(result), 
-                                        summary, 
-                                        "\n".join(pipeline_log_lines), 
-                                        Path(self.config.shared_source_config.hardware_change_analyzer_log_path)
-                                        )
+            message = update_change_log(
+                agent_id, 
+                config_header, 
+                format_execution_tree(result), 
+                summary, 
+                "\n".join(pipeline_log_lines), 
+                Path(self.config.shared_source_config.hardware_change_analyzer_log_path)
+            )
+            
+            self.logger.info(f"Pipeline log saved: {message}")
 
         # ============================================
         # PRINT EXECUTION TREE & ANALYSIS
         # ============================================
-        self.logger.info("✅ HardwareChangeAnalyzer completed in {:.2f}s!", 
-                        result.duration)
+        self.logger.info("✅ HardwareChangeAnalyzer completed in {:.2f}s!", result.duration)
         
         # Print execution tree for visibility
         print_execution_summary(result)
