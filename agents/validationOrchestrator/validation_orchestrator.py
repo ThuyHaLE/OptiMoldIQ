@@ -645,7 +645,8 @@ class ValidationOrchestrator(ConfigReportMixin):
             # Update result metadata
             result.metadata.update({
                 'save_routing': save_routing,
-                'export_metadata': export_metadata
+                'phase_export_metadata': export_metadata,
+                'pipeline_export_metadata': export_log
             })
             
             pipeline_log_lines = []

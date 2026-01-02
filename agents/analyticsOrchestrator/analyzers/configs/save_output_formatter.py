@@ -206,7 +206,7 @@ def save_layout_change(
     try:
         # Save layout changes
         timestamp_file = datetime.now().strftime("%Y%m%d_%H%M")
-        json_filepath = Path(output_dir) / f"{timestamp_file}_{filename_prefix}.json"
+        json_filepath = Path(output_dir) / "newest" / f"{timestamp_file}_{filename_prefix}.json"
     
         with open(json_filepath, 'w', encoding='utf-8') as f:
             json.dump(layout_changes_dict, f, ensure_ascii=False, indent=2, default=str)
