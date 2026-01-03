@@ -20,7 +20,6 @@ from configs.shared.config_report_format import ConfigReportMixin
 
 # Import agent report format components
 from configs.shared.agent_report_format import (
-    Executable,
     ExecutionResult,
     AtomicPhase,
     CompositeAgent,
@@ -29,7 +28,8 @@ from configs.shared.agent_report_format import (
     print_execution_summary,
     format_execution_tree,
     save_result,
-    update_change_log)
+    update_change_log,
+    format_export_logs)
 
 # ============================================
 # DATA LOADING PHASE
@@ -649,19 +649,10 @@ class ValidationOrchestrator(ConfigReportMixin):
                 'pipeline_export_metadata': export_log
             })
             
-            pipeline_log_lines = []
-            for phase_name, phase_export in export_metadata.items():
-                pipeline_log_lines.append(f"⤷ Phase: {phase_name}")
-                
-                if phase_export and phase_export.get('metadata'):
-                    log_content = phase_export['metadata'].get('export_log', 'No log available')
-                    pipeline_log_lines.append(log_content)
-                else:
-                    pipeline_log_lines.append(phase_export.get('export_log', 'No export log'))
+            pipeline_log_lines = format_export_logs(export_metadata)
+            pipeline_log_lines.append(f"⤷ Agent: {agent_id} succeeded")
+            pipeline_log_lines.append(f"{export_log}")
             
-            pipeline_log_lines.append(f"⤷ Agent: {agent_id}")
-            pipeline_log_lines.append(export_log)
-
             # Generate summary report
             reporter = DictBasedReportGenerator(use_colors=False)
             summary = "\n".join(reporter.export_report(save_routing))

@@ -1,13 +1,13 @@
 from pathlib import Path
 from loguru import logger
 
-from agents.utils import load_annotation_path, read_change_log, save_output_with_versioning, camel_to_snake
-from configs.shared.shared_source_config import SharedSourceConfig
-import pandas as pd
-from datetime import datetime
 import os
+import pandas as pd
 from typing import Dict, Any, NoReturn, List
 from configs.shared.config_report_format import ConfigReportMixin
+from agents.utils import load_annotation_path, read_change_log
+from configs.shared.shared_source_config import SharedSourceConfig
+from agents.orderProgressTracker.save_output_formatter import save_tracking_data
 
 # Import agent report format components
 from configs.shared.agent_report_format import (
@@ -16,8 +16,7 @@ from configs.shared.agent_report_format import (
     AtomicPhase,
     CompositeAgent,
     print_execution_summary,
-    format_execution_tree,
-    update_change_log)
+    save_result)
 
 # ============================================
 # DATA LOADING PHASE
@@ -209,7 +208,7 @@ class ProgressTrackingPhase(AtomicPhase):
     def __init__(self, 
                  data_container: Dict[str, Any], 
                  dependency_data_container: Dict[str, Any]):
-        super().__init__("ProgressTracking")
+        super().__init__("ProgressTracker")
         self.loaded_data = data_container
         self.dependency_data = dependency_data_container
     
@@ -239,18 +238,21 @@ class ProgressTrackingPhase(AtomicPhase):
         tracker_result = tracker.run_tracking()
         logger.info("✓ Progress tracking completed")
         
-        return tracker_result
-    
+        return {
+                "payload": tracker_result,
+                "savable": True
+            }
+        
     def _fallback(self) -> NoReturn:
         """
         No valid fallback for progress tracking.
         Raise to ensure CRITICAL severity is applied.
         """
-        logger.error("ProgressTracking cannot fallback - error processing tracker")
+        logger.error("ProgressTracker cannot fallback - error processing tracker")
         
         raise RuntimeError(
             "Error processing tracker."
-            "ProgressTracking cannot fallback."
+            "ProgressTracker cannot fallback."
         )
 
 # ============================================
@@ -305,7 +307,18 @@ class OrderProgressTracker(ConfigReportMixin):
         
         # Store config
         self.config = config
-    
+
+        self.save_routing = {
+            "ProgressTracker": {
+                "enabled": True,
+                "save_fn": save_tracking_data,
+                "save_paths": {
+                    "output_dir": self.config.progress_tracker_dir,
+                    "change_log_path": self.config.progress_tracker_change_log_path
+                }
+            }
+        }
+
     def run_tracking(self, **kwargs) -> ExecutionResult:
         """
         Main execution method using agent report format
@@ -350,22 +363,6 @@ class OrderProgressTracker(ConfigReportMixin):
         print_execution_summary(result)
         
         return result
-    
-    def _extract_tracking_data(self, result: ExecutionResult) -> Dict[str, Any]:
-        """Extract tracking data from ExecutionResult hierarchy."""
-        
-        # Skip first sub_results (DataLoading and DependencyDataLoading phase) 
-        tracking_result = [r for r in result.sub_results if r.name not in ["DataLoading", "DependencyDataLoading"]]
-        tracking_data = tracking_result[0].data.get(
-            'result', {}) if tracking_result and tracking_result[0].status == "success" else {}
-
-        if not isinstance(tracking_data, dict):
-            return {}
-
-        if not {"result", "tracking_summary"}.issubset(tracking_data):
-            return {}
-    
-        return tracking_data
                 
     def run_tracking_and_save_results(self, **kwargs) -> ExecutionResult:
         """
@@ -375,53 +372,32 @@ class OrderProgressTracker(ConfigReportMixin):
             ExecutionResult: Hierarchical execution result with saved data
         """
 
-        agent_id = self.__class__.__name__
-
         try:
             # Execute tracking
             result = self.run_tracking(**kwargs)
-            
-            # Check if tracking succeeded
-            if result.has_critical_errors():
-                self.logger.error("❌ Validations failed with critical errors, skipping save")
-                return result
 
-            # Extract tracking data
-            tracker_result = self._extract_tracking_data(result)
-            if not tracker_result:
-                self.logger.error("❌ Validations failed: empty or invalid tracking result, skipping save")
-                return result
-            
-            tracking_summary = tracker_result['tracking_summary']
+            # Process save routing and collect metadata
+            save_routing, export_metadata = save_result(self.save_routing, result)
 
-            # Export Excel file with versioning
-            logger.info("Start excel file exporting...")
-            export_log = save_output_with_versioning(
-                data = tracker_result['result'],
-                output_dir = Path(self.config.progress_tracker_dir),
-                filename_prefix = camel_to_snake(agent_id),
-                report_text = tracking_summary
-            )
-            self.logger.info("Results exported successfully!")
+            # Log any export failures (optional, doesn't affect execution status)
+            for phase_name, phase_export in export_metadata.items():
+                if phase_export and phase_export.get('metadata'):
+                    phase_metadata = phase_export['metadata']
+                    if phase_metadata.get('status') == 'failed':
+                        self.logger.warning(
+                            "⤷ Phase {}: ⚠️ Excel export failed: {}",
+                            phase_name,
+                            phase_metadata.get('export_log')
+                        )
 
-            # Add export info to result metadata
-            result.metadata['export_log'] = export_log
-            result.metadata['tracking_summary'] = tracking_summary
+            # Update result metadata
+            result.metadata.update({
+                'save_routing': save_routing,
+                'export_metadata': export_metadata
+            })
             
-            # Generate config header using mixin
-            start_time = datetime.now()
-            timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-            config_header = self._generate_config_report(timestamp_str, required_only=True)
-            
-            # Save change log    
-            message = update_change_log(agent_id, 
-                                        config_header, 
-                                        format_execution_tree(result), 
-                                        tracking_summary, 
-                                        export_log, 
-                                        Path(self.config.progress_tracker_change_log_path)
-                                        )
-            
+            self.logger.info("✅ OrderProgressTracker completed")
+
             return result
 
         except Exception as e:

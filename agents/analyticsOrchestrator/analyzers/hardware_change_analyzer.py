@@ -19,7 +19,8 @@ from configs.shared.agent_report_format import (
     save_result,
     print_execution_summary,
     format_execution_tree,
-    update_change_log)
+    update_change_log,
+    format_export_logs)
 
 # ============================================
 # DATA LOADING PHASE
@@ -415,16 +416,7 @@ class HardwareChangeAnalyzer(ConfigReportMixin):
         # SAVE PIPELINE LOG IF REQUESTED
         # ============================================
         if self.config.save_hardware_change_analyzer_log:
-            pipeline_log_lines = []
-            
-            for phase_name, phase_export in export_metadata.items():
-                pipeline_log_lines.append(f"⤷ Phase: {phase_name}")
-                if phase_export and phase_export.get('metadata'):
-                    log_content = phase_export['metadata'].get('export_log', 'No log available')
-                    pipeline_log_lines.append(log_content)
-                else:
-                    pipeline_log_lines.append(phase_export.get('export_log', 'No export log'))
-            
+
             # Generate summary report
             reporter = DictBasedReportGenerator(use_colors=False)
             summary = "\n".join(reporter.export_report(save_routing))
@@ -435,7 +427,7 @@ class HardwareChangeAnalyzer(ConfigReportMixin):
                 config_header, 
                 format_execution_tree(result), 
                 summary, 
-                "\n".join(pipeline_log_lines), 
+                "\n".join(format_export_logs(export_metadata)), 
                 Path(self.config.shared_source_config.hardware_change_analyzer_log_path)
             )
             

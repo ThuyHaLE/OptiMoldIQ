@@ -7,7 +7,6 @@ from pathlib import Path
 import pandas as pd
 import json
 
-
 def save_machine_layout(input_dict: Dict) -> Dict:
     """
     Save machine layout change results.
@@ -37,56 +36,72 @@ def save_machine_layout(input_dict: Dict) -> Dict:
     if not result.get('has_change', False):
         logger.info("No new layout changes detected.")
         return {
-            "export_log": "No new layout changes detected. Skipping save.",
-            "summary": None
-        }
+            'status': 'skipped_no_changes',  # ✨ More specific
+            'export_log': "No new layout changes detected. Skipping save.",
+            'summary': '',
+            'reason': 'no_changes'  # ✨ Explicit reason
+            }
 
-    metadata = {}
+    metadata = {
+        'status': 'unknown',
+        'export_log': '',
+        'summary': ''
+    }
 
-    logger.info("New layout changes detected.")
+    try:
+        # Extract change data with safe defaults
+        logger.info("New layout changes detected.")
 
-    # Extract change data with safe defaults
-    machine_layout_hist_change = result.get(
-        'changes_data', {}
-    ).get('machine_layout_hist_change', pd.DataFrame())
+        machine_layout_hist_change = result.get(
+            'changes_data', {}
+        ).get('machine_layout_hist_change', pd.DataFrame())
 
-    tracking_summary = result.get('tracker_summary', '')
-    processing_details = result.get('log', '')
+        tracking_summary = result.get('tracker_summary', '')
+        processing_details = result.get('log', '')
 
-    # Export change data to Excel with versioning support
-    logger.info("Start excel file exporting...")
-    export_log = save_output_with_versioning(
-        data={"machineLayoutChange": machine_layout_hist_change},
-        output_dir=Path(output_dir),
-        filename_prefix=camel_to_snake(agent_id),
-        report_text=tracking_summary
-    )
-    logger.info("Results exported successfully!")
+        # Export change data to Excel with versioning support
+        logger.info("Start excel file exporting...")
+        export_log = save_output_with_versioning(
+            data={"machineLayoutChange": machine_layout_hist_change},
+            output_dir=Path(output_dir),
+            filename_prefix=camel_to_snake(agent_id),
+            report_text=tracking_summary
+        )
+        logger.info("Results exported successfully!")
 
-    # Persist first-pair change history as JSON snapshots
-    layout_changes_dict = result.get('changes_dict', {})
-    save_log = save_layout_change(
-        layout_changes_dict=layout_changes_dict,
-        output_dir=Path(output_dir),
-        filename_prefix=f"{camel_to_snake(agent_id)}_{result.get('record_date')}"
-    )
+        # Persist first-pair change history as JSON snapshots
+        layout_changes_dict = result.get('changes_dict', {})
+        save_log = save_layout_change(
+            layout_changes_dict=layout_changes_dict,
+            output_dir=Path(output_dir),
+            filename_prefix=f"{camel_to_snake(agent_id)}_{result.get('record_date')}"
+        )
 
-    # Persist execution record into centralized change log
-    message = update_change_log(
-        agent_id,
-        change_log_header,
-        execution_summary,
-        processing_details,
-        "\n".join([export_log, save_log]),
-        Path(change_log_path)
-    )
+        # Persist execution record into centralized change log
+        message = update_change_log(
+            agent_id,
+            change_log_header,
+            execution_summary,
+            processing_details,
+            "\n".join([export_log, save_log]),
+            Path(change_log_path)
+        )
 
-    # Aggregate export information for upstream orchestration/logging
-    metadata['export_log'] = "\n".join([export_log, save_log, message])
-    metadata['summary'] = tracking_summary
+        # Aggregate export information for upstream orchestration/logging
+        metadata['export_log'] = "\n".join([export_log, save_log, message])
+        metadata['summary'] = tracking_summary
+        metadata['status'] = 'success'
+
+    except Exception as e:
+        error_msg = f"Failed to save tracking data: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        
+        metadata['export_log'] = error_msg
+        metadata['summary'] = ''
+        metadata['status'] = 'failed'
+        metadata['error'] = str(e)
 
     return metadata
-
 
 def save_mold_machine_pair(input_dict: Dict) -> Dict:
     """
@@ -118,69 +133,86 @@ def save_mold_machine_pair(input_dict: Dict) -> Dict:
     if not result.get('has_change', False):
         logger.info("No new machine-mold pair changes detected.")
         return {
-            "export_log": "No new machine-mold pair changes detected. Skipping save.",
-            "summary": None
+            'status': 'skipped_no_changes',  # ✨ More specific
+            'export_log': 'No new machine-mold pair changes detected. Skipping save.',
+            'summary': '',
+            'reason': 'no_changes'  # ✨ Explicit reason
         }
 
-    metadata = {}
-
-    logger.info("New machine-mold pair changes detected.")
-
-    # Extract change datasets
-    mold_machine_df = result.get('changes_data', {}).get(
-        'mold_machine_df', pd.DataFrame()
-    )
-    first_paired_mold_machine = result.get('changes_data', {}).get(
-        'first_paired_mold_machine', pd.DataFrame()
-    )
-
-    # Prepare pivot tables for reporting
-    pivot_machine_mold, pivot_mold_machine = prepare_privot(
-        first_paired_mold_machine
-    )
-
-    # Compose Excel export payload
-    excel_data = {
-        "moldTonageUnmatched": mold_machine_df[
-            mold_machine_df['tonnageMatched'] == False
-        ],
-        "machineMoldFirstRunPair": pivot_machine_mold,
-        "moldMachineFirstRunPair": pivot_mold_machine
+    metadata = {
+        'status': 'unknown',
+        'export_log': '',
+        'summary': ''
     }
-
-    tracking_summary = result.get('tracker_summary', '')
-    metadata['summary'] = tracking_summary
-
-    # Export analytical results to Excel with versioning
-    logger.info("Start excel file exporting...")
-    export_log = save_output_with_versioning(
-        data=excel_data,
-        output_dir=Path(output_dir),
-        filename_prefix=camel_to_snake(agent_id),
-        report_text=tracking_summary
-    )
-    logger.info("Results exported successfully!")
-
-    # Persist first-pair change history as JSON snapshots
-    change_hist_dict = result.get('changes_dict', {})
-    save_log = save_change_hist(
-        change_hist_dict=change_hist_dict,
-        output_dir=Path(output_dir),
-        filename_prefix=f"{camel_to_snake(agent_id)}_{result.get('record_date')}"
-    )
     
-    # Update centralized change log
-    message = update_change_log(
-        agent_id,
-        change_log_header,
-        execution_summary,
-        result.get('log', ''),
-        "\n".join([export_log, save_log]),
-        Path(change_log_path)
-    )
+    try:
+        # Extract change datasets
+        logger.info("New machine-mold pair changes detected.")
+        mold_machine_df = result.get('changes_data', {}).get(
+            'mold_machine_df', pd.DataFrame()
+        )
+        first_paired_mold_machine = result.get('changes_data', {}).get(
+            'first_paired_mold_machine', pd.DataFrame()
+        )
 
-    # Aggregate export information for upstream orchestration/logging
-    metadata['export_log'] = "\n".join([export_log, save_log, message])
+        # Prepare pivot tables for reporting
+        pivot_machine_mold, pivot_mold_machine = prepare_privot(
+            first_paired_mold_machine
+        )
+
+        # Compose Excel export payload
+        excel_data = {
+            "moldTonageUnmatched": mold_machine_df[
+                mold_machine_df['tonnageMatched'] == False
+            ],
+            "machineMoldFirstRunPair": pivot_machine_mold,
+            "moldMachineFirstRunPair": pivot_mold_machine
+        }
+
+        tracking_summary = result.get('tracker_summary', '')
+        metadata['summary'] = tracking_summary
+
+        # Export analytical results to Excel with versioning
+        logger.info("Start excel file exporting...")
+        export_log = save_output_with_versioning(
+            data=excel_data,
+            output_dir=Path(output_dir),
+            filename_prefix=camel_to_snake(agent_id),
+            report_text=tracking_summary
+        )
+        logger.info("Results exported successfully!")
+
+        # Persist first-pair change history as JSON snapshots
+        change_hist_dict = result.get('changes_dict', {})
+        save_log = save_change_hist(
+            change_hist_dict=change_hist_dict,
+            output_dir=Path(output_dir),
+            filename_prefix=f"{camel_to_snake(agent_id)}_{result.get('record_date')}"
+        )
+        
+        # Update centralized change log
+        message = update_change_log(
+            agent_id,
+            change_log_header,
+            execution_summary,
+            result.get('log', ''),
+            "\n".join([export_log, save_log]),
+            Path(change_log_path)
+        )
+
+        # Aggregate export information for upstream orchestration/logging
+        metadata['export_log'] = "\n".join([export_log, save_log, message])
+        metadata['summary'] = tracking_summary
+        metadata['status'] = 'success'
+
+    except Exception as e:
+        error_msg = f"Failed to save tracking data: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        
+        metadata['export_log'] = error_msg
+        metadata['summary'] = ''
+        metadata['status'] = 'failed'
+        metadata['error'] = str(e)
 
     return metadata
 

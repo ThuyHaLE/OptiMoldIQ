@@ -627,7 +627,10 @@ def process_phase_save(phase_name: str,
         return SaveResult(
             decision=SaveDecision.SKIPPED_NO_RESULT,
             message=msg,
-            log_entries=[msg]
+            log_entries=[msg],
+            metadata={
+                'status': 'skipped', 
+                'reason': 'no_result'}
         )
     
     # Update route with runtime flags
@@ -647,7 +650,13 @@ def process_phase_save(phase_name: str,
         return SaveResult(
             decision=decision,
             message=msg,
-            log_entries=[msg]
+            log_entries=[msg],
+            metadata={
+                'status': 'skipped',
+                'reason': reason,
+                'enabled': enabled,
+                'savable': savable
+            }
         )
     
     # Validate paths early
@@ -661,7 +670,12 @@ def process_phase_save(phase_name: str,
         return SaveResult(
             decision=SaveDecision.SKIPPED_INVALID_PATHS,  # ✨ New decision
             message=msg,
-            log_entries=[msg]
+            log_entries=[msg],
+            metadata={
+                'status': 'skipped',
+                'reason': 'invalid_paths',
+                'error': path_error
+            }
         )
     
     # Validate save function
@@ -673,7 +687,11 @@ def process_phase_save(phase_name: str,
         return SaveResult(
             decision=SaveDecision.SKIPPED_NO_SAVE_FN,
             message=msg,
-            log_entries=[msg]
+            log_entries=[msg],
+            metadata={
+                'status': 'skipped',
+                'reason': 'no_save_fn'
+            }
         )
     
     # Execute save
@@ -792,24 +810,62 @@ def save_phase_result(phase_name: str,
     Returns:
         SaveResult with outcome and metadata
     """
+
     try:
-        metadata = save_fn(phase_data) or {}
-        msg = f"[SAVE][{phase_name}] succeeded"
-        logger.info(msg)
-        return SaveResult(
-            decision=SaveDecision.SAVED,
-            message=msg,
-            metadata=metadata,
-            log_entries=[msg]
-        )
+        # Call user-provided save_fn
+        metadata = save_fn(phase_data)
+        status = metadata.get('status', 'unknown')
+        
+        # Check if save reported failure
+        if status == 'failed':
+            return SaveResult(
+                decision=SaveDecision.FAILED,
+                message=metadata.get('export_log', f"[SAVE][{phase_name}] failed"),
+                metadata=metadata,
+                log_entries=[f"[SAVE][{phase_name}] failed: {metadata.get('export_log')}"]
+            )
+        
+        # ✨ Handle business logic skips (no changes, etc.)
+        elif status.startswith('skipped'):
+            reason = metadata.get('reason', status.replace('skipped_', ''))
+            return SaveResult(
+                decision=SaveDecision.SKIPPED_NO_RESULT,
+                message=metadata.get('export_log', f"[SAVE][{phase_name}] skipped: {reason}"),
+                metadata=metadata,
+                log_entries=[f"[SAVE][{phase_name}] ⊘ skipped: {reason}"]
+            )
+        
+        elif status == 'success':
+            return SaveResult(
+                decision=SaveDecision.SAVED,
+                message=metadata.get('export_log', f"[SAVE][{phase_name}] succeeded"),
+                metadata=metadata,
+                log_entries=[f"[SAVE][{phase_name}] completed"]
+            )
+        
+        else:
+            logger.warning(f"Unknown save status '{status}' for {phase_name}")
+            return SaveResult(
+                decision=SaveDecision.SAVED,
+                message=metadata.get('export_log', f"Completed (status: {status})"),
+                metadata=metadata,
+                log_entries=[f"[SAVE][{phase_name}] ⚠️ {status}"]
+            )
+        
     except Exception as e:
-        msg = f"[SAVE][{phase_name}] failed: {e}"
-        logger.exception(msg)
+        # Catch unexpected exceptions from save_fn
+        error_msg = f"Exception in save_fn: {str(e)}"
+        logger.error(f"[SAVE][{phase_name}] {error_msg}", exc_info=True)
+        
         return SaveResult(
             decision=SaveDecision.FAILED,
-            message=msg,
-            error=e,
-            log_entries=[msg]
+            message=error_msg,
+            metadata={
+                'status': 'failed',
+                'export_log': error_msg,
+                'error': str(e)
+            },
+            log_entries=[f"[SAVE][{phase_name}] exception: {error_msg}"]
         )
 
 def update_change_log(agent_id: str,
@@ -890,3 +946,48 @@ def append_change_log(log_path: str | Path, log_str: str) -> str:
     except OSError as e:
         logger.error("✗ Failed to save change log {}: {}", log_path, e)
         raise 
+
+def format_export_logs(export_metadata: Dict[str, Dict]) -> List[str]:
+    """
+    Format export metadata into readable log lines.
+    
+    Args:
+        export_metadata: Dictionary mapping phase names to export results:
+            {
+                "phase_name": {
+                    "metadata": {"status": "success", ...},
+                    "export_log": "..."
+                }
+            }
+    
+    Returns:
+        List of formatted log lines ready to append to pipeline logs
+    """
+    log_lines = []
+    
+    # Status to icon/label mapping
+    status_map = {
+        'success': ('✅', 'success'),
+        'failed': ('❌', 'failed'),
+        'skipped_no_changes': ('⊘', 'no changes'),
+        'skipped': ('⊘', 'skipped'),
+        'unknown': ('⚠️', 'unknown')
+    }
+    
+    for phase_name, phase_export in export_metadata.items():
+        phase_metadata = phase_export.get('metadata') or {}
+        status = phase_metadata.get('status', 'unknown')
+        
+        # Get icon and label for status
+        icon, label = status_map.get(status, ('❓', status))
+        
+        # Header with status
+        log_lines.append(f"⤷ Phase: {phase_name} {icon} {label}")
+        
+        # Export log details (indented)
+        export_log = phase_export.get('export_log', 'No export log')
+        for line in export_log.split('\n'):
+            if line.strip():
+                log_lines.append(f"  {line}")
+    
+    return log_lines
