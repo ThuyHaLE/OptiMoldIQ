@@ -1,17 +1,16 @@
 import pandas as pd
 from loguru import logger
-from typing import Dict, Any, Optional, NoReturn, Tuple, Set, List
+from typing import Dict, Any, Optional, NoReturn, List
 
 import os
 from pathlib import Path
 from datetime import datetime
 
-from agents.utils import (
-    load_annotation_path, read_change_log, get_latest_change_row, 
-    camel_to_snake, save_output_with_versioning)
-
+from agents.utils import load_annotation_path, read_change_log, get_latest_change_row
+from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 from configs.shared.config_report_format import ConfigReportMixin
 from agents.autoPlanner.phases.initialPlanner.configs.initial_planner_config import InitialPlannerConfig
+from agents.autoPlanner.phases.initialPlanner.configs.save_output_formatter import save_producing_plan, save_pending_plan
 
 # Import agent report format components
 from configs.shared.agent_report_format import (
@@ -21,7 +20,9 @@ from configs.shared.agent_report_format import (
     CompositeAgent,
     print_execution_summary,
     format_execution_tree,
-    update_change_log)
+    update_change_log,
+    save_result,
+    format_export_logs)
 
 # ============================================
 # DATA LOADING PHASE
@@ -457,11 +458,15 @@ class ProducingOrderPlanningPhase(AtomicPhase):
         })
 
         return {
-            "result": final_result,
-            "has_pending_status": len(producing_planner_result.pending_status_data) > 0,
-            "planner_summary": producing_planner_result.planner_summary,
-            "log_str": log_str
-        }
+            "payload": {
+                "result": final_result,
+                "has_pending_status": len(producing_planner_result.pending_status_data) > 0,
+                "planner_summary": producing_planner_result.planner_summary,
+                "log_str": log_str
+            },
+            "savable": True
+            }
+        
     
     def _fallback(self) -> NoReturn:
         """
@@ -624,11 +629,14 @@ class PendingOrderPlanningPhase(AtomicPhase):
             raise FileNotFoundError(f"Failed to extracting information as final result: {e}")
         
         return {
-            "result": final_result,
-            "planner_summary": pending_planner_result.planner_summary,
-            "log_str": log_str
-        }
-    
+            "payload": {
+                "result": final_result,
+                "planner_summary": pending_planner_result.planner_summary,
+                "log_str": log_str
+            },
+            "savable": True
+            }
+        
     def _fallback(self) -> NoReturn:
         """
         No valid fallback for producing orders planner
@@ -735,6 +743,25 @@ class InitialPlanner(ConfigReportMixin):
         self.validate_configuration()
         self.logger.info("✓ Validation for production efficiency factor and loss factor: PASSED!")
 
+        self.save_routing = {
+            "ProducingOrderPlanner": {
+                "enabled": True,
+                "save_fn": save_producing_plan,
+                "save_paths": {
+                    "output_dir": self.config.shared_source_config.producing_processor_dir,
+                    "change_log_path": self.config.shared_source_config.producing_processor_change_log_path
+                }
+            },
+            "PendingOrderPlanner": {
+                "enabled": True,
+                "save_fn": save_pending_plan,
+                "save_paths": {
+                    "output_dir": self.config.shared_source_config.pending_processor_dir,
+                    "change_log_path": self.config.shared_source_config.pending_processor_change_log_path
+                }
+            },
+        }
+
     def validate_configuration(self) -> bool:
         """
         Validate that all required configurations are accessible.
@@ -819,77 +846,18 @@ class InitialPlanner(ConfigReportMixin):
         # ============================================
         # EXECUTE USING COMPOSITE AGENT
         # ============================================
-        agent = CompositeAgent("HistoricalFeaturesExtractor", phases)
+        agent = CompositeAgent("InitialPlanner", phases)
         result = agent.execute()
         
         # ============================================
         # PRINT EXECUTION TREE & ANALYSIS
         # ============================================
-        self.logger.info("✅ HistoricalFeaturesExtractor completed in {:.2f}s!", result.duration)
+        self.logger.info("✅ InitialPlanner completed in {:.2f}s!", result.duration)
         
         # Print execution tree for visibility
         print_execution_summary(result)
         
         return result
-    
-    def _extract_planning_data(self,
-                                 result: ExecutionResult) -> Tuple[
-                                     ExecutionResult, Dict, str, str,
-                                     ExecutionResult, Dict, str, str]:
-        
-        # Skip first sub_results (DataLoading and DependencyDataLoading, OptionalDependencyDataLoading phase) 
-        extraction_results = [
-            r for r in result.sub_results if r.name not in [
-                "DataLoading", "DependencyDataLoading", "OptionalDependencyDataLoading"
-                ]
-            ]
-
-        # Find results by phase name
-        (producing_planner_result, producing_planner_data, 
-         producing_planner_summary, producing_planner_log) = self._extract_single_phase_data(
-            "ProducingOrderPlanner", 
-            extraction_results,
-            {'mold_estimated_capacity', 'invalid_mold_list', 'producing_status_data', 
-             'pending_status_data', 'producing_pro_plan', 'producing_mold_plan', 'producing_plastic_plan'})
-
-        (pending_planner_result, pending_planner_data, 
-         pending_planner_summary, pending_planner_log) = self._extract_single_phase_data(
-            "PendingOrderPlanner", 
-            extraction_results,
-            {'mold_machine_priority_matrix', 'initial_plan', 'not_matched_pending', 'note'})
-            
-        return (producing_planner_result, producing_planner_data, producing_planner_summary, producing_planner_log, 
-                pending_planner_result, pending_planner_data, pending_planner_summary, pending_planner_log)
-
-    def _extract_single_phase_data(self,
-                                   phase_name: str, 
-                                   all_phase_results: list[ExecutionResult], 
-                                   phase_keys: Set[str]
-                                   ) -> Tuple[ExecutionResult, Dict, str, str]:
-        """Extract data from a single phase by name"""
-
-        phase_result = next((r for r in all_phase_results 
-                            if r.name == phase_name), None)
-        
-        phase_data = phase_result.data.get(
-            'result', {}).get(
-                'result', {}) if phase_result and phase_result.status == "success" else {}
-
-        phase_summary = phase_result.data.get(
-                'result', {}).get(
-                    'planner_summary', "") if phase_result and phase_result.status == "success" else ""
-        
-        phase_log = phase_result.data.get(
-                'result', {}).get(
-                    'log_str', "") if phase_result and phase_result.status == "success" else ""
-        
-        if not isinstance(phase_data, dict):
-            return phase_result, {}, phase_summary, phase_log
-
-        if not phase_keys.issubset(phase_data):
-            return phase_result, {}, phase_summary, phase_log
-
-        return phase_result, phase_data, phase_summary, phase_log
     
     def run_planning_and_save_results(self, **kwargs) -> ExecutionResult:
         """
@@ -901,116 +869,37 @@ class InitialPlanner(ConfigReportMixin):
 
         agent_id = self.__class__.__name__
 
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, required_only=True)
+
         try:
             # Execute extraction
             result = self.process_planning(**kwargs)
             
-            # Check if extraction succeeded
-            if result.has_critical_errors():
-                self.logger.error("❌ Validations failed with critical errors, skipping save")
-                return result
-
-            # Extract extraction data
-            (producing_planner_result, producing_planner_data, 
-             producing_planner_summary, producing_planner_log, 
-             pending_planner_result, pending_planner_data, 
-             pending_planner_summary, pending_planner_log) = self._extract_planning_data(result)
+            # Process save routing and collect metadata
+            save_routing, export_metadata = save_result(self.save_routing, result)
             
-            if not producing_planner_data and not pending_planner_data:
-                self.logger.error(
-                    "❌ Validations failed: empty or invalid producing planner data and pending planner data, skipping save"
-                    )
-                return result
-            
-            # Generate config header using mixin
-            start_time = datetime.now()
-            timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-            config_header = self._generate_config_report(timestamp_str, required_only=True)
-            
-            export_logs = []
-            if producing_planner_data:
+            # Update result metadata
+            result.metadata.update({
+                'save_routing': save_routing,
+                'export_metadata': export_metadata
+            })
 
-                phase_name = producing_planner_result.name
-
-                # Export Excel file with versioning
-                logger.info("{}: Start excel file exporting...", phase_name)
-                export_log = save_output_with_versioning(
-                    data = producing_planner_data,
-                    output_dir = Path(self.config.shared_source_config.producing_processor_dir),
-                    filename_prefix = camel_to_snake(phase_name),
-                    report_text = producing_planner_summary
-                )
-                export_logs.append(phase_name)
-                export_logs.append("Export Log:")
-                export_logs.append(export_log)
-                self.logger.info("{}: Results exported successfully!", phase_name)
-
-                # Add export info to result metadata
-                producing_planner_result.metadata['export_log'] = export_log
-                producing_planner_result.metadata['planner_summary'] = producing_planner_summary
-                producing_planner_result.metadata['log_str'] = producing_planner_log
-                
-                # Save change log
-                message = update_change_log(producing_planner_result.name, 
-                                            config_header, 
-                                            format_execution_tree(producing_planner_result), 
-                                            producing_planner_summary, 
-                                            export_log, 
-                                            Path(self.config.shared_source_config.producing_processor_change_log_path)
-                                            )
-                export_logs.append("Change Log:")
-                export_logs.append(message)
-
-            if pending_planner_data:
-                
-                phase_name = pending_planner_result.name
-                
-                # Export Excel file with versioning
-                logger.info("{}: Start excel file exporting...", phase_name)
-                export_log = save_output_with_versioning(
-                    data = pending_planner_data,
-                    output_dir = Path(self.config.shared_source_config.pending_processor_dir),
-                    filename_prefix = camel_to_snake(phase_name),
-                    report_text = pending_planner_summary
-                )
-                export_logs.append(phase_name)
-                export_logs.append("Export Log:")
-                export_logs.append(export_log)
-                self.logger.info("{}: Results exported successfully!", phase_name)
-
-                # Add export info to result metadata
-                pending_planner_result.metadata['export_log'] = export_log
-                pending_planner_result.metadata['planner_summary'] = pending_planner_summary
-                pending_planner_result.metadata['log_str'] = pending_planner_log
-
-                # Save change log
-                message = update_change_log(phase_name, 
-                                            config_header, 
-                                            format_execution_tree(pending_planner_result), 
-                                            pending_planner_summary, 
-                                            export_log, 
-                                            Path(self.config.shared_source_config.pending_processor_change_log_path))
-                export_logs.append("Change Log:")
-                export_logs.append(message)
-                
-            # Combine pipeline log lines
-            pipeline_log_lines = [
-                "⤷ Phase 1: ProducingOrderPlanner",
-                producing_planner_log,
-                "⤷ Phase 2: PendingOrderPlanner",
-                pending_planner_log
-                ]
+            # Generate summary report
+            reporter = DictBasedReportGenerator(use_colors=False)
+            summary = "\n".join(reporter.export_report(save_routing))
             
             # Save pipeline change log
-            message = update_change_log(agent_id, 
-                                        config_header, 
-                                        format_execution_tree(result), 
-                                        "\n".join(pipeline_log_lines), 
-                                        "\n".join(export_logs), 
-                                        Path(self.config.shared_source_config.initial_planner_change_log_path)
-                                        )
+            message = update_change_log(
+                agent_id, 
+                config_header, 
+                format_execution_tree(result), 
+                summary, 
+                "\n".join(format_export_logs(export_metadata)), 
+                Path(self.config.shared_source_config.initial_planner_change_log_path)
+            )
             
-            self.logger.info("✓ All results saved successfully!")
+            self.logger.info(f"Pipeline log saved: {message}")
 
             return result
 

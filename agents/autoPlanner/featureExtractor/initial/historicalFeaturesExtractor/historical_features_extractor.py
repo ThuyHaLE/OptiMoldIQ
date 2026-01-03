@@ -1,17 +1,17 @@
 from pathlib import Path
-from typing import Dict, Any, Set, Tuple, List, NoReturn
+from typing import Dict, Any, List, NoReturn
 from loguru import logger
 from datetime import datetime
 import pandas as pd
 import os
 
-from agents.utils import (
-    load_annotation_path, read_change_log, camel_to_snake,
-    save_output_with_versioning, update_weight_and_save_confidence_report)
-
+from agents.utils import load_annotation_path, read_change_log
+from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 from configs.shared.config_report_format import ConfigReportMixin
 from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.features_extractor_config import (
     FeaturesExtractorConfig)
+from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.save_output_formatter import (
+    save_mold_stability_index, save_mold_machine_weights)
 
 # Import agent report format components
 from configs.shared.agent_report_format import (
@@ -21,7 +21,9 @@ from configs.shared.agent_report_format import (
     CompositeAgent,
     print_execution_summary,
     format_execution_tree,
-    update_change_log)
+    update_change_log,
+    save_result,
+    format_export_logs)
 
 # ============================================
 # DATA LOADING PHASE
@@ -207,8 +209,11 @@ class MoldStabilityCalculatingPhase(AtomicPhase):
         
         logger.info("✓ MoldStabilityIndexCalculator completed")
         
-        return calculator_result.to_dict()
-    
+        return {
+            "payload": calculator_result.to_dict(),
+            "savable": True
+            }
+            
     def _fallback(self) -> NoReturn:
         """
         No valid fallback for mold stability calculator.
@@ -313,7 +318,10 @@ class FeatureWeightCalculatingPhase(AtomicPhase):
         except Exception as e:
             raise FileNotFoundError(f"Failed to running feature weight calulator: {e}")
 
-        return calculator_result.to_dict()
+        return {
+            "payload": calculator_result.to_dict(),
+            "savable": True
+            }
 
     def _estimate_mold_capacity(self):
         # Import ItemMoldCapacityEstimator
@@ -506,6 +514,25 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
             )
         self.logger.info("✓ Validation for shared_source_config requirements: PASSED!")
 
+        self.save_routing = {
+            "MoldStabilityIndexCalculator": {
+                "enabled": True,
+                "save_fn": save_mold_stability_index,
+                "save_paths": {
+                    "output_dir": self.config.shared_source_config.mold_stability_index_dir,
+                    "change_log_path": self.config.shared_source_config.mold_stability_index_change_log_path
+                }
+            },
+            "MoldMachineFeatureWeightCalculator": {
+                "enabled": True,
+                "save_fn": save_mold_machine_weights,
+                "save_paths": {
+                    "output_dir": self.config.shared_source_config.mold_machine_weights_dir,
+                    "change_log_path": self.config.shared_source_config.mold_machine_weights_hist_path
+                }
+            },
+        }
+
     def run_extraction(self) -> ExecutionResult:
         """
         Execute the complete historical features extraction pipeline.
@@ -565,45 +592,6 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
         
         return result
     
-    def _extract_historical_data(self, result: ExecutionResult
-                                 ) -> Tuple[ExecutionResult, Dict, 
-                                            ExecutionResult, Dict]:
-        # Skip first sub_results (DataLoading and DependencyDataLoading phase) 
-        extraction_results = [r for r in result.sub_results if r.name not in ["DataLoading", "DependencyDataLoading"]]
-
-        # Find results by phase name
-        mold_stability_result, mold_stability_data = self._extract_single_phase_data(
-            "MoldStabilityIndexCalculator", 
-            extraction_results,
-            {'mold_stability_index', 'index_calculation_summary', 'log_str'})
-
-        feature_weight_result, feature_weight_data = self._extract_single_phase_data(
-            "MoldMachineFeatureWeightCalculator", 
-            extraction_results,
-            {'confidence_scores', 'overall_confidence', 'enhanced_weights', 
-             'confidence_report_text', 'log_str'})
-            
-        return mold_stability_result, mold_stability_data, feature_weight_result, feature_weight_data
-    
-    def _extract_single_phase_data(self, 
-                                   phase_name: str, 
-                                   all_phase_results: list[ExecutionResult], 
-                                   phase_keys: Set[str]) -> Tuple[ExecutionResult, Dict]:
-        """Extract data from a single phase by name"""
-
-        phase_result = next((r for r in all_phase_results 
-                             if r.name == phase_name), None)
-        phase_data = phase_result.data.get(
-            'result', {}) if phase_result and phase_result.status == "success" else {}
-        
-        if not isinstance(phase_data, dict):
-            return None, {}
-
-        if not phase_keys.issubset(phase_data):
-            return None, {}
-
-        return phase_result, phase_data
-    
     def run_extraction_and_save_results(self, **kwargs) -> ExecutionResult:
         """
         Execute extraction and save results to Excel files.
@@ -614,112 +602,37 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
 
         agent_id = self.__class__.__name__
 
+        timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config_header = self._generate_config_report(timestamp_str, required_only=True)
+
         try:
             # Execute extraction
             result = self.run_extraction(**kwargs)
+
+            # Process save routing and collect metadata
+            save_routing, export_metadata = save_result(self.save_routing, result)
             
-            # Check if extraction succeeded
-            if result.has_critical_errors():
-                self.logger.error("❌ Validations failed with critical errors, skipping save")
-                return result
+            # Update result metadata
+            result.metadata.update({
+                'save_routing': save_routing,
+                'export_metadata': export_metadata
+            })
 
-            # Extract extraction data
-            (mold_stability_result, mold_stability_data, 
-             feature_weight_result, feature_weight_data) = self._extract_historical_data(result)
-            
-            if not mold_stability_data and not feature_weight_data:
-                self.logger.error("❌ Validations failed: empty or invalid mold stability data and feature weight data, skipping save")
-                return result
-            
-            # Generate config header using mixin
-            start_time = datetime.now()
-            timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
-            config_header = self._generate_config_report(timestamp_str, required_only=True)
-            
-            export_logs = []
-            if mold_stability_data:
-
-                phase_name = mold_stability_result.name  
-
-                # Export Excel file with versioning
-                logger.info("{}: Start excel file exporting...", phase_name)
-                export_log = save_output_with_versioning(
-                    data = {"moldStabilityIndex":  mold_stability_data['mold_stability_index']},
-                    output_dir = Path(self.config.shared_source_config.mold_stability_index_dir),
-                    filename_prefix = camel_to_snake(phase_name),
-                    report_text = mold_stability_data['index_calculation_summary']
-                )
-                export_logs.append(phase_name)
-                export_logs.append("Export Log:")
-                export_logs.append(export_log)
-                self.logger.info("{}: Results exported successfully!", phase_name)
-
-                # Add export info to result metadata
-                mold_stability_result.metadata['export_log'] = export_log
-                mold_stability_result.metadata['calculation_summary'] = mold_stability_data['index_calculation_summary']
-                mold_stability_result.metadata['log_str'] = mold_stability_data['log_str']
-                
-                # Save change log
-                message = update_change_log(mold_stability_result.name, 
-                                            config_header, 
-                                            format_execution_tree(mold_stability_result), 
-                                            mold_stability_data['index_calculation_summary'], 
-                                            export_log, 
-                                            Path(self.config.shared_source_config.mold_stability_index_change_log_path)
-                                            )
-                export_logs.append("Change Log:")
-                export_logs.append(message)
-
-            if feature_weight_data:
-                
-                phase_name = feature_weight_result.name
-                
-                # Export Excel file with versioning
-                logger.info("{}: Start excel file exporting...", phase_name)
-                export_log = update_weight_and_save_confidence_report(
-                    report_text = feature_weight_data['confidence_report_text'],
-                    output_dir = Path(self.config.shared_source_config.mold_machine_weights_dir),
-                    filename_prefix = camel_to_snake(phase_name),
-                    enhanced_weights = feature_weight_data['enhanced_weights'])
-                export_logs.append(phase_name)
-                export_logs.append("Export Log:")
-                export_logs.append(export_log)
-                self.logger.info("{}: Results exported successfully!", phase_name)
-
-                # Add export info to result metadata
-                feature_weight_result.metadata['export_log'] = export_log
-                feature_weight_result.metadata['confidence_report_text'] = feature_weight_data['confidence_report_text']
-                feature_weight_result.metadata['log_str'] = feature_weight_data['log_str']
-
-                # Save change log
-                message = update_change_log(phase_name, 
-                                            config_header, 
-                                            format_execution_tree(feature_weight_result), 
-                                            feature_weight_data['confidence_report_text'], 
-                                            export_log, 
-                                            Path(self.config.shared_source_config.mold_machine_weights_hist_path)
-                                            )
-                export_logs.append("Change Log:")
-                export_logs.append(message)
-                
-            # Combine pipeline log lines
-            pipeline_log_lines = [
-                "⤷ Phase 1: Mold Stability Index Calculation",
-                mold_stability_data['log_str'],
-                "⤷ Phase 2: Feature Weight Calculation",
-                feature_weight_data['log_str']
-                ]
+            # Generate summary report
+            reporter = DictBasedReportGenerator(use_colors=False)
+            summary = "\n".join(reporter.export_report(save_routing))
             
             # Save pipeline change log
-            message = update_change_log(agent_id, 
-                                        config_header, 
-                                        format_execution_tree(result), 
-                                        "\n".join(pipeline_log_lines), 
-                                        "\n".join(export_logs), 
-                                        Path(self.config.shared_source_config.features_extractor_change_log_path)
-                                        )
+            message = update_change_log(
+                agent_id, 
+                config_header, 
+                format_execution_tree(result), 
+                summary, 
+                "\n".join(format_export_logs(export_metadata)), 
+                Path(self.config.shared_source_config.features_extractor_change_log_path)
+            )
             
-            self.logger.info("✓ All results saved successfully!")
+            self.logger.info(f"Pipeline log saved: {message}")
 
             return result
 
