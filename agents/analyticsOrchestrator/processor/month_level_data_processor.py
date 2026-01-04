@@ -4,7 +4,6 @@ from typing import Tuple, Dict
 from loguru import logger
 from datetime import datetime
 from configs.shared.config_report_format import ConfigReportMixin
-from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 from agents.decorators import validate_init_dataframes, validate_dataframe
 from agents.analyticsOrchestrator.processor.configs.processor_config import ProcessorLevel, ProcessorResult
     
@@ -61,15 +60,17 @@ class MonthLevelDataProcessor(ConfigReportMixin):
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
         config_header = self._generate_config_report(timestamp_str)
 
-        summary_header = "\n".join([
+        processor_log_entries = [
             config_header,
             "--Processing Summary--\n",
             f"⤷ {self.__class__.__name__} results:\n"
-        ])
+            ]
 
         try:
             # Validate input parameters and set up analysis context
             analysis_timestamp, adjusted_record_month = self._validate_analysis_parameters()
+            self.logger.info("Initial month level data processing at {}", adjusted_record_month)
+            processor_log_entries.append(f"Initial month level data processing at {adjusted_record_month}")
 
             # Filter and prepare base data for PO-level analysis
             po_based_df = self._filter_data(adjusted_record_month, analysis_timestamp)
@@ -143,8 +144,6 @@ class MonthLevelDataProcessor(ConfigReportMixin):
                 "finishedRecords": finished_df,
                 "unfinishedRecords": unfinished_df
                 }
-            reporter = DictBasedReportGenerator(use_colors=False)
-            summary_footer = "\n".join(reporter.export_report(processed_data))
             
             was_adjusted = (adjusted_record_month != self.record_month)
             
@@ -156,9 +155,8 @@ class MonthLevelDataProcessor(ConfigReportMixin):
                 adjusted_record_month = adjusted_record_month, 
                 analysis_timestamp = analysis_timestamp, 
                 was_adjusted = was_adjusted, 
-                summary_header = summary_header,
-                summary_footer = summary_footer,
-                processed_data = processed_data
+                processed_data = processed_data,
+                log = '\n'.join(processor_log_entries)
                 )
 
         except Exception as e:

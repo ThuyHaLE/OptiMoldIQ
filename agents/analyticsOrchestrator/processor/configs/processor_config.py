@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any
 from enum import Enum
 import pandas as pd
+from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 
 class ProcessorLevel(Enum):
     """Enum to identify processor level"""
@@ -32,25 +33,36 @@ class ProcessorResult:
     
     # ============ VALIDATION METADATA ============
     was_adjusted: bool = False
-    
-    # ============ ANALYSIS FORMATS ============
-    summary_header: Optional[str] = None
-    summary_footer: Optional[str] = None
 
     # ============ ANALYSIS RESULTS ============
     processed_data: Optional[Dict] = None
     analysis_summary: Optional[str] = None
+    log: str = ""
     
     # ============ SUMMARY GENERATION ============
     def __post_init__(self):
         """Apply default values for None fields"""
         self.analysis_summary = self.get_processor_summary()
 
+    def _log_processor_summary(self) -> str: 
+        if not self.processed_data:
+            return "No processor summary available"
+
+        reporter = DictBasedReportGenerator(use_colors=False)
+        return "\n".join(reporter.export_report(self.processed_data))
+    
+    def _update_log(self, processor_summary):
+        """Update log with new processor summary"""
+        self.log = self.log + "\n\n" + processor_summary
+    
     def get_processor_summary(self) -> str:
         """Generate summary based on processor level"""
-        
-        validation_summary = ""
-        analysis_summary = ""
+
+        validation_summary = "No validation summary available"
+        analysis_summary = "No analysis summary available"
+        processor_summary = self._log_processor_summary()
+
+        self._update_log(processor_summary)
         
         if self.processor_level == ProcessorLevel.DAY:
             validation_summary = self._log_day_validation_summary()
@@ -64,31 +76,11 @@ class ProcessorResult:
             validation_summary = self._log_year_validation_summary()
             analysis_summary = self._log_year_analysis_summary()
         
-        # Only add double newline if both summaries exist
-        if validation_summary and analysis_summary:
-            return (
-                self.summary_header + "\n\n" + 
-                validation_summary + "\n\n" + 
-                analysis_summary + "\n\n" + 
-                self.summary_footer + "\n")
-        elif validation_summary:
-            return (
-                self.summary_header + "\n" + 
-                validation_summary + "\n\n" + 
-                "No analysis summary available" + "\n\n" +
-                self.summary_footer + "\n")
-        elif analysis_summary:
-            return (
-                self.summary_header + "\n\n" + 
-                "No validation summary available" + "\n\n" + 
-                analysis_summary + "\n\n" + 
-                self.summary_footer + "\n")
-        else:
-            return (
-                self.summary_header + "\n\n" + 
-                "No validation summary available" + "\n\n" + 
-                "No analysis summary available" + "\n\n" + 
-                self.summary_footer + "\n")
+        # Build parts list
+        parts = [validation_summary, analysis_summary, processor_summary]
+
+        # Return final summary
+        return "\n\n".join(parts) + "\n"
         
     def get_temporal_context(self) -> Dict[str, Any]:
         """Helper to extract temporal info"""
@@ -108,7 +100,8 @@ class ProcessorResult:
             },
             'was_adjusted': self.was_adjusted,
             'processed_data': self.processed_data,
-            'analysis_summary': self.analysis_summary
+            'analysis_summary': self.analysis_summary,
+            'log': self.log
         }
 
     # ============ DAY LEVEL SUMMARIES (Placeholder) ============  
@@ -262,7 +255,7 @@ class ProcessorResult:
         return "\n".join(lines)
 
     # ============ YEAR LEVEL SUMMARIES ============
-    def _log_month_validation_summary(self) -> str:
+    def _log_year_validation_summary(self) -> str:
         """Generate validation summary for year-level processing"""
         if not self.record_year:
             return ""

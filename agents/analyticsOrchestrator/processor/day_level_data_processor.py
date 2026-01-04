@@ -4,7 +4,6 @@ from typing import Optional, Dict
 from loguru import logger
 from datetime import datetime
 from configs.shared.config_report_format import ConfigReportMixin
-from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 from agents.decorators import validate_init_dataframes
 from agents.analyticsOrchestrator.processor.configs.processor_config import ProcessorLevel, ProcessorResult
 
@@ -74,17 +73,20 @@ class DayLevelDataProcessor(ConfigReportMixin):
         timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
         config_header = self._generate_config_report(timestamp_str)
 
-        summary_header = "\n".join([
+        processor_log_entries = [
             config_header,
             "--Processing Summary--\n",
             f"⤷ {self.__class__.__name__} results:\n"
-        ])
+            ]
 
         try:
             # Input validation
             self._validate_product_records()
 
             adjusted_record_date = self._validate_analysis_parameters()
+
+            self.logger.info("Initial day level data processing at {}", adjusted_record_date.isoformat())
+            processor_log_entries.append(f"Initial day level data processing at {adjusted_record_date.isoformat()}")
 
             # Filter data for the selected date
             filtered_df = self.productRecords_df[self.productRecords_df['recordDate'] == adjusted_record_date].copy()
@@ -144,8 +146,6 @@ class DayLevelDataProcessor(ConfigReportMixin):
                         "itemBasedRecords": item_based_record_df,
                         "summaryStatics": summary_stats
                     }
-            reporter = DictBasedReportGenerator(use_colors=False)
-            summary_footer = "\n".join(reporter.export_report(processed_data))
 
             was_adjusted = (pd.Timestamp(self.record_date) != adjusted_record_date)
 
@@ -156,9 +156,8 @@ class DayLevelDataProcessor(ConfigReportMixin):
                 analysis_date = self.analysis_date,
                 adjusted_record_month = adjusted_record_date, 
                 was_adjusted = was_adjusted, 
-                summary_header = summary_header,
-                summary_footer = summary_footer,
-                processed_data = processed_data
+                processed_data = processed_data,
+                log = '\n'.join(processor_log_entries)
                 )
             
         except Exception as e:
