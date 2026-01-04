@@ -1,0 +1,26 @@
+{
+    "DayLevelDataProcessor": {
+        "GROUP_COLS": [
+            "machineInfo", "workingShift" 
+        ],
+        "COMPONENT_COLS": [
+            "plasticResinCode", "colorMasterbatchCode", "additiveMasterbatchCode"
+        ],
+        "COUNT_CONFIGS": {
+            "itemCount": "itemInfo",
+            "moldCount": "moldNo",
+            "itemComponentCount": "itemComponent"
+        },
+        "REQUIRED_CONFIGS": {
+            "mold": [
+                "machineInfo", "workingShift", "moldNo", "moldShot",
+                "moldCavity", "itemTotalQuantity", "itemGoodQuantity", "changeType"
+            ],
+            "item": [
+                "machineInfo", "workingShift", "itemInfo",
+                "moldNo", "moldShot", "moldCavity",
+                "itemTotalQuantity", "itemGoodQuantity", "itemComponent"
+            ]
+        }
+    }
+}
