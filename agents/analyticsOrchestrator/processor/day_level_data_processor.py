@@ -154,7 +154,7 @@ class DayLevelDataProcessor(ConfigReportMixin):
                 processor_level = ProcessorLevel.DAY,
                 record_date = self.record_date, 
                 analysis_date = self.analysis_date,
-                adjusted_record_month = adjusted_record_date, 
+                adjusted_record_date = adjusted_record_date, 
                 was_adjusted = was_adjusted, 
                 processed_data = processed_data,
                 log = '\n'.join(processor_log_entries)
