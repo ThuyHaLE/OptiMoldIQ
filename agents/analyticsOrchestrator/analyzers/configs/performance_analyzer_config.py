@@ -42,7 +42,7 @@ class PerformanceAnalyzerConfig:
     DEFAULT_ENABLE_YEAR_LEVEL_PROCESSOR = False
     
     DEFAULT_SAVE_DAY_RESULT = True
-    DEFAULT_SAVE_MONTH_YEAR_RESULT = False
+    DEFAULT_SAVE_MONTH_YEAR_RESULT = True
 
     def __post_init__(self):
         """Apply default values and validate configuration"""
