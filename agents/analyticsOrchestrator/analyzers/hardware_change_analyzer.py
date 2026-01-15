@@ -343,7 +343,7 @@ class HardwareChangeAnalyzer(ConfigReportMixin):
 
         self.save_routing = {
             "MachineLayoutTracker": {
-                "enabled": self.config.save_machine_layout_result,
+                "enabled": self.config.enable_machine_layout_tracker and self.config.save_machine_layout_result,
                 "save_fn": save_machine_layout,
                 "save_paths": {
                     "output_dir": self.config.shared_source_config.machine_layout_tracker_dir,
@@ -351,7 +351,7 @@ class HardwareChangeAnalyzer(ConfigReportMixin):
                 }
             },
             "MoldMachinePairTracker": {
-                "enabled": self.config.save_mold_machine_pair_result,
+                "enabled": self.config.enable_mold_machine_pair_tracker and self.config.save_mold_machine_pair_result,
                 "save_fn": save_mold_machine_pair,
                 "save_paths": {
                     "output_dir": self.config.shared_source_config.mold_machine_pair_tracker_dir,

@@ -78,6 +78,7 @@ class SharedSourceConfig:
     # MultiLevelPerformanceAnalyzer #
     #-------------------------------#
     multi_level_performance_analyzer_dir: Optional[str] = None
+    performance_analyzer_constant_config_path: Optional[str] = None
     multi_level_performance_analyzer_log_path: Optional[str] = None
     day_level_processor_dir: Optional[str] = None
     day_level_processor_log_path: Optional[str] = None
@@ -204,6 +205,9 @@ class SharedSourceConfig:
         #-------------------------------#
         self.multi_level_performance_analyzer_dir = (
             self.multi_level_performance_analyzer_dir or f'{self.analytics_orchestrator_dir}/MultiLevelPerformanceAnalyzer')
+        self.performance_analyzer_constant_config_path = (
+            self.performance_analyzer_constant_config_path or 
+            "agents/analyticsOrchestrator/processor/configs/constant_configurations.json")
         self.multi_level_performance_analyzer_log_path  = (
             self.multi_level_performance_analyzer_log_path  or f"{self.multi_level_performance_analyzer_dir}/change_log.txt")
         
