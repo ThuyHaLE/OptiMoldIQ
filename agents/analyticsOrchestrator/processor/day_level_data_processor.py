@@ -119,9 +119,9 @@ class DayLevelDataProcessor(ConfigReportMixin):
                 self.logger.warning("Skipping purchase orders merge - data unavailable or missing poNo column")
 
             # Process the data step by step
-            merged_df = self._create_info_fields(merged_df)
-            merged_df = self._calculate_counts(merged_df)
-            merged_df = self._calculate_job_metrics(merged_df)
+            merged_df = self._create_info_fields(merged_df, self.day_constant_config)
+            merged_df = self._calculate_counts(merged_df, self.day_constant_config)
+            merged_df = self._calculate_job_metrics(merged_df, self.day_constant_config)
 
             # Apply change classification
             merged_df['changeType'] = merged_df.apply(self._classify_change, axis=1)
@@ -153,7 +153,6 @@ class DayLevelDataProcessor(ConfigReportMixin):
             return ProcessorResult(
                 processor_level = ProcessorLevel.DAY,
                 record_date = self.record_date, 
-                analysis_date = self.analysis_date,
                 adjusted_record_date = adjusted_record_date, 
                 was_adjusted = was_adjusted, 
                 processed_data = processed_data,
@@ -206,7 +205,8 @@ class DayLevelDataProcessor(ConfigReportMixin):
         return latest_record_date
     
     @staticmethod
-    def _create_info_fields(df: pd.DataFrame) -> pd.DataFrame:
+    def _create_info_fields(df: pd.DataFrame,
+                            day_constant_config: Dict) -> pd.DataFrame:
         """Create composite information fields from existing columns."""
         if not any(col in df.columns for col in ['machineInfo', 'itemInfo', 'itemComponent']):
             df = df.copy()
@@ -220,7 +220,7 @@ class DayLevelDataProcessor(ConfigReportMixin):
                                   if item_mask.loc[row.name] else pd.NA, axis=1)
 
         # Item components - create tuple of component codes
-        component_cols = DayLevelDataProcessor.day_constant_config.get(
+        component_cols = day_constant_config.get(
             "COMPONENT_COLS", DayLevelDataProcessor.COMPONENT_COLS)
         
         components_mask = df[component_cols].notna().any(axis=1)
@@ -230,18 +230,19 @@ class DayLevelDataProcessor(ConfigReportMixin):
         return df
     
     @staticmethod
-    def _calculate_counts(df: pd.DataFrame) -> pd.DataFrame:
+    def _calculate_counts(df: pd.DataFrame,
+                          day_constant_config: Dict) -> pd.DataFrame:
         """Calculate various count metrics by machine and shift."""
         df = df.copy()
 
-        group_cols = DayLevelDataProcessor.day_constant_config.get(
+        group_cols = day_constant_config.get(
             "GROUP_COLS", DayLevelDataProcessor.GROUP_COLS)
         
         # Create grouper once
         grouper = df.groupby(group_cols)
 
         # Count configurations
-        count_configs = DayLevelDataProcessor.day_constant_config.get(
+        count_configs = day_constant_config.get(
             "COUNT_CONFIGS", DayLevelDataProcessor.COUNT_CONFIGS)
 
         # Calculate counts using groupby transform
@@ -251,11 +252,12 @@ class DayLevelDataProcessor(ConfigReportMixin):
         return df
     
     @staticmethod
-    def _calculate_job_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    def _calculate_job_metrics(df: pd.DataFrame, 
+                               day_constant_config: Dict) -> pd.DataFrame:
         """Calculate job count and late status metrics."""
         df = df.copy()
 
-        group_cols = DayLevelDataProcessor.day_constant_config.get(
+        group_cols = day_constant_config.get(
             "GROUP_COLS", DayLevelDataProcessor.GROUP_COLS)
 
         # Check if any group has positive quantities

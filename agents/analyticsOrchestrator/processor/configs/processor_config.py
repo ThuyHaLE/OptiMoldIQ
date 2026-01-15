@@ -136,7 +136,7 @@ class ProcessorResult:
         if not self.processed_data:
             return ""
 
-        stats = self.processed_data.get("summaryStatics", pd.DataFrame())
+        stats = self.processed_data.get("summaryStatics", {})
 
         lines = []
         lines.append("=" * 60)

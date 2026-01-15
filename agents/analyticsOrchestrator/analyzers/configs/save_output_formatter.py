@@ -7,6 +7,97 @@ from pathlib import Path
 import pandas as pd
 import json
 
+def save_analyzer_reports(input_dict: Dict) -> Dict:
+
+    """
+    Save analyzer reports.
+
+    This function handles the persistence layer for multi-level performance analyzing:
+    - Export change data to versioned Excel files
+    - Update centralized change log
+    - Return standardized metadata for orchestrator consumption
+
+    Args:
+        input_dict (Dict): Aggregated execution context from agent/orchestrator
+
+    Returns:
+        Dict: Metadata including export logs and execution summary
+    """
+
+    # Extract execution context
+    agent_id = input_dict.get("name")
+    result = input_dict.get("result")
+    execution_summary = input_dict.get("execution_summary")
+    output_dir = input_dict.get("output_dir")
+    change_log_path = input_dict.get("change_log_path")
+    change_log_header = input_dict.get("change_log_header")
+
+    metadata = {
+        'status': 'unknown',
+        'export_log': '',
+        'summary': ''
+    }
+
+    try:
+        # Extract processed data with safe defaults
+        excel_data = result.get('processed_data', {})
+
+        # Normalize value: dict → DataFrame
+        for k, v in excel_data.items():
+            v = ensure_dataframe(v)
+            excel_data[k] = v
+
+            if not isinstance(k, str):
+                raise TypeError(f"Invalid key type: {type(k)}")
+
+        analysis_summary = result.get('analysis_summary', '')
+        processing_details = result.get('log', '')
+
+        # Export change data to Excel with versioning support
+        logger.info("Start excel file exporting...")
+        export_log = save_output_with_versioning(
+            data=excel_data,
+            output_dir=Path(output_dir),
+            filename_prefix=camel_to_snake(agent_id),
+            report_text=analysis_summary
+        )
+        logger.info("Results exported successfully!")
+
+        # Persist execution record into centralized change log
+        message = update_change_log(
+            agent_id,
+            change_log_header,
+            execution_summary,
+            processing_details,
+            export_log,
+            Path(change_log_path)
+        )
+
+        # Aggregate export information for upstream orchestration/logging
+        metadata['export_log'] = "\n".join([export_log, message])
+        metadata['summary'] = analysis_summary
+        metadata['status'] = 'success'
+
+    except Exception as e:
+        error_msg = f"Failed to save processed data: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        
+        metadata['export_log'] = error_msg
+        metadata['summary'] = ''
+        metadata['status'] = 'failed'
+        metadata['error'] = str(e)
+
+    return metadata
+
+def ensure_dataframe(v):
+    if isinstance(v, pd.DataFrame):
+        return v
+    if isinstance(v, dict):
+        if all(isinstance(x, dict) for x in v.values()):
+            return pd.DataFrame.from_dict(v, orient="index")
+        return pd.DataFrame(v)
+    raise TypeError(f"Cannot convert {type(v)} to DataFrame")
+
 def save_machine_layout(input_dict: Dict) -> Dict:
     """
     Save machine layout change results.
