@@ -156,7 +156,10 @@ class AnalyticsOrchestratorConfig:
                 save_machine_layout_result=self.machine_layout_tracker.save_result,
                 enable_mold_machine_pair_tracker=self.mold_machine_pair_tracker.enabled,
                 save_mold_machine_pair_result=self.mold_machine_pair_tracker.save_result,
-                save_hardware_change_analyzer_log=self.enable_change_analysis
+                save_hardware_change_analyzer_log=(
+                    self.machine_layout_tracker.save_result or
+                    self.mold_machine_pair_tracker.save_result
+                    )
             )
         
         # Build performance analyzer config
@@ -181,7 +184,11 @@ class AnalyticsOrchestratorConfig:
                     analysis_date=self.year_level_processor.analysis_date,
                     save_result=self.year_level_processor.save_result
                 ),
-                save_multi_level_performance_analyzer_log=self.enable_performance_analysis
+                save_multi_level_performance_analyzer_log=(
+                    self.day_level_processor.save_result or
+                    self.month_level_processor.save_result or
+                    self.year_level_processor.save_result
+                )
             )
     
     # ===== Properties for workflow detection =====
