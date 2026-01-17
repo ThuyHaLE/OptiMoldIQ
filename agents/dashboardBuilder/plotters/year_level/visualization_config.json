@@ -1,0 +1,65 @@
+{
+    "sns_style": "seaborn-v0_8-darkgrid",
+    "sns_palette": "Set2",
+    "sns_set_style": "whitegrid",
+    "plt_rcParams_update": {
+        "figure.facecolor": "#f8f9fa",
+        "axes.facecolor": "white",
+        "axes.edgecolor": "#dee2e6",
+        "axes.labelcolor": "#495057",
+        "text.color": "#495057",
+        "xtick.color": "#495057",
+        "ytick.color": "#495057",
+        "grid.color": "#e9ecef",
+        "grid.linewidth": 0.8,
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "DejaVu Sans"],
+        "font.size": 10
+    },
+    "layout_params": {
+        "hspace": 0.75,
+        "wspace": 0.3,
+        "top": 0.96,
+        "bottom": 0.06,
+        "left": 0.06,
+        "right": 0.97
+    },
+    "row_nums": 10,
+    "column_nums": 3,
+    "palette_name": "muted",
+    "color_nums": 30,
+    "colors": {
+        "title": "#2c3e50",
+        "text": "#718096",
+        "subtitle": "#3c4a5b",
+        "kpi": {
+            "Total POs": "#667eea",
+            "Backlog": "#feca57",
+            "In-progress POs": "#fc5c65",
+            "Not-started POs": "#fd79a8",
+            "Finished POs": "#4caf50",
+            "Late POs": "#e17055",
+            "Avg progress": "#00b894",
+            "Total progress": "#ffc107"
+        },
+        "backlog": {
+            "Active": "#95E1D3", 
+            "Backlog": "#F38181"
+        },
+        "colors_severity": {
+            "normal": "#95E1D3", 
+            "critical": "#F38181"
+        }
+    },
+    "sizes": {
+        "title": 18,
+        "suptitle": 12,
+        "progress_text": 30,
+        "ylabel": 9,
+        "xlabel": 9,
+        "legend": 8,
+        "text": 7
+        },
+    "main_title_y": 1.02,
+    "subtitle_y": 0.99
+    }

@@ -1,0 +1,56 @@
+{
+    "sns_style": "seaborn-v0_8-darkgrid",
+    "sns_palette": "husl",
+    "sns_set_style": "whitegrid",
+    "plt_rcParams_update": {
+        "figure.facecolor": "#f8f9fa",
+        "axes.facecolor": "white",
+        "axes.edgecolor": "#dee2e6",
+        "axes.labelcolor": "#495057",
+        "text.color": "#495057",
+        "xtick.color": "#495057",
+        "ytick.color": "#495057",
+        "grid.color": "#e9ecef",
+        "grid.linewidth": 0.8,
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "DejaVu Sans"],
+        "font.size": 10
+    },
+    "layout_params": {
+        "hspace": 0.5,
+        "wspace": 0.3,
+        "top": 0.96,
+        "bottom": 0.06,
+        "left": 0.06,
+        "right": 0.97
+    },
+    "row_nums": 10,
+    "column_nums": 2,
+    "palette_name": "muted",
+    "color_nums": 30,
+    "colors": {
+        "title": "#2c3e50",
+        "text": "#718096",
+        "subtitle": "#3c4a5b",
+        "acquisition": "#3498db",
+        "first_use": "#e74c3c",
+        "gap_longest": "#e74c3c",
+        "gap_shortest": "#27ae60",
+        "bar_default": "#3498db",
+        "highlight": "#e74c3c",
+        "histogram": "#5dade2",
+        "pie_explode": 0.05
+    },
+    "sizes": {
+        "suptitle": 18,
+        "title": 12,
+        "ylabel": 9,
+        "xlabel": 9,
+        "legend": 8,
+        "text": 7,
+        "bar_label": 8,
+        "pie_label": 9,
+        "pie_percent": 10
+    },
+    "threshold": 10
+}
