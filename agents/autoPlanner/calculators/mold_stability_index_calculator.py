@@ -4,6 +4,7 @@ from loguru import logger
 
 from agents.decorators import validate_init_dataframes
 from typing import List, Dict
+import copy
 
 from configs.shared.config_report_format import ConfigReportMixin
 from datetime import datetime
@@ -58,7 +59,7 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
                  productRecords_df: pd.DataFrame,
                  moldInfo_df: pd.DataFrame,
                  mold_stability_config: MoldStabilityConfig,
-                 stability_constant_config: Dict = {}):
+                 stability_constant_config: Dict | None = None): 
         
         """
         Initialize the MoldStabilityIndexCalculator.
@@ -100,10 +101,12 @@ class MoldStabilityIndexCalculator(ConfigReportMixin):
             raise ValueError(
                 f"Efficiency ({self.config.efficiency}) must be greater than loss ({self.config.loss})"
             )
-        
-        self.stability_constant_config = stability_constant_config
-        if not self.stability_constant_config:
+
+        if not stability_constant_config:
+            self.stability_constant_config = {}
             self.logger.debug("MoldStabilityIndexCalculator constant config not found.")
+        else:
+            self.stability_constant_config = copy.deepcopy(stability_constant_config)
 
     def process(self) -> MoldStabilityCalculationResult:
         """

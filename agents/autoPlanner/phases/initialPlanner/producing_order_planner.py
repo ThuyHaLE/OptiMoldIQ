@@ -3,6 +3,7 @@ import numpy as np
 from typing import Tuple, Dict
 from loguru import logger
 from datetime import datetime
+import copy
 
 from agents.decorators import validate_init_dataframes, validate_dataframe
 from configs.shared.config_report_format import ConfigReportMixin
@@ -81,7 +82,7 @@ class ProducingOrderPlanner(ConfigReportMixin):
                  itemCompositionSummary_df: pd.DataFrame,
                  proStatus_df: pd.DataFrame,
                  mold_estimated_capacity: pd.DataFrame,
-                 planner_constant_config: Dict = {}):
+                 planner_constant_config: Dict | None = None):
         
         """
         Initialize ProducingOrderPlanner with configuration.
@@ -112,9 +113,11 @@ class ProducingOrderPlanner(ConfigReportMixin):
         self.proStatus_df = proStatus_df
         self.mold_estimated_capacity_df = mold_estimated_capacity
 
-        self.planner_constant_config = planner_constant_config
-        if not self.planner_constant_config:
+        if not planner_constant_config:
+            self.planner_constant_config = {}
             self.logger.debug("ProducingOrderPlanner constant config not found.")
+        else:
+            self.planner_constant_config = copy.deepcopy(planner_constant_config)
 
     def process_planning(self) -> ProducingPlannerResult:
         """

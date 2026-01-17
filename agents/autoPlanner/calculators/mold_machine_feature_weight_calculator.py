@@ -6,6 +6,7 @@ warnings.filterwarnings('ignore')
 from typing import Tuple, Dict
 from loguru import logger
 from datetime import datetime
+import copy
 
 from agents.autoPlanner.tools.performance import summarize_mold_machine_history
 from agents.autoPlanner.tools.mold_machine_feature_weight import suggest_weights_standard_based
@@ -48,7 +49,7 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
                  proStatus_df: pd.DataFrame,
                  mold_estimated_capacity_df: pd.DataFrame,
                  feature_weight_config: FeatureWeightConfig,
-                 weight_constant_config: Dict = {}):
+                 weight_constant_config: Dict | None = None):
 
         """
         Initialize the MoldMachineFeatureWeightCalculator.
@@ -100,9 +101,11 @@ class MoldMachineFeatureWeightCalculator(ConfigReportMixin):
                 f"Efficiency ({self.config.efficiency}) must be greater than loss ({self.config.loss})"
             )
         
-        self.weight_constant_config = weight_constant_config
-        if not self.weight_constant_config:
+        if not weight_constant_config:
+            self.weight_constant_config = {}
             self.logger.debug("MoldMachineFeatureWeightCalculator constant config not found.")
+        else:
+            self.weight_constant_config = copy.deepcopy(weight_constant_config)
     
     def process(self) -> FeatureWeightCalculationResult:
 

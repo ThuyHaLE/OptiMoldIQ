@@ -3,6 +3,7 @@ from loguru import logger
 
 from datetime import datetime
 from typing import Tuple, List, Dict
+import copy
 
 from configs.shared.config_report_format import ConfigReportMixin
 from configs.shared.dict_based_report_generator import DictBasedReportGenerator
@@ -81,7 +82,7 @@ class PriorityMatrixCalculator(ConfigReportMixin): # MoldMachinePriorityMatrixCa
                  proStatus_df: pd.DataFrame,
                  mold_estimated_capacity: pd.DataFrame,
                  mold_machine_feature_weights: pd.Series | None,
-                 calculator_constant_config: Dict = {},
+                 calculator_constant_config: Dict | None = None,
                  efficiency: float = 0.85,
                  loss: float = 0.03
                  ):
@@ -123,9 +124,11 @@ class PriorityMatrixCalculator(ConfigReportMixin): # MoldMachinePriorityMatrixCa
         self.mold_estimated_capacity_df = mold_estimated_capacity
 
         # Load constant configurations
-        self.calculator_constant_config = calculator_constant_config
-        if not self.calculator_constant_config:
+        if not calculator_constant_config:
+            self.calculator_constant_config = {}
             self.logger.debug("PriorityMatrixCalculator constant config not found.")
+        else:
+            self.calculator_constant_config = copy.deepcopy(calculator_constant_config)
 
         self.mold_machine_feature_weights = self._load_feature_weights(mold_machine_feature_weights)
 

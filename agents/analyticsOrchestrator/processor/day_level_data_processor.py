@@ -3,6 +3,7 @@ import pandas as pd
 from typing import Optional, Dict
 from loguru import logger
 from datetime import datetime
+import copy
 from configs.shared.config_report_format import ConfigReportMixin
 from agents.decorators import validate_init_dataframes
 from agents.analyticsOrchestrator.processor.configs.processor_config import ProcessorLevel, ProcessorResult
@@ -36,7 +37,7 @@ class DayLevelDataProcessor(ConfigReportMixin):
                  productRecords_df: pd.DataFrame,
                  purchaseOrders_df: pd.DataFrame,
                  databaseSchemas_data: Dict,
-                 day_constant_config: Dict = {},
+                 day_constant_config: Dict | None = None,
                  record_date: Optional[str] = None):
 
         self._capture_init_args()
@@ -48,10 +49,12 @@ class DayLevelDataProcessor(ConfigReportMixin):
 
         self.productRecords_df = productRecords_df
         self.purchaseOrders_df = purchaseOrders_df
-
-        self.day_constant_config = day_constant_config
-        if not self.day_constant_config:
+        
+        if not day_constant_config:
+            self.day_constant_config = {}
             self.logger.debug("DayLevelDataProcessor constant config not found.")
+        else:
+            self.day_constant_config = copy.deepcopy(day_constant_config)
 
     def process_records(self) -> ProcessorResult:
         """

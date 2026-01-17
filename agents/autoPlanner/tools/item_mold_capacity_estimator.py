@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import warnings
+import copy
 from typing import List, Dict, Any
 from loguru import logger
 from agents.decorators import validate_init_dataframes
@@ -62,7 +63,7 @@ class ItemMoldCapacityEstimator(ConfigReportMixin):
                  mold_stability_index: pd.DataFrame | None,
                  moldSpecificationSummary_df: pd.DataFrame,
                  moldInfo_df: pd.DataFrame,
-                 capacity_constant_config: Dict = {},
+                 capacity_constant_config: Dict | None = None,
                  efficiency: float = 0.85,
                  loss: float = 0.03,
                  ):
@@ -93,7 +94,12 @@ class ItemMoldCapacityEstimator(ConfigReportMixin):
     
         self.databaseSchemas_data = databaseSchemas_data
         self.sharedDatabaseSchemas_data = sharedDatabaseSchemas_data
-        self.capacity_constant_config = capacity_constant_config
+
+        if not capacity_constant_config:
+            self.capacity_constant_config = {}
+            self.logger.debug("ItemMoldCapacityEstimator constant config not found.")
+        else:
+            self.capacity_constant_config = copy.deepcopy(capacity_constant_config)
         
         self.moldSpecificationSummary_df = moldSpecificationSummary_df
         self.moldInfo_df = moldInfo_df

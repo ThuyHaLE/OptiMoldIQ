@@ -8,6 +8,7 @@ from agents.decorators import validate_init_dataframes
 from typing import Dict, List, Tuple, Any
 from datetime import datetime
 from loguru import logger
+import copy
 
 @validate_init_dataframes(lambda self: {
         'assigned_matrix': [],  # Index is 'moldNo'
@@ -61,7 +62,7 @@ class ProductionScheduleGenerator(ConfigReportMixin): # MachineAssignmentProcess
                  machine_info_df: pd.DataFrame,
                  producing_mold_list: List,
                  producing_info_list: List,
-                 generator_constant_config: Dict = {}):
+                 generator_constant_config: Dict | None = None):
 
         """
         Initialize ProductionScheduleGenerator for transforming an assigned production matrix 
@@ -91,9 +92,11 @@ class ProductionScheduleGenerator(ConfigReportMixin): # MachineAssignmentProcess
         self.producing_mold_list = producing_mold_list
         self.producing_info_list = producing_info_list
         
-        self.generator_constant_config = generator_constant_config
-        if not self.generator_constant_config:
+        if not generator_constant_config:
+            self.generator_constant_config = {}
             self.logger.debug("ProductionScheduleGenerator constant config not found.")
+        else:
+            self.generator_constant_config = copy.deepcopy(generator_constant_config)
 
         # Cache frequently used mappings
         self._item_to_po_mapping = None
