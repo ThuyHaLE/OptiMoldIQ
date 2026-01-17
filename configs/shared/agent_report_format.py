@@ -153,6 +153,82 @@ class ExecutionResult:
             result.extend(sub.flatten())
         return result
     
+    def get_path(self, path: str) -> Optional['ExecutionResult']:
+        """
+        Get nested result by dot-separated path.
+        Automatically handles nested payloads.
+        
+        Args:
+            path: Dot-separated path like "Agent.SubAgent.Phase"
+            
+        Returns:
+            ExecutionResult if found, None otherwise
+            
+        Example:
+            >>> tracker = result.get_path("HardwareChangeAnalyzer.MachineLayoutTracker")
+            >>> payload = tracker.data['result']['payload']
+        """
+        parts = path.split('.')
+        current = self
+        
+        for part in parts:
+            # Try sub_results first
+            next_node = next(
+                (r for r in current.sub_results if r.name == part), 
+                None
+            )
+            
+            # If not found, try diving into payload
+            if next_node is None and hasattr(current, 'data'):
+                payload = current.data.get('result', {}).get('payload')
+                # Duck typing: check if payload has sub_results
+                if hasattr(payload, 'sub_results'):
+                    next_node = next(
+                        (r for r in payload.sub_results if r.name == part),
+                        None
+                    )
+            
+            if next_node is None:
+                logger.warning(f"Path not found: {path} (stopped at {part})")
+                return None
+            
+            current = next_node
+        
+        return current
+    
+    def get_path_data(self, path: str, *keys) -> Any:
+        """
+        Get data from nested result by path.
+        
+        Args:
+            path: Dot-separated path to result
+            *keys: Keys to traverse in data dict
+            
+        Returns:
+            Value if found, None otherwise
+            
+        Example:
+            >>> payload = result.get_path_data(
+            ...     "HardwareChangeAnalyzer.MachineLayoutTracker",
+            ...     'result', 'payload'
+            ... )
+            >>> # Equivalent to:
+            >>> # result.get_path("...").data['result']['payload']
+        """
+        node = self.get_path(path)
+        if node is None:
+            return None
+        
+        data = node.data
+        for key in keys:
+            if not isinstance(data, dict):
+                return None
+            data = data.get(key)
+            if data is None:
+                return None
+        
+        return data
+    
     def summary_stats(self) -> Dict[str, Any]:
         """Recursive statistics"""
         all_results = self.flatten()
