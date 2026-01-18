@@ -321,8 +321,8 @@ class  YearLevelProcessingPhase(AtomicPhase):
         moldSpecificationSummary_df = self.loaded_data['dataframes']["moldSpecificationSummary_df"]
         databaseSchemas_data = self.loaded_data['databaseSchemas_data']
 
-        record_year = self.config.month_level_processor_params.requested_timestamp
-        analysis_date = self.config.month_level_processor_params.analysis_date
+        record_year = self.config.year_level_processor_params.requested_timestamp
+        analysis_date = self.config.year_level_processor_params.analysis_date
 
         # Initialize year-level data processor
         from agents.analyticsOrchestrator.processor.year_level_data_processor import YearLevelDataProcessor
