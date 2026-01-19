@@ -98,22 +98,22 @@ class SharedSourceConfig:
     #------------------------------------#
     hardware_change_visualization_service_dir: Optional[str] = None
     hardware_change_visualization_service_log_path: Optional[str] = None
-    machine_layout_visualization_service_dir: Optional[str] = None
-    machine_layout_visualization_service_change_log_path: Optional[str] = None
-    mold_machine_pair_visualization_service_dir: Optional[str] = None
-    mold_machine_pair_visualization_service_change_log_path: Optional[str] = None
+    machine_layout_visualization_pipeline_dir: Optional[str] = None
+    machine_layout_visualization_pipeline_change_log_path: Optional[str] = None
+    mold_machine_pair_visualization_pipeline_dir: Optional[str] = None
+    mold_machine_pair_visualization_pipeline_change_log_path: Optional[str] = None
 
     #-------------------------------------------#
     # MultiLevelPerformanceVisualizationService #
     #-------------------------------------------#
     multi_level_performance_visualization_service_dir: Optional[str] = None
     multi_level_performance_visualization_service_log_path: Optional[str] = None
-    day_level_visualization_service_dir: Optional[str] = None
-    day_level_visualization_service_log_path: Optional[str] = None
-    month_level_visualization_service_dir: Optional[str] = None
-    month_level_visualization_service_log_path: Optional[str] = None
-    year_level_visualization_service_dir: Optional[str] = None
-    year_level_visualization_service_log_path: Optional[str] = None
+    day_level_visualization_pipeline_dir: Optional[str] = None
+    day_level_visualization_pipeline_log_path: Optional[str] = None
+    month_level_visualization_pipeline_dir: Optional[str] = None
+    month_level_visualization_pipeline_log_path: Optional[str] = None
+    year_level_visualization_pipeline_dir: Optional[str] = None
+    year_level_visualization_pipeline_log_path: Optional[str] = None
 
     # Control validation behavior
     strict_validation: bool = False  # If True, validate all paths exist
@@ -270,15 +270,15 @@ class SharedSourceConfig:
         self.hardware_change_visualization_service_log_path = (
             self.hardware_change_visualization_service_log_path or f"{self.hardware_change_visualization_service_dir}/change_log.txt")
         
-        self.machine_layout_visualization_service_dir = (
-            self.machine_layout_visualization_service_dir or f'{self.hardware_change_visualization_service_dir}/MachineLayoutVisualizationService')
-        self.machine_layout_visualization_service_change_log_path = (
-            self.machine_layout_visualization_service_change_log_path or f"{self.machine_layout_visualization_service_dir}/change_log.txt")
-        
-        self.mold_machine_pair_visualization_service_dir = (
-            self.mold_machine_pair_visualization_service_dir or f'{self.hardware_change_visualization_service_dir}/MoldMachinePairVisualizationService')
-        self.mold_machine_pair_visualization_service_change_log_path = (
-            self.mold_machine_pair_visualization_service_change_log_path or f"{self.mold_machine_pair_visualization_service_dir}/change_log.txt")
+        self.machine_layout_visualization_pipeline = (
+            self.machine_layout_visualization_pipeline or f'{self.hardware_change_visualization_service_dir}/MachineLayoutVisualizationService')
+        self.machine_layout_visualization_pipeline_change_log_path = (
+            self.machine_layout_visualization_pipeline_change_log_path or f"{self.machine_layout_visualization_pipeline}/change_log.txt")
+
+        self.mold_machine_pair_visualization_pipeline_dir = (
+            self.mold_machine_pair_visualization_pipeline_dir or f'{self.hardware_change_visualization_service_dir}/MoldMachinePairVisualizationService')
+        self.mold_machine_pair_visualization_pipeline_change_log_path = (
+            self.mold_machine_pair_visualization_pipeline_change_log_path or f"{self.mold_machine_pair_visualization_pipeline_dir}/change_log.txt")
 
         #-------------------------------------------#
         # MultiLevelPerformanceVisualizationService #
@@ -287,21 +287,21 @@ class SharedSourceConfig:
             self.multi_level_performance_visualization_service_dir or f'{self.dashboard_builder_dir}/MultiLevelPerformanceVisualizationService')
         self.multi_level_performance_visualization_service_log_path = (
             self.multi_level_performance_visualization_service_log_path or f"{self.multi_level_performance_visualization_service_dir}/change_log.txt")
-        
-        self.day_level_visualization_service_dir = (
-            self.day_level_visualization_service_dir or f'{self.multi_level_performance_visualization_service_dir}/DayLevelVisualizationService')
-        self.day_level_visualization_service_log_path = (
-            self.day_level_visualization_service_log_path or f"{self.day_level_visualization_service_dir}/change_log.txt")
-        
-        self.month_level_visualization_service_dir = (
-            self.month_level_visualization_service_dir or f'{self.multi_level_performance_visualization_service_dir}/MonthLevelVisualizationService')
-        self.month_level_visualization_service_log_path = (
-            self.month_level_visualization_service_log_path or f"{self.month_level_visualization_service_dir}/change_log.txt")
-        
-        self.year_level_visualization_service_dir = (
-            self.year_level_visualization_service_dir or f'{self.multi_level_performance_visualization_service_dir}/YearLevelVisualizationService')
-        self.year_level_visualization_service_log_path = (
-            self.year_level_visualization_service_log_path or f"{self.year_level_visualization_service_dir}/change_log.txt")
+
+        self.day_level_visualization_pipeline_dir = (
+            self.day_level_visualization_pipeline_dir or f'{self.multi_level_performance_visualization_service_dir}/DayLevelVisualizationService')
+        self.day_level_visualization_pipeline_log_path = (
+            self.day_level_visualization_pipeline_log_path or f"{self.day_level_visualization_pipeline_dir}/change_log.txt")
+
+        self.month_level_visualization_pipeline_dir = (
+            self.month_level_visualization_pipeline_dir or f'{self.multi_level_performance_visualization_service_dir}/MonthLevelVisualizationService')
+        self.month_level_visualization_pipeline_log_path = (
+            self.month_level_visualization_pipeline_log_path or f"{self.month_level_visualization_pipeline_dir}/change_log.txt")
+
+        self.year_level_visualization_pipeline_dir = (
+            self.year_level_visualization_pipeline_dir or f'{self.multi_level_performance_visualization_service_dir}/YearLevelVisualizationService')
+        self.year_level_visualization_pipeline_log_path = (
+            self.year_level_visualization_pipeline_log_path or f"{self.year_level_visualization_pipeline_dir}/change_log.txt")
 
     def _validate_all_paths(self):
         """Validate all path fields"""
