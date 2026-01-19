@@ -87,6 +87,34 @@ class SharedSourceConfig:
     year_level_processor_dir: Optional[str] = None
     year_level_processor_log_path: Optional[str] = None
 
+    #------------------#
+    # DashboardBuilder #
+    #------------------#
+    dashboard_builder_dir: Optional[str] = None
+    dashboard_builder_log_path: Optional[str] = None
+
+    #------------------------------------#
+    # HardwareChangeVisualizationService #
+    #------------------------------------#
+    hardware_change_visualization_service_dir: Optional[str] = None
+    hardware_change_visualization_service_log_path: Optional[str] = None
+    machine_layout_visualization_service_dir: Optional[str] = None
+    machine_layout_visualization_service_change_log_path: Optional[str] = None
+    mold_machine_pair_visualization_service_dir: Optional[str] = None
+    mold_machine_pair_visualization_service_change_log_path: Optional[str] = None
+
+    #-------------------------------------------#
+    # MultiLevelPerformanceVisualizationService #
+    #-------------------------------------------#
+    multi_level_performance_visualization_service_dir: Optional[str] = None
+    multi_level_performance_visualization_service_log_path: Optional[str] = None
+    day_level_visualization_service_dir: Optional[str] = None
+    day_level_visualization_service_log_path: Optional[str] = None
+    month_level_visualization_service_dir: Optional[str] = None
+    month_level_visualization_service_log_path: Optional[str] = None
+    year_level_visualization_service_dir: Optional[str] = None
+    year_level_visualization_service_log_path: Optional[str] = None
+
     # Control validation behavior
     strict_validation: bool = False  # If True, validate all paths exist
     auto_create_dirs: bool = False   # If True, create missing directories
@@ -225,6 +253,55 @@ class SharedSourceConfig:
             self.year_level_processor_dir or f'{self.multi_level_performance_analyzer_dir}/YearLevelDataProcessor')
         self.year_level_processor_log_path  = (
             self.year_level_processor_log_path  or f"{self.year_level_processor_dir}/change_log.txt")
+        
+        #------------------#
+        # DashboardBuilder #
+        #------------------#
+        self.dashboard_builder_dir = (
+            self.dashboard_builder_dir or f'{self.default_dir}/DashboardBuilder')
+        self.dashboard_builder_log_path = (
+            self.dashboard_builder_log_path or f"{self.dashboard_builder_dir}/change_log.txt")
+
+        #------------------------------------#
+        # HardwareChangeVisualizationService #
+        #------------------------------------#
+        self.hardware_change_visualization_service_dir = (
+            self.hardware_change_visualization_service_dir or f'{self.dashboard_builder_dir}/HardwareChangeVisualizationService')
+        self.hardware_change_visualization_service_log_path = (
+            self.hardware_change_visualization_service_log_path or f"{self.hardware_change_visualization_service_dir}/change_log.txt")
+        
+        self.machine_layout_visualization_service_dir = (
+            self.machine_layout_visualization_service_dir or f'{self.hardware_change_visualization_service_dir}/MachineLayoutVisualizationService')
+        self.machine_layout_visualization_service_change_log_path = (
+            self.machine_layout_visualization_service_change_log_path or f"{self.machine_layout_visualization_service_dir}/change_log.txt")
+        
+        self.mold_machine_pair_visualization_service_dir = (
+            self.mold_machine_pair_visualization_service_dir or f'{self.hardware_change_visualization_service_dir}/MoldMachinePairVisualizationService')
+        self.mold_machine_pair_visualization_service_change_log_path = (
+            self.mold_machine_pair_visualization_service_change_log_path or f"{self.mold_machine_pair_visualization_service_dir}/change_log.txt")
+
+        #-------------------------------------------#
+        # MultiLevelPerformanceVisualizationService #
+        #-------------------------------------------#
+        self.multi_level_performance_visualization_service_dir = (
+            self.multi_level_performance_visualization_service_dir or f'{self.dashboard_builder_dir}/MultiLevelPerformanceVisualizationService')
+        self.multi_level_performance_visualization_service_log_path = (
+            self.multi_level_performance_visualization_service_log_path or f"{self.multi_level_performance_visualization_service_dir}/change_log.txt")
+        
+        self.day_level_visualization_service_dir = (
+            self.day_level_visualization_service_dir or f'{self.multi_level_performance_visualization_service_dir}/DayLevelVisualizationService')
+        self.day_level_visualization_service_log_path = (
+            self.day_level_visualization_service_log_path or f"{self.day_level_visualization_service_dir}/change_log.txt")
+        
+        self.month_level_visualization_service_dir = (
+            self.month_level_visualization_service_dir or f'{self.multi_level_performance_visualization_service_dir}/MonthLevelVisualizationService')
+        self.month_level_visualization_service_log_path = (
+            self.month_level_visualization_service_log_path or f"{self.month_level_visualization_service_dir}/change_log.txt")
+        
+        self.year_level_visualization_service_dir = (
+            self.year_level_visualization_service_dir or f'{self.multi_level_performance_visualization_service_dir}/YearLevelVisualizationService')
+        self.year_level_visualization_service_log_path = (
+            self.year_level_visualization_service_log_path or f"{self.year_level_visualization_service_dir}/change_log.txt")
 
     def _validate_all_paths(self):
         """Validate all path fields"""
