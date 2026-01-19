@@ -258,7 +258,7 @@ class AnalyticsOrchestrator(ConfigReportMixin):
         # ============================================
         # PRINT EXECUTION TREE & ANALYSIS
         # ============================================
-        self.logger.info("✅ HardwareChangeAnalyzer completed in {:.2f}s!", result.duration)
+        self.logger.info("✅ AnalyticsOrchestrator completed in {:.2f}s!", result.duration)
         
         # Print execution tree for visibility
         print_execution_summary(result)
