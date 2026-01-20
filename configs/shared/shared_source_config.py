@@ -270,10 +270,10 @@ class SharedSourceConfig:
         self.hardware_change_visualization_service_log_path = (
             self.hardware_change_visualization_service_log_path or f"{self.hardware_change_visualization_service_dir}/change_log.txt")
         
-        self.machine_layout_visualization_pipeline = (
-            self.machine_layout_visualization_pipeline or f'{self.hardware_change_visualization_service_dir}/MachineLayoutVisualizationService')
+        self.machine_layout_visualization_pipeline_dir = (
+            self.machine_layout_visualization_pipeline_dir or f'{self.hardware_change_visualization_service_dir}/MachineLayoutVisualizationService')
         self.machine_layout_visualization_pipeline_change_log_path = (
-            self.machine_layout_visualization_pipeline_change_log_path or f"{self.machine_layout_visualization_pipeline}/change_log.txt")
+            self.machine_layout_visualization_pipeline_change_log_path or f"{self.machine_layout_visualization_pipeline_dir}/change_log.txt")
 
         self.mold_machine_pair_visualization_pipeline_dir = (
             self.mold_machine_pair_visualization_pipeline_dir or f'{self.hardware_change_visualization_service_dir}/MoldMachinePairVisualizationService')
