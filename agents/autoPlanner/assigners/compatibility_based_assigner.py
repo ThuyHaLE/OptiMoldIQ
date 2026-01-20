@@ -2,7 +2,7 @@ import pandas as pd
 from loguru import logger
 from typing import List, Dict, Optional, Union
 from datetime import datetime
-from agents.utils import ConfigReportMixin
+from configs.shared.config_report_format import ConfigReportMixin
 from agents.autoPlanner.assigners.configs.assigner_config import (
     PriorityOrder, AssignerStats, AssignerResult, PriorityOrdersConfig)
 from agents.autoPlanner.assigners.configs.assigner_formatter import (

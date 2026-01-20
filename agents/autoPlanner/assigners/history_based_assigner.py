@@ -2,7 +2,7 @@ import pandas as pd
 from loguru import logger
 from typing import Tuple, List, Dict
 import time
-from agents.utils import ConfigReportMixin
+from configs.shared.config_report_format import ConfigReportMixin
 from datetime import datetime
 from agents.autoPlanner.assigners.configs.assigner_formatter import (
     log_constraint_based_optimization,
