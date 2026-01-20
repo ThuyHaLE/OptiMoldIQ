@@ -77,6 +77,15 @@ class ProgressTrackingModule(BaseModule):
         
         Args:
             context: Shared context (empty for first module)
+            self.shared_config: Configuration containing:
+                - project_root: Project root directory
+                - progress_tracking:
+                    - annotation_path (str): Path to the JSON file containing path annotations.
+                    - databaseSchemas_path (str): Path to database schema for validation.
+                    - validation_change_log_path (str): Path to the ValidationOrchestrator change log.
+                    - progress_tracker_dir (str): Default directory for output and temporary files.
+                    - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log.
+                    - progress_tracker_constant_config_path (str): Path to the OrderProgressTracker constant config.
             dependencies: Empty dict (no dependencies)
             
         Returns:

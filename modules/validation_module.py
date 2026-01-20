@@ -75,7 +75,7 @@ class ValidationModule(BaseModule):
         
         Args:
             context: Shared context (empty for first module)
-            self.config: Configuration containing:
+            self.shared_config: Configuration containing:
                 - project_root: Project root directory
                 - validation:
                     - validation_df_name (List[str]): List of dataframe names that require validation.

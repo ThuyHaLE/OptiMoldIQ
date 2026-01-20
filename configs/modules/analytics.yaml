@@ -3,75 +3,166 @@
 # Project root directory
 project_root: "."
 
-# =======================
+# ========================
 # ANALYTICS MODULE CONFIG
-# =======================
+# ========================
 analytics:
+#REQUIRED_FIELDS = {
+#        'config': {
+#            'shared_source_config': {
+#                'annotation_path': str,
+#                'databaseSchemas_path': str,
+#                'machine_layout_tracker_dir': str,
+#                'machine_layout_tracker_change_log_path': str,
+#                'mold_machine_pair_tracker_dir': str,
+#                'mold_machine_pair_tracker_change_log_path': str,
+#                'hardware_change_analyzer_log_path': str,
+#                'day_level_processor_dir': str,
+#                'day_level_processor_log_path': str,
+#                'month_level_processor_dir': str,
+#                'month_level_processor_log_path': str,
+#                'year_level_processor_dir': str,
+#                'year_level_processor_log_path': str,
+#                'multi_level_performance_analyzer_log_path': str,
+#                'performance_analyzer_constant_config_path': str,
+#                'analytics_orchestrator_log_path': str
+#                },
+#            'machine_layout_tracker': {
+#                'enabled': bool,
+#                'save_result': bool
+#                },
+#            'mold_machine_pair_tracker': {
+#                'enabled': bool,
+#                'save_result': bool
+#                },
+#            'day_level_processor': {
+#                'enabled': bool,
+#                'save_result': bool,
+#                'requested_timestamp': bool,
+#                },
+#            'month_level_processor': {
+#                'enabled': bool,
+#                'save_result': bool,
+#                'requested_timestamp': bool,
+#                'analysis_date': bool
+#                },
+#            'year_level_processor': {
+#                'enabled': bool,
+#                'save_result': bool,
+#                'requested_timestamp': bool,
+#                'analysis_date': bool
+#                },       
+#            'save_orchestrator_log': bool
+#            }
+#        }
 
-  # ========================================
-  # PARENT ENABLE FLAGS (Top-level control)
-  # ========================================
+  shared_source_config:
+    # --------------------------------------------
+    # BASE DIRECTORIES (Required - it will be resolved with project_root)
+    # --------------------------------------------
+    db_dir: "tests/mock_database" 
+    default_dir: 'tests/shared_db'
 
-  # Main enable flags (parent flags)
-  enable_hardware_change_analysis: true  # ← Parent flag
-  enable_multi_level_analysis: true      # ← Parent flag
-
-  # Sub-component flags (will be auto-propagated from parent)
-  enable_hardware_change_machine_layout_tracker: true
-  enable_hardware_change_machine_mold_pair_tracker: true
-
-  enable_multi_level_day_level_processor: true
-  enable_multi_level_month_level_processor: true
-  enable_multi_level_year_level_processor: true
-
-  # General settings
-  save_analytics_orchestrator_log: true
-  analytics_orchestrator_dir: "tests/shared_db/AnalyticsOrchestrator"
-
-  # ========================================
-  # CHANGE ANALYSIS CONFIG (Nested)
-  # ========================================
-  change_analysis:
-    # Machine Layout Tracker
-    enable_machine_layout_tracker: false  # ← Will be overridden by parent flag
-    machine_layout_tracker_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MachineLayoutTracker"
-    machine_layout_tracker_change_log_name: "change_log.txt"
-
-    # Machine-Mold Pair Tracker
-    enable_machine_mold_pair_tracker: false  # ← Will be overridden by parent flag
-    machine_mold_pair_tracker_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MachineMoldPairTracker"
-    machine_mold_pair_tracker_change_log_name: "change_log.txt"
+    # --------------------------------------------
+    # OPTIONAL OVERRIDES
+    # Uncomment to override default paths
+    # --------------------------------------------
     
-    # Shared configs
-    source_path: "tests/shared_db/DataLoaderAgent/newest"
-    annotation_name: "path_annotations.json"
-    databaseSchemas_path: "database/databaseSchemas.json"
+    # Database schemas path
+    # Default: {db_dir}/databaseSchemas.json
+    # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
     
-    save_hardware_change_analyzer_log: true
-    hardware_change_analyzer_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer"
+    # Annotation path  
+    # Default: {default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json
+    # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json"
 
-  # ========================================
-  # PERFORMANCE ANALYSIS CONFIG (Nested)
-  # ========================================
-  performance_analysis:
-    # Day Level
-    record_date: "2018-11-06"
-    day_save_output: false
+    # Analytics orchestrator directory
+    # Default: {default_dir}/AnalyticsOrchestrator
+    # analytics_orchestrator_dir: "tests/shared_db/AnalyticsOrchestrator"
+
+    # Analytics orchestrator log path
+    # Default: {analytics_orchestrator_dir}/change_log.txt
+    # analytics_orchestrator_log_path: "tests/shared_db/AnalyticsOrchestrator/change_log.txt"
+
+    # Hardware change directory
+    # Default: {analytics_orchestrator_dir}/HardwareChangeAnalyzer"
+    # hardware_change_analyzer_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer"
+
+    # Hardware change analyzer log path
+    # Default: {hardware_change_analyzer_dir}/change_log.txt
+    # hardware_change_analyzer_log_path: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/change_log.txt"
+
+    # Machine layout tracker directory
+    # Default: {hardware_change_analyzer_dir}/MachineLayoutTracker"
+    # machine_layout_tracker_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MachineLayoutTracker"
+
+    # Machine layout tracker change log
+    # Default: {machine_layout_tracker_dir}/change_log.txt  
+    # machine_layout_tracker_change_log_path: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MachineLayoutTracker/change_log.txt"
     
-    # Month Level
-    record_month: "2019-01"
-    month_analysis_date: "2019-01-15"
-    month_save_output: true
+    # Mold machine pair tracker directory
+    # Default: {machine_layout_tracker_dir}/MoldMachinePairTracker"
+    # mold_machine_pair_tracker_dir: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MoldMachinePairTracker"
+
+    # Mold machine pair tracker change log
+    # Default: {mold_machine_pair_tracker_dir}/change_log.txt
+    # mold_machine_pair_tracker_change_log_path: "tests/shared_db/AnalyticsOrchestrator/HardwareChangeAnalyzer/MoldMachinePairTracker/change_log.txt"
+
+    # Multi level performance directory
+    # Default: {analytics_orchestrator_dir}/MultiLevelPerformanceAnalyzer"
+    # multi_level_performance_analyzer_dir: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"
+
+    # Multi level performance analyzer log path
+    # Default: {multi_level_performance_analyzer_dir}/change_log.txt
+    # multi_level_performance_analyzer_log_path: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer/change_log.txt"
+
+    # Day level processor directory
+    # Default: {multi_level_performance_analyzer_dir}/DayLevelProcessor"
+    # day_level_processor_dir: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer/DayLevelProcessor"
+
+    # Day level processor log path
+    # Default: {day_level_processor_dir}/change_log.txt
+    # day_level_processor_log_path: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer/DayLevelProcessor/change_log.txt"
+
+    # Month level processor directory
+    # Default: {multi_level_performance_analyzer_dir}/MonthLevelProcessor"
+    # month_level_processor_dir: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer/MonthLevelProcessor"
+
+    # Month level processor log path
+    # Default: {month_level_processor_dir}/change_log.txt
+    # month_level_processor_log_path: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer/MonthLevelProcessor/change_log.txt"
     
-    # Year Level
-    record_year: "2019"
-    year_analysis_date: "2019-12-31"
-    year_save_output: false
-    
-    # Shared configs
-    source_path: "tests/shared_db/DataLoaderAgent/newest"
-    annotation_name: "path_annotations.json"
-    databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
-    
-    save_multi_level_performance_analyzer_log: true
-    multi_level_performance_analyzer_dir: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer"
+    # Year level processor directory
+    # Default: {multi_level_performance_analyzer_dir}/YearLevelProcessor"
+    # year_level_processor_dir: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer/YearLevelProcessor"
+
+    # Year level processor log path
+    # Default: {year_level_processor_dir}/change_log.txt
+    # year_level_processor_log_path: "tests/shared_db/AnalyticsOrchestrator/MultiLevelPerformanceAnalyzer/YearLevelProcessor/change_log.txt"
+
+  machine_layout_tracker:
+    enabled: true
+    save_result: true
+
+  mold_machine_pair_tracker:
+    enabled: true
+    save_result: true 
+  
+  day_level_processor:
+    enabled: true 
+    save_result: true
+    requested_timestamp: "2018-11-06"
+
+  month_level_processor:
+    enabled: true 
+    save_result: true
+    requested_timestamp: "2019-01"
+    analysis_date: "2019-01-15"
+
+  year_level_processor:
+    enabled: true 
+    save_result: true
+    requested_timestamp: "2019"
+    analysis_date: "2019-12-31" 
+
+  save_orchestrator_log: true

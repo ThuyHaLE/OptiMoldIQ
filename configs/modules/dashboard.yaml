@@ -1,157 +1,170 @@
-# configs/modules/dashboard_builder.yaml
+# configs/modules/dashboard.yaml
 
 # Project root directory
 project_root: "."
 
-# =======================
+# ========================
 # DASHBOARD MODULE CONFIG
-# =======================
+# ========================
 dashboard:
+#REQUIRED_FIELDS = {
+#        'config': {
+#            'shared_source_config': {
+#                'annotation_path': str,
+#                'databaseSchemas_path': str,
+#                'multi_level_performance_visualization_service_dir': str,
+#                'multi_level_performance_visualization_service_log_path': str,
+#                'day_level_visualization_pipeline_dir': str,
+#                'day_level_visualization_pipeline_log_path': str,
+#                'month_level_visualization_pipeline_dir': str,
+#                'month_level_visualization_pipeline_log_path': str,
+#                'year_level_visualization_pipeline_dir': str,
+#                'year_level_visualization_pipeline_log_path': str,
+#                'hardware_change_visualization_service_dir': str,
+#                'hardware_change_visualization_service_log_path': str,
+#                'machine_layout_visualization_pipeline_dir': str,
+#                'machine_layout_visualization_pipeline_change_log_path': str,
+#                'mold_machine_pair_visualization_pipeline_dir': str,
+#                'mold_machine_pair_visualization_pipeline_change_log_path': str,
+#                'dashboard_builder_log_path': str
+#                },
+#            'machine_layout_visualization_service': {
+#                'enabled': bool,
+#                'save_result': bool
+#                },
+#            'mold_machine_pair_visualization_service': {
+#                'enabled': bool,
+#                'save_result': bool
+#                },
+#            'day_level_visualization_service': {
+#                'enabled': bool,
+#                'save_result': bool,
+#                'requested_timestamp': bool,
+#                },
+#            'month_level_visualization_service': {
+#                'enabled': bool,
+#                'save_result': bool,
+#                'requested_timestamp': bool,
+#                'analysis_date': bool
+#                },
+#            'year_level_visualization_service': {
+#                'enabled': bool,
+#                'save_result': bool,
+#                'requested_timestamp': bool,
+#                'analysis_date': bool
+#                },
+#            'save_builder_log': bool
+#            }
+#        }
 
-  # ========================================
-  # PARENT ENABLE FLAGS (Top-level control)
-  # ========================================
+  shared_source_config:
+    # --------------------------------------------
+    # BASE DIRECTORIES (Required - it will be resolved with project_root)
+    # --------------------------------------------
+    db_dir: "tests/mock_database" 
+    default_dir: 'tests/shared_db'
+    analytics_orchestrator_dir: 'tests/shared_db/DashboardBuilder'
 
-  # Hardware Change Plotter
-  enable_hardware_change_plotter: true
-  enable_hardware_change_machine_layout_plotter: true
-  enable_hardware_change_machine_mold_pair_plotter: true
+    # --------------------------------------------
+    # OPTIONAL OVERRIDES
+    # Uncomment to override default paths
+    # --------------------------------------------
 
-  # Multi-level Performance Plotter
-  enable_multi_level_plotter: true
-  enable_multi_level_day_level_plotter: true
-  enable_multi_level_month_level_plotter: true
-  enable_multi_level_year_level_plotter: true
+    # Database schemas path
+    # Default: {db_dir}/databaseSchemas.json
+    # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+    
+    # Annotation path  
+    # Default: {default_dir}/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json
+    # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json"
 
-  # General
-  save_log: true
-  builder_dir: "tests/shared_db/DashboardBuilder"
+    # Dashboard Builder directory
+    # Default: {db_dir}/DashboardBuilder
+    # dashboard_builder_dir: "tests/shared_db/DashboardBuilder" 
 
-  # ========================================
-  # PERFORMANCE ANALYSIS CONFIG (Level 3)
-  # For AnalyticsOrchestrator->MultiLevelPerformanceAnalyzer
-  # ========================================
-  performance_analysis:
-    # Day Level
-    record_date: "2018-11-06"
-    day_save_output: false
-    
-    # Month Level
-    record_month: "2019-01"
-    month_analysis_date: "2019-01-15"
-    month_save_output: false
-    
-    # Year Level
-    record_year: "2019"
-    year_analysis_date: "2019-12-31"
-    year_save_output: false
-    
-    # Shared configs
-    source_path: "tests/shared_db/DataLoaderAgent/newest"
-    annotation_name: "path_annotations.json"
-    databaseSchemas_path: "database/databaseSchemas.json"
+    # Dashboard Builder log path
+    # Default: {dashboard_builder_dir}/dashboard_builder_log.txt
+    # dashboard_builder_log_path: "tests/shared_db/DashboardBuilder/dashboard_builder_log.txt"
 
-    # Paths
-    save_log: true
-    analyzer_dir: "tests/shared_db/DashboardBuilder/MultiLevelPerformancePlotter"
+    # Multi-Level Performance Visualization Service directory
+    # Default: {dashboard_builder_dir}/MultiLevelPerformanceVisualizationService
+    # multi_level_performance_visualization_service_dir: "tests/shared_db/DashboardBuilder/MultiLevelPerformanceVisualizationService"
+    
+    # Multi-Level Performance Visualization Service log path
+    # Default: {multi_level_performance_visualization_service_dir}/change_log.txt
+    # multi_level_performance_visualization_service_log_path: "tests/shared_db/DashboardBuilder/MultiLevelPerformanceVisualizationService/change_log.txt"
 
-  # ========================================
-  # CHANGE ANALYSIS CONFIG (Level 3)
-  # For AnalyticsOrchestrator->HardwareChangeAnalyzer
-  # ========================================
-  change_analysis:
-    # Machine Layout Tracker
-    enable_machine_layout_tracker: false  # Will be auto-configured
-    machine_layout_tracker_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineLayoutTracker"
-    machine_layout_tracker_change_log_name: "change_log.txt"
+    # Day-Level Visualization Pipeline directory
+    # Default: {multi_level_performance_visualization_service_dir}/DayLevelVisualizationService
+    # day_level_visualization_pipeline_dir: "tests/shared_db/DashboardBuilder/MultiLevelPerformanceVisualizationService/DayLevelVisualizationService"
     
-    # Machine-Mold Pair Tracker
-    enable_machine_mold_pair_tracker: false  # Will be auto-configured
-    machine_mold_pair_tracker_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineMoldPairTracker"
-    machine_mold_pair_tracker_change_log_name: "change_log.txt"
-    
-    # Shared configs
-    source_path: "tests/shared_db/DataLoaderAgent/newest"
-    annotation_name: "path_annotations.json"
-    databaseSchemas_path: "database/databaseSchemas.json"
-    
-    # Paths
-    save_log: true
-    analyzer_dir: "tests/shared_db/DashboardBuilder/HardwareChangeAnalyzer"
+    # Day-Level Visualization Pipeline log path
+    # Default: {day_level_visualization_pipeline_dir}/change_log.txt
+    # day_level_visualization_pipeline_log_path: "tests/shared_db/DashboardBuilder/MultiLevelPerformanceVisualizationService/DayLevelVisualizationService/change_log.txt"
 
-  # ========================================
-  # ANALYTICS ORCHESTRATOR CONFIG (Level 2)
-  # Will be auto-configured by plotters
-  # ========================================
-  analytics_orchestrator:
-    # These will be overridden by auto-configuration
-    enable_hardware_change_analysis: false
-    enable_multi_level_analysis: false
+    # Month-Level Visualization Pipeline directory
+    # Default: {multi_level_performance_visualization_service_dir}/MonthLevelVisualizationService
+    # month_level_visualization_pipeline_dir: "tests/shared_db/DashboardBuilder/MultiLevelPerformanceVisualizationService/MonthLevelVisualizationService"
     
-    enable_hardware_change_machine_layout_tracker: false
-    enable_hardware_change_machine_mold_pair_tracker: false
-    enable_multi_level_day_level_processor: false
-    enable_multi_level_month_level_processor: false
-    enable_multi_level_year_level_processor: false
-    
-    save_log: true
-    dir: "tests/shared_db/DashboardBuilder"
+    # Month-Level Visualization Pipeline log path
+    # Default: {month_level_visualization_pipeline_dir}/change_log.txt
+    # month_level_visualization_pipeline_log_path: "tests/shared_db/DashboardBuilder/MultiLevelPerformanceVisualizationService/MonthLevelVisualizationService/change_log.txt"
 
-  # ========================================
-  # PERFORMANCE PLOTFLOW CONFIG (Level 1)
-  # ========================================
-  performance_plotflow:
-    # Visualization configs (optional)
-    day_level_visualization_config_path: null
-    month_level_visualization_config_path: null
-    year_level_visualization_config_path: null
+    # Year-Level Visualization Pipeline directory
+    # Default: {multi_level_performance_visualization_service_dir}/YearLevelVisualizationService  
+    # year_level_visualization_pipeline_dir: "tests/shared_db/DashboardBuilder/MultiLevelPerformanceVisualizationService/YearLevelVisualizationService"
     
-    # Paths
-    save_log: true
-    plotter_dir: "tests/shared_db/DashboardBuilder/MultiLevelPerformancePlotter"
-    
-    # Parallel processing
-    enable_parallel: true
-    max_workers: null  # Auto-detect
+    # Year-Level Visualization Pipeline log path
+    # Default: {year_level_visualization_pipeline_dir}/change_log.txt
+    # year_level_visualization_pipeline_log_path: "tests/shared_db/DashboardBuilder/MultiLevelPerformanceVisualizationService/YearLevelVisualizationService/change_log.txt"
 
-  # ========================================
-  # HARDWARE CHANGE PLOTFLOW CONFIG (Level 1)
-  # ========================================
-  hardware_change_plotflow:
-    # Machine Layout Plotter
-    machine_layout_plotter_result_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineLayoutPlotter"
-    machine_layout_visualization_config_path: null
-    
-    # Machine-Mold Pair Plotter
-    machine_mold_pair_plotter_result_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter/MachineMoldPairPlotter"
-    machine_mold_pair_visualization_config_path: null
-    
-    # Paths
-    save_log: true
-    plotter_dir: "tests/shared_db/DashboardBuilder/HardwareChangePlotter"
-    
-    # Parallel processing
-    enable_parallel: true
-    max_workers: null  # Auto-detect
+    # Hardware Change Visualization Service directory
+    # Default: {dashboard_builder_dir}/HardwareChangeVisualizationService
+    # hardware_change_visualization_service_dir: "tests/shared_db/DashboardBuilder/HardwareChangeVisualizationService"
 
-# ========================================
-# AUTO-CONFIGURATION NOTES
-# ========================================
-# The DashboardBuilder uses a 4-level auto-configuration hierarchy:
-#
-# Level 0 (Top): DashboardBuilder
-#   - enable_hardware_change_plotter
-#   - enable_multi_level_plotter
-#   ↓
-# Level 1: Plotters (HardwareChangePlotter, MultiLevelPerformancePlotter)
-#   - enable_*_plotter flags propagate down
-#   ↓
-# Level 2: AnalyticsOrchestrator
-#   - enable_hardware_change_analysis (auto-enabled if any HW plotter enabled)
-#   - enable_multi_level_analysis (auto-enabled if any perf plotter enabled)
-#   ↓
-# Level 3: Analyzers (HardwareChangeAnalyzer, MultiLevelPerformanceAnalyzer)
-#   - enable_*_tracker / enable_*_processor flags auto-propagate
-#
-# Manual nested settings will be OVERRIDDEN by auto-configuration.
-# Check logs for actual configuration used.
+    # Hardware Change Visualization Service log path
+    # Default: {hardware_change_visualization_service_dir}/change_log.txt
+    # hardware_change_visualization_service_log_path: "tests/shared_db/DashboardBuilder/HardwareChangeVisualizationService/change_log.txt"  
+    
+    # Machine Layout Visualization Pipeline directory
+    # Default: {hardware_change_visualization_service_dir}/MachineLayoutVisualizationService
+    # machine_layout_visualization_pipeline_dir: "tests/shared_db/DashboardBuilder/HardwareChangeVisualizationService/MachineLayoutVisualizationService"
+
+    # Machine Layout Visualization Pipeline log path
+    # Default: {machine_layout_visualization_pipeline_dir}/change_log.txt
+    # machine_layout_visualization_pipeline_change_log_path: "tests/shared_db/DashboardBuilder/HardwareChangeVisualizationService/MachineLayoutVisualizationService/change_log.txt"
+
+    # Mold-Machine Pair Visualization Pipeline directory
+    # Default: {hardware_change_visualization_service_dir}/MoldMachinePairVisualizationService
+    # mold_machine_pair_visualization_pipeline_dir: "tests/shared_db/DashboardBuilder/HardwareChangeVisualizationService/MoldMachinePairVisualizationService"
+
+    # Mold-Machine Pair Visualization Pipeline log path
+    # Default: {mold_machine_pair_visualization_pipeline_dir}/change_log.txt
+    # mold_machine_pair_visualization_pipeline_change_log_path: "tests/shared_db/DashboardBuilder/HardwareChangeVisualizationService/MoldMachinePairVisualizationService/change_log.txt"
+
+  machine_layout_visualization_service:
+    enabled: true
+    save_result: true 
+
+  mold_machine_pair_visualization_service:
+    enabled: true
+    save_result: true
+
+  day_level_visualization_service:
+    enabled: true
+    save_result: true
+    requested_timestamp: "2018-11-06"
+
+  month_level_visualization_service:
+    enabled: true
+    save_result: true
+    requested_timestamp: "2019-01"
+    analysis_date: "2019-01-15"
+
+  year_level_visualization_service:
+    enabled: true
+    save_result: true
+    requested_timestamp: "2019"
+    analysis_date: "2019-12-31"
+
+  save_builder_log: true

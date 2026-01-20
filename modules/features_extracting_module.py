@@ -102,7 +102,7 @@ class FeaturesExtractingModule(BaseModule):
         
         Args:
             context: Shared context (empty for first module)
-            self.config: Configuration containing:
+            self.extractor_config: Configuration containing:
 
                 - project_root: Project root directory
                 
