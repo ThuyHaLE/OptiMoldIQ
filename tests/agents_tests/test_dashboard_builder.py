@@ -37,22 +37,22 @@ class TestDashboardBuilder(BaseAgentTests):
                 
                 # Workflow 2: Performance visualization services
                 day_level_visualization_service = ComponentConfig(
-                    enabled = True,
-                    save_result = True,
-                    requested_timestamp = '2018-11-06'
-                ),
+                        enabled = True,
+                        save_result = True,
+                        requested_timestamp = '2018-11-06'
+                    ),
                 month_level_visualization_service = ComponentConfig(
-                    enabled = True,
-                    save_result = True,
-                    requested_timestamp = '2019-01',
-                    analysis_date = '2019-01-15'
-                ),
+                        enabled = True,
+                        save_result = True,
+                        requested_timestamp = '2019-01',
+                        analysis_date = '2019-01-15'
+                    ),
                 year_level_visualization_service = ComponentConfig(
-                    enabled = True,
-                    save_result = True,
-                    requested_timestamp = '2019',
-                    analysis_date = '2019-12-31'
-                ),
+                        enabled = True,
+                        save_result = True,
+                        requested_timestamp = '2019',
+                        analysis_date = '2019-12-31'
+                    ),
 
                 # Top-level logging
                 save_builder_log = True

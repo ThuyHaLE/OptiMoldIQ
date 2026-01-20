@@ -154,7 +154,7 @@ class DashboardBuilder(ConfigReportMixin):
                 'analysis_date': bool
                 },
         
-            'save_orchestrator_log': bool
+            'save_builder_log': bool
             }
         }
 
