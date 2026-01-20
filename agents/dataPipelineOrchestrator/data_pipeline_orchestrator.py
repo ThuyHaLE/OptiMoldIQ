@@ -5,7 +5,7 @@ from datetime import datetime
 import shutil
 import os
 
-from agents.utils import ConfigReportMixin
+from configs.shared.config_report_format import ConfigReportMixin
 from configs.shared.shared_source_config import SharedSourceConfig
 
 from agents.dataPipelineOrchestrator.data_collector import DataCollector

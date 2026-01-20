@@ -8,7 +8,7 @@ import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, List,  Any
 
-from agents.utils import ConfigReportMixin
+from configs.shared.config_report_format import ConfigReportMixin
 from configs.shared.shared_source_config import SharedSourceConfig
 
 # Import healing system constants for error handling and recovery
