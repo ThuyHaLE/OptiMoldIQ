@@ -219,7 +219,7 @@ class AnalyticsOrchestrator(ConfigReportMixin):
         # ============================================
         phases: List[Executable] = []
         
-        # Phase 1: Machine Layout Tracking (optional)
+        # Phase 1: Hardware Change Analyzing (optional)
         if self.config.enable_change_analysis:
             phases.append(HardwareChangeAnalyzingPhase(self.config))
         

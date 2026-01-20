@@ -5,7 +5,7 @@ from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
 from configs.shared.agent_report_format import ExecutionStatus
 
-class TestValidationOrchestrator(BaseAgentTests):
+class TestAnalyticsOrchestrator(BaseAgentTests):
     """
     Agent WITHOUT dependencies
     """
