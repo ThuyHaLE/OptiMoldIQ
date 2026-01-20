@@ -1012,7 +1012,10 @@ def append_change_log(log_path: str | Path, log_str: str) -> str:
     if not log_str or not log_str.strip():
         logger.error("❌ Nothing to append. Log string is empty.")
         raise ValueError("Log string must not be empty.")
+    
     log_path = Path(log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
     try:
         with log_path.open("a", encoding="utf-8") as f:
             f.write(log_str.rstrip() + "\n")

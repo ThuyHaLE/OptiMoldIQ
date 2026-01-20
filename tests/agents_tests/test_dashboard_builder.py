@@ -4,6 +4,7 @@ import pytest
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
 from configs.shared.agent_report_format import ExecutionStatus
+import copy
 
 class TestDashboardBuilder(BaseAgentTests):
     """
@@ -18,7 +19,7 @@ class TestDashboardBuilder(BaseAgentTests):
         from agents.dashboardBuilder.dashboard_builder_v1 import ComponentConfig, DashboardBuilderConfig, DashboardBuilder
         
         # Get config
-        shared_config = dependency_provider.get_shared_source_config()
+        shared_config = copy.deepcopy(dependency_provider.get_shared_source_config())
         shared_config.analytics_orchestrator_dir = 'tests/shared_db/DashboardBuilder'
 
         return DashboardBuilder(
