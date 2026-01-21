@@ -112,7 +112,7 @@ It centralizes operational intelligence by coordinating data, machines, molds, a
 ---
 
 ## 📝 Business Problem 
-> 👉 [Full context](docs/OptiMoldIQ-business-problem.md)
+> 👉 [Full context](docs/v2/OptiMoldIQ-business-problem.md)
 
 ### Background
 In plastic molding production, achieving optimal efficiency while maintaining high product quality is challenging due to the complexity of interconnected factors like:
@@ -284,7 +284,7 @@ optiMoldMaster (Mother Agent) 🔄                      # Overall system in prog
 ---
 
 ## Agent Descriptions
-> 👉 [Details](docs/OptiMoldIQ-agentsBreakDown.md)
+> 👉 [Details](docs/v2/OptiMoldIQ-agentsBreakDown.md)
 
 | Agent | Type | Summary | Status |
 |-------|------|----------|--------|
@@ -618,9 +618,9 @@ The following diagram illustrates how **OptiMoldIQWorkflow** orchestrates data f
 
 For a more technical explanation, see
 
-> 👉 [ASCII diagram](docs/OptiMoldIQ-systemDiagram-ASCII.md)
+> 👉 [ASCII diagram](docs/v2/OptiMoldIQ-systemDiagram-ASCII.md)
 
-> 👉 [Directory Tree Structure](docs/OptiMoldIQ-directoryTreeStructure.md)
+> 👉 [Directory Tree Structure](docs/v2/OptiMoldIQ-projectDirectory.md)
 
 <details> <summary>Click to expand simplified workflow diagram</summary>
 
@@ -709,7 +709,7 @@ agents/database/
     └── purchaseOrders_history/       # Monthly purchase orders
 ```
 
-> Full raw database details: [Raw Database Details](docs/OptiMoldIQ-rawDatabase.md).
+> Full raw database details: [Raw Database Details](docs/v2/OptiMoldIQ-rawDatabase.md).
 
 #### Key Entities
 | Entity                 | Count | Key Info                                              |
@@ -726,7 +726,7 @@ agents/database/
 - Molds → Machines: 1 mold ~ 1.83 machine types (range: 1-4)
 - Items → Materials: Base resin + color masterbatch + additives
   
-> Full ERD and schema details: [Entity-Relationship Diagram](docs/images/OptiMoldIQ-entityRelationshipDiagram(ERD).png) & [DatabaseSchema](docs/OptiMoldIQ-dbSchema.md).
+> Full ERD and schema details: [Entity-Relationship Diagram](docs/v2/images/OptiMoldIQ-entityRelationshipDiagram(ERD).png) & [DatabaseSchema](docs/v2/OptiMoldIQ-dbSchema.md).
 
 #### Quality Metrics
 - 10 defect types: BlackSpot, Scratch, Crack, Short, Burst, etc.
@@ -811,7 +811,7 @@ agents/shared_db/
         └── YearLevelDataProcessor/newest/ + YearLevelDataVisualizationPipeline/newest/
 ```
 
-> Full shared database details: [Shared Database Details](docs/OptiMoldIQ-sharedDatabase.md).
+> Full shared database details: [Shared Database Details](docs/v2/OptiMoldIQ-sharedDatabase.md).
 
 #### Main Shared Database
 
@@ -885,7 +885,7 @@ agents/shared_db/
 ## Milestones
 
 ### Milestone 01: Core Data Pipeline Agents (Completed July 2025)
-> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_01.md)
+> 👉 [Details](docs/v1/milestones/OptiMoldIQ-milestone_01.md)
 
 #### Scope & Objectives
 - Establish the foundational data pipeline to:
@@ -904,14 +904,14 @@ agents/shared_db/
 - `Data Collection` → `Data Loading` (via `DataCollector` & `DataLoaderAgent`).
 - Validation Layer executes core rule checks through the `validationOrchestrator`.
 - Production Progress Reconstruction outputs PO-level timelines and discrepancy flags through the `orderProgressTracker`.
-> 👉 [orderProgressTracker Output Overview](docs/agents_output_overviews/orderProgressTracker_output_overviews.md)
+> 👉 [orderProgressTracker Output Overview](docs/v1/agents_output_overviews/orderProgressTracker_output_overviews.md)
 
 #### Two-Tier Healing System
 - `Local Healing`: each sub-agent performs autonomous recovery (rollback, retry, schema validation).
 - `Global Healing`: orchestrator handles cross-agent failures, multi-stage rollback, or escalates for manual intervention.
 
 ### Milestone 02: Initial Production Planning System (Completed August 2025)
-> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_02.md)
+> 👉 [Details](docs/v1/milestones/OptiMoldIQ-milestone_02.md)
 
 - Depends on: Milestone 01 (Core Data Pipeline Agents)
 
@@ -924,7 +924,7 @@ agents/shared_db/
 
 #### Core System Components
 - **OptiMoldIQWorkflow (Main Orchestrator)**
-> 👉 [optiMoldIQWorkflow Live Demo](docs/agents_output_overviews/optiMoldIQWorkflow_output_overviews.md)
+> 👉 [optiMoldIQWorkflow Live Demo](docs/v1/agents_output_overviews/optiMoldIQWorkflow_output_overviews.md)
 
 - Manages the entire daily pipeline with:
   - Smart change detection and phase-based execution.
@@ -985,7 +985,7 @@ agents/shared_db/
 - Consistent historical insights improve decision-making.
 
 ### Milestone 03: Enhanced Production Planning with Analytics and Dashboard System (Implementation Complete November 2025, Documentation in Progress)
-> 👉 [Details](docs/milestones/OptiMoldIQ-milestone_03.md)
+> 👉 [Details](docs/v2/milestones/OptiMoldIQ-milestone_03.md)
 
 - **Depends on:** Milestone 02 (Initial Production Planning System)
 - **Nature of Update:** Non-breaking Extension

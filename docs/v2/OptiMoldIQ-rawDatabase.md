@@ -69,7 +69,7 @@ The following ERD illustrates how key entities in the production system are conn
   - A designated color masterbatch
   - Optional additives based on product requirements
 
-These relationships form a complex network of constraints that must be accounted for during production planning and scheduling. A detailed schema are available in [DatabaseSchema](docs/OptiMoldIQ-dbSchema.md)
+These relationships form a complex network of constraints that must be accounted for during production planning and scheduling. A detailed schema are available in [DatabaseSchema](docs/v2/OptiMoldIQ-dbSchema.md)
 
 ### 3.4. Temporal Characteristics
 The dataset exhibits several temporal patterns that reflect the operational behavior of the production facility:
