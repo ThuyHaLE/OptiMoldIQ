@@ -1,3 +1,6 @@
+> Status: Introduced in v2  
+> Purpose: Introduce analytics and visualization as first-class domains
+
 # DashboardBuilder
 
 ## 1. Agent Info
@@ -128,13 +131,13 @@ Each level contains its own visualization logic and reporting structure, but all
 
 **Purpose**: Handle three time-level data visualization and dashboard generation for comprehensive performance analysis.
 
-**[→ See Documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_multiLevelPerformancePlotter_overview.md)**
+**[→ See Documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_multiLevelPerformancePlotter_overview.md)**
 
 ### 5.2 HardwareChangePlotter
 
 **Purpose**: Visualize hardware change detection and history tracking for machine layouts and machine-mold relationships.
 
-**[→ See Documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_hardwareChangePlotter_overview.md)**
+**[→ See Documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_hardwareChangePlotter_overview.md)**
 
 ---
 
@@ -438,7 +441,7 @@ Saved to `{dashboard_builder_dir}/change_log.txt`:
 └────────────────────────┘ └────────────────────────┘ └────────────────────────┘ └────────────────────────┘ └────────────────────────┘
 ```
 
-**[→ See Documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/agents_output_overviews/dashboardBuilder)**
+**[→ See Documentation](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/agents_output_overviews/dashboardBuilder)**
 
 ---
 

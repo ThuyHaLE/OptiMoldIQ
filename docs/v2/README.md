@@ -188,14 +188,14 @@ In response to the production challenges outlined above, the **OptiMoldIQ System
 - **Dashboard Builder** (**dashboardBuilder**) 📝: Unified visualization facade providing both static reporting and interactive dashboard capabilities. It transforms analytics outputs into actionable visual insights **by orchestrating Analytics Orchestrator as a shared backend service (Mode 2)**.
   
   **Functional Groups:**
-  - **Static Report Generator** (**multiLevelPerformancePlotter**) ✅: Generates static dashboards, plots, and reports (PNG, TXT, XLSX) through three hierarchical modules:
-    - *DayLevelDataPlotter*: Generates daily operational dashboards with real-time metrics visualization, production summaries, and mold performance reports
-    - *MonthLevelDataPlotter*: Creates monthly trend dashboards tracking completion rates, production patterns, and month-to-date performance analysis
-    - *YearLevelDataPlotter*: Produces annual strategic dashboards with long-term trends, yearly summaries, and performance comparisons
+  - **Static Report Generator** (**multiLevelPerformanceVisualizationService**) ✅: Generates static dashboards, plots, and reports (PNG, TXT, XLSX) through three hierarchical modules:
+    - *DayLevelDataVisualizationPipeline*: Generates daily operational dashboards with real-time metrics visualization, production summaries, and mold performance reports
+    - *MonthLevelDataVisualizationPipeline*: Creates monthly trend dashboards tracking completion rates, production patterns, and month-to-date performance analysis
+    - *YearLevelDataVisualizationPipeline*: Produces annual strategic dashboards with long-term trends, yearly summaries, and performance comparisons
   
-  - **Hardware Change Visualization** (**hardwareChangePlotter**) ✅: Visualizes hardware change detection and history tracking through two modules:
-    - *MachineLayoutPlotter*: Generates machine layout evolution visualizations and change reports
-    - *MachineMoldPairPlotter*: Creates mold-machine relationship visualizations and utilization reports
+  - **Hardware Change Visualization** (**hardwareChangeVisualizationService**) ✅: Visualizes hardware change detection and history tracking through two modules:
+    - *MachineLayoutVisualizationPipeline*: Generates machine layout evolution visualizations and change reports
+    - *MachineMoldPairVisualizationPipeline*: Creates mold-machine relationship visualizations and utilization reports
 
   **Optional Groups:** (planning...)
   - **Interactive Dashboard Platform** (**dynamicDashboardUI**) 📝: Web-based interactive dashboard with real-time data updates, advanced filtering, drill-down capabilities, and responsive visualizations
@@ -216,36 +216,36 @@ In response to the production challenges outlined above, the **OptiMoldIQ System
 
 OptiMoldIQ uses a **multi-agent architecture** to operationalize these orchestration layers:
 ```
-optiMoldMaster (Mother Agent) 🔄            # Overall system in progress
+optiMoldMaster (Mother Agent) 🔄                      # Overall system in progress
 │
-├─ Data Operations Layer ✅                 # This layer is complete
-│  ├─ dataPipelineOrchestrator ✅               # ETL: collect & load data
-│  ├─ validationOrchestrator ✅                 # Multi-layer data validation
-│  └─ orderProgressTracker ✅                   # Production tracking (daily batch)
+├─ Data Operations Layer ✅                           # This layer is complete
+│  ├─ dataPipelineOrchestrator ✅                        # ETL: collect & load data
+│  ├─ validationOrchestrator ✅                          # Multi-layer data validation
+│  └─ orderProgressTracker ✅                            # Production tracking (daily batch)
 │
-├─ Production Planning Layer 🔄              # This layer partially complete
+├─ Production Planning Layer 🔄                       # This layer partially complete
 │  └─ autoPlanner 🔄
-│     ├─ initialPlanner ✅                      # Generate optimal plans
-│     └─ planRefiner 📝                         # Refine with real-time data
+│     ├─ initialPlanner ✅                               # Generate optimal plans
+│     └─ planRefiner 📝                                  # Refine with real-time data
 │
-├─ Insight Analytics Layer 🔄                # This layer partially complete
-│  └─ analyticsOrchestrator 🔄                  # Dual-mode: Standalone or backend service
-│     ├─ hardwareChangeAnalyzer ✅              # Machine & mold change tracking
-│     ├─ multiLevelPerformanceAnalyzer ✅       # Day/Month/Year performance analytics
-│     └─ crossLevelPerformanceAnalyzer 📝       # Advanced cross-functional analytics
+├─ Insight Analytics Layer 🔄                         # This layer partially complete
+│  └─ analyticsOrchestrator 🔄                           # Dual-mode: Standalone or backend service
+│     ├─ hardwareChangeAnalyzer ✅                       # Machine & mold change tracking
+│     ├─ multiLevelPerformanceAnalyzer ✅                # Day/Month/Year performance analytics
+│     └─ crossLevelPerformanceAnalyzer 📝                # Advanced cross-functional analytics
 │
-├─ Visualization & Report Generating Layer 🔄 # This layer partially complete
-│  └─ dashboardBuilder 🔄                       # Consumes Analytics Orchestrator
-│     ├─ multiLevelPerformancePlotter ✅        # Day/Month/Year static visualizations
-│     ├─ hardwareChangePlotter ✅               # Hardware change visualizations
-│     └─ dynamicDashboardUI 📝                  # Interactive web dashboards
+├─ Visualization & Report Generating Layer 🔄         # This layer partially complete
+│  └─ dashboardBuilder 🔄                                 # Consumes Analytics Orchestrator
+│     ├─ multiLevelPerformanceVisualizationService  ✅        # Day/Month/Year static visualizations
+│     ├─ hardwareChangeVisualizationService ✅                # Hardware change visualizations
+│     └─ dynamicDashboardUI 📝                                # Interactive web dashboards
 │
-└─ Operational Task Coordinating Layer 📝     # This layer fully planned 
-    └─ taskOrchestrator 📝                      # Consumes Analytics Orchestrator
-       ├─ resinCoordinator 📝                   # Resin inventory management
-       ├─ maintenanceCoordinator 📝             # Predictive mold-machine maintenance
-       ├─ productQualityCoordinator 📝          # Quality optimization
-       └─ yieldOptimizer 📝                     # Yield optimization
+└─ Operational Task Coordinating Layer 📝              # This layer fully planned 
+    └─ taskOrchestrator 📝                                # Consumes Analytics Orchestrator
+       ├─ resinCoordinator 📝                                 # Resin inventory management
+       ├─ maintenanceCoordinator 📝                           # Predictive mold-machine maintenance
+       ├─ productQualityCoordinator 📝                        # Quality optimization
+       └─ yieldOptimizer 📝                                   # Yield optimization
 ```
 
 > **Note:** `optiMoldMaster` functions as the **mother-agent**, orchestrating all child agents. Each child agent operates autonomously but synchronizes through shared data and event channels.
@@ -256,13 +256,13 @@ optiMoldMaster (Mother Agent) 🔄            # Overall system in progress
 > 
 > - **Standalone Mode**: 
 >   ```
->   analyticsOrchestrator.run_analytics() → Direct outputs (TXT, JSON, XLSX)
+>   analyticsOrchestrator.run_analyzing() → Direct outputs (TXT, JSON, XLSX)
 >   ```
 > 
 > - **Integrated Mode** (Config Injection Pipeline):
 >   ```
 >   Consumer Agent → [Component]Config → Auto-Config 
->   → AnalyticsOrchestrator.run_analytics() → Analytics Results 
+>   → AnalyticsOrchestrator.run_analyzing() → Analytics Results 
 >   → Consumer Processing → Outputs
 >   ```
 >   
@@ -273,8 +273,8 @@ optiMoldMaster (Mother Agent) 🔄            # Overall system in progress
 > Consumer agents embed `AnalyticsOrchestratorConfig` to trigger specific analyzers, then consume results:
 > 
 > - **dashboardBuilder**:
->   - `multiLevelPerformancePlotter` → `multiLevelPerformanceAnalyzer` → day/month/year visualizations
->   - `hardwareChangePlotter` → `hardwareChangeAnalyzer` → machineLayout/machineMoldPair visualizations
+>   - `multiLevelPerformanceVisualizationService` → `multiLevelPerformanceAnalyzer` → day/month/year visualizations
+>   - `hardwareChangeVisualizationService` → `hardwareChangeAnalyzer` → machineLayout/machineMoldPair visualizations
 > 
 > - **taskOrchestrator** (planning):
 >   - `resinCoordinator` → relevant analyzers → inventory actions
@@ -300,8 +300,8 @@ optiMoldMaster (Mother Agent) 🔄            # Overall system in progress
 | multiLevelPerformanceAnalyzer | Sub-component | Day/Month/Year hierarchical performance analytics | ✅ |
 | crossLevelPerformanceAnalyzer | Sub-component | Advanced cross-functional analytics service | 📝 |
 | dashboardBuilder | Child Agent | Visualization facade consuming Analytics Orchestrator | 🔄 |
-| multiLevelPerformancePlotter | Sub-component | Day/Month/Year static reports & visualizations | ✅ |
-| hardwareChangePlotter | Sub-component | Machine/mold change visualizations | ✅ |
+| multiLevelPerformanceVisualizationService | Sub-component | Day/Month/Year static reports & visualizations | ✅ |
+| hardwareChangeVisualizationService | Sub-component | Machine/mold change visualizations | ✅ |
 | dynamicDashboardUI | Sub-component | Interactive web-based dashboards | 📝 |
 | taskOrchestrator | Child Agent | Coordinates operational tasks | 📝 |
 | resinCoordinator | Sub-component | Manages resin inventory and consumption | 📝 |
@@ -405,28 +405,28 @@ Central analytics facade orchestrating multiple complementary analytics function
 1. **hardwareChangeAnalyzer ✅**
 - Coordinates and executes **historical change analyses** for both machines and molds over time.  
 - Generates **change tracking reports** capturing configuration evolution and operational patterns.  
-- Operates in dual modes: standalone analytics or backend service for `hardwareChangePlotter`.
+- Operates in dual modes: standalone analytics or backend service for `hardwareChangeVisualizationService`.
 - **Modules:**
   - *MachineLayoutTracker*: Analyzes machine layout evolution over time to identify layout changes and activity patterns
   - *MachineMoldPairTracker*: Analyzes mold-machine relationships, first-run history, and mold utilization to identify operational trends
 - **Output:** Historical change logs, configuration reports (TXT, JSON, XLSX).
 - **Service-Consumer Relationship:**
-  - `machineLayoutTracker` → `machineLayoutPlotter` ✅
-  - `machineMoldPairTracker` → `machineMoldPairPlotter` ✅
+  - `machineLayoutTracker` → `machineLayoutVisualizationPipeline` ✅
+  - `machineMoldPairTracker` → `machineMoldPairVisualizationPipeline` ✅
 
 2. **multiLevelPerformanceAnalyzer ✅**
 - Orchestrates and executes **comprehensive data processing pipeline** across multiple time granularities (day/month/year).
 - Generates **structured analytics outputs** for consumption by dashboard builders and downstream agents (planRefiner, taskOrchestrator).
-- Operates in dual modes: standalone analytics or backend service for `multiLevelPerformancePlotter`.
+- Operates in dual modes: standalone analytics or backend service for `multiLevelPerformanceVisualizationService`.
 - **Modules:**
   - *DayLevelDataProcessor*: Processes daily production data with mold-based and item-based aggregations, generating real-time operational metrics and summary statistics
   - *MonthLevelDataProcessor*: Analyzes monthly production patterns, distinguishing finished and unfinished orders to track completion rates and identify trends
   - *YearLevelDataProcessor*: Performs annual production analysis, providing long-term insights into finished/unfinished orders and yearly performance summaries
 - **Output:** Multi-level processed DataFrames with aggregated records and statistical summaries (TXT, JSON, XLSX).
 - **Service-Consumer Relationship:**
-  - `dayLevelDataProcessor` → `dayLevelDataPlotter` ✅
-  - `monthLevelDataProcessor` → `monthLevelDataPlotter` ✅
-  - `yearLevelDataProcessor` → `yearLevelDataPlotter` ✅
+  - `dayLevelDataProcessor` → `dayLevelDataVisualizationPipeline` ✅
+  - `monthLevelDataProcessor` → `monthLevelDataVisualizationPipeline` ✅
+  - `yearLevelDataProcessor` → `yearLevelDataVisualizationPipeline` ✅
   - Future consumers: `planRefiner`, `taskOrchestrator`, `dynamicDashboardUI` 📝
 
 3. **crossLevelPerformanceAnalyzer 📝 (Advanced Analytics)**
@@ -453,7 +453,7 @@ Unified visualization facade providing dual-mode dashboard capabilities through 
 
 **Subcomponents**
 
-1. **multiLevelPerformancePlotter ✅ (Static Report Generator)**
+1. **multiLevelPerformanceVisualizationService ✅ (Static Report Generator)**
 - Coordinates **static dashboard generation** across multiple time resolutions (day/month/year).
 - Manages **execution flow** with flexible configuration, auto-configuration, and error isolation.
 - Operates as a **batch processing layer** — generates scheduled reports for distribution and archival.
@@ -467,9 +467,9 @@ Unified visualization facade providing dual-mode dashboard capabilities through 
   - Embedded: `analytics_orchestrator_config` (auto-configured)
 
 **Modules:**
-  - *DayLevelDataPlotter*: Generates daily operational dashboards with real-time metrics visualization, production summaries, and mold performance reports
-  - *MonthLevelDataPlotter*: Creates monthly trend dashboards tracking completion rates, production patterns, and month-to-date performance analysis
-  - *YearLevelDataPlotter*: Produces annual strategic dashboards with long-term trends, yearly summaries, and performance comparisons
+  - *DayLevelDataVisualizationPipeline*: Generates daily operational dashboards with real-time metrics visualization, production summaries, and mold performance reports
+  - *MonthLevelDataVisualizationPipeline*: Creates monthly trend dashboards tracking completion rates, production patterns, and month-to-date performance analysis
+  - *YearLevelDataVisualizationPipeline*: Produces annual strategic dashboards with long-term trends, yearly summaries, and performance comparisons
 
 **Output:** 
   - Static PNG images for visual dashboards
@@ -487,11 +487,11 @@ Unified visualization facade providing dual-mode dashboard capabilities through 
   **Data Processing Flow:**
   Analytics: [day/month/year]LevelDataProcessor 
     → Analytics Results (DataFrames)
-    → Visualization: [day/month/year]LevelDataPlotter 
+    → Visualization: [day/month/year]LevelDataVisualizationPipeline 
     → Outputs (PNG/TXT/XLSX)
 ```
 
-2. **hardwareChangePlotter ✅ (Hardware Change Visualization)**
+2. **hardwareChangeVisualizationService ✅ (Hardware Change Visualization)**
 - Coordinates **hardware change visualizations** for machine layouts and machine-mold pairs.
 - Manages **execution flow** with flexible configuration, auto-configuration, and error isolation.
 - Operates as a **batch processing layer** — generates change reports and visualizations.
@@ -503,8 +503,8 @@ Unified visualization facade providing dual-mode dashboard capabilities through 
   - Embedded: `analytics_orchestrator_config` (auto-configured)
 
 **Modules:**
-  - *MachineLayoutPlotter*: Generates machine layout evolution visualizations and change reports
-  - *MachineMoldPairPlotter*: Creates mold-machine relationship visualizations and utilization reports
+  - *MachineLayoutVisualizationPipeline*: Generates machine layout evolution visualizations and change reports
+  - *MachineMoldPairVisualizationPipeline*: Creates mold-machine relationship visualizations and utilization reports
 
 **Output:**
   - Static PNG images for change visualizations
@@ -515,7 +515,7 @@ Unified visualization facade providing dual-mode dashboard capabilities through 
 ```
   HardwareChangePlotflowConfig → Auto-Config → AnalyticsOrchestrator.hardwareChangeAnalyzer
   → [machineLayout/machineMoldPair]Tracker → Analytics Results 
-  → [machineLayout/machineMoldPair]Plotter → Visualizations (PNG/TXT)
+  → [machineLayout/machineMoldPair]VisualizationPipeline → Visualizations (PNG/TXT)
 ```
 
 3. **dynamicDashboardUI 📝 (Interactive Dashboard Platform)**
@@ -527,18 +527,18 @@ Unified visualization facade providing dual-mode dashboard capabilities through 
 ```
 Analytics Orchestrator (Backend Service)          Dashboard Builder (Visualization Consumer)
         ↓                                                      ↓
-┌─────────────────────────────────┐           ┌──────────────────────────────────────┐
-│ multiLevelPerformanceAnalyzer   │           │ multiLevelPerformancePlotter         │
-│  ├─ dayLevelDataProcessor    ───┼──────────→│  ├─ dayLevelDataPlotter (PNG/TXT/XLS)│
-│  ├─ monthLevelDataProcessor  ───┼──────────→│  ├─ monthLevelDataPlotter            │
-│  └─ yearLevelDataProcessor   ───┼──────────→│  └─ yearLevelDataPlotter             │
-└─────────────────────────────────┘           └──────────────────────────────────────┘
+┌─────────────────────────────────┐           ┌────────────────────────────────────────────────────┐
+│ multiLevelPerformanceAnalyzer   │           │ multiLevelPerformanceVisualizationService          │
+│  ├─ dayLevelDataProcessor    ───┼──────────→│  ├─ dayLevelDataVisualizationPipeline (PNG/TXT/XLS)│
+│  ├─ monthLevelDataProcessor  ───┼──────────→│  ├─ monthLevelDataVisualizationPipeline            │
+│  └─ yearLevelDataProcessor   ───┼──────────→│  └─ yearLevelDataVisualizationPipeline             │
+└─────────────────────────────────┘           └────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────┐           ┌──────────────────────────────────────┐
-│ hardwareChangeAnalyzer          │           │ hardwareChangePlotter                │
-│  ├─ machineLayoutTracker     ───┼──────────→│  ├─ machineLayoutPlotter (PNG/TXT)   │
-│  └─ machineMoldPairTracker   ───┼──────────→│  └─ machineMoldPairPlotter           │
-└─────────────────────────────────┘           └──────────────────────────────────────┘
+┌─────────────────────────────────┐           ┌────────────────────────────────────────────────────┐
+│ hardwareChangeAnalyzer          │           │ hardwareChangeVisualizationService                 │
+│  ├─ machineLayoutTracker     ───┼──────────→│  ├─ machineLayoutVisualizationPipeline (PNG/TXT)   │
+│  └─ machineMoldPairTracker   ───┼──────────→│  └─ machineMoldPairVisualizationPipeline           │
+└─────────────────────────────────┘           └────────────────────────────────────────────────────┘
 
                                               ┌──────────────────────────────────────┐
                                               │ dynamicDashboardUI 📝                 │
@@ -587,27 +587,27 @@ Together, these layers form a **closed feedback loop** where data → planning �
                                             ↓ 
                                     DATA OPERATIONS
                                             ├─→ VALIDATION ─────────┐
-                                            |                       ├──────────────────────────────────────→ TRACKING ─→ PLANNING
-                                            └─→ SHARED DATABASE ────┘                                                       ↓
-                                                      ↓                                                              ┌────────────────┐          
-        ┌─────────────────────────────────────────────┼──────────────────────────────────────┐                       ↓                ↓           
-        ↓                                             ↓                                      ↓                 INITIAL PLAN     REFINER PLAN 📝
-    ANALYTICS ORCHESTRATOR                    DASHBOARD BUILDER                    TASK ORCHESTRATOR                              (Consumer)   
-   (Dual-Mode: Standalone/Backend)         (Visualization Consumer)              (Operational Consumer)                                ↑
-        |                                             |                                      |                                         |
-        ├→ Hardware Change Analyzer ───────────────→  ├→ Hardware Change Plotter             |                                         |
-        |  (machineLayout, machineMoldPair)           |  (Visualizations: PNG/TXT)           |                                         |
-        |                                             |                                      |                                         |
-        ├→ Multi-Level Performance Analyzer ───────→  ├→ Multi-Level Performance Plotter     |                                         |
-        |  (day/month/year analytics)                 |  (Visualizations: PNG/TXT/XLSX)      |                                         |
-        |                                             |                                      |                                         |
-        |                                             └→ Dynamic Dashboard UI (Web) 📝      |                                          |
-        |                                                                                    |                                         |
-        ├→ Cross-Level Performance Analyzer 📝 ───────────────────────────────────────────→ └→ Operational Coordinators 📝            |
-        |  (advanced predictive analytics)                                                      (resin, maintenance, quality, yield)   |
-        |                                                                                                                              |
-        └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-                                                                                            (Future: Cross-Level insights for planning)
+                                            |                       ├──────────────────────────────────────────────────────→ TRACKING ─→ PLANNING
+                                            └─→ SHARED DATABASE ────┘                                                                       ↓
+                                                      ↓                                                                             ┌────────────────┐          
+        ┌─────────────────────────────────────────────┼─────────────────────────────────────────────────────┐                       ↓                ↓           
+        ↓                                             ↓                                                     ↓                 INITIAL PLAN     REFINER PLAN 📝
+    ANALYTICS ORCHESTRATOR                    DASHBOARD BUILDER                                   TASK ORCHESTRATOR                              (Consumer)   
+   (Dual-Mode: Standalone/Backend)         (Visualization Consumer)                             (Operational Consumer)                                ↑
+        |                                             |                                                     |                                         |
+        ├→ Hardware Change Analyzer ───────────────→  ├→ Hardware Change Visualization Pipeline             |                                         |
+        |  (machineLayout, machineMoldPair)           |  (Visualizations: PNG/TXT)                          |                                         |
+        |                                             |                                                     |                                         |
+        ├→ Multi-Level Performance Analyzer ───────→  ├→ Multi-Level Performance Visualization Pipeline     |                                         |
+        |  (day/month/year analytics)                 |  (Visualizations: PNG/TXT/XLSX)                     |                                         |
+        |                                             |                                                     |                                         |
+        |                                             └→ Dynamic Dashboard UI (Web) 📝                     |                                          |
+        |                                                                                                   |                                          |
+        ├→ Cross-Level Performance Analyzer 📝 ───────────────────────────────────────────────────────────→ └→ Operational Coordinators 📝            |
+        |  (advanced predictive analytics)                                                                      (resin, maintenance, quality, yield)   |
+        |                                                                                                                                              |
+        └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                                                                            (Future: Cross-Level insights for planning)
 ```
 
 ---
@@ -661,22 +661,22 @@ PHASE 3 — INITIAL PLANNING
 PHASE 4 — ANALYTICS & VISUALIZATION
     • TriggerDetection → checks for new or changed data
     • DashboardBuilder
-      - HardwareChangePlotter
+      - HardwareChangeVisualizationService
         - MachineLayoutTracker → machine layout change history
-        - MachineLayoutPlotter → machine layout change dashboard
+        - MachineLayoutVisualizationPipeline → machine layout change dashboard
         
         - MachineMoldPairTracker → first-run machine/mold pair history extraction
-        - MachineMoldPairPlotter → first-run machine/mold pair history dashboard
+        - MachineMoldPairVisualizationPipeline → first-run machine/mold pair history dashboard
       
-      - MultiLevelPerformancePlotter
+      - MultiLevelPerformanceVisualizationService
         - DayLevelDataProcessor → daily production records with mold/item aggregations
-        - DayLevelDataPlotter → daily production static dashboard
+        - DayLevelDataVisualizationPipeline → daily production static dashboard
 
         - MonthLevelDataProcessor → monthly finished/unfinished order analysis
-        - MonthLevelDataPlotter → monthly production static dashboard
+        - MonthLevelDataVisualizationPipeline → monthly production static dashboard
 
         - YearLevelDataProcessor → annual production trends and completion statistics
-        - YearLevelDataPlotter → annual production static dashboard
+        - YearLevelDataVisualizationPipeline → annual production static dashboard
 ──────────────────────────────────────────────────────────────────────────
 CENTRALIZED REPORTING
     agents/shared_db/{ModuleName}/
@@ -799,16 +799,16 @@ agents/shared_db/
     # ══════════════════════════════════════════════════════════════════
     # HARDWARE CHANGE DASHBOARDS
     # ══════════════════════════════════════════════════════════════════
-    ├── HardwareChangePlotter/
-    |   ├─ MachineLayoutTracker/newest/ + MachineLayoutPlotter/newest/
-    |   └─ MachineMoldPairTracker/newest/ + MachineMoldPairPlotter/newest/
+    ├── HardwareChangeVisualizationService/
+    |   ├─ MachineLayoutTracker/newest/ + MachineLayoutVisualizationPipeline/newest/
+    |   └─ MachineMoldPairTracker/newest/ + MachineMoldPairVisualizationPipeline/newest/
     # ══════════════════════════════════════════════════════════════════
     # MULTI-LEVEL PERFORMANCE DASHBOARDS
     # ══════════════════════════════════════════════════════════════════
-    └── MultiLevelPerformancePlotter/
-        ├── DayLevelDataProcessor/newest/ + DayLevelDataPlotter/newest/
-        ├── MonthLevelDataProcessor/newest/ + MonthLevelDataPlotter/newest/ 
-        └── YearLevelDataProcessor/newest/ + YearLevelDataPlotter/newest/
+    └── MultiLevelPerformanceVisualizationService/
+        ├── DayLevelDataProcessor/newest/ + DayLevelDataVisualizationPipeline/newest/
+        ├── MonthLevelDataProcessor/newest/ + MonthLevelDataVisualizationPipeline/newest/ 
+        └── YearLevelDataProcessor/newest/ + YearLevelDataVisualizationPipeline/newest/
 ```
 
 > Full shared database details: [Shared Database Details](docs/OptiMoldIQ-sharedDatabase.md).
@@ -845,26 +845,26 @@ agents/shared_db/
                                                DataPipelineOrchestrator
                                                          ↓
                                                   DashboardBuilder
-                            ┌────────────────────────────┴───────────────────────────┐
-                            ↓                                                        ↓
-              enable_hardware_change_plotter                             enable_multi_level_plotter
-                            ↓                                                        ↓
-                HardwareChangePlotter                                   MultiLevelPerformancePlotter
-                            ↓                                                        ↓
-                AnalyticsOrchestrator                                      AnalyticsOrchestrator
-                            ↓                                                        ↓
-                HardwareChangeAnalyzer                                  MultiLevelPerformanceAnalyzer
-                  ├─ Machine Layout change dashboards                    ├─ Daily dashboards
-                  │  MachineLayoutTracker → MachineLayoutPlotter         |  DayLevelDataProcessor  → DayLevelDataPlotter
-                  │       (analysis)          (visualization)            │       (analysis)            (visualization)
-                  │                                                      │
-                  └─ Mold pairing dashboards                             ├─ Monthly dashboards 
-                     MachineMoldPairTracker → MachineMoldPairPlotter     |  MonthLevelDataProcessor → MonthLevelDataPlotter
-                          (analysis)          (visualization)            │       (analysis)            (visualization)
-                                                                         │
-                                                                         └─ Yearly dashboards
-                                                                            YearLevelDataProcessor  → YearLevelDataPlotter
-                                                                                 (analysis)            (visualization)
+                            ┌────────────────────────────┴─────────────────────────────┐
+                            ↓                                                          ↓
+              enable_hardware_change_plotter                                enable_multi_level_plotter
+                            ↓                                                          ↓
+                HardwareChangeVisualizationPipeline                 MultiLevelPerformanceVisualizationService
+                            ↓                                                          ↓
+                AnalyticsOrchestrator                                          AnalyticsOrchestrator
+                            ↓                                                          ↓
+                HardwareChangeAnalyzer                                    MultiLevelPerformanceAnalyzer
+                  ├─ Machine Layout change dashboards                                  ├─ Daily dashboards
+                  │  MachineLayoutTracker → MachineLayoutVisualizationPipeline         |  DayLevelDataProcessor  → DayLevelDataVisualizationPipeline
+                  │       (analysis)          (visualization)                          │       (analysis)            (visualization)
+                  │                                                                    │
+                  └─ Mold pairing dashboards                                           ├─ Monthly dashboards 
+                     MachineMoldPairTracker → MachineMoldPairVisualizationPipeline     |  MonthLevelDataProcessor → MonthLevelDataVisualizationPipeline
+                          (analysis)          (visualization)                          │       (analysis)            (visualization)
+                                                                                       │
+                                                                                       └─ Yearly dashboards
+                                                                                          YearLevelDataProcessor  → YearLevelDataVisualizationPipeline
+                                                                                                (analysis)            (visualization)
 ```
 
 ---
@@ -1045,15 +1045,15 @@ Phase 4: Analytics & Dashboards (Optional) with two independent components conne
 
 ##### B. dashboardBuilder (Visualization Layer)
 
-**1. multiLevelPerformancePlotter ✅**
-- **DayLevelDataPlotter:** Daily operational dashboards
-- **MonthLevelDataPlotter:** Monthly trend analysis
-- **YearLevelDataPlotter:** Annual strategic dashboards
+**1. multiLevelPerformanceVisualizationService ✅**
+- **DayLevelDataVisualizationPipeline:** Daily operational dashboards
+- **MonthLevelDataVisualizationPipeline:** Monthly trend analysis
+- **YearLevelDataVisualizationPipeline:** Annual strategic dashboards
 - **Output:** PNG, TXT, XLSX
 
-**2. hardwareChangePlotter ✅**
-- **MachineLayoutPlotter:** Layout evolution visualizations
-- **MachineMoldPairPlotter:** Relationship and utilization reports
+**2. hardwareChangeVisualizationService ✅**
+- **MachineLayoutVisualizationPipeline:** Layout evolution visualizations
+- **MachineMoldPairVisualizationPipeline:** Relationship and utilization reports
 - **Output:** PNG, TXT
 
 **3. dynamicDashboardUI 📝** (Future: interactive web platform)

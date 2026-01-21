@@ -1,3 +1,6 @@
+> Status: Introduced in v2  
+> Purpose: Introduce analytics and visualization as first-class domains
+
 ## HardwareChangePlotter
 
 - **Purpose**:
@@ -263,7 +266,7 @@
 - **Integration Points**:
   
     - **Upstream dependencies**: 
-        - **AnalyticsOrchestrator** → Provides hardware change analysis results via [HardwareChangeAnalyzer](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_hardwareChangeAnalyzer_overview.md)
+        - **AnalyticsOrchestrator** → Provides hardware change analysis results via [HardwareChangeAnalyzer](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_hardwareChangeAnalyzer_overview.md)
         - **HardwareChangePlotflowConfig** → Configuration management for visualization parameters
         - **HardwareChangeAnalyzer** → Source of change detection data and analytics
     
@@ -271,12 +274,12 @@
         - **DashboardBuilder** → Invokes HardwareChangePlotter as part of the dashboard generation workflow
     
     - **Analysis layer dependencies** (via AnalyticsOrchestrator):
-        - [MachineLayoutTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineLayoutTracker_overview.md) → Provides machine layout change data
-        - [MachineMoldPairTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineMoldPairTracker_overview.md) → Provides machine-mold pairing data
+        - [MachineLayoutTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineLayoutTracker_overview.md) → Provides machine layout change data
+        - [MachineMoldPairTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineMoldPairTracker_overview.md) → Provides machine-mold pairing data
 
     - **Visualization sub-components**:
-        - [MachineLayoutPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_machineLayoutPlotter_overview.md) → Generates machine layout change dashboards and visualizations
-        - [MachineMoldPairPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_machineMoldPairPlotter_overview.md) → Generates mold pairing dashboards and reports
+        - [MachineLayoutPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_machineLayoutPlotter_overview.md) → Generates machine layout change dashboards and visualizations
+        - [MachineMoldPairPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_machineMoldPairPlotter_overview.md) → Generates mold pairing dashboards and reports
 
     - **Persistence**: 
         - Consolidated visualization log in `{hardware_change_plotter_dir}/change_log.txt`

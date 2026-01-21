@@ -1,3 +1,6 @@
+> Status: Introduced in v2  
+> Purpose: Introduce analytics and visualization as first-class domains
+
 ## MultiLevelPerformanceAnalyzer
 
 - **Purpose**:
@@ -10,7 +13,7 @@
 - **Core responsibilities**:
   
   - Conditionally execute time-based data processors based on configuration settings.
-  - Coordinate three specialized processors: [DayLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_dayLevelDataProcessor_overview.md), [MonthLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_monthLevelDataProcessor_overview.md), and [YearLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_yearLevelDataProcessor_overview.md).
+  - Coordinate three specialized processors: [DayLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_dayLevelDataProcessor_overview.md), [MonthLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_monthLevelDataProcessor_overview.md), and [YearLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_yearLevelDataProcessor_overview.md).
   - Generate consolidated performance logs across all processing levels.
   - Provide error isolation to ensure failures at one level don't affect other levels.
   - Aggregate analysis summaries and metrics for multi-level reporting.
@@ -307,7 +310,7 @@
 - **Integration Points**:
   
     - **Upstream dependencies**: 
-        - **DataPipelineOrchestrator** → Provides fresh database files via [DataLoaderAgent](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataPipelineOrchestrator_overview.md)
+        - **DataPipelineOrchestrator** → Provides fresh database files via [DataLoaderAgent](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataPipelineOrchestrator_overview.md)
         - **ChangeAnalyticflowConfig** → Configuration management for analysis parameters
     
     - **Parent orchestrator**:
@@ -315,16 +318,16 @@
         - Triggered when `enable_multi_level_plotter` is enabled in DashboardBuilder
     
     - **Sub-component orchestration** (Analysis layer):
-        - [DayLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_dayLevelDataProcessor_overview.md) - Processes daily production metrics
-        - [MonthLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_monthLevelDataProcessor_overview.md) - Tracks monthly order progress
-        - [YearLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_yearLevelDataProcessor_overview.md) - Analyzes yearly performance trends
+        - [DayLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_dayLevelDataProcessor_overview.md) - Processes daily production metrics
+        - [MonthLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_monthLevelDataProcessor_overview.md) - Tracks monthly order progress
+        - [YearLevelDataProcessor](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_yearLevelDataProcessor_overview.md) - Analyzes yearly performance trends
 
     - **Downstream consumers** (Visualization layer):
-        - [MultiLevelPerformancePlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_multiLevelPerformancePlotter_overview.md) → Top-level plotter coordinating multi-level performance visualizations
+        - [MultiLevelPerformancePlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_multiLevelPerformancePlotter_overview.md) → Top-level plotter coordinating multi-level performance visualizations
       - D:\OptiMoldIQ\docs\documentations\dashboardBuilder\multiLevelPerformancePlotter
-            - [DayLevelDataPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_dayLevelDataPlotter_overview.md) - Generate dashboard for daily production.
-            - [MonthLevelDataPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_monthLevelDataPlotter_overview.md) - Generate dashboard for monthly order progress.
-            - [YearLevelDataPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_yearLevelDataPlotter_overview.md) - Generate dashboard for yearly performance trends.
+            - [DayLevelDataPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_dayLevelDataPlotter_overview.md) - Generate dashboard for daily production.
+            - [MonthLevelDataPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_monthLevelDataPlotter_overview.md) - Generate dashboard for monthly order progress.
+            - [YearLevelDataPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/multiLevelPerformancePlotter/OptiMoldIQ_yearLevelDataPlotter_overview.md) - Generate dashboard for yearly performance trends.
 
     - **Persistence**: 
         - Component-level change logs (managed by DayLevelDataProcessor, MonthLevelDataProcessor and YearLevelDataProcessor)

@@ -1,3 +1,6 @@
+> Status: Introduced in v2  
+> Purpose: Introduce analytics and visualization as first-class domains
+
 ## HardwareChangeAnalyzer
 
 - **Purpose**:
@@ -9,7 +12,7 @@
 - **Core responsibilities**:
   
     - Load and validate production records, mold information, and machine information from database sources..
-    - Initialize and coordinate two sub-analyzers: ([MachineLayoutTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineLayoutTracker_overview.md)) and ([MachineMoldPairTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineMoldPairTracker_overview.md)).
+    - Initialize and coordinate two sub-analyzers: ([MachineLayoutTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineLayoutTracker_overview.md)) and ([MachineMoldPairTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineMoldPairTracker_overview.md)).
 
     - Execute change detection tasks sequentially with error isolation..
     - Generate comprehensive change logs and analysis summaries.
@@ -192,7 +195,7 @@
 - **Integration Points**:
   
     - **Upstream dependencies**: 
-        - **DataPipelineOrchestrator** → Provides fresh database files via [DataLoaderAgent](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataPipelineOrchestrator_overview.md)
+        - **DataPipelineOrchestrator** → Provides fresh database files via [DataLoaderAgent](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dataPipelineOrchestrator/OptiMoldIQ_dataPipelineOrchestrator_overview.md)
         - **ChangeAnalyticflowConfig** → Configuration management for analysis parameters
     
     - **Parent orchestrator**:
@@ -200,13 +203,13 @@
         - Triggered when `enable_hardware_change_plotter` is enabled in DashboardBuilder
     
     - **Sub-component orchestration** (Analysis layer):
-        - [MachineLayoutTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineLayoutTracker_overview.md) → Analyzes machine layout configuration changes over time
-        - [MachineMoldPairTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineMoldPairTracker_overview.md) → Analyzes machine-mold pairing relationships and first usage patterns
+        - [MachineLayoutTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineLayoutTracker_overview.md) → Analyzes machine layout configuration changes over time
+        - [MachineMoldPairTracker](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/hardwareChangeAnalyzer/OptiMoldIQ_machineMoldPairTracker_overview.md) → Analyzes machine-mold pairing relationships and first usage patterns
 
     - **Downstream consumers** (Visualization layer):
-        - [HardwareChangePlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_hardwareChangePlotter_overview.md) → Top-level plotter coordinating hardware change visualizations
-            - [MachineLayoutPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_machineLayoutPlotter_overview.md) → Generates machine layout change dashboards using results from MachineLayoutTracker
-            - [MachineMoldPairPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_machineMoldPairPlotter_overview.md) → Generates mold pairing dashboards using results from MachineMoldPairTracker
+        - [HardwareChangePlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_hardwareChangePlotter_overview.md) → Top-level plotter coordinating hardware change visualizations
+            - [MachineLayoutPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_machineLayoutPlotter_overview.md) → Generates machine layout change dashboards using results from MachineLayoutTracker
+            - [MachineMoldPairPlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_machineMoldPairPlotter_overview.md) → Generates mold pairing dashboards using results from MachineMoldPairTracker
 
     - **Persistence**: 
         - Component-level change logs (managed by MachineLayoutTracker and MachineMoldPairTracker)

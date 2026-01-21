@@ -1,3 +1,6 @@
+> Status: Introduced in v2  
+> Purpose: Introduce analytics and visualization as first-class domains
+
 ## MultiLevelPerformancePlotter
 
 - **Purpose**:
@@ -469,7 +472,7 @@
     - **Error Isolation**: Independent component failures don't cascade to other time-level components
     - **Multi-Granularity Support**: Handles day, month, and year-level analytics independently and concurrently
 
-- **Key Differences from [HardwareChangePlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_hardwareChangePlotter_overview.md)**:
+- **Key Differences from [HardwareChangePlotter](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/dashboardBuilder/hardwareChangePlotter/OptiMoldIQ_hardwareChangePlotter_overview.md)**:
 
     - **Time-based execution**: Performance visualization depends on provided time parameters (`record_date`, `record_month`, `record_year`), while hardware changes depend on change detection
     - **Always executed**: Performance plotters always run when enabled (no "skipped" status based on data changes)

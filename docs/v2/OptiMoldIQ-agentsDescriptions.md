@@ -192,19 +192,19 @@ Central analytics facade orchestrating multiple complementary analytics function
 1. **hardwareChangeAnalyzer ✅**
 - Coordinates and executes **historical change analyses** for both machines and molds over time.  
 - Generates **change tracking reports** capturing configuration evolution and operational patterns.  
-- Operates in dual modes: standalone analytics or backend service for `hardwareChangePlotter`.
+- Operates in dual modes: standalone analytics or backend service for `hardwareChangeVisualizationService`.
 - **Modules:**
   - *MachineLayoutTracker*: Analyzes machine layout evolution over time to identify layout changes and activity patterns
   - *MachineMoldPairTracker*: Analyzes mold-machine relationships, first-run history, and mold utilization to identify operational trends
 - **Output:** Historical change logs, configuration reports (TXT, JSON, XLSX).
 - **Service-Consumer Relationship:**
-  - `machineLayoutTracker` → `machineLayoutPlotter` ✅
-  - `machineMoldPairTracker` → `machineMoldPairPlotter` ✅
+  - `machineLayoutTracker` → `machineLayoutVisualizationPipeline` ✅
+  - `machineMoldPairTracker` → `machineMoldPairPipeline` ✅
 
 2. **multiLevelPerformanceAnalyzer ✅**
 - Orchestrates and executes **comprehensive data processing pipeline** across multiple time granularities (day/month/year).
 - Generates **structured analytics outputs** for consumption by dashboard builders and downstream agents (planRefiner, taskOrchestrator).
-- Operates in dual modes: standalone analytics or backend service for `multiLevelPerformancePlotter`.
+- Operates in dual modes: standalone analytics or backend service for `multiLevelPerformanceVisualizationService`.
 - **Modules:**
   - *DayLevelDataProcessor*: Processes daily production data with mold-based and item-based aggregations, generating real-time operational metrics and summary statistics
   - *MonthLevelDataProcessor*: Analyzes monthly production patterns, distinguishing finished and unfinished orders to track completion rates and identify trends

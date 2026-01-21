@@ -55,7 +55,7 @@ The dataset is structured around six primary entities that represent the core co
 ### 3.3. Entity Relationships
 The following ERD illustrates how key entities in the production system are connected:
 
-![EntityRelationshipDiagram](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/images/OptiMoldIQ-entityRelationshipDiagram(ERD).png)
+![EntityRelationshipDiagram](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/images/OptiMoldIQ-entityRelationshipDiagram(ERD).png)
 
 - **Item-Mold Relationship**  
   Each item can be produced using one or more specific molds. On average, each item is associated with 1.33 molds (min: 1, max: 3).

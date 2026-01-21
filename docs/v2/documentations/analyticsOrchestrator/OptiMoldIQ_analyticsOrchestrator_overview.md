@@ -1,3 +1,6 @@
+> Status: Introduced in v2  
+> Purpose: Introduce analytics and visualization as first-class domains
+
 # AnalyticsOrchestrator
 
 ## 1. Agent Info
@@ -77,7 +80,7 @@ The AnalyticsOrchestrator module coordinates multiple analytics submodules for m
 ### 4.1 HardwareChangeAnalyzer
 **Purpose**: Orchestrate and coordinate the detection of data changes in production records, specifically tracking machine layout changes and machine-mold pair relationships over time.
 
-**Documentation**: [dataChangeAnalyzer Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/dataChangeAnalyzer/OptiMoldIQ_dataChangeAnalyzer_overview.md)
+**Documentation**: [dataChangeAnalyzer Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/dataChangeAnalyzer/OptiMoldIQ_dataChangeAnalyzer_overview.md)
 
 ### 4.2 MultiLevelPerformanceAnalyzer
 **Purpose**: Handle three time-level data summarization and aggregation for comprehensive performance analysis.
@@ -102,7 +105,7 @@ The AnalyticsOrchestrator module coordinates multiple analytics submodules for m
   - Detect capacity constraints and identify at-risk orders
   - Classify order status (finished, in-progress, not-started) and timeliness (ontime, late)
 
-**Documentation**: [multiLevelPerformanceAnalyzer Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_multiLevelPerformanceAnalyzer_overview.md)
+**Documentation**: [multiLevelPerformanceAnalyzer Overview](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/docs/v2/documentations/analyticsOrchestrator/multiLevelPerformanceAnalyzer/OptiMoldIQ_multiLevelPerformanceAnalyzer_overview.md)
 
 ---
 
