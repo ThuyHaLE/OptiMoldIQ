@@ -1,5 +1,5 @@
 from agents.decorators import validate_dataframe
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
+from agents.dashboardBuilder.plotters.utils import generate_color_palette, load_visualization_config
 import pandas as pd
 import numpy as np
 from loguru import logger

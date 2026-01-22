@@ -6,14 +6,14 @@ from loguru import logger
 from agents.decorators import validate_dataframe
 from matplotlib.gridspec import GridSpec
 
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
+from agents.dashboardBuilder.plotters.utils import generate_color_palette, load_visualization_config
 
-from agents.dashboardBuilder.visualize_data.year_level.plot_monthly_eta_status import plot_monthly_eta_status
-from agents.dashboardBuilder.visualize_data.year_level.plot_monthly_po_quantity import plot_monthly_po_quantity
-from agents.dashboardBuilder.visualize_data.year_level.plot_ng_rate_distribution import plot_ng_rate_distribution
-from agents.dashboardBuilder.visualize_data.month_level.plot_progress_bar import plot_progress_bar
-from agents.dashboardBuilder.visualize_data.month_level.plot_kpi_cards import plot_kpi_cards
-from agents.dashboardBuilder.visualize_data.month_level.plot_late_items_bar import plot_late_items_bar
+from agents.dashboardBuilder.plotters.year_level.plot_monthly_eta_status import plot_monthly_eta_status
+from agents.dashboardBuilder.plotters.year_level.plot_monthly_po_quantity import plot_monthly_po_quantity
+from agents.dashboardBuilder.plotters.year_level.plot_ng_rate_distribution import plot_ng_rate_distribution
+from agents.dashboardBuilder.plotters.month_level.plot_progress_bar import plot_progress_bar
+from agents.dashboardBuilder.plotters.month_level.plot_kpi_cards import plot_kpi_cards
+from agents.dashboardBuilder.plotters.month_level.plot_late_items_bar import plot_late_items_bar
 
 # Default config for visualization
 DEFAULT_CONFIG = {

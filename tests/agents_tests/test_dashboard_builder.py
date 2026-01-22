@@ -16,7 +16,7 @@ class TestDashboardBuilder(BaseAgentTests):
         """
         ⭐ No dependencies needed - simple creation
         """
-        from agents.dashboardBuilder.dashboard_builder_v1 import ComponentConfig, DashboardBuilderConfig, DashboardBuilder
+        from agents.dashboardBuilder.dashboard_builder import ComponentConfig, DashboardBuilderConfig, DashboardBuilder
         
         # Get config
         shared_config = copy.deepcopy(dependency_provider.get_shared_source_config())

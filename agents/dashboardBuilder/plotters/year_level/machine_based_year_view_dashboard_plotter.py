@@ -1,6 +1,6 @@
-from agents.dashboardBuilder.visualize_data.utils import add_value_labels
-from agents.dashboardBuilder.visualize_data.year_level.utils import process_machine_based_data
-from agents.dashboardBuilder.visualize_data.utils import load_visualization_config
+from agents.dashboardBuilder.plotters.utils import add_value_labels
+from agents.dashboardBuilder.plotters.year_level.utils import process_machine_based_data
+from agents.dashboardBuilder.plotters.utils import load_visualization_config
 
 import matplotlib.pyplot as plt
 from typing import Optional

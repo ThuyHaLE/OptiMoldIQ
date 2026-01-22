@@ -6,7 +6,7 @@ from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 from dataclasses import asdict
 from configs.shared.shared_source_config import SharedSourceConfig
-from agents.dashboardBuilder.dashboard_builder_v1 import ComponentConfig, DashboardBuilderConfig, DashboardBuilder
+from agents.dashboardBuilder.dashboard_builder import ComponentConfig, DashboardBuilderConfig, DashboardBuilder
 
 class DashboardModule(BaseModule):
     """

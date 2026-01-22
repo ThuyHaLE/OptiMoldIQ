@@ -6,7 +6,7 @@ from typing import Optional, Dict
 import matplotlib.patches as mpatches
 from agents.decorators import validate_dataframe
 from loguru import logger
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
+from agents.dashboardBuilder.plotters.utils import generate_color_palette, load_visualization_config
 
 # Optional import for text adjustment - gracefully handle if not available
 try:

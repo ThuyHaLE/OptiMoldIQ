@@ -226,7 +226,7 @@ class DashboardBuilder(ConfigReportMixin):
 
         # Execute Analytics Orchestrator to get data for visualization phases
         if self.config.enable_analytics_orchestrator:
-            from agents.analyticsOrchestrator.analytics_orchestrator_v1 import AnalyticsOrchestrator
+            from agents.analyticsOrchestrator.analytics_orchestrator import AnalyticsOrchestrator
             orchestrator = AnalyticsOrchestrator(
                 config = self.config.get_analytics_orchestrator_config())
             orchestrator_result = orchestrator.run_analyzing()

@@ -5,7 +5,7 @@ import seaborn as sns
 import numpy as np
 from typing import Dict, Optional
 from loguru import logger
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
+from agents.dashboardBuilder.plotters.utils import generate_color_palette, load_visualization_config
 
 DEFAULT_CONFIG = {
     "colors": {

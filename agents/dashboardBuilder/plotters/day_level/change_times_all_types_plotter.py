@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from agents.dashboardBuilder.visualize_data.utils import generate_color_palette, load_visualization_config
+from agents.dashboardBuilder.plotters.utils import generate_color_palette, load_visualization_config
 from typing import Optional, Tuple
 from loguru import logger
 from agents.decorators import validate_dataframe

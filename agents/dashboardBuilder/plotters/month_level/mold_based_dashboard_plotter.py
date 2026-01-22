@@ -1,6 +1,6 @@
-from agents.dashboardBuilder.visualize_data.year_level.utils import process_mold_based_data
-from agents.dashboardBuilder.visualize_data.utils import load_visualization_config, lighten_color, format_value_short
-from agents.dashboardBuilder.visualize_data.year_level.utils import find_best_ncols, generate_coords
+from agents.dashboardBuilder.plotters.year_level.utils import process_mold_based_data
+from agents.dashboardBuilder.plotters.utils import load_visualization_config, lighten_color, format_value_short
+from agents.dashboardBuilder.plotters.year_level.utils import find_best_ncols, generate_coords
 
 import matplotlib.pyplot as plt
 from typing import Optional, List
