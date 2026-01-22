@@ -15,7 +15,7 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
         """
         ⭐ No dependencies needed - simple creation
         """
-        from agents.analyticsOrchestrator.analytics_orchestrator_v1 import (
+        from agents.analyticsOrchestrator.analytics_orchestrator import (
             ComponentConfig, AnalyticsOrchestratorConfig, AnalyticsOrchestrator)
         
         # Get config

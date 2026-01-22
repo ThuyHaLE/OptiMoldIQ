@@ -6,7 +6,7 @@ from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 from dataclasses import asdict
 from configs.shared.shared_source_config import SharedSourceConfig
-from agents.analyticsOrchestrator.analytics_orchestrator_v1 import ComponentConfig, AnalyticsOrchestratorConfig, AnalyticsOrchestrator
+from agents.analyticsOrchestrator.analytics_orchestrator import ComponentConfig, AnalyticsOrchestratorConfig, AnalyticsOrchestrator
 
 class AnalyticsModule(BaseModule):
     """
