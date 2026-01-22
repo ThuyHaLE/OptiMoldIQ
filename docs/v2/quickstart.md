@@ -1,71 +1,13 @@
 ## Quickstart
 
-Clone the repo and run this Python script to run initial agents on sample data
+The runnable quickstart currently targets **OptiMoldIQ v0.1.0 (MVP)**,
+which demonstrates the core production planning workflow.
 
-```python
+Milestone 03 focuses on architecture stabilization, analytics orchestration,
+and dashboard pipelines, and is **not intended to be executed as a single
+end-to-end script**.
 
-!git clone https://github.com/ThuyHaLE/OptiMoldIQ.git
-%cd ./OptiMoldIQ
-%pwd
-!pip -q install -r requirements.txt
-
-# sample data
-mock_db_dir = 'tests/mock_database'
-mock_dynamic_db_dir = 'tests/mock_database/dynamicDatabase'
-shared_db_dir = 'tests/shared_db'
-
-#!rm -rf {shared_db_dir} 
-
-from agents.autoPlanner.reportFormatters.dict_based_report_generator import DictBasedReportGenerator
-from agents.autoPlanner.initialPlanner.compatibility_based_mold_machine_optimizer import PriorityOrder
-from agents.optiMoldMaster.optimold_master import WorkflowConfig, OptiMoldIQWorkflow
-
-def daily_workflow():
-    """
-    Configure a scheduler to automatically execute the task daily at 8:00 AM.
-    """
-
-    # Configuration - these should be moved to a config file or environment variables
-
-    config = WorkflowConfig(
-        db_dir = mock_db_dir,
-        dynamic_db_dir = mock_dynamic_db_dir,
-        shared_db_dir = shared_db_dir,
-        efficiency = 0.85,
-        loss = 0.03,
-
-        historical_insight_threshold = 30, #15
-
-        # PendingProcessor
-        max_load_threshold = 30,
-        priority_order = PriorityOrder.PRIORITY_1,
-        verbose=True,
-        use_sample_data=False,
-
-        # MoldStabilityIndexCalculator
-        cavity_stability_threshold = 0.6,
-        cycle_stability_threshold = 0.4,
-        total_records_threshold = 30,
-
-        # MoldMachineFeatureWeightCalculator
-        scaling = 'absolute',
-        confidence_weight = 0.3,
-        n_bootstrap = 500,
-        confidence_level = 0.95,
-        min_sample_size = 10,
-        feature_weights = None,
-        targets = {'shiftNGRate': 'minimize',
-                   'shiftCavityRate': 1.0,
-                   'shiftCycleTimeRate': 1.0,
-                   'shiftCapacityRate': 1.0}
-        )
-
-    workflow = OptiMoldIQWorkflow(config)
-    return workflow.run_workflow()
-
-if __name__ == "__main__":
-    # Example usage
-    results = daily_workflow()
-    colored_reporter = DictBasedReportGenerator(use_colors=True)
-    print("\n".join(colored_reporter.export_report(results)))
-```
+For architectural understanding, refer to:
+- Agent execution format
+- Shared configuration contract
+- Analytics and dashboard pipelines
