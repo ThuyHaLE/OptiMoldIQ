@@ -3,6 +3,7 @@
 import pytest
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
+from configs.shared.agent_report_format import ExecutionResult
 
 class TestInitialPlanner(BaseAgentTests):
     """
@@ -45,12 +46,12 @@ class TestInitialPlanner(BaseAgentTests):
     # ============================================
     
     def test_has_expected_phases(self, validated_execution_result):
-        """InitialPlanner should have ProducingProcessor and PendingProcessor"""
+        """InitialPlanner should have PendingOrderPlanner and ProducingOrderPlanner"""
         phase_names = {r.name for r in validated_execution_result.sub_results}
         
         expected_phases = {
-            "ProducingProcessor",
-            "PendingProcessor"
+            'PendingOrderPlanner',
+            'ProducingOrderPlanner'
         }
         
         assert expected_phases.issubset(phase_names), \
@@ -58,11 +59,14 @@ class TestInitialPlanner(BaseAgentTests):
     
     def test_processors_produce_results(self, validated_execution_result):
         """Both processors should produce planning results"""
-        for sub_result in validated_execution_result.sub_results:
-            if sub_result.name in ["ProducingProcessor", "PendingProcessor"]:
-                # Each processor should have data
-                assert sub_result.data is not None
-                assert isinstance(sub_result.data, dict)
+        expected_phases = {
+            'PendingOrderPlanner',
+            'ProducingOrderPlanner'
+        }
+        for phase in expected_phases:
+            phase_result = validated_execution_result.get_path(phase)
+            assert isinstance(phase_result, ExecutionResult)
+            assert isinstance(phase_result.data, dict)
     
     def test_planning_metadata_present(self, validated_execution_result):
         """Execution should have planning metadata"""
@@ -168,9 +172,11 @@ class TestInitialPlannerDependencyScenarios:
         result = agent.run_planning_and_save_results()
         
         # Should fail gracefully
-        assert result.status in {"failed", "partial"}
-        assert result.error is not None or len(result.warnings) > 0
-
+        assert result.status == "failed", \
+            "Should fail or degrade without required dependency"
+        
+        if result.status == "failed":
+            assert result.has_critical_errors()
 
 # ============================================
 # ALTERNATIVE: Simpler approach
@@ -203,10 +209,27 @@ class TestInitialPlannerSimple(BaseAgentTests):
         
         # ✅ No assertion - let validated_execution_result handle it
         return agent_instance.run_planning_and_save_results()
-    
-    # Business logic tests here...
-    
+
     def test_planning_results_structure(self, validated_execution_result):
-        """Test specific to InitialPlanner"""
-        # Your business logic
-        pass
+        """InitialPlanner results should have expected structure"""
+        if validated_execution_result is None:
+            pytest.skip("InitialPlanner not executed")
+
+        # Should be composite (have planners)
+        if validated_execution_result.status in {"success", "degraded", "warning"}:
+            assert validated_execution_result.is_composite, \
+                "InitialPlanner should have sub-planners"
+            
+            # Expected planners
+            planner_names = {r.name for r in validated_execution_result.sub_results}
+            expected_planners = {'PendingOrderPlanner', 'ProducingOrderPlanner'}
+
+            # At least one planner should exist if planner succeeded
+            assert len(planner_names & expected_planners) > 0, \
+                f"No expected planners found. Found: {planner_names}"
+
+            for sub in expected_planners:
+                self_result = validated_execution_result.get_path(sub)
+                result_data = self_result.data["result"] 
+                assert "payload" in result_data, \
+                    "Missing 'payload' in result data"

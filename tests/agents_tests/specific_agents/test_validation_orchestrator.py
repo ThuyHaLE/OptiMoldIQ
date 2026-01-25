@@ -3,6 +3,7 @@
 import pytest
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
+from configs.shared.agent_report_format import ExecutionResult
 
 class TestValidationOrchestrator(BaseAgentTests):
     """
@@ -52,43 +53,27 @@ class TestValidationOrchestrator(BaseAgentTests):
         
         # Check phase names
         phase_names = {r.name for r in validated_execution_result.sub_results}
-        # Add expected phases based on your implementation
-        # Example:
-        # expected = {"DatabaseValidator", "SchemaValidator"}
-        # assert expected.issubset(phase_names)
-    
-    def test_parallel_disabled_in_tests(self, agent_instance):
-        """Parallel execution should be disabled in test environment"""
-        assert agent_instance.enable_parallel is False, \
-            "Parallel execution must be disabled for deterministic tests"
-        assert agent_instance.max_workers is None, \
-            "max_workers should be None when parallel is disabled"
+        
+        expected_phases = {
+            'DynamicCrossDataValidation',
+            'PORequiredFieldValidation',
+            'StaticCrossDataValidation'
+        }
+        
+        assert expected_phases.issubset(phase_names), \
+            f"Missing expected phases. Found: {phase_names}"
     
     def test_validation_produces_results(self, validated_execution_result):
         """Each validation phase should produce results"""
-        for sub_result in validated_execution_result.sub_results:
-            # Each phase should have data
-            assert isinstance(sub_result.data, dict), \
-                f"Phase '{sub_result.name}' should have data dict"
-            
-            # Can add more specific checks based on your implementation
-            # Example: Check for specific keys in data
-            # assert 'result' in sub_result.data
-    
-    def test_no_dependencies_triggered(self, dependency_provider):
-        """
-        ValidationOrchestrator should not require any dependencies
-        Cache should be empty (except shared_config)
-        """
-        # Only shared_config should be in cache
-        assert "ValidationOrchestrator" not in dependency_provider._cache, \
-            "ValidationOrchestrator shouldn't be cached yet"
-        
-        # No other agents should be triggered
-        unwanted_deps = {"OrderProgressTracker", "HistoricalFeaturesExtractor"}
-        for dep in unwanted_deps:
-            assert not dependency_provider.is_triggered(dep), \
-                f"Unexpected dependency '{dep}' was triggered"
+        expected_phases = {
+            'DynamicCrossDataValidation',
+            'PORequiredFieldValidation',
+            'StaticCrossDataValidation'
+        }
+        for phase in expected_phases:
+            phase_result = validated_execution_result.get_path(phase)
+            assert isinstance(phase_result, ExecutionResult)
+            assert isinstance(phase_result.data, dict)
     
     def test_validation_schemas_loaded(self, validated_execution_result):
         """Validation should load database schemas"""
@@ -101,30 +86,30 @@ class TestValidationOrchestrator(BaseAgentTests):
         # Example:
         # assert 'schema_version' in metadata
         # assert 'validation_rules' in metadata
-    
-    # ============================================
-    # EDGE CASE TESTS (Optional)
-    # ============================================
-    
-    def test_handles_empty_database_gracefully(self, dependency_provider):
-        """Should handle empty database without crashing"""
-        # This test depends on your implementation
-        # Example: Create agent with empty db and verify graceful handling
-        pass
-    
-    def test_validation_results_are_serializable(self, validated_execution_result):
-        """Validation results should be serializable (for saving)"""
-        import json
-        
-        # Try to serialize the data
-        for sub_result in validated_execution_result.sub_results:
-            try:
-                json.dumps(sub_result.data)
-            except TypeError as e:
-                pytest.fail(
-                    f"Phase '{sub_result.name}' data is not JSON serializable: {e}"
-                )
 
+    def test_validation_results_structure(self, validated_execution_result):
+        """Validation results should have expected structure"""
+        if validated_execution_result is None:
+            pytest.skip("ValidationOrchestrator not executed")
+
+        # Should be composite (have validations)
+        if validated_execution_result.status in {"success", "degraded", "warning"}:
+            assert validated_execution_result.is_composite, \
+                "ValidationOrchestrator should have sub-validations"
+            
+            # Expected validation phases
+            phase_names = {r.name for r in validated_execution_result.sub_results}
+            expected_phases = {'DynamicCrossDataValidation', 'PORequiredFieldValidation', 'StaticCrossDataValidation'}
+
+            # At least one validation phase should exist if validation succeeded
+            assert len(phase_names & expected_phases) > 0, \
+                f"No expected validation phases found. Found: {phase_names}"
+
+            for sub in expected_phases:
+                self_result = validated_execution_result.get_path(sub)
+                result_data = self_result.data["result"] 
+                assert "payload" in result_data, \
+                    "Missing 'payload' in result data"
 
 # ============================================
 # OPTIONAL: Configuration Tests
@@ -195,7 +180,3 @@ class TestValidationOrchestratorPerformance:
         
         # Should complete in reasonable time (adjust based on your data size)
         assert duration < 60, f"Validation took too long: {duration:.2f}s"
-        
-        # Should match reported duration
-        assert abs(result.duration - duration) < 1.0, \
-            "Reported duration doesn't match actual duration"

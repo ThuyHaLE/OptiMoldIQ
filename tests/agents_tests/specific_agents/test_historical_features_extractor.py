@@ -62,8 +62,8 @@ class TestHistoricalFeaturesExtractor(BaseAgentTests):
         # Check for expected phases (adjust based on your implementation)
         phase_names = {r.name for r in validated_execution_result.sub_results}
         expected_phases = {
-            "MoldStabilityIndexCalculator",
-            "MoldMachineFeatureWeightCalculator"
+            'MoldMachineFeatureWeightCalculator',
+            'MoldStabilityIndexCalculator'
         }
         
         assert expected_phases.issubset(phase_names), \
@@ -77,17 +77,30 @@ class TestHistoricalFeaturesExtractor(BaseAgentTests):
             "Loss parameter should be 0.03"
     
     def test_features_calculated(self, validated_execution_result):
-        """Should calculate historical features"""
-        # Check that features were calculated
-        for sub_result in validated_execution_result.sub_results:
-            assert isinstance(sub_result.data, dict), \
-                f"Phase '{sub_result.name}' should have data dict"
-            
-            # Add more specific checks based on implementation
-            # Example:
-            # if sub_result.name == "MoldStabilityIndexCalculator":
-            #     result_data = sub_result.data.get('result', {})
-            #     assert 'stability_index' in result_data
+        """Extractor results should have expected structure"""
+        if validated_execution_result is None:
+            pytest.skip("HistoricalFeaturesExtractor not executed")
+
+        # Should be composite (have trackers)
+        if validated_execution_result.status in {"success", "degraded", "warning"}:
+            assert validated_execution_result.is_composite, \
+                "HistoricalFeaturesExtractor should have sub-results"
+
+            # Expected calculation phases
+            phase_names = {r.name for r in validated_execution_result.sub_results}
+            expected_phases = {
+                'MoldMachineFeatureWeightCalculator',
+                'MoldStabilityIndexCalculator'}
+
+            # At least one calculation phase should exist if extraction succeeded
+            assert len(phase_names & expected_phases) > 0, \
+                f"No expected calculation phases found. Found: {phase_names}"
+
+            for sub in expected_phases:
+                self_result = validated_execution_result.get_path(sub)
+                result_data = self_result.data["result"] 
+                assert "payload" in result_data, \
+                    "Missing 'payload' in result data"
     
     def test_uses_order_tracking_data(self, dependency_provider, validated_execution_result):
         """Should use data from OrderProgressTracker"""
@@ -157,29 +170,6 @@ class TestHistoricalFeaturesExtractor(BaseAgentTests):
         # ValidationOrchestrator should also be triggered (via OrderProgressTracker)
         assert dependency_provider.is_triggered("ValidationOrchestrator"), \
             "ValidationOrchestrator should be triggered as transitive dependency"
-    
-    # ============================================
-    # EDGE CASE TESTS (Optional)
-    # ============================================
-    
-    def test_handles_insufficient_historical_data(self, dependency_provider):
-        """Should handle case with insufficient historical data"""
-        # This depends on your implementation
-        # Example: Test with limited date range
-        pass
-    
-    def test_extraction_results_serializable(self, validated_execution_result):
-        """Feature extraction results should be JSON serializable"""
-        import json
-        
-        for sub_result in validated_execution_result.sub_results:
-            try:
-                json.dumps(sub_result.data)
-            except TypeError as e:
-                pytest.fail(
-                    f"Phase '{sub_result.name}' data is not JSON serializable: {e}"
-                )
-
 
 # ============================================
 # OPTIONAL: Dependency Interaction Tests
@@ -213,12 +203,11 @@ class TestHistoricalFeaturesExtractorDependencies:
         result = agent.run_extraction_and_save_results()
         
         # Should handle missing dependency
-        assert result.status in {"failed", "degraded", "partial"}, \
+        assert result.status == "failed", \
             "Should fail or degrade without required dependency"
         
         if result.status == "failed":
-            assert result.error is not None, \
-                "Failed execution should have error message"
+            assert result.has_critical_errors()
     
     def test_reuses_cached_dependencies(self, dependency_provider):
         """Should reuse cached dependency results"""

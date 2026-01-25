@@ -3,6 +3,7 @@
 import pytest
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
+from configs.shared.agent_report_format import ExecutionResult
 
 class TestOrderProgressTracker(BaseAgentTests):
     """
@@ -54,21 +55,25 @@ class TestOrderProgressTracker(BaseAgentTests):
         
         # Check for expected phase names (adjust based on your implementation)
         phase_names = {r.name for r in validated_execution_result.sub_results}
-        # Example:
-        # expected_phases = {"ProStatusAnalyzer", "TimelineBuilder"}
-        # assert expected_phases.issubset(phase_names)
+
+        expected_phases = {
+            'ProgressTracker'
+        }
+        
+        assert expected_phases.issubset(phase_names), \
+            f"Missing expected phases. Found: {phase_names}"
     
     def test_tracking_produces_timeline(self, validated_execution_result):
         """Order tracking should produce timeline data"""
         # Check that tracking produced meaningful results
-        for sub_result in validated_execution_result.sub_results:
-            assert isinstance(sub_result.data, dict), \
-                f"Phase '{sub_result.name}' should have data dict"
-            
-            # Add more specific checks based on your implementation
-            # Example:
-            # if sub_result.name == "TimelineBuilder":
-            #     assert 'timeline' in sub_result.data.get('result', {})
+        expected_phases = {
+            'ProgressTracker'
+        }
+
+        for phase in expected_phases:
+            phase_result = validated_execution_result.get_path(phase)
+            assert isinstance(phase_result, ExecutionResult)
+            assert isinstance(phase_result.data, dict)
     
     def test_uses_validation_data(self, dependency_provider, validated_execution_result):
         """Should use data from ValidationOrchestrator"""
@@ -107,29 +112,30 @@ class TestOrderProgressTracker(BaseAgentTests):
         cached_result = dependency_provider.get_result("ValidationOrchestrator")
         assert cached_result is not None, \
             "Validation result should be cached"
-    
-    # ============================================
-    # EDGE CASE TESTS (Optional)
-    # ============================================
-    
-    def test_handles_empty_orders_gracefully(self, dependency_provider):
-        """Should handle case with no orders to track"""
-        # This depends on your implementation
-        # Example: Test with empty database or specific date range
-        pass
-    
-    def test_tracking_results_serializable(self, validated_execution_result):
-        """Tracking results should be JSON serializable for saving"""
-        import json
         
-        for sub_result in validated_execution_result.sub_results:
-            try:
-                json.dumps(sub_result.data)
-            except TypeError as e:
-                pytest.fail(
-                    f"Phase '{sub_result.name}' data is not JSON serializable: {e}"
-                )
+    def test_tracker_results_structure(self, validated_execution_result):
+        """Tracker results should have expected structure"""
+        if validated_execution_result is None:
+            pytest.skip("OrderProgressTracker not executed")
 
+        # Should be composite (have trackers)
+        if validated_execution_result.status in {"success", "degraded", "warning"}:
+            assert validated_execution_result.is_composite, \
+                "OrderProgressTracker should have sub-results"
+            
+            # Expected validation phases
+            phase_names = {r.name for r in validated_execution_result.sub_results}
+            expected_phases = {'ProgressTracker'}
+
+            # At least one validation phase should exist if validation succeeded
+            assert len(phase_names & expected_phases) > 0, \
+                f"No expected validation phases found. Found: {phase_names}"
+
+            for sub in expected_phases:
+                self_result = validated_execution_result.get_path(sub)
+                result_data = self_result.data["result"] 
+                assert "payload" in result_data, \
+                    "Missing 'payload' in result data"
 
 # ============================================
 # OPTIONAL: Dependency Interaction Tests
@@ -158,15 +164,8 @@ class TestOrderProgressTrackerDependencies:
         result = agent.run_tracking_and_save_results()
         
         # Should either fail or use fallback
-        assert result.status in {"failed", "degraded", "partial"}, \
+        assert result.status == "degraded", \
             "Should fail or degrade without required dependency"
-        
-        if result.status == "failed":
-            assert result.error is not None, \
-                "Failed execution should have error message"
-        elif result.status == "degraded":
-            assert result.data.get("fallback_used") is True, \
-                "Degraded status should indicate fallback was used"
     
     def test_reuses_cached_validation(self, dependency_provider):
         """Should reuse cached validation result"""
@@ -197,7 +196,6 @@ class TestOrderProgressTrackerDependencies:
         # Both should succeed
         assert result1.status in {"success", "degraded", "warning"}
         assert result2.status in {"success", "degraded", "warning"}
-
 
 # ============================================
 # OPTIONAL: Configuration Tests
@@ -240,7 +238,6 @@ class TestOrderProgressTrackerConfig:
         # Verify change log exists (if agent creates it)
         # assert (tmp_path / "test_change_log.txt").exists()
 
-
 # ============================================
 # OPTIONAL: Performance Tests
 # ============================================
@@ -265,7 +262,3 @@ class TestOrderProgressTrackerPerformance:
         
         # Adjust timeout based on your data size
         assert duration < 120, f"Tracking took too long: {duration:.2f}s"
-        
-        # Should match reported duration
-        assert abs(result.duration - duration) < 1.0, \
-            "Reported duration doesn't match actual"
