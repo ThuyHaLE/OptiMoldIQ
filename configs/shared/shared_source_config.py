@@ -310,15 +310,26 @@ class SharedSourceConfig:
         
         for field_name in path_fields:
             value = getattr(self, field_name)
-            if value:  # Only validate non-None values
+            if value:
                 try:
                     normalized = self.validate_path(field_name, value)
                     setattr(self, field_name, normalized)
                 except ValueError as e:
                     errors.append(str(e))
         
+        # Respect strict_validation setting
         if errors:
-            raise ValueError(f"Path validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
+            if self.strict_validation:
+                raise ValueError(
+                    f"Path validation failed:\n" + 
+                    "\n".join(f"  - {e}" for e in errors)
+                )
+            else:
+                # Just log warnings in non-strict mode
+                from loguru import logger
+                logger.warning("Path validation warnings (non-strict mode):")
+                for error in errors:
+                    logger.warning(f"  - {error}")
 
     def _get_path_fields(self) -> List[str]:
         """Get all field names that represent paths"""

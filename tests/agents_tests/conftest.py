@@ -2,22 +2,36 @@
 
 import pytest
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Set
 from configs.shared.shared_source_config import SharedSourceConfig
-from configs.shared.agent_report_format import ExecutionStatus
+from configs.shared.agent_report_format import ExecutionStatus, ExecutionResult
+from loguru import logger
 
 # ============================================
-# DEPENDENCY PROVIDERS
+# CONSTANTS
+# ============================================
+
+SUCCESSFUL_STATUSES = {
+    ExecutionStatus.SUCCESS.value,
+    ExecutionStatus.DEGRADED.value,
+    ExecutionStatus.WARNING.value
+}
+
+# ============================================
+# DEPENDENCY PROVIDER - Enhanced
 # ============================================
 
 class DependencyProvider:
     """
     Manages test dependencies - only loads what's needed
+    Provides caching, validation, and health checks
     """
     
     def __init__(self):
         self._cache: Dict[str, Any] = {}
         self._test_dirs = self._setup_test_dirs()
+        self._dependency_graph = self._build_dependency_graph()
+        self._validate_dependency_graph()
     
     def _setup_test_dirs(self) -> Dict[str, Path]:
         """Setup test directories once"""
@@ -30,97 +44,159 @@ class DependencyProvider:
             dir_path.mkdir(parents=True, exist_ok=True)
         return dirs
     
+    def _build_dependency_graph(self) -> Dict[str, Set[str]]:
+        """Build dependency graph for validation"""
+        return {
+            "ValidationOrchestrator": set(),
+            "OrderProgressTracker": {"ValidationOrchestrator"},
+            "HistoricalFeaturesExtractor": {"OrderProgressTracker"},
+            "InitialPlanner": {"OrderProgressTracker", "HistoricalFeaturesExtractor"}
+        }
+    
+    def _validate_dependency_graph(self):
+        """Ensure no circular dependencies"""
+        def dfs(node: str, path: Set[str]):
+            if node in path:
+                cycle = list(path) + [node]
+                raise ValueError(f"Circular dependency detected: {' -> '.join(cycle)}")
+            
+            if node not in self._dependency_graph:
+                raise ValueError(f"Unknown dependency: {node}")
+            
+            for dep in self._dependency_graph[node]:
+                dfs(dep, path | {node})
+        
+        for node in self._dependency_graph:
+            dfs(node, set())
+        
+        logger.info("✓ Dependency graph validated - no circular dependencies")
+    
     def get_shared_source_config(self) -> SharedSourceConfig:
         """Get basic config without running any dependencies"""
-        from agents.orderProgressTracker.order_progress_tracker import SharedSourceConfig
-        
-        return SharedSourceConfig(
-            db_dir=str(self._test_dirs["db_dir"]),
-            default_dir=str(self._test_dirs["shared_dir"])
-        )
+        if "shared_config" not in self._cache:
+            self._cache["shared_config"] = SharedSourceConfig(
+                db_dir=str(self._test_dirs["db_dir"]),
+                default_dir=str(self._test_dirs["shared_dir"])
+            )
+        return self._cache["shared_config"]
     
-    def trigger_order_progress_tracker(self, config: SharedSourceConfig) -> Dict[str, Any]:
-        """
-        Lazy load: Only run OrderProgressTracker if requested
-        """
-        if "order_progress_tracker" not in self._cache:
-            from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-            tracker = OrderProgressTracker(config=config)
-            result = tracker.run_tracking_and_save_results()
-
-            # Cache result
-            successful_statuses = {
-                ExecutionStatus.SUCCESS.value,
-                ExecutionStatus.DEGRADED.value,
-                ExecutionStatus.WARNING.value
-            }
-            assert result.status in successful_statuses, "Dependency agent failed : OrderProgressTracker"
-            self._cache["order_progress_tracker"] = {"status": "triggered", 
-                                                     "result": result,
-                                                     "config": config}
-            
-    def trigger_validation_orchestrator(self, config: SharedSourceConfig) -> Dict[str, Any]:
-        """
-        Lazy load: Only run ValidationOrchestrator if requested
-        """
-        if "validation_orchestrator" not in self._cache:
+    def is_triggered(self, dependency_name: str) -> bool:
+        """Check if dependency has been triggered"""
+        return dependency_name in self._cache
+    
+    def get_result(self, dependency_name: str) -> ExecutionResult:
+        """Get cached result for dependency"""
+        if dependency_name not in self._cache:
+            raise ValueError(f"Dependency '{dependency_name}' not triggered yet")
+        return self._cache[dependency_name]["result"]
+    
+    # ========== Individual Triggers ==========
+    
+    def trigger_validation_orchestrator(self) -> ExecutionResult:
+        """Lazy load: Only run ValidationOrchestrator if requested"""
+        if "ValidationOrchestrator" not in self._cache:
             from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
+            
+            config = self.get_shared_source_config()
             validation_orchestrator = ValidationOrchestrator(
                 shared_source_config=config,
-                enable_parallel = False,
-                max_workers = None)
+                enable_parallel=False,
+                max_workers=None
+            )
             result = validation_orchestrator.run_validations_and_save_results()
-
-            # Cache result
-            successful_statuses = {
-                ExecutionStatus.SUCCESS.value,
-                ExecutionStatus.DEGRADED.value,
-                ExecutionStatus.WARNING.value
-            }
-            assert result.status in successful_statuses, "Dependency agent failed : ValidationOrchestrator"
-            self._cache["validation_orchestrator"] = {"status": "triggered", 
-                                                     "result": result,
-                                                     "config": config}
-    
-    def trigger_historical_features_extractor(self, config: SharedSourceConfig) -> Dict[str, Any]:
-        """
-        Lazy load: Only run HistoricalFeaturesExtractor if requested
-        """
-        if "historical_features_extractor" not in self._cache:
-            from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
-                HistoricalFeaturesExtractor, FeaturesExtractorConfig)
             
-            historical_features_extractor = HistoricalFeaturesExtractor(
-                config = FeaturesExtractorConfig(
-                    efficiency = 0.85,
-                    loss = 0.03,
-                    shared_source_config = config)
-                    )
-            result = historical_features_extractor.run_extraction_and_save_results()
-
-            # Cache result
-            successful_statuses = {
-                ExecutionStatus.SUCCESS.value,
-                ExecutionStatus.DEGRADED.value,
-                ExecutionStatus.WARNING.value
+            self._validate_result(result, "ValidationOrchestrator")
+            
+            self._cache["ValidationOrchestrator"] = {
+                "status": "triggered",
+                "result": result,
+                "config": config
             }
-            assert result.status in successful_statuses, "Dependency agent failed : HistoricalFeaturesExtractor"
-            self._cache["historical_features_extractor"] = {"status": "triggered", 
-                                                            "result": result,
-                                                            "config": config}
         
-    def trigger(self, dependency_name: str):
-        if dependency_name == "ValidationOrchestrator":
-            self.trigger_validation_orchestrator(self.get_shared_source_config())
-        elif dependency_name == "OrderProgressTracker":
-            self.trigger_order_progress_tracker(self.get_shared_source_config())
-        elif dependency_name == "HistoricalFeaturesExtractor":
-            self.trigger_historical_features_extractor(self.get_shared_source_config())
-        else:
-            raise ValueError(f"Unknown dependency: {dependency_name}")
+        return self._cache["ValidationOrchestrator"]["result"]
+    
+    def trigger_order_progress_tracker(self) -> ExecutionResult:
+        """Lazy load: Only run OrderProgressTracker if requested"""
+        if "OrderProgressTracker" not in self._cache:
+            # Ensure dependencies
+            self.trigger_validation_orchestrator()
+            
+            from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
+            
+            config = self.get_shared_source_config()
+            tracker = OrderProgressTracker(config=config)
+            result = tracker.run_tracking_and_save_results()
+            
+            self._validate_result(result, "OrderProgressTracker")
+            
+            self._cache["OrderProgressTracker"] = {
+                "status": "triggered",
+                "result": result,
+                "config": config
+            }
         
-    # Another dependency - only loads if needed
-    # e.g., SharedSourceConfig provider
+        return self._cache["OrderProgressTracker"]["result"]
+    
+    def trigger_historical_features_extractor(self) -> ExecutionResult:
+        """Lazy load: Only run HistoricalFeaturesExtractor if requested"""
+        if "HistoricalFeaturesExtractor" not in self._cache:
+            # Ensure dependencies
+            self.trigger_order_progress_tracker()
+            
+            from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
+                HistoricalFeaturesExtractor, FeaturesExtractorConfig
+            )
+            
+            config = self.get_shared_source_config()
+            extractor = HistoricalFeaturesExtractor(
+                config=FeaturesExtractorConfig(
+                    efficiency=0.85,
+                    loss=0.03,
+                    shared_source_config=config
+                )
+            )
+            result = extractor.run_extraction_and_save_results()
+            
+            self._validate_result(result, "HistoricalFeaturesExtractor")
+            
+            self._cache["HistoricalFeaturesExtractor"] = {
+                "status": "triggered",
+                "result": result,
+                "config": config
+            }
+        
+        return self._cache["HistoricalFeaturesExtractor"]["result"]
+    
+    def _validate_result(self, result: ExecutionResult, name: str):
+        """Validate execution result"""
+        assert result.status in SUCCESSFUL_STATUSES, (
+            f"Dependency '{name}' failed with status: {result.status}\n"
+            f"Error: {result.error}\n"
+            f"Traceback: {result.traceback}"
+        )
+    
+    def trigger(self, dependency_name: str) -> ExecutionResult:
+        """Generic trigger - delegates to specific methods"""
+        trigger_map = {
+            "ValidationOrchestrator": self.trigger_validation_orchestrator,
+            "OrderProgressTracker": self.trigger_order_progress_tracker,
+            "HistoricalFeaturesExtractor": self.trigger_historical_features_extractor
+        }
+        
+        if dependency_name not in trigger_map:
+            raise ValueError(
+                f"Unknown dependency: {dependency_name}\n"
+                f"Available: {list(trigger_map.keys())}"
+            )
+        
+        return trigger_map[dependency_name]()
+    
+    def trigger_all_dependencies(self, dependency_names: list[str]) -> Dict[str, ExecutionResult]:
+        """Trigger multiple dependencies and return results"""
+        results = {}
+        for dep in dependency_names:
+            results[dep] = self.trigger(dep)
+        return results
     
     def cleanup(self):
         """Cleanup test artifacts"""
@@ -128,7 +204,12 @@ class DependencyProvider:
         for dir_path in self._test_dirs.values():
             if dir_path.exists():
                 shutil.rmtree(dir_path)
+        logger.info("✓ Test directories cleaned up")
 
+
+# ============================================
+# SESSION FIXTURES
+# ============================================
 
 @pytest.fixture(scope="session")
 def dependency_provider():
@@ -138,3 +219,40 @@ def dependency_provider():
     provider = DependencyProvider()
     yield provider
     provider.cleanup()
+
+
+# ============================================
+# VALIDATION FIXTURES
+# ============================================
+
+@pytest.fixture
+def validated_execution_result(execution_result):
+    """
+    Validate execution result once, reuse in all tests
+    This eliminates repetitive assertions in test methods
+    """
+    assert execution_result is not None, "ExecutionResult is None"
+    
+    assert execution_result.status in SUCCESSFUL_STATUSES, (
+        f"Expected successful status, got '{execution_result.status}'\n"
+        f"Error: {execution_result.error}\n"
+        f"Failed paths: {execution_result.get_failed_paths()}"
+    )
+    
+    return execution_result
+
+
+# ============================================
+# HELPER FIXTURES
+# ============================================
+
+@pytest.fixture
+def execution_summary(validated_execution_result):
+    """Get execution summary stats"""
+    return validated_execution_result.summary_stats()
+
+
+@pytest.fixture
+def all_sub_results(validated_execution_result):
+    """Get flattened list of all results"""
+    return validated_execution_result.flatten()
