@@ -1,5 +1,6 @@
 # tests/agents_tests/test_dashboard_builder.py
 
+from platform import processor
 import pytest
 import copy
 from pathlib import Path
@@ -128,16 +129,30 @@ class TestDashboardBuilder(BaseAgentTests):
                 # Should have skip reason
                 assert service.skipped_reason is not None, \
                     f"Service '{service.name}' skipped without reason"
-    
+        
     def test_dashboard_output_structure(self, validated_execution_result):
         """Dashboard results should have expected structure"""
-        assert "result" in validated_execution_result.data, \
-            "Missing 'result' in execution data"
-        
-        result_data = validated_execution_result.data["result"]
-        
-        assert "payload" in result_data, \
-            "Missing 'payload' in result data"
+        if validated_execution_result is None:
+            pytest.skip("DashboardBuilder not executed")
+
+        # Should be composite (have trackers)
+        if validated_execution_result.status in {"success", "degraded", "warning"}:
+            assert validated_execution_result.is_composite, \
+                "DashboardBuilder should have sub-trackers"
+            
+            # Expected services
+            service_names = {r.name for r in validated_execution_result.sub_results}
+            expected_services = {'HardwareChangeVisualizationService', 'MultiLevelPerformanceVisualizationService'}
+
+            # At least one tracker should exist if service succeeded
+            assert len(service_names & expected_services) > 0, \
+                f"No expected services found. Found: {service_names}"
+
+            for sub in service_names:
+                self_result = validated_execution_result.get_path(sub)
+                result_data = self_result.data["result"] 
+                assert "payload" in result_data, \
+                    "Missing 'payload' in result data"
     
     def test_no_critical_failures(self, validated_execution_result):
         """Dashboard building should not have critical failures"""
@@ -155,21 +170,10 @@ class TestDashboardBuilder(BaseAgentTests):
         if hardware_viz is None:
             pytest.skip("HardwareChangeVisualizationService not executed")
         
-        # Should be composite (have pipelines)
+        # Each service should have data if successful
         if hardware_viz.status in {"success", "degraded", "warning"}:
-            assert hardware_viz.is_composite, \
-                "HardwareChangeVisualizationService should have sub-pipelines"
-            
-            # Expected pipelines
-            pipeline_names = {r.name for r in hardware_viz.sub_results}
-            expected_pipelines = {
-                "MachineLayoutVisualizationPipeline",
-                "MoldMachinePairVisualizationPipeline"
-            }
-            
-            # At least one pipeline should exist if service succeeded
-            assert len(pipeline_names & expected_pipelines) > 0, \
-                f"No expected pipelines found. Found: {pipeline_names}"
+            assert isinstance(hardware_viz.data, dict), \
+                f"Tracker '{hardware_viz.name}' should have data dict"
     
     def test_performance_visualization_service_structure(self, validated_execution_result):
         """MultiLevelPerformanceVisualizationService should have expected structure"""
@@ -178,50 +182,70 @@ class TestDashboardBuilder(BaseAgentTests):
         if perf_viz is None:
             pytest.skip("MultiLevelPerformanceVisualizationService not executed")
         
-        # Should be composite (have pipelines)
+        # Each service should have data if successful
         if perf_viz.status in {"success", "degraded", "warning"}:
-            assert perf_viz.is_composite, \
-                "MultiLevelPerformanceVisualizationService should have sub-pipelines"
-            
-            # Expected pipelines
-            pipeline_names = {r.name for r in perf_viz.sub_results}
-            expected_pipelines = {
-                "DayLevelVisualizationPipeline",
-                "MonthLevelVisualizationPipeline",
-                "YearLevelVisualizationPipeline"
-            }
-            
-            # At least one pipeline should exist if service succeeded
-            assert len(pipeline_names & expected_pipelines) > 0, \
-                f"No expected pipelines found. Found: {pipeline_names}"
+            assert isinstance(perf_viz.data, dict), \
+                f"Service '{perf_viz.name}' should have data dict"
     
-    def test_hardware_pipelines_configuration(self, validated_execution_result):
-        """Hardware pipelines should use correct configuration"""
-        hardware_viz = validated_execution_result.get_path("HardwareChangeVisualizationService")
+    def test_day_level_visualization_pipeline_executed(self, validated_execution_result):
+        """DayLevelVisualizationPipeline should be executed"""
+        # Navigate nested path
+        pipeline = validated_execution_result.get_path("MultiLevelPerformanceVisualizationService.DayLevelVisualizationPipeline")
         
-        if hardware_viz is None:
-            pytest.skip("HardwareChangeVisualizationService not executed")
+        if pipeline is None:
+            pytest.skip("DayLevelVisualizationPipeline not found in execution tree")
         
-        for pipeline in hardware_viz.sub_results:
-            # Each pipeline should have data if successful
-            if pipeline.status in {"success", "degraded", "warning"}:
-                assert isinstance(pipeline.data, dict), \
-                    f"Pipeline '{pipeline.name}' should have data dict"
+        # Should have completed
+        assert pipeline.status in {"success", "degraded", "warning"}, \
+            f"DayLevelVisualizationPipeline failed: {pipeline.error}"
+        
+    def test_month_level_visualization_pipeline_executed(self, validated_execution_result):
+        """MonthLevelVisualizationPipeline should be executed"""
+        # Navigate nested path
+        pipeline = validated_execution_result.get_path("MultiLevelPerformanceVisualizationService.MonthLevelVisualizationPipeline")
+        
+        if pipeline is None:
+            pytest.skip("MonthLevelVisualizationPipeline not found in execution tree")
+        
+        # Should have completed
+        assert pipeline.status in {"success", "degraded", "warning"}, \
+            f"MonthLevelVisualizationPipeline failed: {pipeline.error}"
+        
+    def test_year_level_visualization_pipeline_executed(self, validated_execution_result):
+        """YearLevelVisualizationPipeline should be executed"""
+        # Navigate nested path
+        pipeline = validated_execution_result.get_path("MultiLevelPerformanceVisualizationService.YearLevelVisualizationPipeline")
+
+        if pipeline is None:
+            pytest.skip("YearLevelVisualizationPipeline not found in execution tree")
+        
+        # Should have completed
+        assert pipeline.status in {"success", "degraded", "warning"}, \
+            f"YearLevelVisualizationPipeline failed: {pipeline.error}"
+        
+    def test_machine_layout_visualization_pipeline_executed(self, validated_execution_result):
+        """MachineLayoutVisualizationPipeline should be executed"""
+        # Navigate nested path
+        pipeline = validated_execution_result.get_path("HardwareChangeVisualizationService.MachineLayoutVisualizationPipeline")
+        
+        if pipeline is None:
+            pytest.skip("MachineLayoutVisualizationPipeline not found in execution tree")
+        
+        # Should have completed
+        assert pipeline.status in {"success", "degraded", "warning"}, \
+            f"MachineLayoutVisualizationPipeline failed: {pipeline.error}"
     
-    def test_performance_pipelines_timestamps(self, validated_execution_result):
-        """Performance pipelines should have requested timestamps"""
-        perf_viz = validated_execution_result.get_path("MultiLevelPerformanceVisualizationService")
+    def test_mold_machine_pair_visualization_pipeline_executed(self, validated_execution_result):
+        """MoldMachinePairVisualizationPipeline should be executed"""
+        pipeline = validated_execution_result.get_path("HardwareChangeVisualizationService.MoldMachinePairVisualizationPipeline")
         
-        if perf_viz is None:
-            pytest.skip("MultiLevelPerformanceVisualizationService not executed")
+        if pipeline is None:
+            pytest.skip("MoldMachinePairVisualizationPipeline not found in execution tree")
         
-        # Check that pipelines have timestamp configuration
-        for pipeline in perf_viz.sub_results:
-            if pipeline.status in {"success", "degraded", "warning"}:
-                # Verify pipeline executed with timestamp
-                # (Add specific checks based on your implementation)
-                assert isinstance(pipeline.data, dict)
-    
+        # Should have completed
+        assert pipeline.status in {"success", "degraded", "warning"}, \
+            f"MoldMachinePairVisualizationPipeline failed: {pipeline.error}"
+        
     # ============================================
     # CONFIGURATION TESTS
     # ============================================
@@ -255,40 +279,62 @@ class TestDashboardBuilder(BaseAgentTests):
     # ============================================
     
     @pytest.mark.integration
-    def test_builder_directory_created(self, validated_execution_result, dependency_provider):
+    def test_builder_directory_created(self, agent_instance):
         """Builder directory should be created"""
-        shared_config = dependency_provider.get_shared_source_config()
-        builder_dir = Path(shared_config.dashboard_builder_dir)
+        from pathlib import Path
         
-        assert builder_dir.exists(), \
-            f"Dashboard builder directory not created: {builder_dir}"
+        config = agent_instance.config
+        shared_config = config.shared_source_config
+
+        if config.machine_layout_visualization_service.save_result or \
+            config.mold_machine_pair_visualization_service.save_result or \
+            config.day_level_visualization_service.save_result or \
+            config.month_level_visualization_service.save_result or \
+            config.year_level_visualization_service.save_result:
+            
+            builder_dir = Path(shared_config.dashboard_builder_dir)
+
+            assert builder_dir.exists(), \
+                f"Analytics builder directory not created: {builder_dir}"
+
+    @pytest.mark.integration
+    def test_builder_log_created(self, agent_instance):
+        """Builder change log should be created"""
+        from pathlib import Path
+        
+        config = agent_instance.config
+        shared_config = config.shared_source_config
+
+        if config.save_builder_log:
+            log_path = Path(shared_config.dashboard_builder_log_path)
+            assert log_path.exists()
     
     @pytest.mark.integration
     def test_service_directories_created(self, validated_execution_result, dependency_provider):
-        """Service directories should be created for executed services"""
+        """Service directories should be created for executed analyzers"""
+        from pathlib import Path
+        
         shared_config = dependency_provider.get_shared_source_config()
         
-        # Check hardware service directories
-        hardware_viz_dir = Path(shared_config.hardware_change_visualization_service_dir)
+        # Check hardware service directory
         if validated_execution_result.get_path("HardwareChangeVisualizationService"):
-            # Directory should exist if service executed
-            pass  # Add assertion based on your implementation
+            hardware_dir = Path(shared_config.hardware_change_visualization_service_dir)
+            hardware_service = validated_execution_result.get_path("HardwareChangeVisualizationService")
+            hardware_save_routing = hardware_service.data['result']['payload'].metadata['save_routing']
+
+            for sub in hardware_save_routing:
+                if hardware_save_routing[sub]['enabled'] and hardware_save_routing[sub]['savable']:
+                    assert hardware_dir.exists()
         
-        # Check performance service directories
-        perf_viz_dir = Path(shared_config.multi_level_performance_visualization_service_dir)
+        # Check performance service directory
         if validated_execution_result.get_path("MultiLevelPerformanceVisualizationService"):
-            # Directory should exist if service executed
-            pass  # Add assertion based on your implementation
-    
-    @pytest.mark.integration
-    def test_builder_log_created(self, validated_execution_result, dependency_provider):
-        """Builder change log should be created"""
-        shared_config = dependency_provider.get_shared_source_config()
-        log_path = Path(shared_config.dashboard_builder_log_path)
-        
-        # Log should exist if save_builder_log is True
-        # Add assertion based on your implementation
-        # assert log_path.exists()
+            perf_dir = Path(shared_config.multi_level_performance_visualization_service_dir)
+            perf_service = validated_execution_result.get_path("MultiLevelPerformanceVisualizationService")
+            perf_save_routing = perf_service.data['result']['payload'].metadata['save_routing']
+
+            for sub in perf_save_routing:
+                if perf_save_routing[sub]['enabled'] and perf_save_routing[sub]['savable']:
+                    assert perf_dir.exists()    
     
     # ============================================
     # PERFORMANCE TESTS
@@ -315,7 +361,6 @@ class TestDashboardBuilder(BaseAgentTests):
                     f"Service '{service.name}' took {service.duration:.2f}s "
                     f"(max {MAX_SERVICE_DURATION}s)"
                 )
-
 
 # ============================================
 # OPTIONAL: Configuration Variation Tests

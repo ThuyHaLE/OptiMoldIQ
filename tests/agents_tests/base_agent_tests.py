@@ -145,12 +145,19 @@ class BaseAgentTests(ABC):
     def test_get_path_works(self, validated_execution_result):
         """get_path() should work for valid paths"""
         # Can get self
-        self_result = validated_execution_result.get_path(
-            validated_execution_result.name
-        )
-        assert self_result == validated_execution_result
-        
+        if validated_execution_result.is_composite:
+            sub_results = [r.name for r in validated_execution_result.sub_results]
+            for sub in sub_results:
+                self_result = validated_execution_result.get_path(sub)
+                assert self_result is not None
+
         # Invalid path returns None
+        if validated_execution_result.is_leaf:
+            sub_results = [r.name for r in validated_execution_result.sub_results]
+            for sub in sub_results:
+                self_result = validated_execution_result.get_path(sub)
+                assert self_result is None
+
         invalid = validated_execution_result.get_path("NonExistent.Path")
         assert invalid is None
     

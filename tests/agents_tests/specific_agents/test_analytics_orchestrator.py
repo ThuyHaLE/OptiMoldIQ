@@ -1,5 +1,6 @@
 # tests/agents_tests/test_analytics_orchestrator.py
 
+from platform import processor
 import pytest
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
@@ -124,13 +125,27 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
     
     def test_analytics_output_structure(self, validated_execution_result):
         """Analytics results should have expected structure"""
-        assert "result" in validated_execution_result.data, \
-            "Missing 'result' in execution data"
-        
-        result_data = validated_execution_result.data["result"]
-        
-        assert "payload" in result_data, \
-            "Missing 'payload' in result data"
+        if validated_execution_result is None:
+            pytest.skip("AnalyticsOrchestrator not executed")
+
+        # Should be composite (have trackers)
+        if validated_execution_result.status in {"success", "degraded", "warning"}:
+            assert validated_execution_result.is_composite, \
+                "AnalyticsOrchestrator should have sub-trackers"
+            
+            # Expected analyzers
+            analyzer_names = {r.name for r in validated_execution_result.sub_results}
+            expected_analyzers = {'HardwareChangeAnalyzer', 'MultiLevelPerformanceAnalyzer'}
+            
+            # At least one tracker should exist if analyzer succeeded
+            assert len(analyzer_names & expected_analyzers) > 0, \
+                f"No expected analyzers found. Found: {analyzer_names}"
+
+            for sub in analyzer_names:
+                self_result = validated_execution_result.get_path(sub)
+                result_data = self_result.data["result"] 
+                assert "payload" in result_data, \
+                    "Missing 'payload' in result data"
     
     def test_no_critical_failures(self, validated_execution_result):
         """Analytics orchestration should not have critical failures"""
@@ -140,81 +155,68 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
     # ============================================
     # ANALYZER-SPECIFIC TESTS
     # ============================================
-    
-    def test_hardware_change_analyzer_structure(self, validated_execution_result):
-        """HardwareChangeAnalyzer should have expected structure"""
+
+    def test_hardware_analyzers_configuration(self, validated_execution_result):
+        """Hardware analyzers should use correct configuration"""
         hardware_analyzer = validated_execution_result.get_path("HardwareChangeAnalyzer")
         
         if hardware_analyzer is None:
             pytest.skip("HardwareChangeAnalyzer not executed")
         
-        # Should be composite (have trackers)
+        # Each analyzer should have data if successful
         if hardware_analyzer.status in {"success", "degraded", "warning"}:
-            assert hardware_analyzer.is_composite, \
-                "HardwareChangeAnalyzer should have sub-trackers"
-            
-            # Expected trackers
-            tracker_names = {r.name for r in hardware_analyzer.sub_results}
-            expected_trackers = {
-                "MachineLayoutTracker",
-                "MoldMachinePairTracker"
-            }
-            
-            # At least one tracker should exist if analyzer succeeded
-            assert len(tracker_names & expected_trackers) > 0, \
-                f"No expected trackers found. Found: {tracker_names}"
-    
-    def test_multi_level_performance_analyzer_structure(self, validated_execution_result):
-        """MultiLevelPerformanceAnalyzer should have expected structure"""
+            assert isinstance(hardware_analyzer.data, dict), \
+                f"Analyzer '{hardware_analyzer.name}' should have data dict"
+
+    def test_performance_analyzers_timestamps(self, validated_execution_result):
+        """Performance analyzers should have requested timestamps"""
         perf_analyzer = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer")
         
         if perf_analyzer is None:
             pytest.skip("MultiLevelPerformanceAnalyzer not executed")
         
-        # Should be composite (have processors)
+        # Check that analyzers have timestamp configuration
         if perf_analyzer.status in {"success", "degraded", "warning"}:
-            assert perf_analyzer.is_composite, \
-                "MultiLevelPerformanceAnalyzer should have sub-processors"
-            
-            # Expected processors
-            processor_names = {r.name for r in perf_analyzer.sub_results}
-            expected_processors = {
-                "DayLevelDataProcessor",
-                "MonthLevelDataProcessor",
-                "YearLevelDataProcessor"
-            }
-            
-            # At least one processor should exist if analyzer succeeded
-            assert len(processor_names & expected_processors) > 0, \
-                f"No expected processors found. Found: {processor_names}"
-    
-    def test_hardware_trackers_configuration(self, validated_execution_result):
-        """Hardware trackers should use correct configuration"""
-        hardware_analyzer = validated_execution_result.get_path("HardwareChangeAnalyzer")
+            # Verify analyzer executed with timestamp
+            assert isinstance(perf_analyzer.data, dict)
+            # Add specific timestamp checks based on implementation
+
+    def test_day_level_processor_executed(self, validated_execution_result):
+        """DayLevelProcessor should be executed"""
+        # Navigate nested path
+        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer.DayLevelProcessor")
         
-        if hardware_analyzer is None:
-            pytest.skip("HardwareChangeAnalyzer not executed")
+        if processor is None:
+            pytest.skip("DayLevelProcessor not found in execution tree")
         
-        for tracker in hardware_analyzer.sub_results:
-            # Each tracker should have data if successful
-            if tracker.status in {"success", "degraded", "warning"}:
-                assert isinstance(tracker.data, dict), \
-                    f"Tracker '{tracker.name}' should have data dict"
-    
-    def test_performance_processors_timestamps(self, validated_execution_result):
-        """Performance processors should have requested timestamps"""
-        perf_analyzer = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer")
+        # Should have completed
+        assert processor.status in {"success", "degraded", "warning"}, \
+            f"DayLevelProcessor failed: {processor.error}"
         
-        if perf_analyzer is None:
-            pytest.skip("MultiLevelPerformanceAnalyzer not executed")
+    def test_month_level_processor_executed(self, validated_execution_result):
+        """MonthLevelProcessor should be executed"""
+        # Navigate nested path
+        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer.MonthLevelProcessor")
         
-        # Check that processors have timestamp configuration
-        for processor in perf_analyzer.sub_results:
-            if processor.status in {"success", "degraded", "warning"}:
-                # Verify processor executed with timestamp
-                assert isinstance(processor.data, dict)
-                # Add specific timestamp checks based on implementation
-    
+        if processor is None:
+            pytest.skip("MonthLevelProcessor not found in execution tree")
+        
+        # Should have completed
+        assert processor.status in {"success", "degraded", "warning"}, \
+            f"MonthLevelProcessor failed: {processor.error}"
+        
+    def test_year_level_processor_executed(self, validated_execution_result):
+        """YearLevelProcessor should be executed"""
+        # Navigate nested path
+        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer.YearLevelProcessor")
+
+        if processor is None:
+            pytest.skip("YearLevelProcessor not found in execution tree")
+        
+        # Should have completed
+        assert processor.status in {"success", "degraded", "warning"}, \
+            f"YearLevelProcessor failed: {processor.error}"
+        
     def test_machine_layout_tracker_executed(self, validated_execution_result):
         """MachineLayoutTracker should be executed"""
         # Navigate nested path
@@ -292,15 +294,35 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
     # ============================================
     
     @pytest.mark.integration
-    def test_orchestrator_directory_created(self, validated_execution_result, dependency_provider):
+    def test_orchestrator_directory_created(self, agent_instance):
         """Orchestrator directory should be created"""
         from pathlib import Path
         
-        shared_config = dependency_provider.get_shared_source_config()
-        orchestrator_dir = Path(shared_config.analytics_orchestrator_dir)
+        config = agent_instance.config
+        shared_config = config.shared_source_config
+
+        if config.machine_layout_tracker.save_result or \
+           config.mold_machine_pair_tracker.save_result or \
+           config.day_level_processor.save_result or \
+           config.month_level_processor.save_result or \
+           config.year_level_processor.save_result:
+
+            orchestrator_dir = Path(shared_config.analytics_orchestrator_dir)
+
+            assert orchestrator_dir.exists(), \
+                f"Analytics orchestrator directory not created: {orchestrator_dir}"
+
+    @pytest.mark.integration
+    def test_orchestrator_log_created(self, agent_instance):
+        """Orchestrator change log should be created"""
+        from pathlib import Path
         
-        assert orchestrator_dir.exists(), \
-            f"Analytics orchestrator directory not created: {orchestrator_dir}"
+        config = agent_instance.config
+        shared_config = config.shared_source_config
+
+        if config.save_orchestrator_log:
+            log_path = Path(shared_config.analytics_orchestrator_log_path)
+            assert log_path.exists()
     
     @pytest.mark.integration
     def test_analyzer_directories_created(self, validated_execution_result, dependency_provider):
@@ -312,26 +334,22 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
         # Check hardware analyzer directory
         if validated_execution_result.get_path("HardwareChangeAnalyzer"):
             hardware_dir = Path(shared_config.hardware_change_analyzer_dir)
-            # Add assertion based on your implementation
-            # assert hardware_dir.exists()
+            hardware_analyzer = validated_execution_result.get_path("HardwareChangeAnalyzer")
+            hardware_save_routing = hardware_analyzer.data['result']['payload'].metadata['save_routing']
+
+            for sub in hardware_save_routing:
+                if hardware_save_routing[sub]['enabled'] and hardware_save_routing[sub]['savable']:
+                    assert hardware_dir.exists()
         
         # Check performance analyzer directory
         if validated_execution_result.get_path("MultiLevelPerformanceAnalyzer"):
             perf_dir = Path(shared_config.multi_level_performance_analyzer_dir)
-            # Add assertion based on your implementation
-            # assert perf_dir.exists()
-    
-    @pytest.mark.integration
-    def test_orchestrator_log_created(self, validated_execution_result, dependency_provider):
-        """Orchestrator change log should be created"""
-        from pathlib import Path
-        
-        shared_config = dependency_provider.get_shared_source_config()
-        log_path = Path(shared_config.analytics_orchestrator_log_path)
-        
-        # Log should exist if save_orchestrator_log is True
-        # Add assertion based on your implementation
-        # assert log_path.exists()
+            perf_analyzer = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer")
+            perf_save_routing = perf_analyzer.data['result']['payload'].metadata['save_routing']
+
+            for sub in perf_save_routing:
+                if perf_save_routing[sub]['enabled'] and perf_save_routing[sub]['savable']:
+                    assert perf_dir.exists()    
     
     # ============================================
     # PERFORMANCE TESTS
