@@ -31,7 +31,7 @@ def module_registry():
     Load module registry once for entire test session
     Registry loading is now in workflows/ but used here for testing modules
     """
-    return ModuleRegistryLoader.load_registry('workflows/registry/module_registry.yaml')
+    return ModuleRegistryLoader.load_registry('configs/module_registry.yaml')
 
 
 @pytest.fixture(scope="session")
