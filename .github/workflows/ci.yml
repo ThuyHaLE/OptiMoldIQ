@@ -167,7 +167,7 @@ jobs:
     name: 🤖 Agent Tests
     runs-on: ubuntu-latest
     needs: smoke-tests
-    timeout-minutes: 20
+    timeout-minutes: 40
     
     steps:
       - name: 📥 Checkout code
