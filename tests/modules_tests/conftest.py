@@ -1,5 +1,3 @@
-# tests/modules_tests/conftest.py - Module-specific fixtures
-
 """
 Module testing conftest - provides module registry and dependency management
 Automatically triggers real module dependencies (no mocking - uses shared DB)
@@ -7,9 +5,8 @@ Automatically triggers real module dependencies (no mocking - uses shared DB)
 
 import pytest
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional
 from loguru import logger
-from configs.shared.agent_report_format import ExecutionStatus
 from modules.registry.registry_loader import ModuleRegistryLoader
 from modules.base_module import ModuleResult
 
@@ -29,7 +26,7 @@ def module_registry():
 
 @pytest.fixture(scope="session")
 def available_modules():
-    """Get all available module classes"""
+    """Get all available module classes from modules/__init__.py"""
     from modules import AVAILABLE_MODULES
     return AVAILABLE_MODULES
 
@@ -39,6 +36,9 @@ def enabled_modules(module_registry, available_modules):
     """
     Get list of enabled modules from registry
     Only modules that are enabled and exist in code
+    
+    Returns:
+        List of tuples: [(module_name, module_info), ...]
     """
     enabled = []
     for name, info in module_registry.items():
@@ -47,12 +47,12 @@ def enabled_modules(module_registry, available_modules):
     return enabled
 
 
-
-# Fixture provide all available dependency policies
 @pytest.fixture(scope="session")
 def all_dependency_policies():
+    """Fixture to provide all available dependency policies"""
     from modules.dependency_policies import AVAILABLE_POLICIES
     return list(AVAILABLE_POLICIES.values())
+
 
 # ============================================================================
 # DEPENDENCY GRAPH BUILDER
@@ -62,12 +62,12 @@ class ModuleDependencyGraph:
     """
     Builds and resolves module dependency graph
     Ensures modules are executed in correct order
+    Detects circular dependencies
     """
     
     def __init__(self, module_registry: Dict, available_modules: Dict):
         self.module_registry = module_registry
         self.available_modules = available_modules
-        self._execution_cache: Dict[str, ModuleResult] = {}
     
     def get_execution_order(self, module_name: str) -> List[str]:
         """
@@ -76,58 +76,130 @@ class ModuleDependencyGraph:
         
         Example: If C depends on B, B depends on A
         Returns: ['A', 'B', 'C']
+        
+        Raises:
+            ValueError: If circular dependency is detected
         """
         visited = set()
+        rec_stack = set()  # Track recursion stack for cycle detection
         order = []
         
-        def dfs(name: str):
+        def dfs(name: str, path: List[str]):
+            """
+            DFS with cycle detection
+            
+            Args:
+                name: Current module name
+                path: Current path (for error reporting)
+            """
+            # Circular dependency check
+            if name in rec_stack:
+                cycle_path = ' → '.join(path + [name])
+                raise ValueError(
+                    f"Circular dependency detected: {cycle_path}"
+                )
+            
+            # Already visited - skip
             if name in visited:
                 return
             
-            visited.add(name)
-            
-            # Get module class
+            # Check if module exists
             if name not in self.available_modules:
                 logger.warning(f"Module {name} not found in AVAILABLE_MODULES")
                 return
             
-            module_class = self.available_modules[name]
-            
-            # Get module config
             if name not in self.module_registry:
                 logger.warning(f"Module {name} not found in registry")
                 return
             
+            # Mark as being processed
+            visited.add(name)
+            rec_stack.add(name)
+            
+            # Get module config and instantiate
+            module_class = self.available_modules[name]
             config_path = self.module_registry[name].get('config_path')
             
-            # Instantiate to get dependencies
             try:
                 module = module_class(config_path)
                 deps = module.dependencies
                 
-                # Visit dependencies first
+                # Visit dependencies first (with updated path)
                 for dep in deps:
-                    dfs(dep)
+                    dfs(dep, path + [name])
                 
-                # Add this module after dependencies
+                # Add this module after all dependencies
                 order.append(name)
                 
             except Exception as e:
                 logger.error(f"Failed to instantiate {name}: {e}")
+                raise
+            finally:
+                # Remove from recursion stack
+                rec_stack.remove(name)
         
-        dfs(module_name)
+        # Start DFS
+        dfs(module_name, [])
         return order
     
     def get_all_dependencies(self, module_name: str) -> Set[str]:
         """
         Get all dependencies (direct and transitive) for a module
         
+        Args:
+            module_name: Module to analyze
+            
         Returns:
             Set of module names that are dependencies
         """
-        execution_order = self.get_execution_order(module_name)
-        # Remove the module itself, keep only dependencies
-        return set(execution_order[:-1]) if execution_order else set()
+        try:
+            execution_order = self.get_execution_order(module_name)
+            # Remove the module itself, keep only dependencies
+            return set(execution_order[:-1]) if execution_order else set()
+        except ValueError as e:
+            # Circular dependency or other error
+            logger.error(f"Failed to get dependencies for {module_name}: {e}")
+            raise
+    
+    def has_circular_dependencies(self) -> bool:
+        """
+        Check if any module has circular dependencies
+        
+        Returns:
+            True if circular dependencies exist
+        """
+        for module_name in self.available_modules.keys():
+            try:
+                self.get_execution_order(module_name)
+            except ValueError as e:
+                if "circular" in str(e).lower():
+                    return True
+        return False
+    
+    def validate_all_dependencies(self) -> Dict[str, List[str]]:
+        """
+        Validate all module dependencies
+        
+        Returns:
+            Dict mapping module names to list of issues (empty if valid)
+        """
+        issues = {}
+        
+        for module_name in self.available_modules.keys():
+            module_issues = []
+            
+            try:
+                # Try to get execution order
+                self.get_execution_order(module_name)
+            except ValueError as e:
+                module_issues.append(str(e))
+            except Exception as e:
+                module_issues.append(f"Unexpected error: {e}")
+            
+            if module_issues:
+                issues[module_name] = module_issues
+        
+        return issues
 
 
 # ============================================================================
@@ -138,6 +210,7 @@ class ModuleDependencyExecutor:
     """
     Executes modules with their dependencies
     Uses shared database - NO MOCKING
+    Caches results to avoid re-execution
     """
     
     def __init__(self, module_registry: Dict, available_modules: Dict):
@@ -169,8 +242,11 @@ class ModuleDependencyExecutor:
             
         Returns:
             Dict[str, ModuleResult] - context with all results
+            
+        Raises:
+            ValueError: If circular dependency detected
         """
-        # Get execution order
+        # Get execution order (this validates no circular deps)
         execution_order = self.dependency_graph.get_execution_order(module_name)
         
         logger.info(f"📋 Execution order for {module_name}: {execution_order}")
@@ -194,14 +270,18 @@ class ModuleDependencyExecutor:
                 
                 if not result.is_success():
                     logger.error(f"❌ {mod_name} failed: {result.message}")
-                    # Stop execution if dependency fails
-                    break
+                    # Continue execution even if dependency fails
+                    # This allows tests to verify failure handling
                 else:
                     logger.success(f"✅ {mod_name} completed successfully")
         
         return context
     
-    def _execute_single_module(self, module_name: str, context: Dict[str, ModuleResult]) -> ModuleResult:
+    def _execute_single_module(
+        self, 
+        module_name: str, 
+        context: Dict[str, ModuleResult]
+    ) -> ModuleResult:
         """
         Execute a single module with given context
         
@@ -214,9 +294,15 @@ class ModuleDependencyExecutor:
         """
         try:
             # Get module class
+            if module_name not in self.available_modules:
+                raise ValueError(f"Module {module_name} not in AVAILABLE_MODULES")
+            
             module_class = self.available_modules[module_name]
             
             # Get config
+            if module_name not in self.module_registry:
+                raise ValueError(f"Module {module_name} not in registry")
+            
             config_path = self.module_registry[module_name].get('config_path')
             
             # Instantiate
@@ -270,12 +356,21 @@ class ModuleDependencyExecutor:
         
         return context
     
+    def clear_cache(self):
+        """Clear execution cache - useful between test runs"""
+        self._execution_results.clear()
+        logger.info("Cleared execution cache")
+    
     def cleanup(self):
         """Cleanup test artifacts"""
         import shutil
         for dir_path in self._test_dirs.values():
             if dir_path.exists():
-                shutil.rmtree(dir_path)
+                try:
+                    shutil.rmtree(dir_path)
+                    logger.info(f"Cleaned up {dir_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to cleanup {dir_path}: {e}")
 
 
 @pytest.fixture(scope="session")
@@ -310,7 +405,7 @@ def module_context_factory(module_dependency_executor):
     Usage:
         def test_my_module(module_context_factory):
             context = module_context_factory('InitialPlanningModule')
-            # context now contains ProgressTrackingModule and FeaturesExtractingModule results
+            # context now contains all dependency results
     """
     def _get_context(module_name: str) -> Dict[str, ModuleResult]:
         return module_dependency_executor.get_context_for_module(module_name)
@@ -319,8 +414,38 @@ def module_context_factory(module_dependency_executor):
 
 
 @pytest.fixture
+def module_fixture_factory(module_registry, available_modules):
+    """
+    Factory fixture to create module instances for testing
+    
+    Usage in test:
+        def test_something(module_fixture_factory):
+            module = module_fixture_factory('InitialPlanningModule')
+            result = module.safe_execute(context)
+    """
+    def _create_module(module_name: str, config_path: Optional[str] = None):
+        if module_name not in available_modules:
+            pytest.skip(f"Module {module_name} not available")
+        
+        if module_name not in module_registry:
+            pytest.skip(f"Module {module_name} not in registry")
+        
+        module_class = available_modules[module_name]
+        
+        if config_path is None:
+            config_path = module_registry[module_name].get('config_path')
+        
+        if not config_path:
+            pytest.skip(f"No config_path for module {module_name}")
+        
+        return module_class(config_path)
+    
+    return _create_module
+
+
+@pytest.fixture
 def sample_module_config(tmp_path):
-    """Create a sample module configuration file"""
+    """Create a sample module configuration file for testing"""
     import yaml
     
     config = {
@@ -338,31 +463,78 @@ def sample_module_config(tmp_path):
     return str(config_file)
 
 
+# ============================================================================
+# HELPER FIXTURES
+# ============================================================================
+
 @pytest.fixture
-def module_fixture_factory(module_registry, available_modules):
+def assert_module_success():
     """
-    Factory fixture to create module instances for testing
+    Helper fixture for asserting module success
     
-    Usage in test:
-        def test_something(module_fixture_factory):
-            module = module_fixture_factory('InitialPlanningModule')
+    Usage:
+        def test_module(assert_module_success):
+            result = module.safe_execute(context)
+            assert_module_success(result)
+    """
+    def _assert(result: ModuleResult):
+        assert isinstance(result, ModuleResult), \
+            f"Result must be ModuleResult, got {type(result)}"
+        
+        assert result.status == "success", \
+            f"Module failed with status '{result.status}': {result.message}"
+        
+        # Don't assert data is not None - it can be None for some modules
+        # Just check that we have a proper result object
+        
+    return _assert
+
+
+@pytest.fixture
+def create_empty_context():
+    """
+    Create an empty context (for modules with no dependencies)
+    
+    Usage:
+        def test_module_without_deps(module_fixture_factory, create_empty_context):
+            module = module_fixture_factory('DataPipelineModule')
+            context = create_empty_context()
             result = module.safe_execute(context)
     """
-    def _create_module(module_name: str, config_path: str = None):
-        if module_name not in available_modules:
-            pytest.skip(f"Module {module_name} not available")
-        
-        if module_name not in module_registry:
-            pytest.skip(f"Module {module_name} not in registry")
-        
-        module_class = available_modules[module_name]
-        
-        if config_path is None:
-            config_path = module_registry[module_name].get('config_path')
-        
-        return module_class(config_path)
+    def _create() -> Dict[str, ModuleResult]:
+        return {}
     
-    return _create_module
+    return _create
+
+
+@pytest.fixture
+def print_dependency_graph(module_dependency_graph):
+    """
+    Helper to print dependency graph for debugging
+    
+    Usage:
+        def test_something(print_dependency_graph):
+            print_dependency_graph('InitialPlanningModule')
+    """
+    def _print(module_name: str):
+        try:
+            order = module_dependency_graph.get_execution_order(module_name)
+            deps = module_dependency_graph.get_all_dependencies(module_name)
+            
+            print(f"\n{'='*60}")
+            print(f"Dependency Analysis for: {module_name}")
+            print(f"{'='*60}")
+            print(f"Execution Order: {' → '.join(order)}")
+            print(f"Dependencies: {deps if deps else 'None'}")
+            print(f"{'='*60}\n")
+        except ValueError as e:
+            print(f"\n{'='*60}")
+            print(f"Dependency Analysis for: {module_name}")
+            print(f"{'='*60}")
+            print(f"ERROR: {e}")
+            print(f"{'='*60}\n")
+    
+    return _print
 
 
 # ============================================================================
@@ -380,12 +552,18 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "no_dependencies: mark test as not requiring dependencies (unit test)"
     )
+    config.addinivalue_line(
+        "markers", "smoke: mark test as smoke test (quick validation)"
+    )
+    config.addinivalue_line(
+        "markers", "integration: mark test as integration test (full pipeline)"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
     """
     Modify test collection for module tests
-    Add markers automatically
+    Add markers automatically based on test names and paths
     """
     for item in items:
         # Auto-mark module tests
@@ -395,61 +573,19 @@ def pytest_collection_modifyitems(config, items):
         # Mark tests with dependencies
         if "with_dependencies" in item.nodeid.lower():
             item.add_marker(pytest.mark.requires_dependencies)
-
-
-# ============================================================================
-# HELPER FIXTURES
-# ============================================================================
-
-@pytest.fixture
-def assert_module_success():
-    """Helper fixture for asserting module success"""
-    def _assert(result):
-        successful_statuses = {
-            ExecutionStatus.SUCCESS.value,
-            ExecutionStatus.DEGRADED.value,
-            ExecutionStatus.WARNING.value
-        }
-        assert isinstance(result, ModuleResult)
-        assert result.status in successful_statuses, f"Module failed: {result.message}"
-        assert result.data is not None
-    return _assert
-
-
-@pytest.fixture
-def create_empty_context():
-    """
-    Create an empty context (for modules with no dependencies)
-    
-    Usage:
-        def test_module_without_deps(module_fixture_factory, create_empty_context):
-            module = module_fixture_factory('DataPipelineModule')
-            context = create_empty_context()
-            result = module.safe_execute(context)
-    """
-    def _create() -> Dict[str, ModuleResult]:
-        return {}
-    return _create
-
-
-@pytest.fixture
-def print_dependency_graph(module_dependency_graph):
-    """
-    Helper to print dependency graph for debugging
-    
-    Usage:
-        def test_something(print_dependency_graph):
-            print_dependency_graph('InitialPlanningModule')
-    """
-    def _print(module_name: str):
-        order = module_dependency_graph.get_execution_order(module_name)
-        deps = module_dependency_graph.get_all_dependencies(module_name)
         
-        print(f"\n{'='*60}")
-        print(f"Dependency Analysis for: {module_name}")
-        print(f"{'='*60}")
-        print(f"Execution Order: {' → '.join(order)}")
-        print(f"Dependencies: {deps}")
-        print(f"{'='*60}\n")
-    
-    return _print
+        # Mark smoke tests
+        if "smoke" in item.nodeid.lower() or item.get_closest_marker("smoke"):
+            item.add_marker(pytest.mark.smoke)
+
+
+# ============================================================================
+# SESSION CLEANUP
+# ============================================================================
+
+@pytest.fixture(scope="session", autouse=True)
+def session_cleanup():
+    """Auto cleanup after entire test session"""
+    yield
+    # Cleanup happens here after all tests
+    logger.info("Test session completed")

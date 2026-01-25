@@ -8,9 +8,6 @@ REAL DEPENDENCY EXECUTION - Uses shared database (no mocking)
 
 import pytest
 from pathlib import Path
-from typing import Dict, Any, Type
-from unittest.mock import patch
-
 from modules import AVAILABLE_MODULES, BaseModule
 from modules.base_module import ModuleResult
 
@@ -97,85 +94,46 @@ class TestModulesAutomatically:
             pytest.skip(f"Config file not found: {config_path}")
     
     # ========================================================================
-    # TEST 3: DEPENDENCY VALIDATION
+    # TEST 3: DEPENDENCY DECLARATION CONTRACT/AUDIT
     # ========================================================================
     
     @pytest.mark.parametrize('module_fixture',
                             [name for name in AVAILABLE_MODULES.keys()],
                             indirect=True)
-    @pytest.mark.no_dependencies
-    def test_module_dependencies_validation(self, module_fixture):
-        """Test dependency validation logic"""
+    def test_module_dependency_declaration(self, module_fixture):
+        """
+        Module should DECLARE dependencies, not validate them
+        """
         module_name, module_class, config_path, _ = module_fixture
-        
         module = module_class(config_path)
-        
-        # Test with empty context
-        dep_valid_result = module.validate_dependencies({})
-         
-        if module.dependencies:
-            # Should fail with empty context
-            assert not dep_valid_result.is_valid
-            assert len(dep_valid_result.missing) > 0
-            
-            # Test with successful mock context
-            mock_context = {
-                dep: ModuleResult(
-                    status='success',
-                    data={'mock': True},
-                    message=f'Mock {dep}'
-                )
-                for dep in module.dependencies
-            }
-            dep_valid_result = module.validate_dependencies(mock_context)
-            assert dep_valid_result.is_valid
-            assert len(dep_valid_result.missing) == 0
-            
-            # Test with failed dependency
-            failed_context = {
-                dep: ModuleResult(
-                    status='failed',
-                    data=None,
-                    message=f'Failed {dep}'
-                )
-                for dep in module.dependencies
-            }
-            dep_valid_result = module.validate_dependencies(failed_context)
-            assert not dep_valid_result.is_valid
-            assert len(dep_valid_result.missing) == len(module.dependencies)
-        else:
-            # No dependencies - should always pass
-            assert dep_valid_result.is_valid
-            assert len(dep_valid_result.missing) == 0
+
+        assert isinstance(module.dependencies, dict)
+
+        for dep_name, dep_output in module.dependencies.items():
+            assert isinstance(dep_name, str)
+            assert isinstance(dep_output, str)
+
+    @pytest.mark.parametrize('module_fixture',
+                            [name for name in AVAILABLE_MODULES.keys()],
+                            indirect=True)
+    def test_dependency_audit_when_missing(self, module_fixture):
+        module_name, module_class, config_path, _ = module_fixture
+        module = module_class(config_path)
+
+        if not module.dependencies:
+            pytest.skip(f"{module_name} has no dependencies")
+
+        empty_context = {}
+        result = module.safe_execute(empty_context)
+        assert result.status in {"success", "failed"}
+        assert result.context_updates is not None
+
+        audit = result.context_updates.get("dependency_audit")
+
+        assert audit is not None
+        assert "missing" in audit
+        assert isinstance(audit["missing"], list)
     
-    @pytest.mark.parametrize('module_fixture', 
-                             [name for name in AVAILABLE_MODULES.keys()],
-                             indirect=True)
-    def test_validate_dependencies_with_all_policies(self, 
-                                                     module_fixture, 
-                                                     all_dependency_policies):
-        
-        module_name, module_class, config_path, _ = module_fixture
-        module = module_class(config_path)
-
-        # Prepare a mock context
-        mock_context = {
-            dep: ModuleResult(status='success', data={'mock': True}, message=f"Mock {dep}")
-            for dep in module.dependencies
-        }
-
-        for policy_cls in all_dependency_policies:
-            policy = policy_cls()
-            dep_valid_result = module.validate_dependencies(mock_context, dependency_policy=policy)
-
-            assert hasattr(dep_valid_result, "is_valid")
-            assert hasattr(dep_valid_result, "missing")
-
-            if module.dependencies:
-                assert isinstance(dep_valid_result.missing, list)
-            else:
-                assert dep_valid_result.is_valid
-
     # ========================================================================
     # TEST 4: INTERFACE COMPLIANCE
     # ========================================================================
@@ -194,7 +152,6 @@ class TestModulesAutomatically:
         # Check required methods
         assert hasattr(module, 'execute') and callable(module.execute)
         assert hasattr(module, 'safe_execute') and callable(module.safe_execute)
-        assert hasattr(module, 'validate_dependencies') and callable(module.validate_dependencies)
         
         # Check properties
         assert hasattr(module, 'module_name')
@@ -247,10 +204,6 @@ class TestModulesWithDependencies:
         
         # Get context (this will execute all dependencies)
         context = module_context_factory(module_name)
-        
-        # Validate all dependencies succeeded
-        dep_valid_result = module.validate_dependencies(context)
-        assert dep_valid_result.is_valid, f"Dependencies failed or missing: {dep_valid_result.missing}"
         
         # All dependencies should be successful
         for dep_name in module.dependencies:

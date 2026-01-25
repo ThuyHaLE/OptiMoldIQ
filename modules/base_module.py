@@ -82,7 +82,10 @@ class BaseModule(ABC):
             return {}
 
     @abstractmethod
-    def execute(self, context: Dict[str, ModuleResult]) -> ModuleResult:
+    def execute(self,
+                context: Dict[str, ModuleResult],
+                dependency_policy=None) -> ModuleResult:
+        
         """
         Execute the module logic.
     
@@ -115,7 +118,7 @@ class BaseModule(ABC):
             'DataPipelineModule': "./DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json", 
             'ValidationModule']: "./ValidationOrchestrator/change_log.txt"}
         """
-        return []
+        return {}
     
     @property
     def context_outputs(self) -> List[str]:
@@ -126,52 +129,37 @@ class BaseModule(ABC):
         """
         return []
     
-    def validate_dependencies(self, 
-                              context: Dict[str, ModuleResult], 
-                              dependency_policy: "DependencyPolicy" = None
-                              ) -> "DependencyValidationResult":
-        
-        if dependency_policy is None:
-            from modules.dependency_policies.strict import StrictContextPolicy
-            dependency_policy = StrictContextPolicy()
-        
-        workflow_modules = list(context.keys()) 
-        dep_valid_result = dependency_policy.validate(self.dependencies, 
-                                                      context,
-                                                      workflow_modules)
-        
-        return dep_valid_result
-    
     def safe_execute(self,
                      context: Dict[str, ModuleResult],
-                     dependency_policy: "DependencyPolicy" = None
-                     ) -> ModuleResult:
+                     dependency_policy=None) -> ModuleResult:
         """
         Wrapper around execute() with error handling.
         """
         try:
+            
+            workflow_modules = set(context.keys())
+            declared_deps = set(self.dependencies.keys())
 
-            # Validate dependencies first
-            dep_valid_result = self.validate_dependencies(context, dependency_policy)
-
-            if not dep_valid_result.is_valid:
-                return ModuleResult(
-                    status='failed',
-                    data=None,
-                    message=f"Missing dependencies: {dep_valid_result.missing}",
-                    errors=dep_valid_result
-                )
+            missing_deps = declared_deps - workflow_modules
             
             # Execute module
             self.logger.info(f"Executing {self.module_name}")
             result = self.execute(context, dependency_policy)
             
-            result.context_updates['dep_valid_result'] = dep_valid_result
-            
             if result.is_success():
                 self.logger.info(f"{self.module_name} completed successfully")
             else:
                 self.logger.warning(f"{self.module_name} completed with status: {result.status}")
+
+            if result.context_updates is None:
+                result.context_updates = {}
+
+            if missing_deps:
+                result.context_updates["dependency_audit"] = {
+                    "missing": list(missing_deps),
+                    "severity": "warning",
+                    "source": "BaseModule"
+                }
             
             return result
             
