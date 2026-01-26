@@ -186,6 +186,9 @@ class TestHistoricalFeaturesExtractorDependencies:
             HistoricalFeaturesExtractor, FeaturesExtractorConfig
         )
         
+        # Reset dependency_provider
+        dependency_provider = DependencyProvider()
+
         # DON'T trigger OrderProgressTracker
         assert not dependency_provider.is_triggered("OrderProgressTracker"), \
             "OrderProgressTracker should not be triggered yet"

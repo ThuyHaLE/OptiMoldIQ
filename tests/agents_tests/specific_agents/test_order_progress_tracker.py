@@ -151,6 +151,9 @@ class TestOrderProgressTrackerDependencies:
         """Should handle missing ValidationOrchestrator gracefully"""
         from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
         
+        # Reset dependency_provider
+        dependency_provider = DependencyProvider()
+        
         # DON'T trigger ValidationOrchestrator
         assert not dependency_provider.is_triggered("ValidationOrchestrator"), \
             "ValidationOrchestrator should not be triggered yet"

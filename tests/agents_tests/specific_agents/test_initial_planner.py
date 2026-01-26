@@ -161,8 +161,16 @@ class TestInitialPlannerDependencyScenarios:
             InitialPlannerConfig, InitialPlanner
         )
         
-        # DON'T trigger OrderProgressTracker
+        # Reset dependency_provider
+        dependency_provider = DependencyProvider()
+
+        # DON'T trigger OrderProgressTracker, HistoricalFeaturesExtractor
+        assert not dependency_provider.is_triggered("OrderProgressTracker"), \
+            "OrderProgressTracker should not be triggered yet"
+        assert not dependency_provider.is_triggered("HistoricalFeaturesExtractor"), \
+            "HistoricalFeaturesExtractor should not be triggered yet"
         
+        # Create agent
         agent = InitialPlanner(
             config=InitialPlannerConfig(
                 shared_source_config=dependency_provider.get_shared_source_config()
