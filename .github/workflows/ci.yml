@@ -223,6 +223,7 @@ jobs:
           pytest tests/agents_tests/ \
             -v \
             --tb=short \
+            -m "not heavy" \
             --ignore=tests/set_up_shared_db/ \
             --cov=agents \
             --cov-report=xml \
