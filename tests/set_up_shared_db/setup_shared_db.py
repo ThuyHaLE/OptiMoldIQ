@@ -9,4 +9,4 @@ shared_source_config = SharedSourceConfig(
 def test_data_collector_run():
     pipeline_processsor = DataPipelineOrchestrator(config = shared_source_config)
     pipeline_result = pipeline_processsor.run_collecting_and_save_results()
-    assert True
+    assert pipeline_result.status == 'success'
