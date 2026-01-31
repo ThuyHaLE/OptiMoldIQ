@@ -199,27 +199,13 @@ class DependencyProvider:
         return results
     
     def cleanup(self):
-        """Cleanup test artifacts, but preserve prepared data"""
-
+        """Cleanup test artifacts"""
         import shutil
-        from pathlib import Path
-
-        shared_config = self.get_shared_source_config()
-        protected_dir_name = Path(shared_config.data_pipeline_dir).name
-        protected = {protected_dir_name}
-
         for dir_path in self._test_dirs.values():
-            if not dir_path.exists():
-                continue
-
-            if dir_path.name == "shared_db":
-                for child in dir_path.iterdir():
-                    if child.name in protected:
-                        continue
-                    if child.is_dir():
-                        shutil.rmtree(child)
-            else:
+            if dir_path.exists():
                 shutil.rmtree(dir_path)
+        logger.info("✓ Test directories cleaned up")
+
 
 # ============================================
 # SESSION FIXTURES
@@ -233,6 +219,7 @@ def dependency_provider():
     provider = DependencyProvider()
     yield provider
     provider.cleanup()
+
 
 # ============================================
 # VALIDATION FIXTURES
@@ -254,6 +241,7 @@ def validated_execution_result(execution_result):
     
     return execution_result
 
+
 # ============================================
 # HELPER FIXTURES
 # ============================================
@@ -262,6 +250,7 @@ def validated_execution_result(execution_result):
 def execution_summary(validated_execution_result):
     """Get execution summary stats"""
     return validated_execution_result.summary_stats()
+
 
 @pytest.fixture
 def all_sub_results(validated_execution_result):
