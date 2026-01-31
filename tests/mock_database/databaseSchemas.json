@@ -1,7 +1,25 @@
 {
     "dynamicDB": {
         "productRecords": {
-            "path": "tests/shared_db/DataPipelineOrchestrator/dynamicDatabase/productRecords.parquet",
+            "path": "tests/mock_database/dynamicDatabase/monthlyReports_history",
+            "name_start": "monthlyReports_",
+            "extension": ".xlsb",
+            "sheet_name": "Sheet1",
+            "required_fields": [
+                "recordDate", "workingShift", "machineNo", 
+                "machineCode", "itemCode", "itemName", 
+                "colorChanged", "moldChanged", "machineChanged", 
+                "poNote", "moldNo", "moldShot", "moldCavity", 
+                "itemTotalQuantity", "itemGoodQuantity", 
+                "itemBlackSpot", "itemOilDeposit", 
+                "itemScratch", "itemCrack", "itemSinkMark", 
+                "itemShort", "itemBurst", "itemBend", 
+                "itemStain", "otherNG", 
+                "plasticResine", "plasticResineCode", 
+                "plasticResineLot", "colorMasterbatch", 
+                "colorMasterbatchCode", "additiveMasterbatch", 
+                "additiveMasterbatchCode"
+            ],
             "dtypes": {
                 "recordDate": "datetime64[ns]",
                 "workingShift": "string",
@@ -38,7 +56,18 @@
             }
         },
         "purchaseOrders": {
-            "path": "tests/shared_db/DataPipelineOrchestrator/dynamicDatabase/purchaseOrders.parquet",
+            "path": "tests/mock_database/dynamicDatabase/purchaseOrders_history",
+            "name_start": "purchaseOrder_",
+            "extension": ".xlsx",
+            "sheet_name": "poList",
+            "required_fields": [
+                "poReceivedDate", "poNo", "poETA", "itemCode", 
+                "itemName", "itemQuantity", "plasticResinCode", 
+                "plasticResin", "plasticResinQuantity", 
+                "colorMasterbatchCode", "colorMasterbatch", 
+                "colorMasterbatchQuantity", "additiveMasterbatchCode", 
+                "additiveMasterbatch", "additiveMasterbatchQuantity"
+            ],
             "dtypes": {
                 "poReceivedDate": "datetime64[ns]",
                 "poNo": "string",

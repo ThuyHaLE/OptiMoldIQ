@@ -1,5 +1,4 @@
-from agents.dataPipelineOrchestrator.data_collector import DataCollector
-from agents.dataPipelineOrchestrator.data_loader import DataLoaderAgent
+from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import DataPipelineOrchestrator
 from configs.shared.shared_source_config import SharedSourceConfig
 
 shared_source_config = SharedSourceConfig(
@@ -8,9 +7,6 @@ shared_source_config = SharedSourceConfig(
     )
 
 def test_data_collector_run():
-    execution_info = DataCollector(config=shared_source_config).process_all_data()
-    assert True
-
-def test_data_loader_run():
-    execution_info = DataLoaderAgent(config=shared_source_config).process_all_data()
+    pipeline_processsor = DataPipelineOrchestrator(config = shared_source_config)
+    pipeline_result = pipeline_processsor.run_collecting_and_save_results()
     assert True
