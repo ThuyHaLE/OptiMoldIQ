@@ -183,9 +183,10 @@ class DataPipelineProcessor(ConfigReportMixin):
             # Update pipeline status - cannot continue without successful healing
             self.pipeline_result.status = ProcessingStatus.ERROR
             self.pipeline_result.error_type = recovery_result.error_type
+            recovery_summary = '\n'.join(recovery_action_results)
             self.pipeline_result.error_message = (
                 f"Local healing for {result_name.value} failed: {recovery_result.error_message}. "
-                f"Recovery action results for {result_name.value}: {'\n'.join(recovery_action_results)}"
+                f"Recovery action results for {result_name.value}: {recovery_summary}"
             )
 
             self.log_entries.append(f"⤷ Local healing FAILED for {result_name.value} - Manual review required")
@@ -257,7 +258,10 @@ class DataPipelineProcessor(ConfigReportMixin):
             healing_success, recovery_result = self._process_healing_mechanism(
                 result_name=AgentType.SCHEMA_VALIDATOR, 
                 result_data=validation_result, 
-                notification_path=f"{self.manual_review_notifications_dir}/{timestamp_file}_{AgentType.SCHEMA_VALIDATOR.value}_manual_review_notification.txt",
+                notification_path=(
+                    f"{self.manual_review_notifications_dir}/{timestamp_file}_"
+                    f"{AgentType.SCHEMA_VALIDATOR.value}_manual_review_notification.txt"
+                ),
                 local_healer=SchemaErrorHealer
             )
             
@@ -331,7 +335,10 @@ class DataPipelineProcessor(ConfigReportMixin):
                 healing_success, recovery_result = self._process_healing_mechanism(
                     result_name=AgentType.DATA_COLLECTOR, 
                     result_data=collector_result, 
-                    notification_path=f"{self.manual_review_notifications_dir}/{timestamp_file}_{AgentType.DATA_COLLECTOR.value}_{db_type}_manual_review_notification.txt",
+                    notification_path=(
+                        f"{self.manual_review_notifications_dir}/{timestamp_file}_"
+                        f"{AgentType.DATA_COLLECTOR.value}_{db_type}_manual_review_notification.txt"
+                    ),
                     local_healer=DataCollectorHealer
                 )
 
