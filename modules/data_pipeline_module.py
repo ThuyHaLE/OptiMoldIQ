@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Dict, List, Optional
 from modules.base_module import BaseModule, ModuleResult
+from dataclasses import asdict
 from loguru import logger
 
 from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import SharedSourceConfig, DataPipelineOrchestrator
@@ -61,10 +62,8 @@ class DataPipelineModule(BaseModule):
     def context_outputs(self) -> List[str]:
         """Keys that this module writes to context"""
         return [
-            'data_pipeline_result',
-            'data_pipeline_log',
-            'data_pipeline_dir',
-            'annotation_path'
+            'pipeline_result',
+            'shared_configs'
         ]
     
     def execute(self, context, dependency_policy) -> ModuleResult:
@@ -76,10 +75,12 @@ class DataPipelineModule(BaseModule):
             self.config: Configuration containing:
                 - project_root: Project root directory
                 - data_pipeline:
-                    - dynamic_db_dir: Path to dynamic database
                     - databaseSchemas_path: Path to database schemas
-                    - annotation_path: Path to annotations
                     - data_pipeline_dir: Default directory for outputs
+                    - data_pipeline_change_log_path: Path to DataPipelineOrchestrator change log
+                    - manual_review_notifications_dir: Path to healing notifications directory
+                    - shared_database_dir: Path to shared database directory
+                    - annotation_path: Path to annotations
             dependencies: Empty dict (no dependencies)
         Returns:
             ModuleResult with pipeline execution results
@@ -93,32 +94,49 @@ class DataPipelineModule(BaseModule):
             
             # Run pipeline
             self.logger.info("Running data pipeline...")
-            results, log_str = orchestrator.run_pipeline()
+            pipeline_result = orchestrator.run_collecting_and_save_results()
             
             # Log report
             self.logger.info("Pipeline execution completed!")
+
+            # ✅ CHECK if it has critical errors in sub-results
+            if pipeline_result.has_critical_errors():
+                failed_paths = pipeline_result.get_failed_paths()
+                return ModuleResult(
+                    status='failed',
+                    data={'pipeline_result': pipeline_result},
+                    message=f'Validation has critical errors in: {failed_paths}',
+                    errors=failed_paths
+                )
             
-            # Return success result
+            # ✅ CHECK STATUS from ExecutionResult
+            if pipeline_result.status == 'failed':
+                return ModuleResult(
+                    status='failed',
+                    data={'pipeline_result': pipeline_result},
+                    message=f'Pipeline failed: {pipeline_result.error}',
+                    errors=[pipeline_result.error] if pipeline_result.error else []
+                )
+ 
+            # ✅ SUCCESS case
             return ModuleResult(
                 status='success',
                 data={
-                    'data_pipeline_result': results,
-                    'data_pipeline_log': log_str
+                    'pipeline_result': pipeline_result,
                 },
-                message='DataPipeline completed successfully',
+                message='Pipeline completed successfully',
                 context_updates={
-                    'data_pipeline_result': results,
-                    'data_pipeline_log': log_str,
-                    'data_pipeline_dir': self.shared_config.data_pipeline_dir,
-                    'annotation_path': self.shared_config.annotation_path
+                    'pipeline_result': pipeline_result,
+                    'shared_configs': asdict(self.shared_config),
                 }
             )
             
         except Exception as e:
-            self.logger.error(f"DataPipeline failed: {e}", exc_info=True)
+            # ❌ Only catch NOT expected exception (agent crash)
+            self.logger.error(f"Pipeline failed: {e}", exc_info=True)
             return ModuleResult(
                 status='failed',
                 data=None,
-                message=f"DataPipeline execution failed: {str(e)}",
+                message=f"Pipeline execution failed: {str(e)}",
                 errors=[str(e)]
             )

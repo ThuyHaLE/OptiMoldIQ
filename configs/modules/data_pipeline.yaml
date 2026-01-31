@@ -8,9 +8,10 @@ project_root: "."
 # ===========================
 data_pipeline:
 #REQUIRED_FIELDS = 
-#{'dynamic_db_dir': str,
-#'databaseSchemas_path': str,
-#'data_pipeline_dir': str,
+#{'data_pipeline_dir': str,
+#'data_pipeline_change_log_path': str,
+#'manual_review_notifications_dir': str,
+#'shared_database_dir': str,
 #'annotation_path': str}
 
   # --------------------------------------------
@@ -24,10 +25,6 @@ data_pipeline:
   # Uncomment to override default paths
   # --------------------------------------------
 
-  # Path to dynamic database
-  # Default: {self.db_dir}/dynamicDatabase
-  # dynamic_db_dir: "tests/mock_database/dynamicDatabase"
-
   # Path to database schemas
   # Default: {self.db_dir}/databaseSchemas.json
   # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
@@ -36,6 +33,18 @@ data_pipeline:
   # Default: {default_dir}/DataPipelineOrchestrator
   # data_pipeline_dir: "tests/shared_db/DataPipelineOrchestrator"
 
+  # DataPipelineOrchestrator change log
+  # Default: {data_pipeline_dir}/change_log.txt
+  # data_pipeline_change_log_path: "tests/shared_db/DataPipelineOrchestrator/change_log.txt"
+
+  # Path to healing notifications directory
+  # Default: {data_pipeline_dir}/notifications
+  # manual_review_notifications_dir: "tests/shared_db/DataPipelineOrchestrator/notifications"
+
+  # Path to shared database directory
+  # Default: {data_pipeline_dir}/DataCollector
+  # shared_database_dir: "tests/shared_db/DataPipelineOrchestrator/DataCollector"
+
   # Path to annotations
-  # Default: {data_pipeline_dir}/DataLoaderAgent/newest/path_annotations.json
-  # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json" 
+  # Default: {shared_database_dir}/newest/path_annotations.json
+  # annotation_path: "tests/shared_db/DataPipelineOrchestrator/DataCollector/newest/path_annotations.json" 

@@ -20,7 +20,10 @@ class SharedSourceConfig:
     # DataPipelineOrchestrator #
     #--------------------------#
     data_pipeline_dir: Optional[str] = None
+    data_pipeline_change_log_path: Optional[str] = None
     annotation_path: Optional[str] = None
+    manual_review_notifications_dir: Optional[str] = None
+    shared_database_dir: Optional[str] = None
 
     #------------------------#
     # ValidationOrchestrator #
@@ -143,8 +146,14 @@ class SharedSourceConfig:
         #--------------------------#
         self.data_pipeline_dir = (
             self.data_pipeline_dir or f"{self.default_dir}/DataPipelineOrchestrator")
+        self.data_pipeline_change_log_path = (
+            self.data_pipeline_change_log_path or f"{self.default_dir}/DataPipelineOrchestrator/change_log.txt")
+        self.manual_review_notifications_dir = (
+            self.data_pipeline_dir or f"{self.default_dir}/DataPipelineOrchestrator/notifications")
+        self.shared_database_dir = (
+            self.annotation_path or f"{self.data_pipeline_dir}/DataCollector")
         self.annotation_path = (
-            self.annotation_path or f"{self.data_pipeline_dir}/DataLoaderAgent/newest/path_annotations.json")
+            self.annotation_path or f"{self.data_pipeline_dir}/DataCollector/newest/path_annotations.json")
         
         #------------------------#
         # ValidationOrchestrator #
