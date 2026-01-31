@@ -25,11 +25,25 @@ class BaseAgentTests(ABC):
     @pytest.fixture
     @abstractmethod
     def execution_result(self):
-        """
-        Override in subclass to provide agent execution
-        Will be auto-validated by validated_execution_result fixture
-        """
+        """Override in subclass to provide agent execution"""
         pass
+    
+    # ✅ Add these missing fixtures
+    @pytest.fixture
+    def validated_execution_result(self, execution_result):
+        """Validate and return execution result"""
+        assert execution_result is not None
+        return execution_result
+    
+    @pytest.fixture
+    def all_sub_results(self, validated_execution_result):
+        """Get all flattened sub-results"""
+        return validated_execution_result.flatten()
+    
+    @pytest.fixture  
+    def execution_summary(self, validated_execution_result):
+        """Get execution summary"""
+        return validated_execution_result.get_summary()
 
     # ============================================
     # STRUCTURAL TESTS - Use validated fixture
