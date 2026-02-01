@@ -244,9 +244,9 @@ class DependencyProvider:
             }
             
             # Mark as materialized (files written to disk)
-            self._materialized_dependencies.add("ValidationOrchestrator")
+            self._materialized_dependencies.add("DataPipelineOrchestrator")
         
-        return self._cache["ValidationOrchestrator"]["result"]
+        return self._cache["DataPipelineOrchestrator"]["result"]
     
     def trigger_validation_orchestrator(self) -> ExecutionResult:
         """Lazy load: Only run ValidationOrchestrator if requested"""
