@@ -122,7 +122,7 @@ class ExecutionResult:
     
     def has_critical_errors(self) -> bool:
         """Has critical errors (recursive check)?"""
-        if self.status == "failed" and self.severity == PhaseSeverity.CRITICAL.value:
+        if self.severity == PhaseSeverity.CRITICAL.value:
             return True
         
         return any(sub.has_critical_errors() for sub in self.sub_results)
