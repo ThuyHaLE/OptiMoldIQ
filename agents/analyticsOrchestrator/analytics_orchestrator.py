@@ -2,7 +2,8 @@ from loguru import logger
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Callable
+import traceback
 from configs.shared.config_report_format import ConfigReportMixin
 from agents.analyticsOrchestrator.analytics_orchestrator_config import ComponentConfig, AnalyticsOrchestratorConfig
 from configs.shared.dict_based_report_generator import DictBasedReportGenerator
@@ -11,7 +12,8 @@ from configs.shared.dict_based_report_generator import DictBasedReportGenerator
 from configs.shared.agent_report_format import (
     Executable,
     ExecutionResult,
-    AtomicPhase,
+    ExecutionStatus,
+    PhaseSeverity,
     CompositeAgent,
     print_execution_summary,
     format_execution_tree,
@@ -19,88 +21,98 @@ from configs.shared.agent_report_format import (
     extract_export_metadata)
 
 # ============================================
-# PHASE: HARDWARE CHANGE ANALYZING
+# EXECUTABLE WRAPPER - Bridge pattern
 # ============================================
-class  HardwareChangeAnalyzingPhase(AtomicPhase):
-    """Phase for running the actual hardware change analyzer logic"""
+class ExecutableWrapper(Executable):
+    """
+    Wraps an analyzer that returns ExecutionResult.
+    Allows CompositeAgent to orchestrate analyzers seamlessly.
     
-    RECOVERABLE_ERRORS = (KeyError, ValueError, pd.errors.MergeError)
-    CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
-    FALLBACK_FAILURE_IS_CRITICAL = False
+    This is a bridge between the Executable interface and analyzers that
+    already return ExecutionResult objects.
+    """
     
     def __init__(self, 
-                 config: AnalyticsOrchestratorConfig):
-        super().__init__("HardwareChangeAnalyzer")
-
-        self.config = config
-
-    def _execute_impl(self) -> Dict[str, Any]:
-        """Run hardware change analyzer logic"""
-        logger.info("🔄 Running hardware change analyzer...")
-
-        # Initialize hardware change analyzer
-        from agents.analyticsOrchestrator.analyzers.hardware_change_analyzer import HardwareChangeAnalyzer
-
-        analyzer = HardwareChangeAnalyzer(
-            config = self.config.get_change_analyzer_config())
+                 name: str,
+                 analyzer_factory: Callable[[], ExecutionResult],
+                 on_error_severity: str = PhaseSeverity.CRITICAL.value):
+        """
+        Args:
+            name: Name for this executable (will appear in execution tree)
+            analyzer_factory: Function that creates and runs analyzer.
+                             Must return ExecutionResult.
+            on_error_severity: Severity level if analyzer crashes unexpectedly
+        """
+        self.name = name
+        self.analyzer_factory = analyzer_factory
+        self.on_error_severity = on_error_severity
+    
+    def get_name(self) -> str:
+        return self.name
+    
+    def execute(self) -> ExecutionResult:
+        """
+        Execute analyzer and return its ExecutionResult directly.
         
-        result = analyzer.run_analyzing()
-                
-        return {
-            "payload": result,
-            "savable": True
-        }
+        Returns:
+            ExecutionResult from analyzer, or a failed ExecutionResult
+            if the analyzer crashes unexpectedly
+        """
+        start_time = datetime.now()
+        
+        try:
+            logger.info(f"🔄 Executing {self.name}...")
+            
+            # Call the analyzer factory
+            result = self.analyzer_factory()
+            
+            # Validate that we got an ExecutionResult
+            if not isinstance(result, ExecutionResult):
+                raise TypeError(
+                    f"{self.name} must return ExecutionResult, "
+                    f"got {type(result).__name__}"
+                )
+            
+            logger.info(
+                f"✓ {self.name} completed: {result.status} "
+                f"in {result.duration:.2f}s"
+            )
+            
+            return result
+            
+        except Exception as e:
+            # If analyzer crashes, wrap in failed ExecutionResult
+            duration = (datetime.now() - start_time).total_seconds()
+            logger.error(f"❌ {self.name} crashed: {e}")
+            
+            return ExecutionResult(
+                name=self.name,
+                type="agent",  # Wrapped analyzers are treated as agents
+                status=ExecutionStatus.FAILED.value,
+                duration=duration,
+                severity=self.on_error_severity,
+                error=f"Analyzer crashed: {str(e)}",
+                traceback=traceback.format_exc(),
+                metadata={
+                    "crash_type": type(e).__name__,
+                    "crash_message": str(e)
+                }
+            )
 
-    def _fallback(self) -> Dict[str, Any]:
-        """Fallback: return empty analyzing results"""
-        logger.warning("Using fallback for HardwareChangeAnalyzingPhase - returning empty results")
-        return {
-            "payload": None,
-            "savable": False
-        }
-    
+
 # ============================================
-# PHASE: MULTI-LEVEL PERFORMANCE ANALYZING
+# ANALYTICS ORCHESTRATOR
 # ============================================
-class  MultiLevelPerformanceAnalyzingPhase(AtomicPhase):
-    """Phase for running the actual multi-level performance analyzer logic"""
-    
-    RECOVERABLE_ERRORS = (KeyError, ValueError, pd.errors.MergeError)
-    CRITICAL_ERRORS = (MemoryError, KeyboardInterrupt)
-    FALLBACK_FAILURE_IS_CRITICAL = False
-    
-    def __init__(self, 
-                 config: AnalyticsOrchestratorConfig):
-        super().__init__("MultiLevelPerformanceAnalyzer")
-
-        self.config = config
-
-    def _execute_impl(self) -> Dict[str, Any]:
-        """Run multi-level performance analyzer logic"""
-        logger.info("🔄 Running multi-level performance analyzer...")
-
-        # Initialize multi-level performance analyzer
-        from agents.analyticsOrchestrator.analyzers.multi_level_performance_analyzer import MultiLevelPerformanceAnalyzer
-
-        analyzer = MultiLevelPerformanceAnalyzer(
-            config = self.config.get_performance_analyzer_config())
-
-        result = analyzer.run_analyzing()
-                
-        return {
-            "payload": result,
-            "savable": True
-        }
-
-    def _fallback(self) -> Dict[str, Any]:
-        """Fallback: return empty analyzing results"""
-        logger.warning("Using fallback for MultiLevelPerformanceAnalyzingPhase - returning empty results")
-        return {
-            "payload": None,
-            "savable": False
-        }
-
 class AnalyticsOrchestrator(ConfigReportMixin):
+    """
+    Orchestrates multiple analytics agents (HardwareChangeAnalyzer, 
+    MultiLevelPerformanceAnalyzer, etc.) using CompositeAgent pattern.
+    
+    Key difference from previous implementation:
+    - Uses ExecutableWrapper to bridge analyzers into Executable interface
+    - No more nested payload wrapping
+    - Clean execution tree structure
+    """
 
     REQUIRED_FIELDS = {
         'config': {
@@ -158,32 +170,17 @@ class AnalyticsOrchestrator(ConfigReportMixin):
                  config: AnalyticsOrchestratorConfig):
         
         """
-        Initialize HardwareChangeAnalyzer with configuration.
+        Initialize AnalyticsOrchestrator with configuration.
         
         Args:        
             config: AnalyticsOrchestratorConfig containing processing parameters, including:
-                - shared_source_config:
-                    - annotation_path (str): Path to the JSON file containing path annotations.
-                    - databaseSchemas_path (str): Path to database schema for validation.
-                    - machine_layout_tracker_dir (str): Base directory for storing reports.
-                    - machine_layout_tracker_change_log_path (str): Path to the MachineLayoutTracker change log.
-                    - mold_machine_pair_tracker_dir (str): Base directory for storing reports.
-                    - mold_machine_pair_tracker_change_log_path (str): Path to the MoldMachinePairTracker change log.
-                    - hardware_change_analyzer_log_path (str): Path to the HardwareChangeAnalyzer change log.
-                    - day_level_processor_dir (str): Base directory for storing reports.
-                    - day_level_processor_log_path (str): Path to the DayLevelDataProcessor change log.
-                    - month_level_processor_dir (str): Base directory for storing reports.
-                    - month_level_processor_log_path (str): Path to the MonthLevelDataProcessor change log.
-                    - year_level_processor_dir (str): Base directory for storing reports.
-                    - year_level_processor_log_path (str): Path to the YearLevelDataProcessor change log.
-                    - multi_level_performance_analyzer_log_path (str): Path to the MultiLevelPerformanceAnalyzer change log.
-                    - analytics_orchestrator_log_path (str): Path to the AnalyticsOrchestrator change log.
-                - machine_layout_tracker (ComponentConfig): Component config for MachineLayoutTracker
-                - mold_machine_pair_tracker (ComponentConfig): Component config for MoldMachinePairTracker 
-                - day_level_processor (ComponentConfig): Component config for DayLevelDataProcessor 
-                - month_level_processor (ComponentConfig): Component config for MonthLevelDataProcessor
-                - year_level_processor (ComponentConfig): Component config for YearLevelDataProcessor
-                - save_orchestrator_log (bool): Save AnalyticsOrchestrator change log
+                - shared_source_config: Paths for all sub-components
+                - machine_layout_tracker (ComponentConfig): Component config
+                - mold_machine_pair_tracker (ComponentConfig): Component config 
+                - day_level_processor (ComponentConfig): Component config 
+                - month_level_processor (ComponentConfig): Component config
+                - year_level_processor (ComponentConfig): Component config
+                - save_orchestrator_log (bool): Save orchestrator change log
         """
         
         # Capture initialization arguments for reporting
@@ -205,7 +202,18 @@ class AnalyticsOrchestrator(ConfigReportMixin):
             )
 
     def run_analyzing(self) -> ExecutionResult:
-        """Execute the complete hardware change analyzer pipeline."""
+        """
+        Execute the complete analytics orchestrator pipeline.
+        
+        This method:
+        1. Creates ExecutableWrappers for each enabled analyzer
+        2. Uses CompositeAgent to execute them with automatic aggregation
+        3. Saves pipeline log if requested
+        4. Returns unified ExecutionResult
+        
+        Returns:
+            ExecutionResult containing all sub-analyzer results
+        """
         
         self.logger.info("Starting AnalyticsOrchestrator ...")
 
@@ -215,50 +223,116 @@ class AnalyticsOrchestrator(ConfigReportMixin):
         config_header = self._generate_config_report(timestamp_str, required_only=True)
         
         # ============================================
-        # BUILD PHASE LIST WITH SHARED CONTAINER
+        # BUILD EXECUTABLE LIST WITH WRAPPERS
         # ============================================
-        phases: List[Executable] = []
+        executables: List[Executable] = []
         
-        # Phase 1: Hardware Change Analyzing (optional)
+        # 1. Hardware Change Analyzer (wrapped)
         if self.config.enable_change_analysis:
-            phases.append(HardwareChangeAnalyzingPhase(self.config))
+            def run_hardware_analyzer() -> ExecutionResult:
+                """Factory function to create and run HardwareChangeAnalyzer"""
+                from agents.analyticsOrchestrator.analyzers.hardware_change_analyzer import HardwareChangeAnalyzer
+                
+                analyzer = HardwareChangeAnalyzer(
+                    config=self.config.get_change_analyzer_config()
+                )
+                return analyzer.run_analyzing()
+            
+            executables.append(
+                ExecutableWrapper(
+                    name="HardwareChangeAnalyzer",
+                    analyzer_factory=run_hardware_analyzer,
+                    on_error_severity=PhaseSeverity.ERROR.value  # Non-critical
+                )
+            )
+            self.logger.info("✓ HardwareChangeAnalyzer enabled")
         
-        # Phase 2: Multi-Level Performance Analyzing (optional)
+        # 2. Multi-Level Performance Analyzer (wrapped)
         if self.config.enable_performance_analysis:
-            phases.append(MultiLevelPerformanceAnalyzingPhase(self.config))
+            def run_performance_analyzer() -> ExecutionResult:
+                """Factory function to create and run MultiLevelPerformanceAnalyzer"""
+                from agents.analyticsOrchestrator.analyzers.multi_level_performance_analyzer import MultiLevelPerformanceAnalyzer
+                
+                analyzer = MultiLevelPerformanceAnalyzer(
+                    config=self.config.get_performance_analyzer_config()
+                )
+                return analyzer.run_analyzing()
+            
+            executables.append(
+                ExecutableWrapper(
+                    name="MultiLevelPerformanceAnalyzer",
+                    analyzer_factory=run_performance_analyzer,
+                    on_error_severity=PhaseSeverity.ERROR.value  # Non-critical
+                )
+            )
+            self.logger.info("✓ MultiLevelPerformanceAnalyzer enabled")
+        
+        # Check if any analyzers are enabled
+        if not executables:
+            self.logger.warning("⚠️ No analyzers enabled!")
+            return ExecutionResult(
+                name="AnalyticsOrchestrator",
+                type="agent",
+                status=ExecutionStatus.SKIPPED.value,
+                duration=0.0,
+                severity=PhaseSeverity.WARNING.value,
+                skipped_reason="No analyzers enabled in configuration",
+                metadata={
+                    "enable_change_analysis": self.config.enable_change_analysis,
+                    "enable_performance_analysis": self.config.enable_performance_analysis
+                }
+            )
         
         # ============================================
         # EXECUTE USING COMPOSITE AGENT
         # ============================================
-        agent = CompositeAgent("AnalyticsOrchestrator", phases)
+        self.logger.info(f"🚀 Executing {len(executables)} analyzer(s)...")
+        
+        agent = CompositeAgent("AnalyticsOrchestrator", executables)
         result = agent.execute()
-
+        
         # ============================================
         # SAVE PIPELINE LOG IF REQUESTED
         # ============================================
         if self.config.save_orchestrator_log:
-
-            # Generate summary report
-            reporter = DictBasedReportGenerator(use_colors=False)
-            summary = "\n".join(reporter.export_report(self.config.get_summary()))
-            export_metadata = "\n".join(reporter.export_report(extract_export_metadata(result)))
-            
-            # Save pipeline change log
-            message = update_change_log(
-                agent_id, 
-                config_header, 
-                format_execution_tree(result), 
-                summary, 
-                export_metadata, 
-                Path(self.config.shared_source_config.analytics_orchestrator_log_path)
-            )
-            
-            self.logger.info(f"Pipeline log saved: {message}")
+            try:
+                # Generate summary report
+                reporter = DictBasedReportGenerator(use_colors=False)
+                summary = "\n".join(reporter.export_report(self.config.get_summary()))
+                
+                # Extract export metadata from all sub-results
+                export_metadata_dict = extract_export_metadata(result)
+                export_metadata = "\n".join(reporter.export_report(export_metadata_dict))
+                
+                # Save pipeline change log
+                message = update_change_log(
+                    agent_id, 
+                    config_header, 
+                    format_execution_tree(result), 
+                    summary, 
+                    export_metadata, 
+                    Path(self.config.shared_source_config.analytics_orchestrator_log_path)
+                )
+                
+                self.logger.info(f"📝 {message}")
+                
+            except Exception as e:
+                self.logger.error(f"❌ Failed to save pipeline log: {e}")
+                # Don't fail the entire pipeline just because log saving failed
+                result.warnings.append({
+                    "message": f"Failed to save pipeline log: {str(e)}",
+                    "severity": PhaseSeverity.WARNING.value
+                })
 
         # ============================================
         # PRINT EXECUTION TREE & ANALYSIS
         # ============================================
-        self.logger.info("✅ AnalyticsOrchestrator completed in {:.2f}s!", result.duration)
+        self.logger.info(
+            "✅ AnalyticsOrchestrator completed in {:.2f}s! "
+            "Status: {}",
+            result.duration,
+            result.status
+        )
         
         # Print execution tree for visibility
         print_execution_summary(result)
