@@ -52,7 +52,7 @@ class AgentFactory:
 def create_data_pipeline_orchestrator(provider):
     from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import DataPipelineOrchestrator
     return DataPipelineOrchestrator(
-        shared_source_config=provider.get_shared_source_config()
+        config=provider.get_shared_source_config()
     )
 
 def create_validation_orchestrator(provider):
