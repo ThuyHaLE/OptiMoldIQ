@@ -3,7 +3,7 @@
 import pytest
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
-from configs.shared.agent_report_format import ExecutionResult
+from configs.shared.agent_report_format import ExecutionResult, ExecutionStatus
 
 class TestOrderProgressTracker(BaseAgentTests):
     """
@@ -17,13 +17,10 @@ class TestOrderProgressTracker(BaseAgentTests):
     
     @pytest.fixture
     def agent_instance(self, dependency_provider: DependencyProvider):
-        """
-        Create OrderProgressTracker instance
-        Triggers required dependency: ValidationOrchestrator
-        """
+        """Create OrderProgressTracker instance with ValidationOrchestrator dependency"""
         from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
         
-        # ✅ Trigger required dependency using new API
+        # Trigger required dependency
         dependency_provider.trigger("ValidationOrchestrator")
         
         # Create agent
@@ -33,12 +30,7 @@ class TestOrderProgressTracker(BaseAgentTests):
     
     @pytest.fixture
     def execution_result(self, agent_instance):
-        """
-        Execute OrderProgressTracker
-        
-        Note: No assertions here - validated_execution_result fixture handles validation
-        """
-        # ✅ Just return - let validated_execution_result handle validation
+        """Execute OrderProgressTracker"""
         return agent_instance.run_tracking_and_save_results()
     
     # ============================================
@@ -53,22 +45,16 @@ class TestOrderProgressTracker(BaseAgentTests):
         assert len(validated_execution_result.sub_results) > 0, \
             "Should have at least one tracking phase"
         
-        # Check for expected phase names (adjust based on your implementation)
+        # Check for expected phase names
         phase_names = {r.name for r in validated_execution_result.sub_results}
-
-        expected_phases = {
-            'ProgressTracker'
-        }
+        expected_phases = {'ProgressTracker'}
         
         assert expected_phases.issubset(phase_names), \
             f"Missing expected phases. Found: {phase_names}"
     
     def test_tracking_produces_timeline(self, validated_execution_result):
         """Order tracking should produce timeline data"""
-        # Check that tracking produced meaningful results
-        expected_phases = {
-            'ProgressTracker'
-        }
+        expected_phases = {'ProgressTracker'}
 
         for phase in expected_phases:
             phase_result = validated_execution_result.get_path(phase)
@@ -83,25 +69,17 @@ class TestOrderProgressTracker(BaseAgentTests):
         assert validation_result is not None, \
             "ValidationOrchestrator should be cached"
         
-        # Verify validation completed successfully before tracking started
-        assert validation_result.status in {"success", "degraded", "warning"}, \
+        # Verify validation completed successfully
+        successful_statuses = {ExecutionStatus.SUCCESS.value, 
+                               ExecutionStatus.DEGRADED.value, 
+                               ExecutionStatus.WARNING.value}
+        assert validation_result.status in successful_statuses, \
             "Dependency should have completed successfully"
-        
-        # Add checks that tracking actually used validation data
-        # Example: Check metadata or specific fields
-        metadata = validated_execution_result.metadata
-        # assert 'validation_timestamp' in metadata
     
     def test_progress_status_schema_loaded(self, validated_execution_result):
         """Should load progress status schema configuration"""
-        # Check metadata for schema info
         metadata = validated_execution_result.metadata
         assert isinstance(metadata, dict)
-        
-        # Add specific assertions based on your implementation
-        # Example:
-        # assert 'schema_loaded' in metadata
-        # assert metadata.get('schema_version') is not None
     
     def test_dependency_triggered_before_execution(self, dependency_provider):
         """ValidationOrchestrator should be triggered before tracking"""
@@ -119,17 +97,20 @@ class TestOrderProgressTracker(BaseAgentTests):
             pytest.skip("OrderProgressTracker not executed")
 
         # Should be composite (have trackers)
-        if validated_execution_result.status in {"success", "degraded", "warning"}:
+        successful_statuses = {ExecutionStatus.SUCCESS.value, 
+                               ExecutionStatus.DEGRADED.value, 
+                               ExecutionStatus.WARNING.value}
+        if validated_execution_result.status in successful_statuses:
             assert validated_execution_result.is_composite, \
                 "OrderProgressTracker should have sub-results"
             
-            # Expected validation phases
+            # Expected tracking phases
             phase_names = {r.name for r in validated_execution_result.sub_results}
             expected_phases = {'ProgressTracker'}
 
-            # At least one validation phase should exist if validation succeeded
+            # At least one tracking phase should exist if tracking succeeded
             assert len(phase_names & expected_phases) > 0, \
-                f"No expected validation phases found. Found: {phase_names}"
+                f"No expected tracking phases found. Found: {phase_names}"
 
             for sub in expected_phases:
                 self_result = validated_execution_result.get_path(sub)
@@ -137,39 +118,50 @@ class TestOrderProgressTracker(BaseAgentTests):
                 assert "payload" in result_data, \
                     "Missing 'payload' in result data"
 
+
 # ============================================
-# OPTIONAL: Dependency Interaction Tests
+# DEPENDENCY INTERACTION TESTS
 # ============================================
 
 class TestOrderProgressTrackerDependencies:
-    """
-    Test OrderProgressTracker's interaction with dependencies
-    Separate class to avoid interfering with BaseAgentTests
-    """
+    """Test OrderProgressTracker's interaction with dependencies"""
     
-    def test_fails_without_validation(self, dependency_provider):
+    # Test negative case properly
+    def test_fails_without_validation(self, isolated_dependency_provider):
         """Should handle missing ValidationOrchestrator gracefully"""
         from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
         
-        # Reset dependency_provider
-        dependency_provider = DependencyProvider()
+        # Clear all dependencies
+        isolated_dependency_provider.clear_all_dependencies()
         
-        # DON'T trigger ValidationOrchestrator
-        assert not dependency_provider.is_triggered("ValidationOrchestrator"), \
-            "ValidationOrchestrator should not be triggered yet"
+        # Verify clean state
+        assert not isolated_dependency_provider.is_triggered("ValidationOrchestrator"), \
+            "ValidationOrchestrator should not be in cache"
+        assert not isolated_dependency_provider.is_materialized("ValidationOrchestrator"), \
+            "ValidationOrchestrator files should not exist on disk"
         
         # Create agent
         agent = OrderProgressTracker(
-            config=dependency_provider.get_shared_source_config()
+            config=isolated_dependency_provider.get_shared_source_config()
         )
         
         # Execute - should fail or degrade gracefully
         result = agent.run_tracking_and_save_results()
         
-        # Should either fail or use fallback
-        assert result.status == "degraded", \
-            "Should fail or degrade without required dependency"
+        # Use ExecutionStatus enum
+        assert result.status in [ExecutionStatus.FAILED.value, 
+                                 ExecutionStatus.DEGRADED.value], \
+            f"Should fail or degrade without required dependency, got: {result.status}"
+        
+        if result.status == ExecutionStatus.FAILED.value:
+            assert result.has_critical_errors(), \
+                "Failed status should have critical errors"
+        
+        elif result.status == ExecutionStatus.DEGRADED.value:
+            assert result.data.get("fallback_used") is True, \
+                "DEGRADED status should indicate fallback was used"
     
+    # Test uses session-scoped for positive case
     def test_reuses_cached_validation(self, dependency_provider):
         """Should reuse cached validation result"""
         from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
@@ -197,11 +189,41 @@ class TestOrderProgressTrackerDependencies:
         result2 = agent2.run_tracking_and_save_results()
         
         # Both should succeed
-        assert result1.status in {"success", "degraded", "warning"}
-        assert result2.status in {"success", "degraded", "warning"}
+        successful_statuses = {ExecutionStatus.SUCCESS.value, 
+                               ExecutionStatus.DEGRADED.value, 
+                               ExecutionStatus.WARNING.value}
+        assert result1.status in successful_statuses
+        assert result2.status in successful_statuses
+    
+    # Test recovery scenario
+    def test_recovery_after_dependency_added(self, isolated_dependency_provider):
+        """Test that tracker works after ValidationOrchestrator is added"""
+        from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
+        
+        # Start with clean state
+        isolated_dependency_provider.clear_all_dependencies()
+        
+        # Create agent
+        agent = OrderProgressTracker(
+            config=isolated_dependency_provider.get_shared_source_config()
+        )
+        
+        # First execution - should fail
+        result1 = agent.run_tracking_and_save_results()
+        assert result1.status in [ExecutionStatus.FAILED.value, 
+                                  ExecutionStatus.DEGRADED.value]
+        
+        # Add dependency
+        isolated_dependency_provider.trigger("ValidationOrchestrator")
+        
+        # Second execution - should succeed
+        result2 = agent.run_tracking_and_save_results()
+        assert result2.status == ExecutionStatus.SUCCESS.value, \
+            "Should succeed after ValidationOrchestrator is added"
+
 
 # ============================================
-# OPTIONAL: Configuration Tests
+# CONFIGURATION TESTS
 # ============================================
 
 class TestOrderProgressTrackerConfig:
@@ -222,7 +244,10 @@ class TestOrderProgressTrackerConfig:
         result = agent.run_tracking_and_save_results()
         
         # Should still work with custom config
-        assert result.status in {"success", "degraded", "warning"}
+        successful_statuses = {ExecutionStatus.SUCCESS.value, 
+                               ExecutionStatus.DEGRADED.value, 
+                               ExecutionStatus.WARNING.value}
+        assert result.status in successful_statuses
     
     def test_change_log_created(self, dependency_provider, tmp_path):
         """Test that change log is created"""
@@ -238,11 +263,15 @@ class TestOrderProgressTrackerConfig:
         agent = OrderProgressTracker(config=config)
         result = agent.run_tracking_and_save_results()
         
-        # Verify change log exists (if agent creates it)
-        # assert (tmp_path / "test_change_log.txt").exists()
+        # Verify result
+        successful_statuses = {ExecutionStatus.SUCCESS.value, 
+                               ExecutionStatus.DEGRADED.value, 
+                               ExecutionStatus.WARNING.value}
+        assert result.status in successful_statuses
+
 
 # ============================================
-# OPTIONAL: Performance Tests
+# PERFORMANCE TESTS
 # ============================================
 
 class TestOrderProgressTrackerPerformance:
@@ -265,3 +294,6 @@ class TestOrderProgressTrackerPerformance:
         
         # Adjust timeout based on your data size
         assert duration < 120, f"Tracking took too long: {duration:.2f}s"
+        
+        # Should match reported duration
+        assert abs(result.duration - duration) < 1.0

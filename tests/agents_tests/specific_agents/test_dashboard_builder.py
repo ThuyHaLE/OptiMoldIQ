@@ -21,7 +21,7 @@ class TestDashboardBuilder(BaseAgentTests):
     Test DashboardBuilder - Builds visualization dashboards
     
     Dependencies:
-        - None (reads analytics results from shared_db)
+        - DataPipelineOrchestrator
     
     Purpose:
         - Visualize hardware changes
@@ -43,9 +43,12 @@ class TestDashboardBuilder(BaseAgentTests):
     def agent_instance(self, dependency_provider: DependencyProvider):
         """
         Create DashboardBuilder instance
-        
-        Note: No upstream dependencies - reads analytics from shared DB
+        Triggers DataPipelineOrchestrator dependency
         """
+
+        # Trigger DataPipelineOrchestrator dependency
+        dependency_provider.trigger("DataPipelineOrchestrator")
+
         from agents.dashboardBuilder.dashboard_builder import (
             ComponentConfig,
             DashboardBuilderConfig,
@@ -109,7 +112,34 @@ class TestDashboardBuilder(BaseAgentTests):
     # ============================================
     # BUSINESS LOGIC TESTS
     # ============================================
+
+    # Test dependency usage
+    def test_uses_pipeline_data(self, dependency_provider, validated_execution_result):
+        """Should use data from DataPipelineOrchestrator"""
+        # Get cached pipeline result
+        pipeline_result = dependency_provider.get_result("DataPipelineOrchestrator")
+        
+        assert pipeline_result is not None, \
+            "DataPipelineOrchestrator should be cached"
+        
+        # Verify pipeline completed successfully
+        successful_statuses = {ExecutionStatus.SUCCESS.value, 
+                               ExecutionStatus.DEGRADED.value, 
+                               ExecutionStatus.WARNING.value}
+        assert pipeline_result.status in successful_statuses, \
+            "Pipeline dependency should have completed successfully"
     
+    # Test dependency chain
+    def test_dependency_triggered_before_execution(self, dependency_provider):
+        """DataPipelineOrchestrator should be triggered before validation"""
+        assert dependency_provider.is_triggered("DataPipelineOrchestrator"), \
+            "DataPipelineOrchestrator dependency should be triggered"
+        
+        # Should be cached
+        cached_result = dependency_provider.get_result("DataPipelineOrchestrator")
+        assert cached_result is not None, \
+            "Pipeline result should be cached"
+        
     def test_has_visualization_services(self, validated_execution_result):
         """Should execute visualization services"""
         assert validated_execution_result.is_composite, \
@@ -487,3 +517,131 @@ class TestDashboardBuilderConfigurations:
         
         # Should still succeed
         assert result.status in {"success", "degraded", "warning"}
+
+# ============================================
+# DEPENDENCY INTERACTION TESTS
+# ============================================
+
+class TestDashboardBuilderDependencies:
+    """Test DashboardBuilder's interaction with DataPipelineOrchestrator"""
+    
+    def test_fails_without_pipeline(self, isolated_dependency_provider):
+        """Should fail or degrade without DataPipelineOrchestrator"""
+        from agents.dashboardBuilder.dashboard_builder import (
+            ComponentConfig,
+            DashboardBuilderConfig,
+            DashboardBuilder
+        )
+        
+        # Clear all dependencies
+        isolated_dependency_provider.clear_all_dependencies()
+        
+        # Verify clean state
+        assert not isolated_dependency_provider.is_triggered("DataPipelineOrchestrator"), \
+            "DataPipelineOrchestrator should not be in cache"
+        assert not isolated_dependency_provider.is_materialized("DataPipelineOrchestrator"), \
+            "DataPipelineOrchestrator files should not exist on disk"
+
+        # Create agent with full config
+        agent = DashboardBuilder(
+            config=DashboardBuilderConfig(
+                shared_source_config=isolated_dependency_provider.get_shared_source_config(),
+                
+                # Workflow 1: Hardware visualization services
+                machine_layout_visualization_service=ComponentConfig(
+                    enabled=True,
+                    save_result=False
+                ),
+                mold_machine_pair_visualization_service=ComponentConfig(
+                    enabled=False,
+                    save_result=False
+                ),
+                
+                # Workflow 2: Performance visualization services
+                day_level_visualization_service=ComponentConfig(
+                    enabled=False,
+                    save_result=False
+                ),
+                month_level_visualization_service=ComponentConfig(
+                    enabled=False,
+                    save_result=False
+                ),
+                year_level_visualization_service=ComponentConfig(
+                    enabled=False,
+                    save_result=False
+                ),
+                
+                # Top-level logging
+                save_builder_log=False
+            )
+        )
+        
+        # Execute
+        result = agent.run_analyzing()
+        
+        # Should fail or degrade
+        assert result.status in [ExecutionStatus.FAILED.value, 
+                                 ExecutionStatus.DEGRADED.value], \
+            f"Should fail or degrade without DataPipelineOrchestrator, got: {result.status}"
+        
+        if result.status == ExecutionStatus.FAILED.value:
+            assert result.has_critical_errors(), \
+                "Failed status should have critical errors"
+    
+    def test_recovery_after_dependency_added(self, isolated_dependency_provider):
+        """Test that builders works after DataPipelineOrchestrator is added"""
+        from agents.dashboardBuilder.dashboard_builder import (
+            ComponentConfig,
+            DashboardBuilderConfig,
+            DashboardBuilder
+        )
+        
+        # Start with clean state
+        isolated_dependency_provider.clear_all_dependencies()
+        
+        # Create agent
+        agent = DashboardBuilder(
+            config=DashboardBuilderConfig(
+                shared_source_config=isolated_dependency_provider.get_shared_source_config(),
+                
+                # Workflow 1: Hardware visualization services
+                machine_layout_visualization_service=ComponentConfig(
+                    enabled=True,
+                    save_result=False
+                ),
+                mold_machine_pair_visualization_service=ComponentConfig(
+                    enabled=False,
+                    save_result=False
+                ),
+                
+                # Workflow 2: Performance visualization services
+                day_level_visualization_service=ComponentConfig(
+                    enabled=False,
+                    save_result=False
+                ),
+                month_level_visualization_service=ComponentConfig(
+                    enabled=False,
+                    save_result=False
+                ),
+                year_level_visualization_service=ComponentConfig(
+                    enabled=False,
+                    save_result=False
+                ),
+                
+                # Top-level logging
+                save_builder_log=False
+            )
+        )
+        
+        # First execution - should fail
+        result1 = agent.run_analyzing()
+        assert result1.status in [ExecutionStatus.FAILED.value, 
+                                  ExecutionStatus.DEGRADED.value]
+        
+        # Add dependency
+        isolated_dependency_provider.trigger("DataPipelineOrchestrator")
+        
+        # Second execution - should succeed
+        result2 = agent.run_analyzing()
+        assert result2.status == ExecutionStatus.SUCCESS.value, \
+            "Should succeed after DataPipelineOrchestrator is added"

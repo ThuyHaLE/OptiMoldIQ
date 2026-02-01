@@ -49,6 +49,12 @@ class AgentFactory:
 # ============================================
 # AGENT CREATION FUNCTIONS
 # ============================================
+def create_data_pipeline_orchestrator(provider):
+    from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import DataPipelineOrchestrator
+    return DataPipelineOrchestrator(
+        shared_source_config=provider.get_shared_source_config()
+    )
+
 def create_validation_orchestrator(provider):
     from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
     return ValidationOrchestrator(
@@ -188,11 +194,18 @@ def create_dashboard_builder(provider):
 # ============================================
 
 AGENT_REGISTRY = {
+    "DataPipelineOrchestrator": AgentFactory(
+        name="DataPipelineOrchestrator",
+        factory_fn=create_data_pipeline_orchestrator,
+        execute_method="run_collecting_and_save_results",
+        required_dependencies=[]
+    ),
+
     "ValidationOrchestrator": AgentFactory(
         name="ValidationOrchestrator",
         factory_fn=create_validation_orchestrator,
         execute_method="run_validations_and_save_results",
-        required_dependencies=[]
+        required_dependencies=["DataPipelineOrchestrator"]
     ),
     
     "OrderProgressTracker": AgentFactory(

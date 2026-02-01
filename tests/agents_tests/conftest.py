@@ -1,8 +1,9 @@
-# tests/agents_tests/conftest.py - Centralized dependency providers
+# tests/agents_tests/conftest.py
 
 import pytest
+import shutil
 from pathlib import Path
-from typing import Dict, Any, Set
+from typing import Dict, Any, Set, Optional
 from configs.shared.shared_source_config import SharedSourceConfig
 from configs.shared.agent_report_format import ExecutionStatus, ExecutionResult
 from loguru import logger
@@ -18,13 +19,18 @@ SUCCESSFUL_STATUSES = {
 }
 
 # ============================================
-# DEPENDENCY PROVIDER - Enhanced
+# DEPENDENCY PROVIDER - State Management
 # ============================================
 
 class DependencyProvider:
     """
-    Manages test dependencies - only loads what's needed
-    Provides caching, validation, and health checks
+    Manages test dependencies with proper state lifecycle
+    
+    Key insight:
+    - Dependencies write to SHARED folders (via config)
+    - We track what's been triggered
+    - clear_dependency() removes both cache AND files
+    - re-trigger regenerates everything
     """
     
     def __init__(self):
@@ -32,6 +38,9 @@ class DependencyProvider:
         self._test_dirs = self._setup_test_dirs()
         self._dependency_graph = self._build_dependency_graph()
         self._validate_dependency_graph()
+        
+        # Track what's been written to disk
+        self._materialized_dependencies: Set[str] = set()
     
     def _setup_test_dirs(self) -> Dict[str, Path]:
         """Setup test directories once"""
@@ -47,7 +56,10 @@ class DependencyProvider:
     def _build_dependency_graph(self) -> Dict[str, Set[str]]:
         """Build dependency graph for validation"""
         return {
-            "ValidationOrchestrator": set(),
+            "DataPipelineOrchestrator": set(),
+            "AnalyticsOrchestrator": {"DataPipelineOrchestrator"},
+            "DashboardBuilder": {"DataPipelineOrchestrator"},
+            "ValidationOrchestrator": {"DataPipelineOrchestrator"},
             "OrderProgressTracker": {"ValidationOrchestrator"},
             "HistoricalFeaturesExtractor": {"OrderProgressTracker"},
             "InitialPlanner": {"OrderProgressTracker", "HistoricalFeaturesExtractor"}
@@ -84,17 +96,164 @@ class DependencyProvider:
         """Check if dependency has been triggered"""
         return dependency_name in self._cache
     
+    def is_materialized(self, dependency_name: str) -> bool:
+        """Check if dependency files exist on disk"""
+        return dependency_name in self._materialized_dependencies
+    
     def get_result(self, dependency_name: str) -> ExecutionResult:
         """Get cached result for dependency"""
         if dependency_name not in self._cache:
             raise ValueError(f"Dependency '{dependency_name}' not triggered yet")
         return self._cache[dependency_name]["result"]
     
-    # ========== Individual Triggers ==========
+    # ========== DEPENDENCY OUTPUT PATHS ==========
+    
+    def _get_dependency_output_dir(self, dependency_name: str) -> Path:
+        """Get output directory for a dependency"""
+        base_dir = self._test_dirs["shared_dir"]
+        
+        # Map dependency names to their output folders
+        dir_map = {
+            "DataPipelineOrchestrator": base_dir / "DataPipelineOrchestrator",
+            "AnalyticsOrchestrator": base_dir / "AnalyticsOrchestrator",
+            "DashboardBuilder": base_dir / "DashboardBuilder",
+            "ValidationOrchestrator": base_dir / "ValidationOrchestrator",
+            "OrderProgressTracker": base_dir / "OrderProgressTracker",
+            "HistoricalFeaturesExtractor": base_dir / "HistoricalFeaturesExtractor",
+            "InitialPlanner": base_dir / "InitialPlanner"
+        }
+        
+        return dir_map.get(dependency_name, base_dir / dependency_name)
+    
+    # ========== CLEAR DEPENDENCY ==========
+    
+    def clear_dependency(self, dependency_name: str, cascade: bool = True):
+        """
+        Clear a dependency and optionally its dependents
+        
+        Args:
+            dependency_name: Name of dependency to clear
+            cascade: If True, also clear all dependencies that depend on this one
+        
+        Example:
+            clear_dependency("ValidationOrchestrator", cascade=True)
+            # Also clears: OrderProgressTracker, HistoricalFeaturesExtractor, InitialPlanner
+        """
+        if dependency_name not in self._dependency_graph:
+            raise ValueError(f"Unknown dependency: {dependency_name}")
+        
+        # Find all dependents if cascading
+        to_clear = {dependency_name}
+        if cascade:
+            to_clear.update(self._get_all_dependents(dependency_name))
+        
+        # Clear in reverse dependency order
+        sorted_clear = self._topological_sort(to_clear)
+        
+        for dep in sorted_clear:
+            self._clear_single_dependency(dep)
+        
+        logger.info(f"✓ Cleared dependencies: {sorted_clear}")
+    
+    def _clear_single_dependency(self, dependency_name: str):
+        """Clear a single dependency (cache + files)"""
+        # 1. Remove from memory cache
+        if dependency_name in self._cache:
+            del self._cache[dependency_name]
+        
+        # 2. Remove files from disk
+        output_dir = self._get_dependency_output_dir(dependency_name)
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
+            logger.debug(f"  Deleted: {output_dir}")
+        
+        # 3. Update materialized tracking
+        self._materialized_dependencies.discard(dependency_name)
+    
+    def _get_all_dependents(self, dependency_name: str) -> Set[str]:
+        """Get all dependencies that depend on this one (recursively)"""
+        dependents = set()
+        
+        for node, deps in self._dependency_graph.items():
+            if dependency_name in deps:
+                dependents.add(node)
+                # Recursive: also get dependents of dependents
+                dependents.update(self._get_all_dependents(node))
+        
+        return dependents
+    
+    def _topological_sort(self, nodes: Set[str]) -> list[str]:
+        """Sort nodes in reverse dependency order (leaves first)"""
+        # Compute in-degree for nodes
+        in_degree = {node: 0 for node in nodes}
+        
+        for node in nodes:
+            for dep in self._dependency_graph[node]:
+                if dep in nodes:
+                    in_degree[node] += 1
+        
+        # Start with nodes that have no dependencies in the set
+        queue = [n for n in nodes if in_degree[n] == 0]
+        result = []
+        
+        while queue:
+            node = queue.pop(0)
+            result.append(node)
+            
+            # Find nodes that depend on current node
+            for other in nodes:
+                if node in self._dependency_graph[other] and other not in result:
+                    in_degree[other] -= 1
+                    if in_degree[other] == 0:
+                        queue.append(other)
+        
+        # Reverse to get leaves first (for deletion order)
+        return list(reversed(result))
+    
+    # ========== CLEAR ALL ==========
+    
+    def clear_all_dependencies(self):
+        """Clear ALL dependencies - complete reset"""
+        all_deps = set(self._dependency_graph.keys())
+        sorted_deps = self._topological_sort(all_deps)
+        
+        for dep in sorted_deps:
+            self._clear_single_dependency(dep)
+        
+        logger.info("✓ Cleared all dependencies")
+    
+    # ========== Individual Triggers (unchanged) ==========
+    
+    def trigger_data_pipeline_orchestrator(self) -> ExecutionResult:
+        """Lazy load: Only run DataPipelineOrchestrator if requested"""
+        if "DataPipelineOrchestrator" not in self._cache:
+            from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import DataPipelineOrchestrator
+            
+            config = self.get_shared_source_config()
+            pipeline_orchestrator = DataPipelineOrchestrator(
+                config=config
+            )
+            result = pipeline_orchestrator.run_collecting_and_save_results()
+            
+            self._validate_result(result, "DataPipelineOrchestrator")
+            
+            self._cache["DataPipelineOrchestrator"] = {
+                "status": "triggered",
+                "result": result,
+                "config": config
+            }
+            
+            # Mark as materialized (files written to disk)
+            self._materialized_dependencies.add("ValidationOrchestrator")
+        
+        return self._cache["ValidationOrchestrator"]["result"]
     
     def trigger_validation_orchestrator(self) -> ExecutionResult:
         """Lazy load: Only run ValidationOrchestrator if requested"""
         if "ValidationOrchestrator" not in self._cache:
+            # Ensure dependencies
+            self.trigger_data_pipeline_orchestrator()
+
             from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
             
             config = self.get_shared_source_config()
@@ -112,6 +271,9 @@ class DependencyProvider:
                 "result": result,
                 "config": config
             }
+            
+            # Mark as materialized (files written to disk)
+            self._materialized_dependencies.add("ValidationOrchestrator")
         
         return self._cache["ValidationOrchestrator"]["result"]
     
@@ -134,6 +296,8 @@ class DependencyProvider:
                 "result": result,
                 "config": config
             }
+            
+            self._materialized_dependencies.add("OrderProgressTracker")
         
         return self._cache["OrderProgressTracker"]["result"]
     
@@ -164,6 +328,8 @@ class DependencyProvider:
                 "result": result,
                 "config": config
             }
+            
+            self._materialized_dependencies.add("HistoricalFeaturesExtractor")
         
         return self._cache["HistoricalFeaturesExtractor"]["result"]
     
@@ -178,6 +344,7 @@ class DependencyProvider:
     def trigger(self, dependency_name: str) -> ExecutionResult:
         """Generic trigger - delegates to specific methods"""
         trigger_map = {
+            "DataPipelineOrchestrator": self.trigger_data_pipeline_orchestrator,
             "ValidationOrchestrator": self.trigger_validation_orchestrator,
             "OrderProgressTracker": self.trigger_order_progress_tracker,
             "HistoricalFeaturesExtractor": self.trigger_historical_features_extractor
@@ -198,17 +365,21 @@ class DependencyProvider:
             results[dep] = self.trigger(dep)
         return results
     
+    # ========== CLEANUP ==========
+    
     def cleanup(self):
-        """Cleanup test artifacts"""
-        import shutil
+        """Cleanup all test artifacts"""
+        self.clear_all_dependencies()
+        
+        # Also remove base directories
         for dir_path in self._test_dirs.values():
             if dir_path.exists():
                 shutil.rmtree(dir_path)
-        logger.info("✓ Test directories cleaned up")
-
+        
+        logger.info("✓ Complete cleanup done")
 
 # ============================================
-# SESSION FIXTURES
+# FIXTURES
 # ============================================
 
 @pytest.fixture(scope="session")
@@ -220,6 +391,15 @@ def dependency_provider():
     yield provider
     provider.cleanup()
 
+@pytest.fixture(scope="function")
+def isolated_dependency_provider():
+    """
+    Function-scoped provider - clears after each test
+    Use when you need fresh state
+    """
+    provider = DependencyProvider()
+    yield provider
+    provider.clear_all_dependencies()
 
 # ============================================
 # VALIDATION FIXTURES
@@ -227,10 +407,7 @@ def dependency_provider():
 
 @pytest.fixture
 def validated_execution_result(execution_result):
-    """
-    Validate execution result once, reuse in all tests
-    This eliminates repetitive assertions in test methods
-    """
+    """Validate execution result once, reuse in all tests"""
     assert execution_result is not None, "ExecutionResult is None"
     
     assert execution_result.status in SUCCESSFUL_STATUSES, (
@@ -241,16 +418,10 @@ def validated_execution_result(execution_result):
     
     return execution_result
 
-
-# ============================================
-# HELPER FIXTURES
-# ============================================
-
 @pytest.fixture
 def execution_summary(validated_execution_result):
     """Get execution summary stats"""
     return validated_execution_result.summary_stats()
-
 
 @pytest.fixture
 def all_sub_results(validated_execution_result):

@@ -1,6 +1,7 @@
 # tests/agents_tests/test_historical_features_extractor.py
 
 import pytest
+from configs.shared.agent_report_format import ExecutionStatus
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
 
@@ -16,19 +17,14 @@ class TestHistoricalFeaturesExtractor(BaseAgentTests):
     
     @pytest.fixture
     def agent_instance(self, dependency_provider: DependencyProvider):
-        """
-        Create HistoricalFeaturesExtractor instance
-        Triggers required dependency: OrderProgressTracker (which triggers ValidationOrchestrator)
-        """
+        """Create HistoricalFeaturesExtractor instance"""
         from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
             HistoricalFeaturesExtractor, FeaturesExtractorConfig
         )
         
-        # ✅ Trigger required dependency using new API
-        # Note: OrderProgressTracker will auto-trigger ValidationOrchestrator
+        # Trigger required dependency
         dependency_provider.trigger("OrderProgressTracker")
         
-        # Create agent with specific config
         return HistoricalFeaturesExtractor(
             config=FeaturesExtractorConfig(
                 efficiency=0.85,
@@ -39,12 +35,7 @@ class TestHistoricalFeaturesExtractor(BaseAgentTests):
     
     @pytest.fixture
     def execution_result(self, agent_instance):
-        """
-        Execute HistoricalFeaturesExtractor
-        
-        Note: No assertions here - validated_execution_result fixture handles validation
-        """
-        # ✅ Just return - let validated_execution_result handle validation
+        """Execute HistoricalFeaturesExtractor"""
         return agent_instance.run_extraction_and_save_results()
     
     # ============================================
@@ -166,52 +157,54 @@ class TestHistoricalFeaturesExtractor(BaseAgentTests):
         # OrderProgressTracker should be triggered
         assert dependency_provider.is_triggered("OrderProgressTracker"), \
             "OrderProgressTracker should be triggered"
-        
-        # ValidationOrchestrator should also be triggered (via OrderProgressTracker)
-        assert dependency_provider.is_triggered("ValidationOrchestrator"), \
-            "ValidationOrchestrator should be triggered as transitive dependency"
+
 
 # ============================================
-# OPTIONAL: Dependency Interaction Tests
+# DEPENDENCY INTERACTION TESTS
 # ============================================
 
 class TestHistoricalFeaturesExtractorDependencies:
-    """
-    Test HistoricalFeaturesExtractor's interaction with dependencies
-    """
+    """Test HistoricalFeaturesExtractor's interaction with dependencies"""
     
-    def test_fails_without_order_tracking(self, dependency_provider):
+    # Test negative case
+    def test_fails_without_order_tracking(self, isolated_dependency_provider):
         """Should handle missing OrderProgressTracker gracefully"""
         from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
             HistoricalFeaturesExtractor, FeaturesExtractorConfig
         )
         
-        # Reset dependency_provider
-        dependency_provider = DependencyProvider()
-
-        # DON'T trigger OrderProgressTracker
-        assert not dependency_provider.is_triggered("OrderProgressTracker"), \
-            "OrderProgressTracker should not be triggered yet"
+        # Clear dependency (both cache + files)
+        if isolated_dependency_provider.is_materialized("OrderProgressTracker"):
+            isolated_dependency_provider.clear_dependency("OrderProgressTracker", cascade=True)
+        
+        # Verify clean state
+        assert not isolated_dependency_provider.is_triggered("OrderProgressTracker"), \
+            "OrderProgressTracker should not be in cache"
+        assert not isolated_dependency_provider.is_materialized("OrderProgressTracker"), \
+            "OrderProgressTracker files should not exist on disk"
         
         # Create agent
         agent = HistoricalFeaturesExtractor(
             config=FeaturesExtractorConfig(
                 efficiency=0.85,
                 loss=0.03,
-                shared_source_config=dependency_provider.get_shared_source_config()
+                shared_source_config=isolated_dependency_provider.get_shared_source_config()
             )
         )
         
         # Execute - should fail or degrade gracefully
         result = agent.run_extraction_and_save_results()
         
-        # Should handle missing dependency
-        assert result.status == "failed", \
-            "Should fail or degrade without required dependency"
+        # Assert với ExecutionStatus enum
+        assert result.status in [ExecutionStatus.FAILED.value, 
+                                 ExecutionStatus.DEGRADED.value], \
+            f"Should fail or degrade without required dependency, got: {result.status}"
         
-        if result.status == "failed":
-            assert result.has_critical_errors()
+        if result.status == ExecutionStatus.FAILED.value:
+            assert result.has_critical_errors(), \
+                "Failed status should have critical errors"
     
+    #  Reuse test với session-scoped OK
     def test_reuses_cached_dependencies(self, dependency_provider):
         """Should reuse cached dependency results"""
         from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
@@ -221,17 +214,18 @@ class TestHistoricalFeaturesExtractorDependencies:
         # Trigger dependency
         tracking_result_1 = dependency_provider.trigger("OrderProgressTracker")
         
-        # Create and execute first extractor
+        # Create config
         config = FeaturesExtractorConfig(
             efficiency=0.85,
             loss=0.03,
             shared_source_config=dependency_provider.get_shared_source_config()
         )
         
+        # Create and execute first extractor
         agent1 = HistoricalFeaturesExtractor(config=config)
         result1 = agent1.run_extraction_and_save_results()
         
-        # Trigger again - should return cached
+        # Trigger again - should return cached (same instance)
         tracking_result_2 = dependency_provider.trigger("OrderProgressTracker")
         assert tracking_result_1 is tracking_result_2, \
             "Should reuse cached OrderProgressTracker result"
@@ -241,12 +235,46 @@ class TestHistoricalFeaturesExtractorDependencies:
         result2 = agent2.run_extraction_and_save_results()
         
         # Both should succeed
-        assert result1.status in {"success", "degraded", "warning"}
-        assert result2.status in {"success", "degraded", "warning"}
-
+        successful_statuses = {ExecutionStatus.SUCCESS.value, 
+                               ExecutionStatus.DEGRADED.value, 
+                               ExecutionStatus.WARNING.value}
+        assert result1.status in successful_statuses
+        assert result2.status in successful_statuses
+    
+    # Test recovery scenario
+    def test_recovery_after_dependency_added(self, isolated_dependency_provider):
+        """Test that agent works after dependency is added"""
+        from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
+            HistoricalFeaturesExtractor, FeaturesExtractorConfig
+        )
+        
+        # Start with clean state
+        isolated_dependency_provider.clear_all_dependencies()
+        
+        # Create agent
+        agent = HistoricalFeaturesExtractor(
+            config=FeaturesExtractorConfig(
+                efficiency=0.85,
+                loss=0.03,
+                shared_source_config=isolated_dependency_provider.get_shared_source_config()
+            )
+        )
+        
+        # First execution - should fail
+        result1 = agent.run_extraction_and_save_results()
+        assert result1.status in [ExecutionStatus.FAILED.value, 
+                                  ExecutionStatus.DEGRADED.value]
+        
+        # Now add dependencies
+        isolated_dependency_provider.trigger("OrderProgressTracker")
+        
+        # Second execution - should succeed
+        result2 = agent.run_extraction_and_save_results()
+        assert result2.status == ExecutionStatus.SUCCESS.value, \
+            "Should succeed after dependencies are added"
 
 # ============================================
-# OPTIONAL: Configuration Tests
+# CONFIGURATION TESTS
 # ============================================
 
 class TestHistoricalFeaturesExtractorConfig:
@@ -277,36 +305,14 @@ class TestHistoricalFeaturesExtractorConfig:
         
         result = agent.run_extraction_and_save_results()
         
-        # Should work with different parameters
-        assert result.status in {"success", "degraded", "warning"}
+        successful_statuses = {ExecutionStatus.SUCCESS.value, 
+                               ExecutionStatus.DEGRADED.value, 
+                               ExecutionStatus.WARNING.value}
+        assert result.status in successful_statuses
         
         # Verify parameters were applied
         assert agent.config.efficiency == efficiency
         assert agent.config.loss == loss
-    
-    def test_with_custom_constant_config_path(self, dependency_provider):
-        """Test with custom constant configuration path"""
-        from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
-            HistoricalFeaturesExtractor, FeaturesExtractorConfig
-        )
-        
-        dependency_provider.trigger("OrderProgressTracker")
-        
-        # Modify config
-        shared_config = dependency_provider.get_shared_source_config()
-        # shared_config.features_extractor_constant_config_path = "custom/path.json"
-        
-        agent = HistoricalFeaturesExtractor(
-            config=FeaturesExtractorConfig(
-                efficiency=0.85,
-                loss=0.03,
-                shared_source_config=shared_config
-            )
-        )
-        
-        result = agent.run_extraction_and_save_results()
-        assert result.status in {"success", "degraded", "warning"}
-
 
 # ============================================
 # OPTIONAL: Performance Tests

@@ -204,18 +204,6 @@ jobs:
             pip install -r requirements.txt
           fi
       
-      - name: 🧹 Cleanup shared_db
-        working-directory: ${{ steps.find-dir.outputs.working_dir }}
-        run: |
-          rm -rf tests/shared_db
-          echo "Cleaned up shared_db"
-      
-      - name: ⚙️ Setup shared_db
-        working-directory: ${{ steps.find-dir.outputs.working_dir }}
-        run: |
-          export PYTHONPATH=$(pwd):$PYTHONPATH
-          pytest tests/set_up_shared_db/setup_shared_db.py -v --tb=short
-      
       - name: 🧪 Run agent tests
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
@@ -224,7 +212,6 @@ jobs:
             -v \
             --tb=short \
             -m "not heavy" \
-            --ignore=tests/set_up_shared_db/ \
             --cov=agents \
             --cov-report=xml \
             --cov-report=term-missing
