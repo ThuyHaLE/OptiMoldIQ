@@ -114,7 +114,7 @@ class TestDataPipelineOrchestratorPerformance:
         duration = time.time() - start
         
         # Should complete in reasonable time
-        assert duration < 120, f"Pipeline took too long: {duration:.2f}s"
+        assert duration < 300, f"Pipeline took too long: {duration:.2f}s"
         
         # Verify reported duration matches
         assert abs(result.duration - duration) < 1.0

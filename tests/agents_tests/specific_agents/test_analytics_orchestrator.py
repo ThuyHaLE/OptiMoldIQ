@@ -187,7 +187,7 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
     def test_day_level_processor_executed(self, validated_execution_result):
         """DayLevelProcessor should be executed"""
         # Navigate nested path
-        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer.DayLevelProcessor")
+        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer").get_path("DayLevelProcessor")
         
         if processor is None:
             pytest.skip("DayLevelProcessor not found in execution tree")
@@ -199,7 +199,7 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
     def test_month_level_processor_executed(self, validated_execution_result):
         """MonthLevelProcessor should be executed"""
         # Navigate nested path
-        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer.MonthLevelProcessor")
+        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer").get_path("MonthLevelProcessor")
         
         if processor is None:
             pytest.skip("MonthLevelProcessor not found in execution tree")
@@ -211,7 +211,7 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
     def test_year_level_processor_executed(self, validated_execution_result):
         """YearLevelProcessor should be executed"""
         # Navigate nested path
-        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer.YearLevelProcessor")
+        processor = validated_execution_result.get_path("MultiLevelPerformanceAnalyzer").get_path("YearLevelProcessor")
 
         if processor is None:
             pytest.skip("YearLevelProcessor not found in execution tree")

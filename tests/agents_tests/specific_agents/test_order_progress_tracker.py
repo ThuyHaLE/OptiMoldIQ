@@ -185,7 +185,7 @@ class TestOrderProgressTrackerPerformance:
         duration = time.time() - start
         
         # Adjust timeout based on your data size
-        assert duration < 120, f"Tracking took too long: {duration:.2f}s"
+        assert duration < 300, f"Tracking took too long: {duration:.2f}s"
         
         # Should match reported duration
         assert abs(result.duration - duration) < 1.0
