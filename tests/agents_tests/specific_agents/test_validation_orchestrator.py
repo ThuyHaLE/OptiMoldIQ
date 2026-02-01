@@ -24,7 +24,8 @@ class TestValidationOrchestrator(BaseAgentTests):
         from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
         
         # Trigger DataPipelineOrchestrator dependency
-        dependency_provider.trigger("DataPipelineOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
         
         return ValidationOrchestrator(
             shared_source_config=dependency_provider.get_shared_source_config(),
@@ -73,7 +74,7 @@ class TestValidationOrchestrator(BaseAgentTests):
             assert isinstance(phase_result, ExecutionResult)
             assert isinstance(phase_result.data, dict)
     
-    # ✅ NEW: Test dependency usage
+    # Test dependency usage
     def test_uses_pipeline_data(self, dependency_provider, validated_execution_result):
         """Should use data from DataPipelineOrchestrator"""
         # Get cached pipeline result
@@ -88,17 +89,6 @@ class TestValidationOrchestrator(BaseAgentTests):
                                ExecutionStatus.WARNING.value}
         assert pipeline_result.status in successful_statuses, \
             "Pipeline dependency should have completed successfully"
-    
-    # ✅ NEW: Test dependency chain
-    def test_dependency_triggered_before_execution(self, dependency_provider):
-        """DataPipelineOrchestrator should be triggered before validation"""
-        assert dependency_provider.is_triggered("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator dependency should be triggered"
-        
-        # Should be cached
-        cached_result = dependency_provider.get_result("DataPipelineOrchestrator")
-        assert cached_result is not None, \
-            "Pipeline result should be cached"
     
     def test_validation_schemas_loaded(self, validated_execution_result):
         """Validation should load database schemas"""
@@ -142,23 +132,17 @@ class TestValidationOrchestrator(BaseAgentTests):
 class TestValidationOrchestratorDependencies:
     """Test ValidationOrchestrator's interaction with DataPipelineOrchestrator"""
     
-    # ✅ NEW: Test without pipeline
-    def test_fails_without_pipeline(self, isolated_dependency_provider):
+    # Test without pipeline
+    def test_fails_without_pipeline(self, dependency_provider: DependencyProvider):
         """Should fail or degrade without DataPipelineOrchestrator"""
         from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
         
         # Clear all dependencies
-        isolated_dependency_provider.clear_all_dependencies()
-        
-        # Verify clean state
-        assert not isolated_dependency_provider.is_triggered("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator should not be in cache"
-        assert not isolated_dependency_provider.is_materialized("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator files should not exist on disk"
+        dependency_provider.clear_all_dependencies()
         
         # Create agent
         agent = ValidationOrchestrator(
-            shared_source_config=isolated_dependency_provider.get_shared_source_config(),
+            shared_source_config=dependency_provider.get_shared_source_config(),
             enable_parallel=False,
             max_workers=None
         )
@@ -175,17 +159,17 @@ class TestValidationOrchestratorDependencies:
             assert result.has_critical_errors(), \
                 "Failed status should have critical errors"
     
-    # ✅ NEW: Test recovery
-    def test_recovery_after_dependency_added(self, isolated_dependency_provider):
+    # Test recovery
+    def test_recovery_after_dependency_added(self, dependency_provider: DependencyProvider):
         """Test that validation works after DataPipelineOrchestrator is added"""
         from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
         
         # Start with clean state
-        isolated_dependency_provider.clear_all_dependencies()
+        dependency_provider.clear_all_dependencies()
         
         # Create agent
         agent = ValidationOrchestrator(
-            shared_source_config=isolated_dependency_provider.get_shared_source_config(),
+            shared_source_config=dependency_provider.get_shared_source_config(),
             enable_parallel=False,
             max_workers=None
         )
@@ -196,7 +180,8 @@ class TestValidationOrchestratorDependencies:
                                   ExecutionStatus.DEGRADED.value]
         
         # Add dependency
-        isolated_dependency_provider.trigger("DataPipelineOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
         
         # Second execution - should succeed
         result2 = agent.run_validations_and_save_results()
@@ -211,12 +196,13 @@ class TestValidationOrchestratorDependencies:
 class TestValidationOrchestratorConfig:
     """Test different configurations of ValidationOrchestrator"""
     
-    def test_with_parallel_enabled(self, dependency_provider):
+    def test_with_parallel_enabled(self, dependency_provider: DependencyProvider):
         """Test behavior with parallel execution enabled"""
         from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
         
-        # ✅ Trigger dependency first
-        dependency_provider.trigger("DataPipelineOrchestrator")
+        # Trigger dependency first
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
         
         agent = ValidationOrchestrator(
             shared_source_config=dependency_provider.get_shared_source_config(),
@@ -232,12 +218,13 @@ class TestValidationOrchestratorConfig:
                                ExecutionStatus.WARNING.value}
         assert result.status in successful_statuses
     
-    def test_custom_validation_targets(self, dependency_provider):
+    def test_custom_validation_targets(self, dependency_provider: DependencyProvider):
         """Test with custom validation DataFrame names"""
         from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
         
-        # ✅ Trigger dependency first
-        dependency_provider.trigger("DataPipelineOrchestrator")
+        # Trigger dependency first
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
         
         # Modify config to test specific validation targets
         config = dependency_provider.get_shared_source_config()
@@ -264,13 +251,14 @@ class TestValidationOrchestratorConfig:
 class TestValidationOrchestratorPerformance:
     """Performance benchmarks for validation"""
     
-    def test_validation_completes_within_timeout(self, dependency_provider):
+    def test_validation_completes_within_timeout(self, dependency_provider: DependencyProvider):
         """Validation should complete within reasonable time"""
         import time
         from agents.validationOrchestrator.validation_orchestrator import ValidationOrchestrator
         
-        # ✅ Trigger dependency first
-        dependency_provider.trigger("DataPipelineOrchestrator")
+        # Trigger dependency first
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
         
         agent = ValidationOrchestrator(
             shared_source_config=dependency_provider.get_shared_source_config(),

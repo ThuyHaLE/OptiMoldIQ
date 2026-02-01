@@ -31,18 +31,14 @@ class AgentFactory:
     def create_and_execute(self, dependency_provider: DependencyProvider):
         """
         Create agent and execute it with proper dependency chain
-        
-        ⚠️  CRITICAL: This method triggers dependencies which execute and cache results.
-        The agent being created here will use those cached results.
         """
-        # ✅ Trigger ALL dependencies - they execute and cache results
-        for dep in self.required_dependencies:
-            dependency_provider.trigger(dep)
+        # Trigger ALL dependencies - they execute and cache results
+        dependency_provider.trigger_all_dependencies(self.required_dependencies)
         
-        # ✅ Create agent - it will read from cached dependency results
+        # Create agent - it will read from cached dependency results
         agent = self.create(dependency_provider)
         
-        # ✅ Execute this specific agent
+        # Execute this specific agent
         execute_fn = getattr(agent, self.execute_method)
         return execute_fn()
 
@@ -212,35 +208,41 @@ AGENT_REGISTRY = {
         name="OrderProgressTracker",
         factory_fn=create_order_tracker,
         execute_method="run_tracking_and_save_results",
-        required_dependencies=["ValidationOrchestrator"]
+        required_dependencies=["DataPipelineOrchestrator", 
+                               "ValidationOrchestrator"]
     ),
     
     "HistoricalFeaturesExtractor": AgentFactory(
         name="HistoricalFeaturesExtractor",
         factory_fn=create_historical_extractor,
         execute_method="run_extraction_and_save_results",
-        required_dependencies=["OrderProgressTracker"]
+        required_dependencies=["DataPipelineOrchestrator", 
+                               "ValidationOrchestrator", 
+                               "OrderProgressTracker"]
     ),
     
     "InitialPlanner": AgentFactory(
         name="InitialPlanner",
         factory_fn=create_initial_planner,
         execute_method="run_planning_and_save_results",
-        required_dependencies=["OrderProgressTracker", "HistoricalFeaturesExtractor"]
+        required_dependencies=["DataPipelineOrchestrator", 
+                               "ValidationOrchestrator", 
+                               "OrderProgressTracker", 
+                               "HistoricalFeaturesExtractor"]
     ),
     
     "AnalyticsOrchestrator": AgentFactory(
         name="AnalyticsOrchestrator",
         factory_fn=create_analytics_orchestrator,
         execute_method="run_analyzing",
-        required_dependencies=[]  # No dependencies - reads from shared DB
+        required_dependencies=["DataPipelineOrchestrator"]
     ),
     
     "DashboardBuilder": AgentFactory(
         name="DashboardBuilder",
         factory_fn=create_dashboard_builder,
         execute_method="build_dashboard",
-        required_dependencies=[]  # No dependencies - reads from shared DB
+        required_dependencies=["DataPipelineOrchestrator"]
     )
 }
 

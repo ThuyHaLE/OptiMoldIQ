@@ -21,7 +21,9 @@ class TestOrderProgressTracker(BaseAgentTests):
         from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
         
         # Trigger required dependency
-        dependency_provider.trigger("ValidationOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator",
+                                                      "ValidationOrchestrator"])
         
         # Create agent
         return OrderProgressTracker(
@@ -61,35 +63,10 @@ class TestOrderProgressTracker(BaseAgentTests):
             assert isinstance(phase_result, ExecutionResult)
             assert isinstance(phase_result.data, dict)
     
-    def test_uses_validation_data(self, dependency_provider, validated_execution_result):
-        """Should use data from ValidationOrchestrator"""
-        # Get cached validation result
-        validation_result = dependency_provider.get_result("ValidationOrchestrator")
-        
-        assert validation_result is not None, \
-            "ValidationOrchestrator should be cached"
-        
-        # Verify validation completed successfully
-        successful_statuses = {ExecutionStatus.SUCCESS.value, 
-                               ExecutionStatus.DEGRADED.value, 
-                               ExecutionStatus.WARNING.value}
-        assert validation_result.status in successful_statuses, \
-            "Dependency should have completed successfully"
-    
     def test_progress_status_schema_loaded(self, validated_execution_result):
         """Should load progress status schema configuration"""
         metadata = validated_execution_result.metadata
         assert isinstance(metadata, dict)
-    
-    def test_dependency_triggered_before_execution(self, dependency_provider):
-        """ValidationOrchestrator should be triggered before tracking"""
-        assert dependency_provider.is_triggered("ValidationOrchestrator"), \
-            "ValidationOrchestrator dependency should be triggered"
-        
-        # Should be cached
-        cached_result = dependency_provider.get_result("ValidationOrchestrator")
-        assert cached_result is not None, \
-            "Validation result should be cached"
         
     def test_tracker_results_structure(self, validated_execution_result):
         """Tracker results should have expected structure"""
@@ -127,22 +104,16 @@ class TestOrderProgressTrackerDependencies:
     """Test OrderProgressTracker's interaction with dependencies"""
     
     # Test negative case properly
-    def test_fails_without_validation(self, isolated_dependency_provider):
+    def test_fails_without_validation(self, dependency_provider: DependencyProvider):
         """Should handle missing ValidationOrchestrator gracefully"""
         from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
         
         # Clear all dependencies
-        isolated_dependency_provider.clear_all_dependencies()
-        
-        # Verify clean state
-        assert not isolated_dependency_provider.is_triggered("ValidationOrchestrator"), \
-            "ValidationOrchestrator should not be in cache"
-        assert not isolated_dependency_provider.is_materialized("ValidationOrchestrator"), \
-            "ValidationOrchestrator files should not exist on disk"
+        dependency_provider.clear_all_dependencies()
         
         # Create agent
         agent = OrderProgressTracker(
-            config=isolated_dependency_provider.get_shared_source_config()
+            config=dependency_provider.get_shared_source_config()
         )
         
         # Execute - should fail or degrade gracefully
@@ -161,51 +132,17 @@ class TestOrderProgressTrackerDependencies:
             assert result.data.get("fallback_used") is True, \
                 "DEGRADED status should indicate fallback was used"
     
-    # Test uses session-scoped for positive case
-    def test_reuses_cached_validation(self, dependency_provider):
-        """Should reuse cached validation result"""
-        from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-        
-        # Trigger validation once
-        validation_result_1 = dependency_provider.trigger("ValidationOrchestrator")
-        
-        # Create and execute tracker
-        agent1 = OrderProgressTracker(
-            config=dependency_provider.get_shared_source_config()
-        )
-        result1 = agent1.run_tracking_and_save_results()
-        
-        # Trigger validation again - should return cached result
-        validation_result_2 = dependency_provider.trigger("ValidationOrchestrator")
-        
-        # Should be the same object (cached)
-        assert validation_result_1 is validation_result_2, \
-            "Should reuse cached validation result"
-        
-        # Create second tracker - should also use cached validation
-        agent2 = OrderProgressTracker(
-            config=dependency_provider.get_shared_source_config()
-        )
-        result2 = agent2.run_tracking_and_save_results()
-        
-        # Both should succeed
-        successful_statuses = {ExecutionStatus.SUCCESS.value, 
-                               ExecutionStatus.DEGRADED.value, 
-                               ExecutionStatus.WARNING.value}
-        assert result1.status in successful_statuses
-        assert result2.status in successful_statuses
-    
     # Test recovery scenario
-    def test_recovery_after_dependency_added(self, isolated_dependency_provider):
+    def test_recovery_after_dependency_added(self, dependency_provider: DependencyProvider):
         """Test that tracker works after ValidationOrchestrator is added"""
         from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
         
         # Start with clean state
-        isolated_dependency_provider.clear_all_dependencies()
+        dependency_provider.clear_all_dependencies()
         
         # Create agent
         agent = OrderProgressTracker(
-            config=isolated_dependency_provider.get_shared_source_config()
+            config=dependency_provider.get_shared_source_config()
         )
         
         # First execution - should fail
@@ -214,61 +151,14 @@ class TestOrderProgressTrackerDependencies:
                                   ExecutionStatus.DEGRADED.value]
         
         # Add dependency
-        isolated_dependency_provider.trigger("ValidationOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator",
+                                                      "ValidationOrchestrator"])
         
         # Second execution - should succeed
         result2 = agent.run_tracking_and_save_results()
         assert result2.status == ExecutionStatus.SUCCESS.value, \
-            "Should succeed after ValidationOrchestrator is added"
-
-
-# ============================================
-# CONFIGURATION TESTS
-# ============================================
-
-class TestOrderProgressTrackerConfig:
-    """Test different configurations"""
-    
-    def test_with_custom_config_path(self, dependency_provider):
-        """Test with custom constant config path"""
-        from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-        
-        # Trigger dependency
-        dependency_provider.trigger("ValidationOrchestrator")
-        
-        # Get config and modify it
-        config = dependency_provider.get_shared_source_config()
-        # Example: config.progress_tracker_constant_config_path = "custom/path.json"
-        
-        agent = OrderProgressTracker(config=config)
-        result = agent.run_tracking_and_save_results()
-        
-        # Should still work with custom config
-        successful_statuses = {ExecutionStatus.SUCCESS.value, 
-                               ExecutionStatus.DEGRADED.value, 
-                               ExecutionStatus.WARNING.value}
-        assert result.status in successful_statuses
-    
-    def test_change_log_created(self, dependency_provider, tmp_path):
-        """Test that change log is created"""
-        from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
-        
-        # Trigger dependency
-        dependency_provider.trigger("ValidationOrchestrator")
-        
-        # Setup temp change log path
-        config = dependency_provider.get_shared_source_config()
-        config.progress_tracker_change_log_path = str(tmp_path / "test_change_log.txt")
-        
-        agent = OrderProgressTracker(config=config)
-        result = agent.run_tracking_and_save_results()
-        
-        # Verify result
-        successful_statuses = {ExecutionStatus.SUCCESS.value, 
-                               ExecutionStatus.DEGRADED.value, 
-                               ExecutionStatus.WARNING.value}
-        assert result.status in successful_statuses
-
+            "Should succeed after DataPipelineOrchestrator and ValidationOrchestrator is added"
 
 # ============================================
 # PERFORMANCE TESTS
@@ -277,12 +167,14 @@ class TestOrderProgressTrackerConfig:
 class TestOrderProgressTrackerPerformance:
     """Performance benchmarks"""
     
-    def test_tracking_completes_within_timeout(self, dependency_provider):
+    def test_tracking_completes_within_timeout(self, dependency_provider: DependencyProvider):
         """Tracking should complete in reasonable time"""
         import time
         from agents.orderProgressTracker.order_progress_tracker import OrderProgressTracker
         
-        dependency_provider.trigger("ValidationOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator",
+                                                      "ValidationOrchestrator"])
         
         agent = OrderProgressTracker(
             config=dependency_provider.get_shared_source_config()

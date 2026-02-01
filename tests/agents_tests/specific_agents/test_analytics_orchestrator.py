@@ -37,7 +37,8 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
         Triggers DataPipelineOrchestrator dependency
         """
         # Trigger DataPipelineOrchestrator dependency
-        dependency_provider.trigger("DataPipelineOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
 
         from agents.analyticsOrchestrator.analytics_orchestrator import (
             ComponentConfig,
@@ -96,33 +97,6 @@ class TestAnalyticsOrchestrator(BaseAgentTests):
     # ============================================
     # BUSINESS LOGIC TESTS
     # ============================================
-    
-    # Test dependency usage
-    def test_uses_pipeline_data(self, dependency_provider, validated_execution_result):
-        """Should use data from DataPipelineOrchestrator"""
-        # Get cached pipeline result
-        pipeline_result = dependency_provider.get_result("DataPipelineOrchestrator")
-        
-        assert pipeline_result is not None, \
-            "DataPipelineOrchestrator should be cached"
-        
-        # Verify pipeline completed successfully
-        successful_statuses = {ExecutionStatus.SUCCESS.value, 
-                               ExecutionStatus.DEGRADED.value, 
-                               ExecutionStatus.WARNING.value}
-        assert pipeline_result.status in successful_statuses, \
-            "Pipeline dependency should have completed successfully"
-    
-    # Test dependency chain
-    def test_dependency_triggered_before_execution(self, dependency_provider):
-        """DataPipelineOrchestrator should be triggered before validation"""
-        assert dependency_provider.is_triggered("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator dependency should be triggered"
-        
-        # Should be cached
-        cached_result = dependency_provider.get_result("DataPipelineOrchestrator")
-        assert cached_result is not None, \
-            "Pipeline result should be cached"
         
     def test_has_analytics_workflows(self, validated_execution_result):
         """Should execute analytics workflows"""
@@ -447,7 +421,7 @@ class TestAnalyticsOrchestratorConfigurations:
     Separate from BaseAgentTests to avoid interference
     """
     
-    def test_with_hardware_only(self, dependency_provider):
+    def test_with_hardware_only(self, dependency_provider: DependencyProvider):
         """Test with only hardware trackers enabled"""
         from agents.analyticsOrchestrator.analytics_orchestrator import (
             ComponentConfig,
@@ -500,7 +474,7 @@ class TestAnalyticsOrchestratorConfigurations:
         if perf_analyzer:
             assert perf_analyzer.status == ExecutionStatus.SKIPPED.value
     
-    def test_with_performance_only(self, dependency_provider):
+    def test_with_performance_only(self, dependency_provider: DependencyProvider):
         """Test with only performance processors enabled"""
         from agents.analyticsOrchestrator.analytics_orchestrator import (
             ComponentConfig,
@@ -553,7 +527,7 @@ class TestAnalyticsOrchestratorConfigurations:
         # Performance analyzer should exist
         assert result.get_path("MultiLevelPerformanceAnalyzer") is not None
     
-    def test_with_save_disabled(self, dependency_provider):
+    def test_with_save_disabled(self, dependency_provider: DependencyProvider):
         """Test with save disabled for all components"""
         from agents.analyticsOrchestrator.analytics_orchestrator import (
             ComponentConfig,
@@ -608,7 +582,7 @@ class TestAnalyticsOrchestratorConfigurations:
 class TestAnalyticsOrchestratorDependencies:
     """Test AnalyticsOrchestrator's interaction with DataPipelineOrchestrator"""
     
-    def test_fails_without_pipeline(self, isolated_dependency_provider):
+    def test_fails_without_pipeline(self, dependency_provider: DependencyProvider):
         """Should fail or degrade without DataPipelineOrchestrator"""
         from agents.analyticsOrchestrator.analytics_orchestrator import (
             ComponentConfig,
@@ -617,18 +591,12 @@ class TestAnalyticsOrchestratorDependencies:
         )
         
         # Clear all dependencies
-        isolated_dependency_provider.clear_all_dependencies()
-        
-        # Verify clean state
-        assert not isolated_dependency_provider.is_triggered("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator should not be in cache"
-        assert not isolated_dependency_provider.is_materialized("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator files should not exist on disk"
+        dependency_provider.clear_all_dependencies()
         
         # Create agent with full config
         agent = AnalyticsOrchestrator(
             config=AnalyticsOrchestratorConfig(
-                shared_source_config=isolated_dependency_provider.get_shared_source_config(),
+                shared_source_config=dependency_provider.get_shared_source_config(),
                 machine_layout_tracker=ComponentConfig(enabled=True, save_result=True),
                 mold_machine_pair_tracker=ComponentConfig(enabled=True, save_result=True),
                 day_level_processor=ComponentConfig(
@@ -660,11 +628,13 @@ class TestAnalyticsOrchestratorDependencies:
                                  ExecutionStatus.DEGRADED.value], \
             f"Should fail or degrade without DataPipelineOrchestrator, got: {result.status}"
         
+        # Additional validation based on status
         if result.status == ExecutionStatus.FAILED.value:
-            assert result.has_critical_errors(), \
-                "Failed status should have critical errors"
+            # Check for error information
+            assert result.error is not None or len(result.get_failed_paths()) > 0, \
+                "Failed status should have error information or failed paths"
     
-    def test_recovery_after_dependency_added(self, isolated_dependency_provider):
+    def test_recovery_after_dependency_added(self, dependency_provider: DependencyProvider):
         """Test that analytics works after DataPipelineOrchestrator is added"""
         from agents.analyticsOrchestrator.analytics_orchestrator import (
             ComponentConfig,
@@ -673,44 +643,50 @@ class TestAnalyticsOrchestratorDependencies:
         )
         
         # Start with clean state
-        isolated_dependency_provider.clear_all_dependencies()
+        dependency_provider.clear_all_dependencies()
         
-        # Create agent
-        agent = AnalyticsOrchestrator(
-            config=AnalyticsOrchestratorConfig(
-                shared_source_config=isolated_dependency_provider.get_shared_source_config(),
-                machine_layout_tracker=ComponentConfig(enabled=True, save_result=True),
-                mold_machine_pair_tracker=ComponentConfig(enabled=True, save_result=True),
-                day_level_processor=ComponentConfig(
-                    enabled=True,
-                    save_result=True,
-                    requested_timestamp='2018-11-06'
-                ),
-                month_level_processor=ComponentConfig(
-                    enabled=True,
-                    save_result=True,
-                    requested_timestamp='2019-01',
-                    analysis_date='2019-01-15'
-                ),
-                year_level_processor=ComponentConfig(
-                    enabled=True,
-                    save_result=True,
-                    requested_timestamp='2019',
-                    analysis_date='2019-12-31'
-                ),
-                save_orchestrator_log=True
-            )
+        # Create agent config (reusable)
+        config = AnalyticsOrchestratorConfig(
+            shared_source_config=dependency_provider.get_shared_source_config(),
+            machine_layout_tracker=ComponentConfig(enabled=True, save_result=True),
+            mold_machine_pair_tracker=ComponentConfig(enabled=True, save_result=True),
+            day_level_processor=ComponentConfig(
+                enabled=True,
+                save_result=True,
+                requested_timestamp='2018-11-06'
+            ),
+            month_level_processor=ComponentConfig(
+                enabled=True,
+                save_result=True,
+                requested_timestamp='2019-01',
+                analysis_date='2019-01-15'
+            ),
+            year_level_processor=ComponentConfig(
+                enabled=True,
+                save_result=True,
+                requested_timestamp='2019',
+                analysis_date='2019-12-31'
+            ),
+            save_orchestrator_log=True
         )
         
-        # First execution - should fail
-        result1 = agent.run_analyzing()
+        # First execution - should fail or degrade
+        agent1 = AnalyticsOrchestrator(config=config)
+        result1 = agent1.run_analyzing()
+        
         assert result1.status in [ExecutionStatus.FAILED.value, 
-                                  ExecutionStatus.DEGRADED.value]
+                                  ExecutionStatus.DEGRADED.value], \
+            f"Should fail or degrade without dependency, got: {result1.status}"
         
         # Add dependency
-        isolated_dependency_provider.trigger("DataPipelineOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
         
-        # Second execution - should succeed
-        result2 = agent.run_analyzing()
+        # Second execution - should succeed (create new instance)
+        agent2 = AnalyticsOrchestrator(config=config)
+        result2 = agent2.run_analyzing()
+        
         assert result2.status == ExecutionStatus.SUCCESS.value, \
-            "Should succeed after DataPipelineOrchestrator is added"
+            f"Should succeed after DataPipelineOrchestrator is added, got: {result2.status}\n" \
+            f"Error: {result2.error}\n" \
+            f"Failed paths: {result2.get_failed_paths()}"

@@ -47,7 +47,8 @@ class TestDashboardBuilder(BaseAgentTests):
         """
 
         # Trigger DataPipelineOrchestrator dependency
-        dependency_provider.trigger("DataPipelineOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
 
         from agents.dashboardBuilder.dashboard_builder import (
             ComponentConfig,
@@ -114,7 +115,7 @@ class TestDashboardBuilder(BaseAgentTests):
     # ============================================
 
     # Test dependency usage
-    def test_uses_pipeline_data(self, dependency_provider, validated_execution_result):
+    def test_uses_pipeline_data(self, dependency_provider: DependencyProvider, validated_execution_result):
         """Should use data from DataPipelineOrchestrator"""
         # Get cached pipeline result
         pipeline_result = dependency_provider.get_result("DataPipelineOrchestrator")
@@ -130,7 +131,7 @@ class TestDashboardBuilder(BaseAgentTests):
             "Pipeline dependency should have completed successfully"
     
     # Test dependency chain
-    def test_dependency_triggered_before_execution(self, dependency_provider):
+    def test_dependency_triggered_before_execution(self, dependency_provider: DependencyProvider):
         """DataPipelineOrchestrator should be triggered before validation"""
         assert dependency_provider.is_triggered("DataPipelineOrchestrator"), \
             "DataPipelineOrchestrator dependency should be triggered"
@@ -410,7 +411,7 @@ class TestDashboardBuilderConfigurations:
     Separate from BaseAgentTests to avoid interference
     """
     
-    def test_with_selective_services(self, dependency_provider):
+    def test_with_selective_services(self, dependency_provider: DependencyProvider):
         """Test with only some services enabled"""
         from agents.dashboardBuilder.dashboard_builder import (
             ComponentConfig,
@@ -467,7 +468,7 @@ class TestDashboardBuilderConfigurations:
         if perf_viz:
             assert perf_viz.status == ExecutionStatus.SKIPPED.value
     
-    def test_with_save_disabled(self, dependency_provider):
+    def test_with_save_disabled(self, dependency_provider: DependencyProvider):
         """Test with save disabled"""
         from agents.dashboardBuilder.dashboard_builder import (
             ComponentConfig,
@@ -525,7 +526,7 @@ class TestDashboardBuilderConfigurations:
 class TestDashboardBuilderDependencies:
     """Test DashboardBuilder's interaction with DataPipelineOrchestrator"""
     
-    def test_fails_without_pipeline(self, isolated_dependency_provider):
+    def test_fails_without_pipeline(self, dependency_provider: DependencyProvider):
         """Should fail or degrade without DataPipelineOrchestrator"""
         from agents.dashboardBuilder.dashboard_builder import (
             ComponentConfig,
@@ -534,18 +535,12 @@ class TestDashboardBuilderDependencies:
         )
         
         # Clear all dependencies
-        isolated_dependency_provider.clear_all_dependencies()
-        
-        # Verify clean state
-        assert not isolated_dependency_provider.is_triggered("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator should not be in cache"
-        assert not isolated_dependency_provider.is_materialized("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator files should not exist on disk"
+        dependency_provider.clear_all_dependencies()
 
         # Create agent with full config
         agent = DashboardBuilder(
             config=DashboardBuilderConfig(
-                shared_source_config=isolated_dependency_provider.get_shared_source_config(),
+                shared_source_config=dependency_provider.get_shared_source_config(),
                 
                 # Workflow 1: Hardware visualization services
                 machine_layout_visualization_service=ComponentConfig(
@@ -588,7 +583,7 @@ class TestDashboardBuilderDependencies:
             assert result.has_critical_errors(), \
                 "Failed status should have critical errors"
     
-    def test_recovery_after_dependency_added(self, isolated_dependency_provider):
+    def test_recovery_after_dependency_added(self, dependency_provider: DependencyProvider):
         """Test that builders works after DataPipelineOrchestrator is added"""
         from agents.dashboardBuilder.dashboard_builder import (
             ComponentConfig,
@@ -597,12 +592,12 @@ class TestDashboardBuilderDependencies:
         )
         
         # Start with clean state
-        isolated_dependency_provider.clear_all_dependencies()
+        dependency_provider.clear_all_dependencies()
         
         # Create agent
         agent = DashboardBuilder(
             config=DashboardBuilderConfig(
-                shared_source_config=isolated_dependency_provider.get_shared_source_config(),
+                shared_source_config=dependency_provider.get_shared_source_config(),
                 
                 # Workflow 1: Hardware visualization services
                 machine_layout_visualization_service=ComponentConfig(
@@ -639,7 +634,8 @@ class TestDashboardBuilderDependencies:
                                   ExecutionStatus.DEGRADED.value]
         
         # Add dependency
-        isolated_dependency_provider.trigger("DataPipelineOrchestrator")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
         
         # Second execution - should succeed
         result2 = agent.run_analyzing()
