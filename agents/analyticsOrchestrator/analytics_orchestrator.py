@@ -2,8 +2,7 @@ from loguru import logger
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List, Callable
-import traceback
+from typing import List
 from configs.shared.config_report_format import ConfigReportMixin
 from agents.analyticsOrchestrator.analytics_orchestrator_config import ComponentConfig, AnalyticsOrchestratorConfig
 from configs.shared.dict_based_report_generator import DictBasedReportGenerator
@@ -20,85 +19,8 @@ from configs.shared.agent_report_format import (
     update_change_log,
     extract_export_metadata)
 
-# ============================================
-# EXECUTABLE WRAPPER - Bridge pattern
-# ============================================
-class ExecutableWrapper(Executable):
-    """
-    Wraps an analyzer that returns ExecutionResult.
-    Allows CompositeAgent to orchestrate analyzers seamlessly.
-    
-    This is a bridge between the Executable interface and analyzers that
-    already return ExecutionResult objects.
-    """
-    
-    def __init__(self, 
-                 name: str,
-                 analyzer_factory: Callable[[], ExecutionResult],
-                 on_error_severity: str = PhaseSeverity.CRITICAL.value):
-        """
-        Args:
-            name: Name for this executable (will appear in execution tree)
-            analyzer_factory: Function that creates and runs analyzer.
-                             Must return ExecutionResult.
-            on_error_severity: Severity level if analyzer crashes unexpectedly
-        """
-        self.name = name
-        self.analyzer_factory = analyzer_factory
-        self.on_error_severity = on_error_severity
-    
-    def get_name(self) -> str:
-        return self.name
-    
-    def execute(self) -> ExecutionResult:
-        """
-        Execute analyzer and return its ExecutionResult directly.
-        
-        Returns:
-            ExecutionResult from analyzer, or a failed ExecutionResult
-            if the analyzer crashes unexpectedly
-        """
-        start_time = datetime.now()
-        
-        try:
-            logger.info(f"🔄 Executing {self.name}...")
-            
-            # Call the analyzer factory
-            result = self.analyzer_factory()
-            
-            # Validate that we got an ExecutionResult
-            if not isinstance(result, ExecutionResult):
-                raise TypeError(
-                    f"{self.name} must return ExecutionResult, "
-                    f"got {type(result).__name__}"
-                )
-            
-            logger.info(
-                f"✓ {self.name} completed: {result.status} "
-                f"in {result.duration:.2f}s"
-            )
-            
-            return result
-            
-        except Exception as e:
-            # If analyzer crashes, wrap in failed ExecutionResult
-            duration = (datetime.now() - start_time).total_seconds()
-            logger.error(f"❌ {self.name} crashed: {e}")
-            
-            return ExecutionResult(
-                name=self.name,
-                type="agent",  # Wrapped analyzers are treated as agents
-                status=ExecutionStatus.FAILED.value,
-                duration=duration,
-                severity=self.on_error_severity,
-                error=f"Analyzer crashed: {str(e)}",
-                traceback=traceback.format_exc(),
-                metadata={
-                    "crash_type": type(e).__name__,
-                    "crash_message": str(e)
-                }
-            )
-
+# Import unified ExecutableWrapper
+from configs.shared.executable_wrapper import ExecutableWrapper
 
 # ============================================
 # ANALYTICS ORCHESTRATOR
@@ -241,7 +163,7 @@ class AnalyticsOrchestrator(ConfigReportMixin):
             executables.append(
                 ExecutableWrapper(
                     name="HardwareChangeAnalyzer",
-                    analyzer_factory=run_hardware_analyzer,
+                    factory=run_hardware_analyzer,
                     on_error_severity=PhaseSeverity.ERROR.value  # Non-critical
                 )
             )
@@ -261,7 +183,7 @@ class AnalyticsOrchestrator(ConfigReportMixin):
             executables.append(
                 ExecutableWrapper(
                     name="MultiLevelPerformanceAnalyzer",
-                    analyzer_factory=run_performance_analyzer,
+                    factory=run_performance_analyzer,
                     on_error_severity=PhaseSeverity.ERROR.value  # Non-critical
                 )
             )
