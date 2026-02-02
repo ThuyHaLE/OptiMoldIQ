@@ -1,13 +1,6 @@
 # tests/agents_tests/test_dashboard_builder.py
 
 import pytest
-
-# @pytest.mark.heavy
-# Status: PASS
-# Date: 2026-01-26
-# Reason: Dashboard builder is slow & data-heavy
-pytestmark = pytest.mark.heavy
-
 from platform import processor
 import pytest
 import copy
