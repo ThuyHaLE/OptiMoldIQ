@@ -133,7 +133,7 @@ jobs:
     name: 🤖 Agent Tests
     runs-on: ubuntu-latest
     needs: smoke-tests
-    timeout-minutes: 50  # Longer because tests trigger deps themselves
+    timeout-minutes: 90  # Longer because tests trigger deps themselves
 
     steps:
       - name: 📥 Checkout code
