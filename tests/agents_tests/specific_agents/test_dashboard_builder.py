@@ -499,7 +499,7 @@ class TestDashboardBuilderDependencies:
         )
         
         # Execute
-        result = agent.run_analyzing()
+        result = agent.build_dashboard()
         
         # Should fail or degrade
         assert result.status in [ExecutionStatus.FAILED.value, 
@@ -556,7 +556,7 @@ class TestDashboardBuilderDependencies:
         )
         
         # First execution - should fail
-        result1 = agent.run_analyzing()
+        result1 = agent.build_dashboard()
         assert result1.status in [ExecutionStatus.FAILED.value, 
                                   ExecutionStatus.DEGRADED.value]
         
@@ -565,6 +565,6 @@ class TestDashboardBuilderDependencies:
         dependency_provider.trigger_all_dependencies(["DataPipelineOrchestrator"])
         
         # Second execution - should succeed
-        result2 = agent.run_analyzing()
+        result2 = agent.build_dashboard()
         assert result2.status == ExecutionStatus.SUCCESS.value, \
             "Should succeed after DataPipelineOrchestrator is added"
