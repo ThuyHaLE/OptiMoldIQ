@@ -508,7 +508,7 @@ class TestManualReviewNotifier:
                 raise ValueError("invalid data")
 
         monkeypatch.setattr(
-            "agents.dataPipelineOrchestrator.notifiers.manual_review_notifier.DictBasedReportGenerator",
+            "configs.shared.dict_based_report_generator.DictBasedReportGenerator",
             DummyReporter,
             raising=False,
         )
@@ -826,7 +826,7 @@ class TestManualReviewNotifierIntegration:
             RecoveryDecision(
                 priority=Priority.HIGH,
                 scale=ProcessingScale.LOCAL,
-                action=RecoveryAction.USE_DEFAULT_VALUE,
+                action=RecoveryAction.ROLLBACK_TO_BACKUP,
                 status=ProcessingStatus.PENDING,
             ),
             RecoveryDecision(
