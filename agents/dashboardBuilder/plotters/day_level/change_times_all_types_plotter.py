@@ -93,7 +93,7 @@ def change_times_all_types_plotter(df: pd.DataFrame,
             colors = generate_color_palette(len(all_change_types), palette_name=visualization_config['palette_name'])
             text_colors = dict(zip(all_change_types, colors))
         else:
-            text_colors = visualization_config['text_ colors']
+            text_colors = visualization_config['text_colors']
             
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(weight, height),
                                 gridspec_kw = visualization_config['gridspec_kw'],
