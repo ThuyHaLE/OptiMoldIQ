@@ -254,5 +254,7 @@ class TestValidationOrchestratorPerformance:
         result = agent.run_validations_and_save_results()
         duration = time.time() - start
         
+        assert result.duration > 0
+        
         # Should complete in reasonable time
         assert duration < 300, f"Validation took too long: {duration:.2f}s"
