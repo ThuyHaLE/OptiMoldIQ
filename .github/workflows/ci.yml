@@ -192,10 +192,10 @@ jobs:
           file: ${{ steps.find-dir.outputs.working_dir }}/coverage.xml
           flags: agents
           name: agent-coverage
-      
+
       - name: 💾 Archive test artifacts (on failure)
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: agent-test-artifacts
           path: |
