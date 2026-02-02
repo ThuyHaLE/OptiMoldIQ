@@ -11,7 +11,7 @@ env:
 
 jobs:
   # ============================================================================
-  # JOB 1: Quick Smoke Tests (Fast feedback)
+  # JOB 1: Smoke Tests (Structure only - No execution)
   # ============================================================================
   smoke-tests:
     name: 🚀 Smoke Tests
@@ -28,54 +28,41 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       
-      - name: 🔍 Find correct working directory
+      - name: 🔍 Find working directory
         id: find-dir
         run: |
-          echo "Searching for project structure..."
           if [ -d "agents" ] && [ -d "tests" ]; then
             CORRECT_PATH=$(pwd)
-            echo "Found at root: $CORRECT_PATH"
           elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/tests" ]; then
             CORRECT_PATH=$(pwd)/OptiMoldIQ
-            echo "Found in OptiMoldIQ/: $CORRECT_PATH"
           else
-            echo "Error: Cannot find agents and tests directories"
-            find . -name "agents" -type d
-            find . -name "tests" -type d
+            echo "Error: Cannot find project structure"
             exit 1
           fi
-          
           echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
           echo "working_dir=$CORRECT_PATH" >> $GITHUB_OUTPUT
       
-      - name: 📦 Install dependencies
+      - name: 📦 Install minimal dependencies
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov pyyaml loguru
-          
-          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
+          pip install pytest pyyaml loguru pandas
       
-      - name: 🔍 Verify project structure
-        working-directory: ${{ steps.find-dir.outputs.working_dir }}
-        run: |
-          echo "Working from: $(pwd)"
-          echo "Checking project structure..."
-          [ -d "agents" ] && echo "✓ agents/ found" || echo "✗ agents/ missing"
-          [ -d "tests" ] && echo "✓ tests/ found" || echo "✗ tests/ missing"
-          [ -d "modules" ] && echo "✓ modules/ found" || echo "✗ modules/ missing"
-          [ -f "pytest.ini" ] && echo "✓ pytest.ini found" || echo "✗ pytest.ini missing"
-      
-      - name: 🧪 Run smoke tests
+      - name: 🧪 Smoke - Import checks
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           export PYTHONPATH=$(pwd):$PYTHONPATH
-          pytest tests/ -m smoke -v --tb=short || echo "No smoke tests found"
+          python -c "import agents; import modules; import configs"
+      
+      - name: 🧪 Smoke - Structure tests (no deps)
+        working-directory: ${{ steps.find-dir.outputs.working_dir }}
+        run: |
+          export PYTHONPATH=$(pwd):$PYTHONPATH
+          pytest tests/agents_tests/test_all_agents_structure.py::TestAllAgentsStructure \
+            -v --tb=short
 
   # ============================================================================
-  # JOB 2: Module Tests (Unit tests - Fast)
+  # JOB 2: Module Tests (Pure units - No agents)
   # ============================================================================
   module-tests:
     name: 🧩 Module Tests
@@ -93,37 +80,16 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       
-      - name: 🔍 Find correct working directory
+      - name: 🔍 Find working directory
         id: find-dir
         run: |
-          echo "=== DEBUG: Current location ==="
-          pwd
-          echo ""
-          echo "=== DEBUG: Directory structure ==="
-          ls -la
-          echo ""
-          echo "=== DEBUG: Looking for project folders ==="
-          find . -maxdepth 3 -type d -name "agents" -o -name "tests" -o -name "modules"
-          echo ""
-          
           if [ -d "agents" ] && [ -d "tests" ]; then
             CORRECT_PATH=$(pwd)
-            echo "✓ Found at root: $CORRECT_PATH"
           elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/tests" ]; then
             CORRECT_PATH=$(pwd)/OptiMoldIQ
-            echo "✓ Found in OptiMoldIQ/: $CORRECT_PATH"
           else
-            echo "❌ Error: Cannot find project structure"
             exit 1
           fi
-          
-          echo ""
-          echo "=== DEBUG: Checking structure at $CORRECT_PATH ==="
-          ls -la "$CORRECT_PATH"
-          echo ""
-          echo "=== DEBUG: Contents of tests/ ==="
-          ls -la "$CORRECT_PATH/tests/" 2>/dev/null || echo "tests/ not found"
-          
           echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
           echo "working_dir=$CORRECT_PATH" >> $GITHUB_OUTPUT
       
@@ -131,29 +97,24 @@ jobs:
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov pytest-mock pyyaml loguru
+          pip install pytest pytest-cov pytest-mock pyyaml loguru pandas openpyxl
           
-          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+          if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
-          
-          if [ -f requirements-test.txt ] && [ -s requirements-test.txt ]; then
-            pip install -r requirements-test.txt
-          fi
       
-      - name: 🧪 Run module tests (unit only)
+      - name: 🧪 Run module tests (no agent deps needed)
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           export PYTHONPATH=$(pwd):$PYTHONPATH
           pytest tests/modules_tests/ \
-            -v \
-            --tb=short \
+            -v --tb=short \
             -m "not integration and not requires_agent" \
             --cov=modules \
             --cov-report=xml \
             --cov-report=term-missing
       
-      - name: 📊 Upload coverage to Codecov
+      - name: 📊 Upload module coverage
         uses: codecov/codecov-action@v3
         with:
           file: ${{ steps.find-dir.outputs.working_dir }}/coverage.xml
@@ -161,13 +122,13 @@ jobs:
           name: module-coverage
 
   # ============================================================================
-  # JOB 3: Agent Tests (Integration tests - Slower)
+  # JOB 3: Agent Tests (Self-managing dependencies via fixtures)
   # ============================================================================
   agent-tests:
     name: 🤖 Agent Tests
     runs-on: ubuntu-latest
     needs: smoke-tests
-    timeout-minutes: 40
+    timeout-minutes: 50  # Longer because tests trigger deps themselves
     
     steps:
       - name: 📥 Checkout code
@@ -179,7 +140,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       
-      - name: 🔍 Find correct working directory
+      - name: 🔍 Find working directory
         id: find-dir
         run: |
           if [ -d "agents" ] && [ -d "tests" ]; then
@@ -187,10 +148,8 @@ jobs:
           elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/tests" ]; then
             CORRECT_PATH=$(pwd)/OptiMoldIQ
           else
-            echo "Error: Cannot find project structure"
             exit 1
           fi
-          
           echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
           echo "working_dir=$CORRECT_PATH" >> $GITHUB_OUTPUT
       
@@ -198,39 +157,54 @@ jobs:
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov pyyaml loguru
+          pip install pytest pytest-cov pyyaml loguru pandas openpyxl matplotlib seaborn
           
-          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+          if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
       
-      - name: 🧪 Run agent tests
+      # ℹ️ NO MANUAL SETUP - Tests trigger deps via dependency_provider fixture!
+      
+      - name: 🧪 Run agent tests (dependencies auto-triggered)
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           export PYTHONPATH=$(pwd):$PYTHONPATH
+          
+          # Run all agent tests
+          # - TestAllAgentsExecution: triggers deps via create_and_execute()
+          # - Specific agent tests: trigger deps via dependency_provider.trigger()
           pytest tests/agents_tests/ \
-            -v \
-            --tb=short \
-            -m "not heavy" \
+            -v --tb=short \
             --cov=agents \
             --cov-report=xml \
-            --cov-report=term-missing
+            --cov-report=term-missing \
+            --maxfail=5
       
-      - name: 📊 Upload coverage to Codecov
+      - name: 📊 Upload agent coverage
         uses: codecov/codecov-action@v3
         with:
           file: ${{ steps.find-dir.outputs.working_dir }}/coverage.xml
           flags: agents
           name: agent-coverage
+      
+      - name: 💾 Archive test artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: agent-test-artifacts
+          path: |
+            ${{ steps.find-dir.outputs.working_dir }}/tests/shared_db/
+            ${{ steps.find-dir.outputs.working_dir }}/logs/
+          retention-days: 7
 
   # ============================================================================
-  # JOB 4: Integration Tests (Module + Agent - Slowest)
+  # JOB 4: Integration Tests (Module + Agent)
   # ============================================================================
   integration-tests:
     name: 🔗 Integration Tests
     runs-on: ubuntu-latest
     needs: [module-tests, agent-tests]
-    timeout-minutes: 30
+    timeout-minutes: 20
     
     steps:
       - name: 📥 Checkout code
@@ -242,7 +216,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       
-      - name: 🔍 Find correct working directory
+      - name: 🔍 Find working directory
         id: find-dir
         run: |
           if [ -d "agents" ] && [ -d "tests" ]; then
@@ -250,10 +224,8 @@ jobs:
           elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/tests" ]; then
             CORRECT_PATH=$(pwd)/OptiMoldIQ
           else
-            echo "Error: Cannot find project structure"
             exit 1
           fi
-          
           echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
           echo "working_dir=$CORRECT_PATH" >> $GITHUB_OUTPUT
       
@@ -261,35 +233,28 @@ jobs:
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov pyyaml loguru
+          pip install pytest pytest-cov pyyaml loguru pandas openpyxl matplotlib seaborn
           
-          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+          if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
       
-      - name: 🧹 Cleanup shared_db
-        working-directory: ${{ steps.find-dir.outputs.working_dir }}
-        run: |
-          rm -rf tests/shared_db
-      
-      - name: ⚙️ Setup shared_db
-        working-directory: ${{ steps.find-dir.outputs.working_dir }}
-        run: |
-          export PYTHONPATH=$(pwd):$PYTHONPATH
-          pytest tests/set_up_shared_db/setup_shared_db.py -v
+      # ℹ️ Integration tests also use dependency_provider to trigger agents
       
       - name: 🧪 Run integration tests
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           export PYTHONPATH=$(pwd):$PYTHONPATH
+          
+          # Module tests that require agents
           pytest tests/modules_tests/ \
-            -v \
-            --tb=short \
+            -v --tb=short \
             -m "integration or requires_agent" \
             --cov=modules \
-            --cov-report=xml
+            --cov-report=xml \
+            --cov-report=term-missing
       
-      - name: 📊 Upload coverage
+      - name: 📊 Upload integration coverage
         uses: codecov/codecov-action@v3
         with:
           file: ${{ steps.find-dir.outputs.working_dir }}/coverage.xml
@@ -297,7 +262,7 @@ jobs:
           name: integration-coverage
 
   # ============================================================================
-  # JOB 5: Collect Results & Report
+  # JOB 5: Summary Report
   # ============================================================================
   report:
     name: 📊 Test Report
@@ -306,28 +271,32 @@ jobs:
     if: always()
     
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-      
-      - name: 📋 Summary
+      - name: 📋 Generate Summary
         run: |
-          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧪 Test Execution Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Smoke Tests | ${{ needs.smoke-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Module Tests | ${{ needs.module-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Agent Tests | ${{ needs.agent-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status | Duration |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 Smoke Tests | ${{ needs.smoke-tests.result }} | ~5 min |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧩 Module Tests | ${{ needs.module-tests.result }} | ~10 min |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🤖 Agent Tests | ${{ needs.agent-tests.result }} | ~50 min |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔗 Integration Tests | ${{ needs.integration-tests.result }} | ~20 min |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
+          # Overall status
           if [[ "${{ needs.smoke-tests.result }}" == "failure" ]] || \
              [[ "${{ needs.module-tests.result }}" == "failure" ]] || \
              [[ "${{ needs.agent-tests.result }}" == "failure" ]] || \
              [[ "${{ needs.integration-tests.result }}" == "failure" ]]; then
+            echo "### ❌ Tests Failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "❌ **Some tests failed!**" >> $GITHUB_STEP_SUMMARY
+            echo "**Troubleshooting:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Review failed job logs above" >> $GITHUB_STEP_SUMMARY
+            echo "2. Check test artifacts (if uploaded)" >> $GITHUB_STEP_SUMMARY
+            echo "3. Run locally: \`pytest tests/agents_tests/ -v\`" >> $GITHUB_STEP_SUMMARY
             exit 1
           else
+            echo "### ✅ All Tests Passed!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **All tests passed!**" >> $GITHUB_STEP_SUMMARY
+            echo "**Coverage Reports:** Available in Codecov" >> $GITHUB_STEP_SUMMARY
           fi
