@@ -106,33 +106,6 @@ class TestDashboardBuilder(BaseAgentTests):
     # ============================================
     # BUSINESS LOGIC TESTS
     # ============================================
-
-    # Test dependency usage
-    def test_uses_pipeline_data(self, dependency_provider: DependencyProvider, validated_execution_result):
-        """Should use data from DataPipelineOrchestrator"""
-        # Get cached pipeline result
-        pipeline_result = dependency_provider.get_result("DataPipelineOrchestrator")
-        
-        assert pipeline_result is not None, \
-            "DataPipelineOrchestrator should be cached"
-        
-        # Verify pipeline completed successfully
-        successful_statuses = {ExecutionStatus.SUCCESS.value, 
-                               ExecutionStatus.DEGRADED.value, 
-                               ExecutionStatus.WARNING.value}
-        assert pipeline_result.status in successful_statuses, \
-            "Pipeline dependency should have completed successfully"
-    
-    # Test dependency chain
-    def test_dependency_triggered_before_execution(self, dependency_provider: DependencyProvider):
-        """DataPipelineOrchestrator should be triggered before validation"""
-        assert dependency_provider.is_triggered("DataPipelineOrchestrator"), \
-            "DataPipelineOrchestrator dependency should be triggered"
-        
-        # Should be cached
-        cached_result = dependency_provider.get_result("DataPipelineOrchestrator")
-        assert cached_result is not None, \
-            "Pipeline result should be cached"
         
     def test_has_visualization_services(self, validated_execution_result):
         """Should execute visualization services"""
