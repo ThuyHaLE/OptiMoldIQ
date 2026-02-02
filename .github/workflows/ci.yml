@@ -128,12 +128,13 @@ jobs:
   # ============================================================================
   # JOB 3: Agent Tests (Self-managing dependencies via fixtures)
   # ============================================================================
+  
   agent-tests:
     name: 🤖 Agent Tests
     runs-on: ubuntu-latest
     needs: smoke-tests
     timeout-minutes: 50  # Longer because tests trigger deps themselves
-    
+
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -152,18 +153,19 @@ jobs:
           elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/tests" ]; then
             CORRECT_PATH=$(pwd)/OptiMoldIQ
           else
+            echo "Error: Cannot find project structure"
             exit 1
           fi
           echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
           echo "working_dir=$CORRECT_PATH" >> $GITHUB_OUTPUT
-      
+
       - name: 📦 Install dependencies
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov pyyaml loguru pandas openpyxl matplotlib seaborn
+          pip install pytest pytest-cov pyyaml loguru
           
-          if [ -f requirements.txt ]; then
+          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
             pip install -r requirements.txt
           fi
       
@@ -237,13 +239,22 @@ jobs:
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov pyyaml loguru pandas openpyxl matplotlib seaborn
+          pip install pytest pytest-cov pyyaml loguru
           
-          if [ -f requirements.txt ]; then
+          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
             pip install -r requirements.txt
           fi
       
-      # ℹ️ Integration tests also use dependency_provider to trigger agents
+      - name: 🧹 Cleanup shared_db
+        working-directory: ${{ steps.find-dir.outputs.working_dir }}
+        run: |
+          rm -rf tests/shared_db
+      
+      - name: ⚙️ Setup shared_db
+        working-directory: ${{ steps.find-dir.outputs.working_dir }}
+        run: |
+          export PYTHONPATH=$(pwd):$PYTHONPATH
+          pytest tests/set_up_shared_db/setup_shared_db.py -v
       
       - name: 🧪 Run integration tests
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
