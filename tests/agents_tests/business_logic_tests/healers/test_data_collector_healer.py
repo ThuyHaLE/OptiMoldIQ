@@ -84,16 +84,20 @@ def test_heal_backup_success(mocker, base_collector_result, recovery_actions):
 
     # Mock pathlib.Path.exists instead of the instance method
     mocker.patch('pathlib.Path.exists', return_value=True)
-    mocker.patch("agents.dataPipelineOrchestrator.healers.data_collector_healer.json.load",
-                 return_value={"db1": "path1"})
+    
+    # Mock json.load to return annotation data
+    mock_open = mocker.mock_open(read_data='{"db1": "path1"}')
+    mocker.patch('builtins.open', mock_open)
+    mocker.patch('json.load', return_value={"db1": "path1"})
 
     fake_report = DataProcessingReport(
         status=ProcessingStatus.SUCCESS,
         data={},
     )
 
+    # Mock load_existing_data from the correct module (utils)
     mocker.patch(
-        "agents.dataPipelineOrchestrator.healers.data_collector_healer.load_existing_data",
+        "agents.dataPipelineOrchestrator.utils.load_existing_data",
         return_value=fake_report
     )
 
@@ -107,16 +111,18 @@ def test_heal_backup_partial_failure(mocker, base_collector_result, recovery_act
 
     # Mock pathlib.Path.exists instead of the instance method
     mocker.patch('pathlib.Path.exists', return_value=True)
-    mocker.patch(
-        "agents.dataPipelineOrchestrator.healers.data_collector_healer.json.load",
-        return_value={"db1": "path1", "db2": "path2"}
-    )
+    
+    # Mock json.load to return annotation data
+    mock_open = mocker.mock_open(read_data='{"db1": "path1", "db2": "path2"}')
+    mocker.patch('builtins.open', mock_open)
+    mocker.patch('json.load', return_value={"db1": "path1", "db2": "path2"})
 
     success = DataProcessingReport(status=ProcessingStatus.SUCCESS, data={})
     fail = DataProcessingReport(status=ProcessingStatus.ERROR, data={}, error_message="boom")
 
+    # Mock load_existing_data from the correct module (utils)
     mocker.patch(
-        "agents.dataPipelineOrchestrator.healers.data_collector_healer.load_existing_data",
+        "agents.dataPipelineOrchestrator.utils.load_existing_data",
         side_effect=[success, fail]
     )
 
@@ -132,8 +138,10 @@ def test_heal_invalid_json_annotation(mocker, base_collector_result, recovery_ac
 
     # Mock pathlib.Path.exists instead of the instance method
     mocker.patch('pathlib.Path.exists', return_value=True)
+    
+    # Mock json.load to raise JSONDecodeError
     mocker.patch(
-        "agents.dataPipelineOrchestrator.healers.data_collector_healer.json.load",
+        "json.load",
         side_effect=json.JSONDecodeError("msg", "doc", 0)
     )
 
