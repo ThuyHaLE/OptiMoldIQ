@@ -16,6 +16,7 @@ scikit-learn
 # Testing
 pytest
 pytest-cov
+pytest-mock
 
 # Logging
 loguru
