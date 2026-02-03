@@ -80,9 +80,7 @@ def test_heal_no_annotation_file(mocker, base_collector_result, recovery_actions
 
 
 def test_heal_backup_success(mocker, base_collector_result, recovery_actions):
-    healer = DataCollectorHealer(base_collector_result, recovery_actions)
-
-    # Mock pathlib.Path.exists instead of the instance method
+    # Mock pathlib.Path.exists to return True for annotation file
     mocker.patch('pathlib.Path.exists', return_value=True)
     
     # Mock json.load to return annotation data with valid file extension
@@ -95,21 +93,22 @@ def test_heal_backup_success(mocker, base_collector_result, recovery_actions):
         data={},
     )
 
-    # Mock load_existing_data from the correct module (utils)
+    # Mock load_existing_data BEFORE creating the healer
+    # Mock it in the healer's module where it's imported
     mocker.patch(
-        "agents.dataPipelineOrchestrator.utils.load_existing_data",
+        "agents.dataPipelineOrchestrator.healers.data_collector_healer.load_existing_data",
         return_value=fake_report
     )
 
+    # Now create the healer and call heal()
+    healer = DataCollectorHealer(base_collector_result, recovery_actions)
     decisions, final_result = healer.heal()
 
     assert final_result.status == ProcessingStatus.SUCCESS
 
 
 def test_heal_backup_partial_failure(mocker, base_collector_result, recovery_actions):
-    healer = DataCollectorHealer(base_collector_result, recovery_actions)
-
-    # Mock pathlib.Path.exists instead of the instance method
+    # Mock pathlib.Path.exists to return True for annotation file
     mocker.patch('pathlib.Path.exists', return_value=True)
     
     # Mock json.load to return annotation data with valid file extensions
@@ -120,12 +119,14 @@ def test_heal_backup_partial_failure(mocker, base_collector_result, recovery_act
     success = DataProcessingReport(status=ProcessingStatus.SUCCESS, data={})
     fail = DataProcessingReport(status=ProcessingStatus.ERROR, data={}, error_message="boom")
 
-    # Mock load_existing_data from the correct module (utils)
+    # Mock load_existing_data in the healer's module where it's imported
     mocker.patch(
-        "agents.dataPipelineOrchestrator.utils.load_existing_data",
+        "agents.dataPipelineOrchestrator.healers.data_collector_healer.load_existing_data",
         side_effect=[success, fail]
     )
 
+    # Now create the healer and call heal()
+    healer = DataCollectorHealer(base_collector_result, recovery_actions)
     decisions, final_result = healer.heal()
 
     assert final_result == base_collector_result
