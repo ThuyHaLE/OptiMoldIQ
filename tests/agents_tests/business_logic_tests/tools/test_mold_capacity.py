@@ -1,5 +1,9 @@
+# tests/agents_tests/business_logic_tests/tools/test_mold_capacity.py
+
 import pandas as pd
 import pytest
+from loguru import logger
+import sys
 
 from agents.autoPlanner.tools.mold_capacity import (
     calculate_mold_lead_times,
@@ -28,6 +32,22 @@ def mold_capacity_df():
         "moldSettingCycle": [30, 20],
         "balancedMoldHourCapacity": [10, 5]
     })
+
+
+@pytest.fixture
+def loguru_caplog():
+    """Fixture to capture loguru logs in tests."""
+    class LoguruCapture:
+        def __init__(self):
+            self.records = []
+        
+        def write(self, message):
+            self.records.append(message)
+    
+    capture = LoguruCapture()
+    handler_id = logger.add(capture.write, format="{message}")
+    yield capture
+    logger.remove(handler_id)
 
 
 # --------------------------------------------------
@@ -79,7 +99,7 @@ def test_calculate_mold_lead_times_empty_mold_df_raises(pending_df):
 
 def test_calculate_mold_lead_times_warns_on_non_positive_quantity(
     mold_capacity_df,
-    caplog
+    loguru_caplog
 ):
     pending_df = pd.DataFrame({
         "itemCode": ["I1"],
@@ -92,8 +112,8 @@ def test_calculate_mold_lead_times_warns_on_non_positive_quantity(
     )
 
     assert any(
-        "non-positive quantities" in record.message
-        for record in caplog.records
+        "non-positive quantities" in record
+        for record in loguru_caplog.records
     )
 
 
@@ -116,7 +136,7 @@ def test_split_pending_by_mold_availability_happy_path(
 
 def test_split_pending_with_missing_items_warns(
     mold_capacity_df,
-    caplog
+    loguru_caplog
 ):
     pending_df = pd.DataFrame({
         "itemCode": ["I1", "I3"],
@@ -132,8 +152,8 @@ def test_split_pending_with_missing_items_warns(
     assert set(with_mold["itemCode"]) == {"I1"}
 
     assert any(
-        "No suitable molds found for items" in record.message
-        for record in caplog.records
+        "No suitable molds found for items" in record
+        for record in loguru_caplog.records
     )
 
 

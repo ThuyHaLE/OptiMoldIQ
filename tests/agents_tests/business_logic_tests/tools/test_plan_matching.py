@@ -1,13 +1,30 @@
-# tests/agents_tests/tools/test_plan_matching.py
+# tests/agents_tests/business_logic_tests/tools/test_plan_matching.py
 
 import pandas as pd
 import pytest
+from loguru import logger
 
 from agents.autoPlanner.tools.plan_matching import mold_item_plan_a_matching
 
 # --------------------------------------------------
 # Fixtures
 # --------------------------------------------------
+
+@pytest.fixture
+def loguru_caplog():
+    """Fixture to capture loguru logs in tests."""
+    class LoguruCapture:
+        def __init__(self):
+            self.records = []
+        
+        def write(self, message):
+            self.records.append(message)
+    
+    capture = LoguruCapture()
+    handler_id = logger.add(capture.write, format="{message}")
+    yield capture
+    logger.remove(handler_id)
+
 
 @pytest.fixture
 def pending_df():
@@ -23,6 +40,8 @@ def mold_capacity_df():
         "itemCode": ["I1", "I2"],
         "moldNo": ["M1", "M2"],
         "moldName": ["Mold 1", "Mold 2"],
+        "moldCavityStandard": [2, 4],  # Added
+        "moldSettingCycle": [30, 20],  # Added
         "balancedMoldHourCapacity": [10, 5],
         "isPriority": [True, True]
     })
@@ -51,6 +70,11 @@ def test_empty_mold_df_raises(pending_df):
 def test_no_priority_mold_raises(pending_df):
     mold_df = pd.DataFrame({
         "itemCode": ["I1"],
+        "moldNo": ["M1"],
+        "moldName": ["Mold 1"],
+        "moldCavityStandard": [2],  # Added
+        "moldSettingCycle": [30],  # Added
+        "balancedMoldHourCapacity": [10],
         "isPriority": [False]
     })
 
@@ -65,7 +89,7 @@ def test_no_priority_mold_raises(pending_df):
 # Warning branches
 # --------------------------------------------------
 
-def test_warns_on_non_positive_quantity(mold_capacity_df, caplog):
+def test_warns_on_non_positive_quantity(mold_capacity_df, loguru_caplog):
     pending_df = pd.DataFrame({
         "itemCode": ["I1"],
         "itemQuantity": [0]
@@ -77,18 +101,21 @@ def test_warns_on_non_positive_quantity(mold_capacity_df, caplog):
     )
 
     assert any(
-        "non-positive quantities" in record.message
-        for record in caplog.records
+        "non-positive quantities" in record
+        for record in loguru_caplog.records
     )
 
 
 def test_priority_mold_exists_but_no_matching_items_returns_empty(
     pending_df,
-    caplog
+    loguru_caplog
 ):
     mold_df = pd.DataFrame({
         "itemCode": ["I3"],  # không match item nào
         "moldNo": ["M3"],
+        "moldName": ["Mold 3"],
+        "moldCavityStandard": [2],  # Added
+        "moldSettingCycle": [30],  # Added
         "balancedMoldHourCapacity": [10],
         "isPriority": [True]
     })
@@ -102,8 +129,8 @@ def test_priority_mold_exists_but_no_matching_items_returns_empty(
     assert set(pending_without["itemCode"]) == {"I1", "I2"}
 
     assert any(
-        "No pending items can be matched" in record.message
-        for record in caplog.records
+        "No pending items can be matched" in record
+        for record in loguru_caplog.records
     )
 
 
