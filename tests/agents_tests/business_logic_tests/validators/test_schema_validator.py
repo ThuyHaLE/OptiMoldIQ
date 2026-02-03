@@ -106,17 +106,23 @@ def test_missing_top_level_keys(tmp_path):
 
 def test_extra_top_level_keys_warning(tmp_path):
     schema = {
-        "dynamicDB": {},
-        "staticDB": {},
+        "dynamicDB": {
+            "table1": valid_dynamic_table()
+        },
+        "staticDB": {
+            "table2": valid_static_table()
+        },
         "extra": {}
     }
     path = write_json(tmp_path, schema)
-
+    
     validator = SchemaValidator(str(path))
     result = validator.validate()
-
-    assert result.status == ProcessingStatus.SUCCESS
+    
+    # Fix assertions:
+    assert result.status == ProcessingStatus.WARNING
     assert result.metadata["warnings_count"] == 1
+    assert "extra" in result.metadata["warnings"][0].lower()
 
 
 # =========================
