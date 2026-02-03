@@ -85,10 +85,10 @@ def test_heal_backup_success(mocker, base_collector_result, recovery_actions):
     # Mock pathlib.Path.exists instead of the instance method
     mocker.patch('pathlib.Path.exists', return_value=True)
     
-    # Mock json.load to return annotation data
-    mock_open = mocker.mock_open(read_data='{"db1": "path1"}')
+    # Mock json.load to return annotation data with valid file extension
+    mock_open = mocker.mock_open(read_data='{"db1": "backup/data.xlsx"}')
     mocker.patch('builtins.open', mock_open)
-    mocker.patch('json.load', return_value={"db1": "path1"})
+    mocker.patch('json.load', return_value={"db1": "backup/data.xlsx"})
 
     fake_report = DataProcessingReport(
         status=ProcessingStatus.SUCCESS,
@@ -112,10 +112,10 @@ def test_heal_backup_partial_failure(mocker, base_collector_result, recovery_act
     # Mock pathlib.Path.exists instead of the instance method
     mocker.patch('pathlib.Path.exists', return_value=True)
     
-    # Mock json.load to return annotation data
-    mock_open = mocker.mock_open(read_data='{"db1": "path1", "db2": "path2"}')
+    # Mock json.load to return annotation data with valid file extensions
+    mock_open = mocker.mock_open(read_data='{"db1": "backup/data1.xlsx", "db2": "backup/data2.parquet"}')
     mocker.patch('builtins.open', mock_open)
-    mocker.patch('json.load', return_value={"db1": "path1", "db2": "path2"})
+    mocker.patch('json.load', return_value={"db1": "backup/data1.xlsx", "db2": "backup/data2.parquet"})
 
     success = DataProcessingReport(status=ProcessingStatus.SUCCESS, data={})
     fail = DataProcessingReport(status=ProcessingStatus.ERROR, data={}, error_message="boom")
