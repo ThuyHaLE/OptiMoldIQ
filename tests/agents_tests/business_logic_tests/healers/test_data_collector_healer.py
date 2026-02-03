@@ -1,9 +1,10 @@
+# tests/agents_tests/business_logic_tests/healers/test_data_collector_healer.py
+
 import json
 import pytest
 
-from agents.dataPipelineOrchestrator.healers.data_collector_healer import (
-    DataCollectorHealer
-)
+from agents.dataPipelineOrchestrator.configs.output_formats import DataProcessingReport
+from agents.dataPipelineOrchestrator.healers.data_collector_healer import DataCollectorHealer
 from agents.dataPipelineOrchestrator.configs.healing_configs import (
     ProcessingStatus,
     ProcessingScale,
@@ -12,10 +13,6 @@ from agents.dataPipelineOrchestrator.configs.healing_configs import (
     Priority,
     ErrorType,
 )
-from agents.dataPipelineOrchestrator.configs.output_formats import (
-    DataProcessingReport
-)
-
 
 # =========================
 # Fixtures & helpers

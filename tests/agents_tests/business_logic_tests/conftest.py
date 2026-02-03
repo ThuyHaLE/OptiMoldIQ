@@ -8,6 +8,11 @@ from datetime import datetime
 from unittest.mock import MagicMock
 from configs.shared.shared_source_config import SharedSourceConfig
 
+@pytest.fixture
+def mock_shared_source_config():
+    mock = MagicMock(spec=SharedSourceConfig)
+    return mock
+
 # ============================================
 # DATA FIXTURES
 # ============================================
@@ -56,29 +61,3 @@ def temp_output_dir(tmp_path):
     output_dir = tmp_path / "outputs"
     output_dir.mkdir()
     return output_dir
-
-# ============================================
-# VALIDATION FIXTURES
-# ============================================
-
-@pytest.fixture
-def sample_validation_error():
-    """Sample validation error for testing healers"""
-    from agents.dataPipelineOrchestrator.configs.output_formats import (
-        ProcessingStatus,
-        DataProcessingReport,
-        ErrorType,
-    )
-    
-    return DataProcessingReport(
-        status=ProcessingStatus.ERROR,
-        data=None,
-        error_type=ErrorType.SCHEMA_MISMATCH,
-        error_message="Schema validation failed",
-        metadata={"expected": ["id", "name"], "missing": ["name"]}
-    )
-
-@pytest.fixture
-def mock_shared_source_config():
-    mock = MagicMock(spec=SharedSourceConfig)
-    return mock
