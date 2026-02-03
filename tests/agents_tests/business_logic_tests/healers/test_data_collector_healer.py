@@ -3,8 +3,9 @@
 import json
 import pytest
 
-from agents.dataPipelineOrchestrator.configs.output_formats import DataProcessingReport
-from agents.dataPipelineOrchestrator.healers.data_collector_healer import DataCollectorHealer
+from agents.dataPipelineOrchestrator.healers.data_collector_healer import (
+    DataCollectorHealer
+)
 from agents.dataPipelineOrchestrator.configs.healing_configs import (
     ProcessingStatus,
     ProcessingScale,
@@ -13,6 +14,10 @@ from agents.dataPipelineOrchestrator.configs.healing_configs import (
     Priority,
     ErrorType,
 )
+from agents.dataPipelineOrchestrator.configs.output_formats import (
+    DataProcessingReport
+)
+
 
 # =========================
 # Fixtures & helpers
@@ -62,7 +67,8 @@ def test_heal_no_decision_to_heal(success_report):
 def test_heal_no_annotation_file(mocker, base_collector_result, recovery_actions):
     healer = DataCollectorHealer(base_collector_result, recovery_actions)
 
-    mocker.patch.object(healer.annotation_path, "exists", return_value=False)
+    # Mock pathlib.Path.exists instead of the instance method
+    mocker.patch('pathlib.Path.exists', return_value=False)
 
     decisions, final_result = healer.heal()
 
@@ -76,7 +82,8 @@ def test_heal_no_annotation_file(mocker, base_collector_result, recovery_actions
 def test_heal_backup_success(mocker, base_collector_result, recovery_actions):
     healer = DataCollectorHealer(base_collector_result, recovery_actions)
 
-    mocker.patch.object(healer.annotation_path, "exists", return_value=True)
+    # Mock pathlib.Path.exists instead of the instance method
+    mocker.patch('pathlib.Path.exists', return_value=True)
     mocker.patch("agents.dataPipelineOrchestrator.healers.data_collector_healer.json.load",
                  return_value={"db1": "path1"})
 
@@ -98,7 +105,8 @@ def test_heal_backup_success(mocker, base_collector_result, recovery_actions):
 def test_heal_backup_partial_failure(mocker, base_collector_result, recovery_actions):
     healer = DataCollectorHealer(base_collector_result, recovery_actions)
 
-    mocker.patch.object(healer.annotation_path, "exists", return_value=True)
+    # Mock pathlib.Path.exists instead of the instance method
+    mocker.patch('pathlib.Path.exists', return_value=True)
     mocker.patch(
         "agents.dataPipelineOrchestrator.healers.data_collector_healer.json.load",
         return_value={"db1": "path1", "db2": "path2"}
@@ -122,7 +130,8 @@ def test_heal_backup_partial_failure(mocker, base_collector_result, recovery_act
 def test_heal_invalid_json_annotation(mocker, base_collector_result, recovery_actions):
     healer = DataCollectorHealer(base_collector_result, recovery_actions)
 
-    mocker.patch.object(healer.annotation_path, "exists", return_value=True)
+    # Mock pathlib.Path.exists instead of the instance method
+    mocker.patch('pathlib.Path.exists', return_value=True)
     mocker.patch(
         "agents.dataPipelineOrchestrator.healers.data_collector_healer.json.load",
         side_effect=json.JSONDecodeError("msg", "doc", 0)

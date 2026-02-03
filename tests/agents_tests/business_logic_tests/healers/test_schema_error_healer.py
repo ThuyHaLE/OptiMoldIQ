@@ -59,7 +59,8 @@ def test_heal_no_decision_to_heal(success_report):
 def test_heal_no_backup_schema_file(mocker, base_validation_result, recovery_actions):
     healer = SchemaErrorHealer(base_validation_result, recovery_actions)
 
-    mocker.patch.object(healer.schema_path, "exists", return_value=False)
+    # Mock pathlib.Path.exists instead of the instance method
+    mocker.patch('pathlib.Path.exists', return_value=False)
 
     decisions, final = healer.heal()
 
