@@ -5,6 +5,8 @@ import pytest
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
+from unittest.mock import MagicMock
+from configs.shared.shared_source_config import SharedSourceConfig
 
 # ============================================
 # DATA FIXTURES
@@ -75,3 +77,8 @@ def sample_validation_error():
         error_message="Schema validation failed",
         metadata={"expected": ["id", "name"], "missing": ["name"]}
     )
+
+@pytest.fixture
+def mock_shared_source_config():
+    mock = MagicMock(spec=SharedSourceConfig)
+    return mock
