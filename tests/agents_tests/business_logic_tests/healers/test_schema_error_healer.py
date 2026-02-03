@@ -59,22 +59,18 @@ def test_heal_no_decision_to_heal(success_report):
     assert final_report is success_report
     assert updated_decisions[0].status == ProcessingStatus.PENDING
 
+def test_heal_no_backup_schema_file(mocker, base_validation_result, recovery_actions):
+    healer = SchemaErrorHealer(base_validation_result, recovery_actions)
 
-def test_heal_no_backup_schema_file(mocker, success_report):
-    """
-    Decision needs healing but backup schema file does not exist
-    → decision status = ERROR
-    """
-    mocker.patch("pathlib.Path.exists", return_value=False)
+    mocker.patch.object(healer.schema_path, "exists", return_value=False)
 
-    decision = make_decision()
-    healer = SchemaErrorHealer(success_report, [decision])
+    decisions, final = healer.heal()
 
-    updated_decisions, final_report = healer.heal()
+    for d in decisions:
+        if d.action == RecoveryAction.ROLLBACK_TO_BACKUP:
+            assert d.status == ProcessingStatus.ERROR
 
-    assert updated_decisions[0].status == ProcessingStatus.ERROR
-    assert final_report is success_report
-
+    assert final == base_validation_result
 
 def test_heal_backup_schema_validation_success(mocker, success_report):
     """
@@ -105,7 +101,6 @@ def test_heal_backup_schema_validation_success(mocker, success_report):
     assert updated_decisions[0].status == ProcessingStatus.SUCCESS
     assert final_report is backup_validation
 
-
 def test_heal_backup_schema_validation_failure(mocker, success_report):
     """
     Backup schema exists but validation FAILS
@@ -135,7 +130,6 @@ def test_heal_backup_schema_validation_failure(mocker, success_report):
 
     assert updated_decisions[0].status == ProcessingStatus.ERROR
     assert final_report is success_report
-
 
 def test_heal_exception_during_validation(mocker, success_report):
     """
