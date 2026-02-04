@@ -311,7 +311,7 @@ class SchemaValidator(ConfigReportMixin):
                 return DataProcessingReport(
                     status=ProcessingStatus.ERROR,
                     data=None,
-                    error_type=ErrorType.INVALID_JSON,
+                    error_type=ErrorType.MISSING_FIELDS,
                     error_message=error_msg,
                     metadata={"step": "load_schema", "path": str(self.schema_path)}
                 )
