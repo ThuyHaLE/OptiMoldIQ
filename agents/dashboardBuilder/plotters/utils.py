@@ -8,6 +8,7 @@ from typing import Optional, Dict, Tuple, Any, Callable, List
 import json
 from matplotlib.colors import to_rgba, to_hex
 import multiprocessing as mp
+import copy
 import psutil
 import time
 import traceback
@@ -19,16 +20,17 @@ def load_visualization_config(default_config,
     """Load visualization configuration with fallback to defaults."""
 
     def deep_update(base: dict, updates: dict) -> Dict:
+        result = copy.deepcopy(base)
         for k, v in updates.items():
-            if v is None or not v in updates.values():
+            if v is None:
                 continue
-            if isinstance(v, dict) and isinstance(base.get(k), Dict):
-                base[k] = deep_update(base.get(k, {}), v)
+            if isinstance(v, dict) and isinstance(result.get(k), dict):
+                result[k] = deep_update(result.get(k, {}), v)
             else:
-                base[k] = v
-        return base
+                result[k] = copy.deepcopy(v)
+        return result
 
-    config = default_config.copy()
+    config = copy.deepcopy(default_config)
 
     if visualization_config_path:
         try:
