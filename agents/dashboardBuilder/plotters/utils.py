@@ -40,53 +40,6 @@ def load_visualization_config(default_config,
 
     return config
 
-def show_all_png_images(folder_path, 
-                        cols=1, 
-                        scale=(16, 8)):
-    """Display all .png images in a folder in a grid layout."""
-    png_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
-
-    if not png_files:
-        logger.warning("No .png files found in the folder.")
-        return
-
-    num_images = len(png_files)
-    rows = (num_images + cols - 1) // cols
-
-    plt.figure(figsize=(cols * scale[0], rows * scale[1]))
-
-    for i, filename in enumerate(png_files):
-        img_path = os.path.join(folder_path, filename)
-        img = Image.open(img_path)
-
-        plt.subplot(rows, cols, i + 1)
-        plt.imshow(img)
-        plt.title(filename, fontsize=10)
-        plt.axis('off')
-
-    plt.tight_layout()
-    plt.show()
-    plt.close()
-
-
-def save_plot(fig, 
-              file_path, 
-              dpi=300):
-    """Helper function to save a matplotlib figure."""
-    try:
-        fig.savefig(
-            file_path,
-            dpi=dpi,
-            bbox_inches='tight',
-            facecolor='white',
-            edgecolor='none'
-        )
-        print(f"Plot saved successfully to: {file_path}")
-    except Exception as e:
-        print(f"Error saving plot: {e}")
-    finally:
-        plt.close(fig)
-
 def generate_color_palette(n_colors, 
                            palette_name="muted"):
     """Generate a color palette with the specified number of colors."""
@@ -200,6 +153,52 @@ def add_value_labels(ax,
                      labels=labels,
                      padding=3,
                      fontsize=8)
+
+def show_all_png_images(folder_path, 
+                        cols=1, 
+                        scale=(16, 8)):
+    """Display all .png images in a folder in a grid layout."""
+    png_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
+
+    if not png_files:
+        logger.warning("No .png files found in the folder.")
+        return
+
+    num_images = len(png_files)
+    rows = (num_images + cols - 1) // cols
+
+    plt.figure(figsize=(cols * scale[0], rows * scale[1]))
+
+    for i, filename in enumerate(png_files):
+        img_path = os.path.join(folder_path, filename)
+        img = Image.open(img_path)
+
+        plt.subplot(rows, cols, i + 1)
+        plt.imshow(img)
+        plt.title(filename, fontsize=10)
+        plt.axis('off')
+
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+
+def save_plot(fig, 
+              file_path, 
+              dpi=300):
+    """Helper function to save a matplotlib figure."""
+    try:
+        fig.savefig(
+            file_path,
+            dpi=dpi,
+            bbox_inches='tight',
+            facecolor='white',
+            edgecolor='none'
+        )
+        print(f"Plot saved successfully to: {file_path}")
+    except Exception as e:
+        print(f"Error saving plot: {e}")
+    finally:
+        plt.close(fig)
 
 def setup_parallel_config(
         enable_parallel: bool = True,

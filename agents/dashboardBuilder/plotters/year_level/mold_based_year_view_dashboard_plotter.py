@@ -1,6 +1,5 @@
-from agents.dashboardBuilder.plotters.utils import lighten_color, format_value_short
+from agents.dashboardBuilder.plotters.utils import lighten_color, format_value_short, load_visualization_config
 from agents.dashboardBuilder.plotters.year_level.utils import process_mold_based_data
-from agents.dashboardBuilder.plotters.utils import load_visualization_config
 
 import seaborn as sns
 import matplotlib.pyplot as plt
