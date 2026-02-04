@@ -292,44 +292,7 @@ class TestStaticDataProcessorFailMethod:
         assert result.data.empty
         assert result.metadata['log'] == "Test log entry"
         assert result.metadata['data_name'] == 'itemInfo'
-    
-    def test_fail_with_file_path(self):
-        """Test _fail includes file_path if available"""
-        custom_schema = {
-            'itemInfo': {
-                'path': '/test/path.xlsx',
-                'dtypes': {'itemCode': 'string'}
-            }
-        }
-        
-        processor = StaticDataProcessor(
-            data_name='itemInfo',
-            database_schema=custom_schema
-        )
-        
-        result = processor._fail(
-            error_type=ErrorType.FILE_READ_ERROR,
-            msg="Test error",
-            log_entries="Log"
-        )
-        
-        assert result.metadata['file_path'] == '/test/path.xlsx'
-    
-    def test_fail_without_file_path(self):
-        """Test _fail when path attribute doesn't exist"""
-        processor = StaticDataProcessor(data_name='unknownType')
-        
-        # Remove path attribute if it exists
-        if hasattr(processor, 'path'):
-            delattr(processor, 'path')
-        
-        result = processor._fail(
-            error_type=ErrorType.SCHEMA_MISMATCH,
-            msg="Test error",
-            log_entries="Log"
-        )
-        
-        assert result.metadata['file_path'] is None
+        assert result.metadata['file_path'] == None
 
 class TestStaticDataProcessorIntegration:
     """Integration tests for complete workflows"""

@@ -312,6 +312,7 @@ class TestDynamicDataProcessorFailMethod:
         assert result.data.empty
         assert result.metadata['log'] == "Test log entry"
         assert result.metadata['data_name'] == 'productRecords'
+        assert result.metadata['file_path'] == None
 
 class TestDynamicDataProcessorConstants:
     """Test class constants and configuration"""
