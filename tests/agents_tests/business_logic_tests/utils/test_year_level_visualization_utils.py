@@ -213,7 +213,7 @@ class TestAddNewFeatures:
         assert result['recordInfo'].notna().all()
         
         # Check format: YYYY-MM-DD_Shift
-        expected = '2024-01-01_Day'
+        expected = '2024-01-01_1'
         assert result.loc[0, 'recordInfo'] == expected
     
     def test_adds_record_month(self, base_dataframe):

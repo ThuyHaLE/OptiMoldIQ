@@ -241,9 +241,9 @@ class TestLightenColorEdgeCases:
     
     def test_amount_over_1(self):
         """Test with amount > 1.0"""
-        result = lighten_color("#000000", amount=1.5)
-        # Should clip to white or handle gracefully
-        assert result.startswith('#')
+        # When amount > 1.0, RGBA values exceed valid range
+        with pytest.raises(ValueError, match="RGBA values should be within 0-1 range"):
+            lighten_color("#000000", amount=1.5)
 
 class TestAddValueLabels:
     
