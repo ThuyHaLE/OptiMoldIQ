@@ -15,7 +15,6 @@ from agents.dataPipelineOrchestrator.configs.output_formats import (
     ErrorType
 )
 
-
 class TestDynamicDataProcessorInit:
     """Test cases for DynamicDataProcessor initialization"""
     
@@ -24,7 +23,7 @@ class TestDynamicDataProcessorInit:
         processor = DynamicDataProcessor(data_name='productRecords')
         
         assert processor.data_name == 'productRecords'
-        assert processor.folder_path == 'mock_database/dynamicDatabase/monthlyReports_history'
+        assert processor.folder_path == 'database/dynamicDatabase/monthlyReports_history'
         assert processor.name_start == 'monthlyReports_'
         assert processor.file_extension == '.xlsb'
         assert processor.sheet_name == 'Sheet1'
@@ -36,7 +35,7 @@ class TestDynamicDataProcessorInit:
         processor = DynamicDataProcessor(data_name='purchaseOrders')
         
         assert processor.data_name == 'purchaseOrders'
-        assert processor.folder_path == 'mock_database/dynamicDatabase/purchaseOrders_history'
+        assert processor.folder_path == 'database/dynamicDatabase/purchaseOrders_history'
         assert processor.name_start == 'purchaseOrder_'
         assert processor.file_extension == '.xlsx'
         assert 'poReceivedDate' in processor.required_fields

@@ -24,7 +24,7 @@ class TestStaticDataProcessorInit:
         processor = StaticDataProcessor(data_name='itemCompositionSummary')
         
         assert processor.data_name == 'itemCompositionSummary'
-        assert processor.path == 'mock_database/staticDatabase/itemCompositionSummary.xlsx'
+        assert processor.path == 'database/staticDatabase/itemCompositionSummary.xlsx'
         assert 'itemCode' in processor.dtypes
         assert processor.dtypes['itemCode'] == 'string'
         assert processor.dtypes['plasticResinQuantity'] == 'Float64'
@@ -34,7 +34,7 @@ class TestStaticDataProcessorInit:
         processor = StaticDataProcessor(data_name='itemInfo')
         
         assert processor.data_name == 'itemInfo'
-        assert processor.path == 'mock_database/staticDatabase/itemInfo.xlsx'
+        assert processor.path == 'database/staticDatabase/itemInfo.xlsx'
         assert len(processor.dtypes) == 2
         assert processor.dtypes['itemCode'] == 'string'
         assert processor.dtypes['itemName'] == 'string'
@@ -44,7 +44,7 @@ class TestStaticDataProcessorInit:
         processor = StaticDataProcessor(data_name='machineInfo')
         
         assert processor.data_name == 'machineInfo'
-        assert processor.path == 'mock_database/staticDatabase/machineInfo.xlsx'
+        assert processor.path == 'database/staticDatabase/machineInfo.xlsx'
         assert processor.dtypes['machineTonnage'] == 'Int64'
         assert processor.dtypes['layoutStartDate'] == 'datetime64[ns]'
     
@@ -53,7 +53,7 @@ class TestStaticDataProcessorInit:
         processor = StaticDataProcessor(data_name='moldInfo')
         
         assert processor.data_name == 'moldInfo'
-        assert processor.path == 'mock_database/staticDatabase/moldInfo.xlsx'
+        assert processor.path == 'database/staticDatabase/moldInfo.xlsx'
         assert processor.dtypes['moldCavityStandard'] == 'Int64'
         assert processor.dtypes['itemsWeight'] == 'Float64'
     
@@ -62,7 +62,7 @@ class TestStaticDataProcessorInit:
         processor = StaticDataProcessor(data_name='moldSpecificationSummary')
         
         assert processor.data_name == 'moldSpecificationSummary'
-        assert processor.path == 'mock_database/staticDatabase/moldSpecificationSummary.xlsx'
+        assert processor.path == 'database/staticDatabase/moldSpecificationSummary.xlsx'
         assert processor.dtypes['moldNum'] == 'Int64'
     
     def test_init_with_default_schema_resin_info(self):
@@ -70,7 +70,7 @@ class TestStaticDataProcessorInit:
         processor = StaticDataProcessor(data_name='resinInfo')
         
         assert processor.data_name == 'resinInfo'
-        assert processor.path == 'mock_database/staticDatabase/resineInfo.xlsx'
+        assert processor.path == 'database/staticDatabase/resineInfo.xlsx'
         assert processor.dtypes['resinType'] == 'string'
     
     def test_init_with_custom_schema(self):
@@ -124,7 +124,7 @@ class TestStaticDataProcessorInit:
         
         assert processor.database_schema == {}
         # Should still use default schema
-        assert processor.path == 'mock_database/staticDatabase/itemInfo.xlsx'
+        assert processor.path == 'database/staticDatabase/itemInfo.xlsx'
     
     def test_init_with_unknown_data_name(self):
         """Test initialization with unknown data_name"""
