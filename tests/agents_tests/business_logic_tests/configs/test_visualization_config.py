@@ -7,6 +7,35 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from agents.dashboardBuilder.plotters.utils import load_visualization_config
 
+class LoguruCapture:
+    """Helper class to capture loguru logs"""
+    def __init__(self):
+        self.messages = []
+        self.handler_id = None
+    
+    def __enter__(self):
+        from loguru import logger
+        
+        def sink(message):
+            self.messages.append(message)
+        
+        self.handler_id = logger.add(sink, format="{message}")
+        return self
+    
+    def __exit__(self, *args):
+        from loguru import logger
+        if self.handler_id is not None:
+            logger.remove(self.handler_id)
+    
+    @property
+    def text(self):
+        return '\n'.join(str(msg) for msg in self.messages)
+
+@pytest.fixture
+def loguru_caplog():
+    """Fixture to capture loguru logs"""
+    return LoguruCapture()
+
 @pytest.fixture
 def default_config():
     """Sample default config"""
@@ -107,34 +136,28 @@ class TestLoadVisualizationConfig:
         
         result = load_visualization_config(default_config, temp_config_file)
         
-        assert result["figsize"] == (15, 10)
+        assert result["figsize"] == [15, 10]
         assert result["text_colors"] == {"Type A": "#FF0000"}
     
-    def test_handles_file_not_found(self, default_config, caplog):
-        """Should log warning and return default when file not found"""
-        import logging
-        # Ensure loguru logs are captured
-        caplog.set_level(logging.WARNING)
-        
-        result = load_visualization_config(
-            default_config, 
-            "/nonexistent/path/config.json"
-        )
-        
+    def test_handles_file_not_found(self, default_config, loguru_caplog):
+        with loguru_caplog:
+            result = load_visualization_config(
+                default_config, 
+                "/nonexistent/path/config.json"
+            )
         assert result == default_config
-        # More flexible assertion
-        assert any("Could not load config" in record.message 
-                for record in caplog.records)
+        assert "Could not load config" in loguru_caplog.text
     
-    def test_handles_invalid_json(self, default_config, temp_config_file, caplog):
+    def test_handles_invalid_json(self, default_config, temp_config_file, loguru_caplog):
         """Should log warning and return default when JSON is invalid"""
         with open(temp_config_file, 'w') as f:
             f.write("{ invalid json }")
         
-        result = load_visualization_config(default_config, temp_config_file)
-        
-        assert result == default_config
-        assert "Could not load config" in caplog.text
+        with loguru_caplog:
+            result = load_visualization_config(default_config, temp_config_file)
+            
+            assert result == default_config
+            assert "Could not load config" in loguru_caplog.text
     
     def test_handles_empty_json_file(self, default_config, temp_config_file):
         """Should handle empty JSON object"""
