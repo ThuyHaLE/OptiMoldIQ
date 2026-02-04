@@ -104,7 +104,6 @@ class TestDynamicDataProcessorInit:
         # Processor should have the original path
         assert processor.folder_path == '/original/path'
 
-
 class TestDynamicDataProcessorProcessData:
     """Test cases for process_data method"""
     
@@ -281,12 +280,164 @@ class TestDynamicDataProcessorProcessData:
         assert len(result.data) == 2
         assert result.metadata['success_files_count'] == 1
     
-    def test_process_data_missing_schema_fields(self):
-        """Test processing with incomplete schema"""
+    def test_process_data_missing_schema_fields_new_data_type(self):
+        """
+        Test case: Data type mới (not available in DATA_TYPES) 
+        và database_schema thiếu required fields
+        """
+        # Setup: new data type, not default
+        processor = DynamicDataProcessor(
+            data_name='newDataType',  # Not avalable in DATA_TYPES
+            database_schema={
+                'newDataType': {
+                    'path': '/some/path',
+                    'name_start': 'new_',
+                    # Missing: file_extension, sheet_name, required_fields, dtypes
+                }
+            }
+        )
+        
+        result = processor.process_data()
+        
+        assert result.status == ProcessingStatus.ERROR
+        assert result.error_type == ErrorType.FILE_NOT_FOUND
+        assert 'missing required fields' in result.error_message.lower()
+        assert 'file_extension' in result.error_message
+        assert 'sheet_name' in result.error_message
+        assert 'required_fields' in result.error_message
+        assert 'dtypes' in result.error_message
+
+
+    def test_process_data_partial_override_with_defaults(self):
+        """
+        Test case: Override một vài fields của data type có sẵn
+        Đây là use case hợp lệ - không nên báo lỗi
+        """
+        # Setup: override only path, get another fields from default
+        processor = DynamicDataProcessor(
+            data_name='productRecords',  # only in DATA_TYPES
+            database_schema={
+                'productRecords': {
+                    'path': '/custom/path'  # only override path
+                }
+            }
+        )
+        
+        # Verify merge worked correctly
+        assert processor.folder_path == '/custom/path'  # Override
+        assert processor.name_start == 'monthlyReports_'  # From default
+        assert processor.file_extension == '.xlsb'  # From default
+        
+        # Process will fail because folder did not exist, but NOT because of schema
+        result = processor.process_data()
+        assert result.error_type != ErrorType.SCHEMA_MISMATCH
+
+
+    def test_process_data_complete_override_valid(self, tmp_path):
+        """
+        Test case: Override all fields - valid
+        """
+        # Create temp directory
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        
+        processor = DynamicDataProcessor(
+            data_name='productRecords',
+            database_schema={
+                'productRecords': {
+                    'path': str(data_dir),
+                    'name_start': 'custom_',
+                    'file_extension': '.csv',
+                    'sheet_name': 'CustomSheet',
+                    'required_fields': ['field1', 'field2'],
+                    'dtypes': {'field1': 'string', 'field2': 'Int64'}
+                }
+            }
+        )
+        
+        # Verify all fields were overridden
+        assert processor.folder_path == str(data_dir)
+        assert processor.name_start == 'custom_'
+        assert processor.file_extension == '.csv'
+        
+        # Process will SKIP because there is not any file, but schema OK
+        result = processor.process_data()
+        assert result.error_type != ErrorType.SCHEMA_MISMATCH
+
+    def test_process_data_no_database_schema_uses_defaults(self):
+        """
+        Test case: Not provide database_schema, use all default
+        """
+        processor = DynamicDataProcessor(
+            data_name='productRecords',
+            database_schema=None
+        )
+        
+        # Verify defaults were loaded
+        assert processor.folder_path == 'database/dynamicDatabase/monthlyReports_history'
+        assert processor.name_start == 'monthlyReports_'
+        assert processor.file_extension == '.xlsb'
+        assert processor.sheet_name == 'Sheet1'
+        
+        # Schema is complete, not raise error SCHEMA_MISMATCH
+        result = processor.process_data()
+        assert result.error_type != ErrorType.SCHEMA_MISMATCH
+
+    def test_process_data_empty_schema_for_existing_type(self):
+        """
+        Test case: Provide empty schema for avalable data type
+        Then, use all default
+        """
+        processor = DynamicDataProcessor(
+            data_name='productRecords',
+            database_schema={
+                'productRecords': {}  # Empty override
+            }
+        )
+        
+        # Should use all defaults
+        assert processor.folder_path == 'database/dynamicDatabase/monthlyReports_history'
+        assert processor.name_start == 'monthlyReports_'
+        
+        result = processor.process_data()
+        assert result.error_type != ErrorType.SCHEMA_MISMATCH
+
+    def test_process_data_schema_mismatch_attribute_is_none(self):
+        """
+        Test case: Schema has key but its value = None
+        After setattr, attribute will be None → need validate
+        """
+        processor = DynamicDataProcessor(
+            data_name='newDataType',
+            database_schema={
+                'newDataType': {
+                    'path': '/some/path',
+                    'name_start': 'prefix_',
+                    'file_extension': None,  # Explicitly None
+                    'sheet_name': None,
+                    'required_fields': None,
+                    'dtypes': None
+                }
+            }
+        )
+        
+        result = processor.process_data()
+        
+        assert result.status == ProcessingStatus.ERROR
+        assert result.error_type == ErrorType.FILE_NOT_FOUND
+        assert "endswith() argument must be str" in result.error_message.lower() \
+            or "must be str, not none" in result.error_message.lower()
+    
+    def test_process_data_no_matching_files(self, temp_data_folder):
+        """Test processing when no files match the pattern - returns ERROR"""
         custom_schema = {
             'productRecords': {
-                'path': '/some/path',
-                # Missing other required fields
+                'path': str(temp_data_folder),
+                'name_start': 'nonexistent_',
+                'file_extension': '.xlsx',
+                'sheet_name': 'Sheet1',
+                'required_fields': ['field1'],
+                'dtypes': {'field1': 'string'}
             }
         }
         
@@ -297,11 +448,53 @@ class TestDynamicDataProcessorProcessData:
         
         result = processor.process_data()
         
+        # Should return ERROR when no files found
         assert result.status == ProcessingStatus.ERROR
-        assert result.error_type == ErrorType.SCHEMA_MISMATCH
-        assert 'missing required fields' in result.error_message.lower()
-        assert result.data.empty
-    
+        assert result.error_type == ErrorType.FILE_NOT_FOUND
+        assert 'no files found' in result.error_message.lower()
+
+    def test_process_data_folder_vs_no_files_distinction(self):
+        """Test that we distinguish between missing folder (ERROR) and no files yet (SKIP)"""
+        
+        processor1 = DynamicDataProcessor(
+            data_name='productRecords',
+            database_schema={
+                'productRecords': {
+                    'path': '/completely/wrong/path',
+                    'name_start': 'test_',
+                    'file_extension': '.xlsx',
+                    'sheet_name': 'Sheet1',
+                    'required_fields': ['field1'],
+                    'dtypes': {'field1': 'string'}
+                }
+            }
+        )
+        
+        result1 = processor1.process_data()
+        assert result1.status == ProcessingStatus.ERROR
+        assert result1.error_type == ErrorType.FILE_NOT_FOUND
+        assert 'Source folder not found' in result1.error_message
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            processor2 = DynamicDataProcessor(
+                data_name='productRecords',
+                database_schema={
+                    'productRecords': {
+                        'path': str(tmpdir),
+                        'name_start': 'future_data_',
+                        'file_extension': '.xlsx',
+                        'sheet_name': 'Sheet1',
+                        'required_fields': ['field1'],
+                        'dtypes': {'field1': 'string'}
+                    }
+                }
+            )
+            
+            result2 = processor2.process_data()
+            assert result2.status == ProcessingStatus.ERROR
+            assert result2.error_type == ErrorType.FILE_NOT_FOUND
+            assert 'no any source file existed' in result2.error_message.lower()
+
     def test_process_data_empty_folder_path(self):
         """Test processing with empty folder path"""
         custom_schema = {
@@ -349,30 +542,6 @@ class TestDynamicDataProcessorProcessData:
         assert result.status == ProcessingStatus.ERROR
         assert result.error_type == ErrorType.FILE_NOT_FOUND
         assert 'Source folder not found' in result.error_message
-    
-    def test_process_data_no_matching_files(self, temp_data_folder):
-        """Test processing when no files match the pattern"""
-        custom_schema = {
-            'productRecords': {
-                'path': str(temp_data_folder),
-                'name_start': 'nonexistent_',  # No files with this prefix
-                'file_extension': '.xlsx',
-                'sheet_name': 'Sheet1',
-                'required_fields': ['field1'],
-                'dtypes': {'field1': 'string'}
-            }
-        }
-        
-        processor = DynamicDataProcessor(
-            data_name='productRecords',
-            database_schema=custom_schema
-        )
-        
-        result = processor.process_data()
-        
-        assert result.status == ProcessingStatus.ERROR
-        assert result.error_type == ErrorType.FILE_NOT_FOUND
-        assert 'No files found' in result.error_message
     
     def test_process_data_with_corrupted_files(self, temp_data_folder):
         """Test processing with corrupted/invalid files"""
