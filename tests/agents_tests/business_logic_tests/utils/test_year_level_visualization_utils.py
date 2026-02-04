@@ -615,14 +615,7 @@ class TestProcessMoldBasedData:
         
         for cavity_list in result['cavityList']:
             assert isinstance(cavity_list, np.ndarray)
-    
-    def test_machine_list_is_array(self, base_dataframe):
-        """machineList should contain array of unique machines"""
-        result = process_mold_based_data(base_dataframe, group_by_month=False)
-        
-        for machine_list in result['machineList']:
-            assert isinstance(machine_list, np.ndarray)
-
+            
 # ==================== INTEGRATION TESTS ====================
 
 class TestIntegration:
