@@ -184,7 +184,7 @@ jobs:
             --cov=agents \
             --cov-report=xml \
             --cov-report=term-missing \
-            --maxfail=1
+            --maxfail=5
       
       - name: 📊 Upload agent coverage
         uses: codecov/codecov-action@v3
