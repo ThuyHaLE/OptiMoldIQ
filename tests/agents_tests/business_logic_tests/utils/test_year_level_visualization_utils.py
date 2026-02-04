@@ -287,17 +287,116 @@ class TestDetectNotProgress:
         """Day should be flagged only if >=3 shifts are non-productive"""
         df = processed_dataframe.copy()
         
-        # Same date, different shifts
+        # Same date, same machine, different shifts (using the actual shift values from fixture)
+        # The base fixture uses ['1', '2', '3', 'HC'] * 5 pattern
         df.loc[0:5, 'recordDate'] = pd.Timestamp('2024-01-01')
-        df.loc[0:5, 'workingShift'] = ['Day', 'Night', 'Morning', 'Afternoon', 'Evening', 'Overtime']
-        df.loc[0:2, 'poNote'] = np.nan  # Only 3 shifts non-productive
+        df.loc[0:5, 'machineCode'] = 'MC01'  # Same machine
+        df.loc[0:5, 'workingShift'] = ['1', '2', '3', 'HC', '1', '2']  # 6 different shifts
+        
+        # Mark first 3 shifts as non-productive by setting itemTotalQuantity to 0
+        # (just setting poNote to NaN is not enough - need zero quantity too)
+        df.loc[0:2, 'poNote'] = np.nan
+        df.loc[0:2, 'itemTotalQuantity'] = 0  # This is critical!
         
         shift_level, day_level = detect_not_progress(df)
         
-        # Day should be flagged
+        # Day should be flagged (3 shifts are non-productive)
         day_records = day_level[day_level['recordDate'] == '2024-01-01']
         assert len(day_records) > 0
         assert day_records.iloc[0]['is_day_not_progress'] == True
+
+    # Test the boundary conditions more explicitly
+    def test_day_level_requires_exactly_3_shifts(self, processed_dataframe):
+        """Test boundary: exactly 3 non-productive shifts flags the day"""
+        df = processed_dataframe.copy()
+        
+        # Setup: 4 shifts on same date, same machine
+        df.loc[0:3, 'recordDate'] = pd.Timestamp('2024-01-01')
+        df.loc[0:3, 'machineCode'] = 'MC01'
+        df.loc[0:3, 'workingShift'] = ['1', '2', '3', 'HC']
+        
+        # Mark exactly 3 as non-productive
+        df.loc[0:2, 'itemTotalQuantity'] = 0
+        
+        shift_level, day_level = detect_not_progress(df)
+        
+        # Should be flagged (3 >= 3)
+        day_records = day_level[day_level['recordDate'] == '2024-01-01']
+        assert len(day_records) > 0
+        assert day_records.iloc[0]['is_day_not_progress'] == True
+
+
+    def test_day_level_not_flagged_with_2_shifts(self, processed_dataframe):
+        """Test boundary: only 2 non-productive shifts does NOT flag the day"""
+        df = processed_dataframe.copy()
+        
+        # Setup: 4 shifts on same date, same machine
+        df.loc[0:3, 'recordDate'] = pd.Timestamp('2024-01-01')
+        df.loc[0:3, 'machineCode'] = 'MC01'
+        df.loc[0:3, 'workingShift'] = ['1', '2', '3', 'HC']
+        
+        # Mark only 2 as non-productive
+        df.loc[0:1, 'itemTotalQuantity'] = 0
+        
+        shift_level, day_level = detect_not_progress(df)
+        
+        # Should NOT be flagged (2 < 3)
+        day_records = day_level[day_level['recordDate'] == '2024-01-01']
+        assert len(day_records) == 0  # No day should be flagged
+
+    # Most comprehensive version with detailed comments
+    def test_day_level_requires_3_shifts_comprehensive(self, processed_dataframe):
+        """
+        Day should be flagged only if >=3 shifts are non-productive.
+        
+        Non-productive criteria (from detect_not_progress):
+        - Missing PO (poNote is NaN) OR
+        - Missing quantity (itemTotalQuantity is NaN) OR  
+        - Zero quantity (itemTotalQuantity == 0)
+        """
+        df = processed_dataframe.copy()
+        
+        # Create a clear scenario: 6 shifts on 2024-01-01 for machine MC01
+        test_date = pd.Timestamp('2024-01-01')
+        
+        df.loc[0:5, 'recordDate'] = test_date
+        df.loc[0:5, 'machineCode'] = 'MC01'
+        
+        # Use actual shift values from the fixture pattern: '1', '2', '3', 'HC'
+        # We need 6 distinct recordInfo values (date_shift combinations)
+        df.loc[0, 'workingShift'] = '1'
+        df.loc[1, 'workingShift'] = '2' 
+        df.loc[2, 'workingShift'] = '3'
+        df.loc[3, 'workingShift'] = 'HC'
+        df.loc[4, 'workingShift'] = '1'  # Different from row 0 due to different machineCode originally
+        df.loc[5, 'workingShift'] = '2'
+        
+        # Make shifts 0, 1, 2 non-productive (3 shifts total)
+        # Strategy: Set itemTotalQuantity to 0 (clearest signal)
+        df.loc[0:2, 'itemTotalQuantity'] = 0
+        df.loc[0:2, 'itemGoodQuantity'] = 0
+        
+        # Ensure shifts 3, 4, 5 are productive (have valid data)
+        df.loc[3:5, 'poNote'] = 'PO001'
+        df.loc[3:5, 'itemTotalQuantity'] = 1000
+        df.loc[3:5, 'itemGoodQuantity'] = 950
+        
+        shift_level, day_level = detect_not_progress(df)
+        
+        # Verify shift-level detection
+        assert shift_level.loc[0, 'is_shift_not_progress'] == True
+        assert shift_level.loc[1, 'is_shift_not_progress'] == True
+        assert shift_level.loc[2, 'is_shift_not_progress'] == True
+        assert shift_level.loc[3, 'is_shift_not_progress'] == False
+        assert shift_level.loc[4, 'is_shift_not_progress'] == False
+        assert shift_level.loc[5, 'is_shift_not_progress'] == False
+        
+        # Day should be flagged (offShifts = 3, which is >= 3)
+        day_records = day_level[day_level['recordDate'] == test_date]
+        assert len(day_records) > 0, "Expected at least one day record to be flagged"
+        assert day_records.iloc[0]['is_day_not_progress'] == True
+        assert day_records.iloc[0]['offShifts'] == 3
+        assert day_records.iloc[0]['machineCode'] == 'MC01'
     
     def test_returns_correct_columns(self, processed_dataframe):
         """Should return expected columns"""
@@ -324,6 +423,16 @@ class TestDetectNotProgress:
 class TestProcessMachineBasedData:
     """Test machine-based data processing pipeline"""
     
+    def test_handles_all_productive_data(self, base_dataframe):
+       """Should handle data with no non-productive records"""
+       # All records are valid - no missing PO, no zero quantities
+       result = process_machine_based_data(base_dataframe, group_by_month=False)
+       
+       # Should complete successfully and return valid summary
+       assert len(result) > 0
+       assert (result['notProgressDays'] == 0).all()
+       assert (result['notProgressShifts'] == 0).all()
+
     def test_returns_correct_structure(self, base_dataframe):
         """Should return summary DataFrame with expected columns"""
         result = process_machine_based_data(base_dataframe, group_by_month=False)

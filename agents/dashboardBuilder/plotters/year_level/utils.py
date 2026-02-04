@@ -145,20 +145,28 @@ def detect_process_status(not_progress_df: pd.DataFrame,
     # Process data
     shift_level, day_level = detect_not_progress(not_progress_df)
 
-    merged_df = (
-        all_progress_df
-        .merge(
+    # Ensure flag columns exist even if day_level/shift_level are empty
+    if len(day_level) == 0:
+        all_progress_df['is_day_not_progress'] = False
+    else:
+        all_progress_df = all_progress_df.merge(
             day_level[['machineCode', 'recordDate', 'is_day_not_progress']],
             on=['machineCode', 'recordDate'],
             how='left'
         )
-        .merge(
+        all_progress_df['is_day_not_progress'] = all_progress_df['is_day_not_progress'].fillna(False)
+    
+    if len(shift_level) == 0:
+        all_progress_df['is_shift_not_progress'] = False
+    else:
+        all_progress_df = all_progress_df.merge(
             shift_level[['machineCode', 'recordDate', 'workingShift', 'is_shift_not_progress']],
             on=['machineCode', 'recordDate', 'workingShift'],
             how='left'
         )
-        .fillna({'is_day_not_progress': False, 'is_shift_not_progress': False})
-    )
+        all_progress_df['is_shift_not_progress'] = all_progress_df['is_shift_not_progress'].fillna(False)
+    
+    merged_df = all_progress_df
 
     return shift_level, day_level, merged_df
 
