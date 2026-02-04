@@ -87,12 +87,14 @@ class TestShowAllPngImages:
         with patch('matplotlib.pyplot.show'):
             show_all_png_images(temp_dir, cols=2)
     
-    def test_handles_empty_directory(self, temp_dir, caplog):
+    def test_handles_empty_directory(self, temp_dir, capfd):
         """Should warn when no PNG files found"""
         with patch('matplotlib.pyplot.show'):
             show_all_png_images(temp_dir)
         
-        assert "No .png files found" in caplog.text
+        # Check stderr since loguru outputs to stderr
+        captured = capfd.readouterr()
+        assert "No .png files found" in captured.err
     
     def test_handles_nonexistent_directory(self):
         """Should handle nonexistent directory"""
