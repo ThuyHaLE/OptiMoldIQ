@@ -19,6 +19,10 @@ def find_best_ncols(num_metrics: int,
     Tries to find the smallest number of columns that evenly divides num_metrics.
     Falls back to `max_cols` if none found.
     """
+    # Add validation at the start
+    if num_metrics <= 0:
+        return max_cols
+    
     for n in range(min_cols, max_cols + 1):
         if num_metrics % n == 0:
             return n
@@ -55,7 +59,7 @@ def add_new_features(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     df['recordInfo'] = (
-        df['recordDate'].dt.strftime('%Y-%m-%d') + '_' + df['workingShift']
+        df['recordDate'].dt.strftime('%Y-%m-%d') + '_' + df['workingShift'].astype(str)
     )
     df['recordMonth'] = df['recordDate'].dt.strftime('%Y-%m')
 
