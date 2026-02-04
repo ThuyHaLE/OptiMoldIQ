@@ -111,9 +111,6 @@ class DynamicDataProcessor(ConfigReportMixin):
         override_schema = self.database_schema.get(self.data_name, {})
         self.data_schema = {**default_schema,
                             **override_schema}
-        
-        for schema_key, attr_name in self.ATTR_MAP.items():
-            setattr(self, attr_name, self.data_schema[schema_key])
 
     def process_data(self) -> DataProcessingReport:
         """
@@ -156,6 +153,9 @@ class DynamicDataProcessor(ConfigReportMixin):
             #---------------------------------------------#
             # Q: Is the data folder source path provided? #
             #---------------------------------------------#
+
+            for schema_key, attr_name in self.ATTR_MAP.items():
+                setattr(self, attr_name, self.data_schema[schema_key])
 
             if not self.folder_path: # "" or None
                 error_msg = f"Source folder path is empty: {self.folder_path}"
@@ -216,7 +216,7 @@ class DynamicDataProcessor(ConfigReportMixin):
                 log_entries.append(f"  ❌ {error_msg}")
                 return self._fail(
                     status=ProcessingStatus.SKIP, 
-                    error_type=ErrorType.NONE, 
+                    error_type=ErrorType.NONE,  
                     msg=error_msg, 
                     log_entries="\n".join(log_entries))
             

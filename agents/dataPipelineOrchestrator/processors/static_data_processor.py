@@ -113,9 +113,6 @@ class StaticDataProcessor(ConfigReportMixin):
         override_schema = self.database_schema.get(self.data_name, {})
         self.data_schema = {**default_schema,
                             **override_schema}
-        
-        for schema_key, attr_name in self.ATTR_MAP.items():
-            setattr(self, attr_name, self.data_schema[schema_key])
 
     def process_data(self) -> DataProcessingReport:
         """
@@ -138,7 +135,8 @@ class StaticDataProcessor(ConfigReportMixin):
             # Q: Does the schema provide sufficient information to process this database? #
             #-----------------------------------------------------------------------------#
 
-            missing_fields = [schema_key for schema_key in self.ATTR_MAP.keys() if schema_key not in self.data_schema]
+            missing_fields = [schema_key for schema_key in self.ATTR_MAP.keys() 
+                              if schema_key not in self.data_schema]
 
             if missing_fields:
                 error_msg = (f"Schema for '{self.data_name}' is missing required fields: {missing_fields}")
@@ -153,6 +151,9 @@ class StaticDataProcessor(ConfigReportMixin):
             #--------------------------------------#
             # Q: Is the data source path provided? #
             #--------------------------------------#
+            
+            for schema_key, attr_name in self.ATTR_MAP.items():
+                setattr(self, attr_name, self.data_schema[schema_key])
 
             if not self.path: # "" or None
                 error_msg = f"Source file path is empty: {self.path}"
