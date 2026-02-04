@@ -590,14 +590,13 @@ class TestProcessMoldBasedData:
         assert all(shots[i] >= shots[i+1] for i in range(len(shots)-1))
     
     def test_excludes_zero_quantity_records(self, base_dataframe):
-        """Should filter out records with zero quantity"""
         df = base_dataframe.copy()
         df.loc[0:5, 'itemTotalQuantity'] = 0
-        
+
         result = process_mold_based_data(df, group_by_month=False)
-        
-        # Result should not include those records
-        assert result['totalQuantity'].sum() < df['itemTotalQuantity'].sum()
+
+        expected_sum = df[df['itemTotalQuantity'] > 0]['itemTotalQuantity'].sum()
+        assert result['totalQuantity'].sum() == expected_sum
     
     def test_handles_single_mold(self, base_dataframe):
         """Should handle data with single mold"""
