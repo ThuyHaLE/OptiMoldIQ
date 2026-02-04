@@ -452,12 +452,13 @@ class TestMergeAndProcessDfs:
         assert all(result.data['workingShift'].str.isupper())
     
     def test_purchase_orders_date_conversion(self):
-        """Test purchaseOrders-specific date processing"""
+        """Test that purchaseOrders date columns are semantically parsed
+        while strictly following schema-defined dtypes."""
         df = pd.DataFrame({
             'poReceivedDate': ['2024-01-01', '2024-01-02'],
             'poETA': ['2024-02-01', '2024-02-02'],
             'poNumber': ['PO001', 'PO002']
-        })
+        }) 
         
         dtypes = {
             'poReceivedDate': 'object',
@@ -473,9 +474,20 @@ class TestMergeAndProcessDfs:
         )
         
         assert result.status == ProcessingStatus.SUCCESS
-        # Dates should be converted to datetime
-        assert pd.api.types.is_datetime64_any_dtype(result.data['poReceivedDate'])
-        assert pd.api.types.is_datetime64_any_dtype(result.data['poETA'])
+        
+        # Dates should follow schema-defined dtypes
+        assert result.data['poReceivedDate'].dtype == object
+        assert result.data['poETA'].dtype == object
+
+        # Underlying values must still be valid datetime objects
+        assert isinstance(
+            result.data['poReceivedDate'].iloc[0],
+            (pd.Timestamp, datetime)
+        )
+        assert isinstance(
+            result.data['poETA'].iloc[0],
+            (pd.Timestamp, datetime)
+        )
     
     def test_invalid_dtype_conversion(self, sample_dataframes):
         """Test with invalid dtype conversion"""
