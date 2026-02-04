@@ -115,16 +115,13 @@ def detect_not_progress(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     return shift_level, day_level[day_level['is_day_not_progress']]
 
-def detect_process_status(not_progress_df: pd.DataFrame,
-                          all_progress_df: pd.DataFrame
+def detect_process_status(all_progress_df: pd.DataFrame
                           ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Merge non-progress flags into the main dataset.
 
     Parameters
     ----------
-    not_progress_df : pd.DataFrame
-        Subset containing potential non-productive records.
     all_progress_df : pd.DataFrame
         The complete production dataset.
     """
@@ -139,11 +136,10 @@ def detect_process_status(not_progress_df: pd.DataFrame,
                         'plasticResinLot', 'colorMasterbatch', 'colorMasterbatchCode',
                         'additiveMasterbatch', 'additiveMasterbatchCode', 'recordMonth',
                         'itemComponent', 'recordInfo']
-    validate_dataframe(not_progress_df, required_columns)
     validate_dataframe(all_progress_df, required_columns)
 
     # Process data
-    shift_level, day_level = detect_not_progress(not_progress_df)
+    shift_level, day_level = detect_not_progress(all_progress_df)
 
     # Ensure flag columns exist even if day_level/shift_level are empty
     if len(day_level) == 0:
@@ -170,8 +166,7 @@ def detect_process_status(not_progress_df: pd.DataFrame,
 
     return shift_level, day_level, merged_df
 
-def process_not_progress_records(not_progress_df: pd.DataFrame,
-                                 all_progress_df: pd.DataFrame,
+def process_not_progress_records(all_progress_df: pd.DataFrame,
                                  group_by_month: bool = False
                                  ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -179,8 +174,6 @@ def process_not_progress_records(not_progress_df: pd.DataFrame,
 
     Parameters
     ----------
-    not_progress_df : pd.DataFrame
-        Data containing potential non-progress records.
     all_progress_df : pd.DataFrame
         Full dataset for merging.
     group_by_month : bool, default=False
@@ -197,11 +190,10 @@ def process_not_progress_records(not_progress_df: pd.DataFrame,
                         'plasticResinLot', 'colorMasterbatch', 'colorMasterbatchCode',
                         'additiveMasterbatch', 'additiveMasterbatchCode', 'recordMonth',
                         'itemComponent', 'recordInfo']
-    validate_dataframe(not_progress_df, required_columns)
     validate_dataframe(all_progress_df, required_columns)
 
     # Process data
-    shift_level, day_level, merged_df = detect_process_status(not_progress_df, all_progress_df)
+    shift_level, day_level, merged_df = detect_process_status(all_progress_df)
 
     # Aggregate non-progress counts
     grouped_df = (
@@ -365,20 +357,14 @@ def process_machine_based_data(df: pd.DataFrame,
                         'additiveMasterbatch', 'additiveMasterbatchCode', 'recordMonth']
     validate_dataframe(df, required_columns)
 
+    if df.empty:
+        return pd.DataFrame()
+
     # Process data
     filtered_df = add_new_features(df)
 
-    # Identify non-productive records
-    not_progress_df = filtered_df[
-        filtered_df['poNote'].isna() |
-        filtered_df['itemTotalQuantity'].isna() |
-        (filtered_df['itemTotalQuantity'] == 0)
-    ].copy()
-
     # Merge non-progress indicators
-    not_progress_summary, merged_df = process_not_progress_records(
-        not_progress_df, filtered_df, group_by_month
-    )
+    not_progress_summary, merged_df = process_not_progress_records(filtered_df, group_by_month)
 
     # Filter productive records
     in_progress_df = merged_df[
@@ -427,7 +413,9 @@ def process_mold_based_data(main_df: pd.DataFrame,
     validate_dataframe(main_df, required_columns)
 
     # Process data
-    filtered_df = main_df[main_df['itemTotalQuantity'] > 0][
+    filtered_df = main_df[main_df[
+        'itemTotalQuantity'].notna() 
+        & (main_df['itemTotalQuantity'] > 0)][
         ['machineCode', 'moldNo', 'moldShot', 'moldCavity',
          'itemTotalQuantity', 'itemGoodQuantity', 'recordMonth']
     ].copy()
