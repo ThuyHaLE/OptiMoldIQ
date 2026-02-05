@@ -59,12 +59,14 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.ROLLBACK_TO_BACKUP,
                 scale=ProcessingScale.LOCAL,
-                priority=Priority.CRITICAL
+                priority=Priority.CRITICAL,
+                status=ProcessingStatus.PENDING
             ),
             RecoveryDecision(
                 action=RecoveryAction.TRIGGER_MANUAL_REVIEW,
                 scale=ProcessingScale.GLOBAL,
-                priority=Priority.HIGH
+                priority=Priority.HIGH,
+                status=ProcessingStatus.PENDING
             )
         ]
     
@@ -95,6 +97,7 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.ROLLBACK_TO_BACKUP,
                 scale=ProcessingScale.LOCAL,
+                priority=Priority.CRITICAL,
                 status=ProcessingStatus.SUCCESS
             )
         ]
@@ -155,6 +158,7 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.ROLLBACK_TO_BACKUP,
                 scale=ProcessingScale.LOCAL,
+                priority=Priority.CRITICAL,
                 status=ProcessingStatus.ERROR
             )
         ]
@@ -165,6 +169,7 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.TRIGGER_MANUAL_REVIEW,
                 scale=ProcessingScale.GLOBAL,
+                priority=Priority.HIGH,
                 status=ProcessingStatus.SUCCESS
             )
         ]
@@ -278,9 +283,24 @@ class TestProcessHealingMechanism:
         """
         # Arrange
         recovery_actions = [
-            RecoveryDecision(action=RecoveryAction.ROLLBACK_TO_BACKUP, scale=ProcessingScale.LOCAL, priority=Priority.CRITICAL),
-            RecoveryDecision(action=RecoveryAction.RETRY_PROCESSING, scale=ProcessingScale.LOCAL, priority=Priority.HIGH),
-            RecoveryDecision(action=RecoveryAction.TRIGGER_MANUAL_REVIEW, scale=ProcessingScale.GLOBAL, priority=Priority.MEDIUM),
+            RecoveryDecision(
+                action=RecoveryAction.ROLLBACK_TO_BACKUP, 
+                scale=ProcessingScale.LOCAL, 
+                priority=Priority.CRITICAL,
+                status=ProcessingStatus.PENDING
+            ),
+            RecoveryDecision(
+                action=RecoveryAction.RETRY_PROCESSING, 
+                scale=ProcessingScale.LOCAL, 
+                priority=Priority.HIGH,
+                status=ProcessingStatus.PENDING
+            ),
+            RecoveryDecision(
+                action=RecoveryAction.TRIGGER_MANUAL_REVIEW, 
+                scale=ProcessingScale.GLOBAL, 
+                priority=Priority.MEDIUM,
+                status=ProcessingStatus.PENDING
+            ),
         ]
         mock_get_actions.return_value = recovery_actions
         
@@ -289,11 +309,13 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.ROLLBACK_TO_BACKUP,
                 scale=ProcessingScale.LOCAL,
+                priority=Priority.CRITICAL,
                 status=ProcessingStatus.ERROR
             ),
             RecoveryDecision(
                 action=RecoveryAction.RETRY_PROCESSING,
                 scale=ProcessingScale.LOCAL,
+                priority=Priority.HIGH,
                 status=ProcessingStatus.ERROR
             ),
         ]
@@ -305,6 +327,7 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.TRIGGER_MANUAL_REVIEW,
                 scale=ProcessingScale.GLOBAL,
+                priority=Priority.MEDIUM,
                 status=ProcessingStatus.SUCCESS
             )
         ]
@@ -325,7 +348,7 @@ class TestProcessHealingMechanism:
         
         # Check that both local actions are in logs
         assert "BACKUP_ROLLBACK" in log_text or "ROLLBACK_TO_BACKUP" in log_text
-        assert "RETRY_PROCESSING" in log_text  # FIXED: Changed from DATA_REPAIR
+        assert "RETRY_PROCESSING" in log_text
         assert "MANUAL_REVIEW" in log_text or "TRIGGER_MANUAL_REVIEW" in log_text
         
         # Verify error icons for failed actions
@@ -359,6 +382,7 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.ROLLBACK_TO_BACKUP,
                 scale=ProcessingScale.LOCAL,
+                priority=Priority.CRITICAL,
                 status=ProcessingStatus.ERROR
             )
         ]
@@ -368,6 +392,7 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.TRIGGER_MANUAL_REVIEW,
                 scale=ProcessingScale.GLOBAL,
+                priority=Priority.HIGH,
                 status=ProcessingStatus.SUCCESS
             )
         ]
@@ -468,6 +493,7 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.ROLLBACK_TO_BACKUP,
                 scale=ProcessingScale.LOCAL,
+                priority=Priority.CRITICAL,
                 status=ProcessingStatus.ERROR
             )
         ]
@@ -477,6 +503,7 @@ class TestProcessHealingMechanism:
             RecoveryDecision(
                 action=RecoveryAction.TRIGGER_MANUAL_REVIEW,
                 scale=ProcessingScale.GLOBAL,
+                priority=Priority.HIGH,
                 status=ProcessingStatus.SUCCESS
             )
         ]
