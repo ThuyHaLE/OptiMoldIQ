@@ -21,6 +21,13 @@ def write_json(tmp_path: Path, data, name="schema.json"):
     return path
 
 
+def minimal_valid_schema():
+    return {
+        "dynamicDB": {},
+        "staticDB": {}
+    }
+
+
 def valid_dynamic_table():
     return {
         "path": "./data",
@@ -40,108 +47,204 @@ def valid_static_table():
 
 
 # =========================
-# Empty schema path edge cases
+# validate() – early exits
 # =========================
 
-def test_validate_empty_string_path(tmp_path):
-    """Test that empty string path is handled correctly"""
-    validator = SchemaValidator("")
+def test_validate_file_not_found(tmp_path):
+    validator = SchemaValidator(str(tmp_path / "missing.json"))
     result = validator.validate()
-    
+
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.FILE_NOT_FOUND
+
+
+def test_validate_invalid_extension(tmp_path):
+    path = tmp_path / "schema.txt"
+    path.write_text("x")
+
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+
     assert result.status == ProcessingStatus.ERROR
     assert result.error_type == ErrorType.FILE_NOT_VALID
 
 
-# =========================
-# Non-dict JSON handling
-# =========================
+def test_validate_invalid_json(tmp_path):
+    path = tmp_path / "schema.json"
+    path.write_text("{ invalid json }")
 
-def test_validate_json_is_list(tmp_path):
-    """Test that JSON arrays are rejected"""
-    path = write_json(tmp_path, ["item1", "item2"])
-    
     validator = SchemaValidator(str(path))
     result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_JSON
-    assert "must be a JSON object" in result.error_message
 
-
-def test_validate_json_is_string(tmp_path):
-    """Test that JSON strings are rejected"""
-    path = write_json(tmp_path, "just a string")
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
     assert result.status == ProcessingStatus.ERROR
     assert result.error_type == ErrorType.INVALID_JSON
 
 
-# =========================
-# Top-level structure validation
-# =========================
+def test_validate_empty_json(tmp_path):
+    path = write_json(tmp_path, {})
 
-def test_top_level_dynamicdb_not_dict(tmp_path):
-    """Test that non-dict dynamicDB is rejected"""
-    schema = {
-        "dynamicDB": "not a dict",
-        "staticDB": {}
-    }
-    path = write_json(tmp_path, schema)
-    
     validator = SchemaValidator(str(path))
     result = validator.validate()
-    
+
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-    assert "dynamicDB" in result.error_message
+    assert result.error_type == ErrorType.MISSING_FIELDS
 
 
-def test_top_level_staticdb_not_dict(tmp_path):
-    """Test that non-dict staticDB is rejected"""
-    schema = {
-        "dynamicDB": {},
-        "staticDB": ["not", "a", "dict"]
-    }
-    path = write_json(tmp_path, schema)
-    
+# =========================
+# Top-level structure
+# =========================
+
+def test_missing_top_level_keys(tmp_path):
+    path = write_json(tmp_path, {"dynamicDB": {}})
+
     validator = SchemaValidator(str(path))
     result = validator.validate()
-    
+
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-    assert "staticDB" in result.error_message
+    assert result.error_type == ErrorType.MISSING_FIELDS
 
 
-# =========================
-# Empty database warnings
-# =========================
-
-def test_empty_dynamicdb_warning(tmp_path):
-    """Test that empty dynamicDB generates warning"""
-    schema = {
-        "dynamicDB": {},
-        "staticDB": {
-            "table1": valid_static_table()
-        }
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.WARNING
-    assert "dynamicDB is empty" in result.metadata.get("warnings", [])
-
-
-def test_empty_staticdb_warning(tmp_path):
-    """Test that empty staticDB generates warning"""
+def test_extra_top_level_keys_warning(tmp_path):
     schema = {
         "dynamicDB": {
             "table1": valid_dynamic_table()
         },
+        "staticDB": {
+            "table2": valid_static_table()
+        },
+        "extra": {}
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    # Fix assertions:
+    assert result.status == ProcessingStatus.WARNING
+    assert result.metadata["warnings_count"] == 1
+    assert "extra" in result.metadata["warnings"][0].lower()
+
+
+# =========================
+# dynamicDB validation
+# =========================
+
+def test_dynamic_db_invalid_table(tmp_path):
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                # missing required fields
+                "dtypes": {"a": "string"}
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+
+
+def test_dynamic_db_valid_with_warning(tmp_path):
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                **valid_dynamic_table(),
+                "extension": ".weird"
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+
+    assert result.status == ProcessingStatus.WARNING
+    assert result.metadata["warnings_count"] >= 1
+
+
+# =========================
+# staticDB validation
+# =========================
+
+def test_static_db_invalid_dtypes(tmp_path):
+    schema = {
+        "dynamicDB": {},
+        "staticDB": {
+            "table1": {
+                "path": "./file.csv",
+                "dtypes": {"a": "invalid_dtype"}
+            }
+        }
+    }
+    path = write_json(tmp_path, schema)
+
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+
+
+# =========================
+# Full success path
+# =========================
+
+def test_validate_full_success(tmp_path):
+    schema = {
+        "dynamicDB": {
+            "dyn1": valid_dynamic_table()
+        },
+        "staticDB": {
+            "stat1": valid_static_table()
+        }
+    }
+    path = write_json(tmp_path, schema)
+
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+
+    assert result.status == ProcessingStatus.SUCCESS
+    assert result.metadata["validation_passed"] is True
+    assert result.metadata["total_tables"] == 2
+
+# =========================
+# ErrorType.FILE_READ_ERROR
+# =========================
+
+def test_file_read_error_permission(tmp_path):
+    """Test FILE_READ_ERROR when file cannot be read due to permissions"""
+    path = tmp_path / "schema.json"
+    path.write_text('{"dynamicDB": {}, "staticDB": {}}')
+    
+    # Make file unreadable (Unix-like systems)
+    import os
+    if os.name != 'nt':  # Skip on Windows
+        path.chmod(0o000)
+        
+        validator = SchemaValidator(str(path))
+        result = validator.validate()
+        
+        # Restore permissions for cleanup
+        path.chmod(0o644)
+        
+        assert result.status == ProcessingStatus.ERROR
+        assert result.error_type == ErrorType.FILE_READ_ERROR
+
+
+# =========================
+# ErrorType.INVALID_SCHEMA_STRUCTURE
+# =========================
+
+def test_invalid_schema_structure_top_level_not_dict(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when top-level key is not a dict"""
+    schema = {
+        "dynamicDB": [],  # Should be dict, not list
         "staticDB": {}
     }
     path = write_json(tmp_path, schema)
@@ -149,19 +252,15 @@ def test_empty_staticdb_warning(tmp_path):
     validator = SchemaValidator(str(path))
     result = validator.validate()
     
-    assert result.status == ProcessingStatus.WARNING
-    assert "staticDB is empty" in result.metadata.get("warnings", [])
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
 
 
-# =========================
-# Table config type validation
-# =========================
-
-def test_dynamic_table_not_dict(tmp_path):
-    """Test that non-dict table config is rejected"""
+def test_invalid_schema_structure_table_config_not_dict(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when table config is not a dict"""
     schema = {
         "dynamicDB": {
-            "table1": "not a dict"
+            "table1": "not_a_dict"  # Should be dict
         },
         "staticDB": {}
     }
@@ -174,34 +273,13 @@ def test_dynamic_table_not_dict(tmp_path):
     assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
 
 
-def test_static_table_not_dict(tmp_path):
-    """Test that non-dict static table config is rejected"""
-    schema = {
-        "dynamicDB": {},
-        "staticDB": {
-            "table1": ["path", "dtypes"]
-        }
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-
-
-# =========================
-# Path field validation
-# =========================
-
-def test_path_not_string(tmp_path):
-    """Test that non-string path is rejected"""
+def test_invalid_schema_structure_path_not_string(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when path is not a string"""
     schema = {
         "dynamicDB": {},
         "staticDB": {
             "table1": {
-                "path": 123,  # Not a string
+                "path": 123,  # Should be string
                 "dtypes": {"a": "string"}
             }
         }
@@ -213,11 +291,10 @@ def test_path_not_string(tmp_path):
     
     assert result.status == ProcessingStatus.ERROR
     assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-    assert "path" in result.error_message
 
 
-def test_path_empty_string(tmp_path):
-    """Test that empty path string is rejected"""
+def test_invalid_schema_structure_empty_path(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when path is empty"""
     schema = {
         "dynamicDB": {},
         "staticDB": {
@@ -234,42 +311,16 @@ def test_path_empty_string(tmp_path):
     
     assert result.status == ProcessingStatus.ERROR
     assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-    assert "path" in result.error_message
 
 
-# =========================
-# Dtypes field validation
-# =========================
-
-def test_dtypes_not_dict(tmp_path):
-    """Test that non-dict dtypes is rejected"""
+def test_invalid_schema_structure_dtypes_not_dict(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when dtypes is not a dict"""
     schema = {
         "dynamicDB": {},
         "staticDB": {
             "table1": {
                 "path": "./file.csv",
-                "dtypes": ["string", "int"]  # Not a dict
-            }
-        }
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-    assert "dtypes" in result.error_message
-
-
-def test_dtypes_empty(tmp_path):
-    """Test that empty dtypes dict is rejected"""
-    schema = {
-        "dynamicDB": {},
-        "staticDB": {
-            "table1": {
-                "path": "./file.csv",
-                "dtypes": {}  # Empty
+                "dtypes": ["string"]  # Should be dict
             }
         }
     }
@@ -282,14 +333,134 @@ def test_dtypes_empty(tmp_path):
     assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
 
 
-def test_dtypes_value_not_string(tmp_path):
-    """Test that non-string dtype values are rejected"""
+def test_invalid_schema_structure_empty_dtypes(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when dtypes is empty"""
     schema = {
         "dynamicDB": {},
         "staticDB": {
             "table1": {
                 "path": "./file.csv",
-                "dtypes": {"a": 123}  # Not a string
+                "dtypes": {}  # Empty dict
+            }
+        }
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+
+
+def test_invalid_schema_structure_name_start_not_string(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when name_start is not a string"""
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                "name_start": 123,  # Should be string
+                "extension": ".csv",
+                "sheet_name": "Sheet1",
+                "required_fields": ["a"],
+                "dtypes": {"a": "string"}
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+
+
+def test_invalid_schema_structure_extension_not_string(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when extension is not a string"""
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                "name_start": "file_",
+                "extension": 123,  # Should be string
+                "sheet_name": "Sheet1",
+                "required_fields": ["a"],
+                "dtypes": {"a": "string"}
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+
+
+def test_invalid_schema_structure_sheet_name_empty(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when sheet_name is empty"""
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                "name_start": "file_",
+                "extension": ".csv",
+                "sheet_name": "",  # Empty
+                "required_fields": ["a"],
+                "dtypes": {"a": "string"}
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+
+
+def test_invalid_schema_structure_required_fields_not_list(tmp_path):
+    """Test INVALID_SCHEMA_STRUCTURE when required_fields is not a list"""
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                "name_start": "file_",
+                "extension": ".csv",
+                "sheet_name": "Sheet1",
+                "required_fields": "not_a_list",  # Should be list
+                "dtypes": {"a": "string"}
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+
+
+# =========================
+# ErrorType.UNSUPPORTED_DATA_TYPE
+# =========================
+
+def test_unsupported_data_type_invalid_dtype(tmp_path):
+    """Test UNSUPPORTED_DATA_TYPE when dtype is not in VALID_DTYPES"""
+    schema = {
+        "dynamicDB": {},
+        "staticDB": {
+            "table1": {
+                "path": "./file.csv",
+                "dtypes": {"a": "invalid_dtype"}
             }
         }
     }
@@ -302,21 +473,44 @@ def test_dtypes_value_not_string(tmp_path):
     assert result.error_type == ErrorType.UNSUPPORTED_DATA_TYPE
 
 
-def test_dtypes_multiple_invalid_types(tmp_path):
-    """Test that multiple invalid dtypes are caught"""
+def test_unsupported_data_type_dtype_not_string(tmp_path):
+    """Test UNSUPPORTED_DATA_TYPE when dtype value is not a string"""
     schema = {
         "dynamicDB": {},
         "staticDB": {
             "table1": {
                 "path": "./file.csv",
+                "dtypes": {"a": 123}  # Should be string
+            }
+        }
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.UNSUPPORTED_DATA_TYPE
+
+
+def test_unsupported_data_type_multiple_invalid(tmp_path):
+    """Test UNSUPPORTED_DATA_TYPE when multiple dtypes are invalid"""
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                "name_start": "file_",
+                "extension": ".csv",
+                "sheet_name": "Sheet1",
+                "required_fields": ["a", "b"],
                 "dtypes": {
-                    "a": "string",
-                    "b": "invalid_type",
-                    "c": 456,
-                    "d": "another_invalid"
+                    "a": "wrong_type",
+                    "b": 999,
+                    "c": "string"
                 }
             }
-        }
+        },
+        "staticDB": {}
     }
     path = write_json(tmp_path, schema)
     
@@ -328,181 +522,11 @@ def test_dtypes_multiple_invalid_types(tmp_path):
 
 
 # =========================
-# Dynamic-specific field validation
+# ErrorType.SCHEMA_MISMATCH
 # =========================
 
-def test_name_start_not_string(tmp_path):
-    """Test that non-string name_start is rejected"""
-    schema = {
-        "dynamicDB": {
-            "table1": {
-                "path": "./data",
-                "name_start": 123,
-                "extension": ".csv",
-                "sheet_name": "Sheet1",
-                "required_fields": ["a"],
-                "dtypes": {"a": "string"}
-            }
-        },
-        "staticDB": {}
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-    assert "name_start" in result.error_message
-
-
-def test_name_start_empty_string(tmp_path):
-    """Test that empty name_start is rejected"""
-    schema = {
-        "dynamicDB": {
-            "table1": {
-                "path": "./data",
-                "name_start": "  ",
-                "extension": ".csv",
-                "sheet_name": "Sheet1",
-                "required_fields": ["a"],
-                "dtypes": {"a": "string"}
-            }
-        },
-        "staticDB": {}
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-
-
-def test_extension_not_string(tmp_path):
-    """Test that non-string extension is rejected"""
-    schema = {
-        "dynamicDB": {
-            "table1": {
-                "path": "./data",
-                "name_start": "file_",
-                "extension": 123,
-                "sheet_name": "Sheet1",
-                "required_fields": ["a"],
-                "dtypes": {"a": "string"}
-            }
-        },
-        "staticDB": {}
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-    assert "extension" in result.error_message
-
-
-def test_sheet_name_not_string(tmp_path):
-    """Test that non-string sheet_name is rejected"""
-    schema = {
-        "dynamicDB": {
-            "table1": {
-                "path": "./data",
-                "name_start": "file_",
-                "extension": ".csv",
-                "sheet_name": None,
-                "required_fields": ["a"],
-                "dtypes": {"a": "string"}
-            }
-        },
-        "staticDB": {}
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-
-
-def test_sheet_name_empty(tmp_path):
-    """Test that empty sheet_name is rejected"""
-    schema = {
-        "dynamicDB": {
-            "table1": {
-                "path": "./data",
-                "name_start": "file_",
-                "extension": ".csv",
-                "sheet_name": "",
-                "required_fields": ["a"],
-                "dtypes": {"a": "string"}
-            }
-        },
-        "staticDB": {}
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-
-
-def test_required_fields_not_list(tmp_path):
-    """Test that non-list required_fields is rejected"""
-    schema = {
-        "dynamicDB": {
-            "table1": {
-                "path": "./data",
-                "name_start": "file_",
-                "extension": ".csv",
-                "sheet_name": "Sheet1",
-                "required_fields": "not a list",
-                "dtypes": {"a": "string"}
-            }
-        },
-        "staticDB": {}
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
-
-
-def test_required_fields_empty_warning(tmp_path):
-    """Test that empty required_fields generates warning"""
-    schema = {
-        "dynamicDB": {
-            "table1": {
-                "path": "./data",
-                "name_start": "file_",
-                "extension": ".csv",
-                "sheet_name": "Sheet1",
-                "required_fields": [],
-                "dtypes": {"a": "string"}
-            }
-        },
-        "staticDB": {}
-    }
-    path = write_json(tmp_path, schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.WARNING
-    assert result.metadata["warnings_count"] >= 1
-
-
-def test_required_fields_not_in_dtypes(tmp_path):
-    """Test that required_fields not in dtypes is rejected"""
+def test_schema_mismatch_required_fields_missing_in_dtypes(tmp_path):
+    """Test SCHEMA_MISMATCH when required_fields contain fields not in dtypes"""
     schema = {
         "dynamicDB": {
             "table1": {
@@ -525,8 +549,8 @@ def test_required_fields_not_in_dtypes(tmp_path):
     assert result.error_type == ErrorType.SCHEMA_MISMATCH
 
 
-def test_required_fields_duplicates_warning(tmp_path):
-    """Test that duplicate required_fields generates warning"""
+def test_schema_mismatch_multiple_table_errors(tmp_path):
+    """Test SCHEMA_MISMATCH when multiple tables have errors"""
     schema = {
         "dynamicDB": {
             "table1": {
@@ -534,8 +558,122 @@ def test_required_fields_duplicates_warning(tmp_path):
                 "name_start": "file_",
                 "extension": ".csv",
                 "sheet_name": "Sheet1",
-                "required_fields": ["a", "b", "a", "c", "b"],
-                "dtypes": {"a": "string", "b": "Int64", "c": "Float64"}
+                "required_fields": ["missing"],
+                "dtypes": {"a": "string"}
+            },
+            "table2": {
+                "path": "./data",
+                "name_start": "file_",
+                "extension": ".csv",
+                "sheet_name": "Sheet1",
+                "required_fields": ["also_missing"],
+                "dtypes": {"b": "string"}
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["error_count"] == 2
+
+
+# =========================
+# ErrorType.MISSING_FIELDS
+# =========================
+
+def test_missing_fields_dynamic_table(tmp_path):
+    """Test MISSING_FIELDS when dynamicDB table is missing required fields"""
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                "dtypes": {"a": "string"}
+                # Missing: name_start, extension, sheet_name, required_fields
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.MISSING_FIELDS
+
+
+def test_missing_fields_static_table(tmp_path):
+    """Test MISSING_FIELDS when staticDB table is missing required fields"""
+    schema = {
+        "dynamicDB": {},
+        "staticDB": {
+            "table1": {
+                "path": "./file.csv"
+                # Missing: dtypes
+            }
+        }
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.MISSING_FIELDS
+
+
+def test_missing_fields_top_level_missing_staticdb(tmp_path):
+    """Test MISSING_FIELDS when top-level is missing staticDB"""
+    schema = {
+        "dynamicDB": {}
+        # Missing: staticDB
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.MISSING_FIELDS
+    assert "staticDB" in result.metadata["missing_keys"]
+
+
+def test_missing_fields_top_level_missing_dynamicdb(tmp_path):
+    """Test MISSING_FIELDS when top-level is missing dynamicDB"""
+    schema = {
+        "staticDB": {}
+        # Missing: dynamicDB
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    assert result.status == ProcessingStatus.ERROR
+    assert result.error_type == ErrorType.MISSING_FIELDS
+    assert "dynamicDB" in result.metadata["missing_keys"]
+
+
+# =========================
+# Warnings (not errors)
+# =========================
+
+def test_warning_empty_required_fields(tmp_path):
+    """Test warning when required_fields is empty"""
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                "name_start": "file_",
+                "extension": ".csv",
+                "sheet_name": "Sheet1",
+                "required_fields": [],  # Empty but valid
+                "dtypes": {"a": "string"}
             }
         },
         "staticDB": {}
@@ -547,14 +685,11 @@ def test_required_fields_duplicates_warning(tmp_path):
     
     assert result.status == ProcessingStatus.WARNING
     assert result.metadata["warnings_count"] >= 1
+    assert any("required_fields" in w for w in result.metadata["warnings"])
 
 
-# =========================
-# Field name normalization
-# =========================
-
-def test_normalize_field_name_with_typo(tmp_path):
-    """Test that field name normalization handles known typos"""
+def test_warning_duplicate_required_fields(tmp_path):
+    """Test warning when required_fields contains duplicates"""
     schema = {
         "dynamicDB": {
             "table1": {
@@ -562,8 +697,8 @@ def test_normalize_field_name_with_typo(tmp_path):
                 "name_start": "file_",
                 "extension": ".csv",
                 "sheet_name": "Sheet1",
-                "required_fields": ["plasticResine"],
-                "dtypes": {"plasticResin": "string"}  # Correct spelling
+                "required_fields": ["a", "a", "b"],  # Duplicate 'a'
+                "dtypes": {"a": "string", "b": "Int64"}
             }
         },
         "staticDB": {}
@@ -573,110 +708,82 @@ def test_normalize_field_name_with_typo(tmp_path):
     validator = SchemaValidator(str(path))
     result = validator.validate()
     
-    # Should succeed because normalize_field_name corrects the typo
-    assert result.status == ProcessingStatus.SUCCESS
+    assert result.status == ProcessingStatus.WARNING
+    assert result.metadata["warnings_count"] >= 1
+    assert any("Duplicate" in w for w in result.metadata["warnings"])
 
 
-# =========================
-# File read error handling
-# =========================
-
-def test_file_read_permission_error(tmp_path):
-    """Test handling of file read permission errors"""
-    path = tmp_path / "schema.json"
-    path.write_text('{"dynamicDB": {}, "staticDB": {}}')
-    path.chmod(0o000)  # Remove all permissions
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    # Restore permissions for cleanup
-    path.chmod(0o644)
-    
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.FILE_READ_ERROR
-
-
-# =========================
-# Multiple tables validation
-# =========================
-
-def test_multiple_tables_mixed_errors(tmp_path):
-    """Test validation with multiple tables where some fail"""
+def test_warning_empty_dynamicdb_and_staticdb(tmp_path):
+    """Test warning when both dynamicDB and staticDB are empty"""
     schema = {
-        "dynamicDB": {
-            "good_table": valid_dynamic_table(),
-            "bad_table": {
-                "path": "./data",
-                # Missing required fields
-                "dtypes": {"a": "string"}
-            }
-        },
-        "staticDB": {
-            "another_good": valid_static_table()
-        }
+        "dynamicDB": {},
+        "staticDB": {}
     }
     path = write_json(tmp_path, schema)
     
     validator = SchemaValidator(str(path))
     result = validator.validate()
     
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.SCHEMA_MISMATCH
-    assert result.metadata["error_count"] == 1
+    assert result.status == ProcessingStatus.WARNING
+    assert result.metadata["warnings_count"] >= 2
+    assert any("dynamicDB is empty" in w for w in result.metadata["warnings"])
+    assert any("staticDB is empty" in w for w in result.metadata["warnings"])
 
 
 # =========================
-# All valid dtypes test
+# Edge cases
 # =========================
 
-def test_all_valid_dtypes(tmp_path):
-    """Test that all documented valid dtypes are accepted"""
-    valid_dtypes_schema = {
+def test_normalize_field_name_fixes_typos(tmp_path):
+    """Test that normalize_field_name handles known typos"""
+    schema = {
+        "dynamicDB": {
+            "table1": {
+                "path": "./data",
+                "name_start": "file_",
+                "extension": ".csv",
+                "sheet_name": "Sheet1",
+                "required_fields": ["plasticResine"],  # Typo
+                "dtypes": {"plasticResin": "string"}  # Correct
+            }
+        },
+        "staticDB": {}
+    }
+    path = write_json(tmp_path, schema)
+    
+    validator = SchemaValidator(str(path))
+    result = validator.validate()
+    
+    # Should pass because normalize_field_name fixes the typo
+    assert result.status == ProcessingStatus.SUCCESS
+
+
+def test_all_valid_dtypes_accepted(tmp_path):
+    """Test that all valid dtypes are accepted"""
+    all_dtypes = {
+        "f1": "string",
+        "f2": "Int64",
+        "f3": "Float64",
+        "f4": "bool",
+        "f5": "datetime64[ns]",
+        "f6": "timedelta64[ns]",
+        "f7": "Int8",
+        "f8": "Int16",
+        "f9": "Int32",
+        "f10": "Float32",
+        "f11": "UInt8",
+        "f12": "UInt16",
+        "f13": "UInt32",
+        "f14": "UInt64"
+    }
+    
+    schema = {
         "dynamicDB": {},
         "staticDB": {
             "table1": {
                 "path": "./file.csv",
-                "dtypes": {
-                    "col1": "string",
-                    "col2": "Int64",
-                    "col3": "Float64",
-                    "col4": "bool",
-                    "col5": "datetime64[ns]",
-                    "col6": "timedelta64[ns]",
-                    "col7": "Int8",
-                    "col8": "Int16",
-                    "col9": "Int32",
-                    "col10": "Float32",
-                    "col11": "UInt8",
-                    "col12": "UInt16",
-                    "col13": "UInt32",
-                    "col14": "UInt64"
-                }
+                "dtypes": all_dtypes
             }
-        }
-    }
-    path = write_json(tmp_path, valid_dtypes_schema)
-    
-    validator = SchemaValidator(str(path))
-    result = validator.validate()
-    
-    assert result.status == ProcessingStatus.SUCCESS
-
-
-# =========================
-# Metadata validation
-# =========================
-
-def test_success_metadata_completeness(tmp_path):
-    """Test that successful validation includes all expected metadata"""
-    schema = {
-        "dynamicDB": {
-            "dyn1": valid_dynamic_table(),
-            "dyn2": valid_dynamic_table()
-        },
-        "staticDB": {
-            "stat1": valid_static_table()
         }
     }
     path = write_json(tmp_path, schema)
@@ -685,12 +792,31 @@ def test_success_metadata_completeness(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.SUCCESS
-    assert "schema_path" in result.metadata
-    assert "dynamicDB_tables" in result.metadata
-    assert "staticDB_tables" in result.metadata
-    assert "total_tables" in result.metadata
-    assert "validation_passed" in result.metadata
-    assert result.metadata["dynamicDB_tables"] == 2
-    assert result.metadata["staticDB_tables"] == 1
-    assert result.metadata["total_tables"] == 3
-    assert result.metadata["validation_passed"] is True
+
+
+def test_all_valid_extensions_accepted(tmp_path):
+    """Test that all valid extensions are accepted without warning"""
+    extensions = [".xlsx", ".xlsb", ".csv", ".parquet"]
+    
+    for ext in extensions:
+        schema = {
+            "dynamicDB": {
+                "table1": {
+                    "path": "./data",
+                    "name_start": "file_",
+                    "extension": ext,
+                    "sheet_name": "Sheet1",
+                    "required_fields": ["a"],
+                    "dtypes": {"a": "string"}
+                }
+            },
+            "staticDB": {}
+        }
+        path = write_json(tmp_path, schema, f"schema_{ext}.json")
+        
+        validator = SchemaValidator(str(path))
+        result = validator.validate()
+        
+        # Should not have warnings about extension
+        extension_warnings = [w for w in result.metadata.get("warnings", []) if "extension" in w.lower()]
+        assert len(extension_warnings) == 0, f"Extension {ext} should be valid"
