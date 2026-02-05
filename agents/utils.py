@@ -7,9 +7,7 @@ import os
 import json 
 import re
 from tabulate import tabulate
-from typing import Dict, Any, Optional, List, Iterable
-import inspect
-from dataclasses import fields, is_dataclass
+from typing import Dict, Any, Optional, List
 
 def load_json(json_path: str):
     """Load JSON file with error handling"""
@@ -419,37 +417,3 @@ def rank_nonzero(row):
     nonzero = row[row != 0]
     ranked = nonzero.sort_values(ascending=False).rank(method='first', ascending=False).astype('Int64')
     return row.where(row == 0, ranked).astype('Int64')
-
-#---------------#
-# validate_path #
-#---------------#
-
-def validate_path(name: str, value: str):
-    """Ensure value is a non-empty path-like string and normalize it."""
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{name} must be a non-empty string.")
-
-    # Check path-like
-    if "/" not in value and "\\" not in value:
-        raise ValueError(f"{name} must look like a path (contain '/' or '\\').")
-
-    # Normalize path: convert to POSIX, remove trailing spaces and extra slashes
-    path = Path(value).as_posix().strip().rstrip("/")
-
-    # Return normalized folder path (with trailing '/')
-    return path + "/"
-
-#--------------------------------------#
-# validate_multi_level_analyzer_result #
-#--------------------------------------#
-
-def validate_multi_level_analyzer_result(
-    data: Dict[str, Any],
-    required_keys: Iterable[str],
-    ) -> None:
-    if not isinstance(data, dict):
-        raise TypeError("MultiLevelAnalyzer result must be a dict.")
-
-    missing = [k for k in required_keys if k not in data]
-    if missing:
-        raise KeyError(f"MultiLevelAnalyzer result missing keys: {missing}")
