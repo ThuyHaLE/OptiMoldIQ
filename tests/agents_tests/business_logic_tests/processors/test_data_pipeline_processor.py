@@ -35,8 +35,8 @@ def make_report(
     )
 
 # TEST 1 — Happy path (schema OK, collect OK)
-@patch("agents.dataPipelineOrchestrator.processor.SchemaValidator")
-@patch("agents.dataPipelineOrchestrator.processor.DataCollector")
+@patch("agents.dataPipelineOrchestrator.validators.schema_validator.SchemaValidator")
+@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DataCollector")
 def test_run_pipeline_success(
     mock_collector_cls,
     mock_validator_cls,
@@ -65,8 +65,7 @@ def test_run_pipeline_success(
 
 
 # TEST 2 — Schema fail + healing FAIL
-
-@patch("agents.dataPipelineOrchestrator.processor.SchemaValidator")
+@patch("agents.dataPipelineOrchestrator.validators.schema_validator.SchemaValidator")
 @patch.object(DataPipelineProcessor, "_process_healing_mechanism")
 def test_schema_validation_fail_and_healing_fail(
     mock_healing,
@@ -90,9 +89,9 @@ def test_schema_validation_fail_and_healing_fail(
     assert "Schema validation: HEALING FAILED" in result.metadata["log"]
 
 # TEST 3 — Schema failed but healing SUCCESS
-@patch("agents.dataPipelineOrchestrator.processor.SchemaValidator")
+@patch("agents.dataPipelineOrchestrator.validators.schema_validator.SchemaValidator")
 @patch.object(DataPipelineProcessor, "_process_healing_mechanism")
-@patch("agents.dataPipelineOrchestrator.processor.DataCollector")
+@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DataCollector")
 def test_schema_fail_but_healing_success(
     mock_collector_cls,
     mock_healing,
@@ -124,8 +123,8 @@ def test_schema_fail_but_healing_success(
     assert "db1" in result.collected_data
 
 # TEST 4 — DataCollector fail 1 db → all-or-nothing FAIL
-@patch("agents.dataPipelineOrchestrator.processor.SchemaValidator")
-@patch("agents.dataPipelineOrchestrator.processor.DataCollector")
+@patch("agents.dataPipelineOrchestrator.validators.schema_validator.SchemaValidator")
+@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DataCollector")
 @patch.object(DataPipelineProcessor, "_process_healing_mechanism")
 def test_data_collection_partial_fail(
     mock_healing,

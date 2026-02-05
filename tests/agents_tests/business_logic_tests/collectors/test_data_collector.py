@@ -39,7 +39,7 @@ def test_unsupported_database_type():
     assert "Unsupported database_type" in result.error_message
 
 # TEST 2 — dynamicDB, all DBs SUCCESS
-@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DynamicDataProcessor")
+@patch("agents.dataPipelineOrchestrator.processors.dynamic_data_processor.DynamicDataProcessor")
 def test_dynamic_db_all_success(mock_processor_cls):
     schema = {"db1": {}, "db2": {}}
 
@@ -61,7 +61,7 @@ def test_dynamic_db_all_success(mock_processor_cls):
     assert all(isinstance(v, pd.DataFrame) for v in result.data.values())
 
 # TEST 3 — PARTIAL_SUCCESS (1 db fail)
-@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DynamicDataProcessor")
+@patch("agents.dataPipelineOrchestrator.processors.dynamic_data_processor.DynamicDataProcessor")
 def test_partial_success(mock_processor_cls):
     schema = {"db1": {}, "db2": {}}
 
@@ -93,7 +93,7 @@ def test_partial_success(mock_processor_cls):
     assert "db2" in result.error_message
 
 # TEST 4 — ALL DBs FAIL
-@patch("agents.dataPipelineOrchestrator.collectors.data_collector.StaticDataProcessor")
+@patch("agents.dataPipelineOrchestrator.processors.static_data_processor.StaticDataProcessor")
 def test_all_fail(mock_processor_cls):
     schema = {"db1": {}, "db2": {}}
 
@@ -113,7 +113,7 @@ def test_all_fail(mock_processor_cls):
     assert "No files could be processed successfully" in result.error_message
 
 # TEST 5 — Exception trong processor
-@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DynamicDataProcessor")
+@patch("agents.dataPipelineOrchestrator.processors.dynamic_data_processor.DynamicDataProcessor")
 def test_exception_during_processing(mock_processor_cls):
     schema = {"db1": {}}
 
