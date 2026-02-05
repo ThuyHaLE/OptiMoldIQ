@@ -198,7 +198,7 @@ class TestProcessHealingMechanism:
         # Verify log entries
         log_text = '\n'.join(processor.log_entries)
         assert "Local recovery failed" in log_text or "Local healing FAILED" in log_text
-        assert "Manual review" in log_text.lower()
+        assert "manual review" in log_text.lower()
         assert notification_path in log_text
     
     # ==========================================
