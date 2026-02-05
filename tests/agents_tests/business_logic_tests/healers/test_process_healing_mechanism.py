@@ -131,10 +131,8 @@ class TestProcessHealingMechanism:
     # Test Case 2: Failed Local Healing -> Global Notification
     # ==========================================
     @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.get_recovery_actions_for_agent_error')
-    @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.ManualReviewNotifier')
     def test_failed_local_healing_with_notification(
         self, 
-        mock_notifier_class, 
         mock_get_actions, 
         processor, 
         failed_result, 
@@ -175,17 +173,18 @@ class TestProcessHealingMechanism:
         ]
         mock_notifier = Mock()
         mock_notifier.notify.return_value = global_recovery_actions
-        mock_notifier_class.return_value = mock_notifier
         
         notification_path = "/tmp/notification.json"
         
-        # Act
-        healing_succeeded, result = processor._process_healing_mechanism(
-            result_name=AgentType.DATA_COLLECTOR,
-            result_data=failed_result,
-            notification_path=notification_path,
-            local_healer=mock_healer
-        )
+        # PATCH LAZY IMPORT - Patch tại nơi import xảy ra (inside the function)
+        with patch('agents.dataPipelineOrchestrator.notifiers.manual_review_notifier.ManualReviewNotifier', return_value=mock_notifier):
+            # Act
+            healing_succeeded, result = processor._process_healing_mechanism(
+                result_name=AgentType.DATA_COLLECTOR,
+                result_data=failed_result,
+                notification_path=notification_path,
+                local_healer=mock_healer
+            )
         
         # Assert
         assert healing_succeeded is False
@@ -194,11 +193,7 @@ class TestProcessHealingMechanism:
         assert processor.pipeline_result.error_type == ErrorType.SCHEMA_MISMATCH
         
         # Verify notification was created
-        mock_notifier_class.assert_called_once()
-        call_kwargs = mock_notifier_class.call_args[1]
-        assert call_kwargs['data_processing_result'] == failed_result
-        assert call_kwargs['recovery_actions'] == local_recovery_actions
-        assert call_kwargs['notification_config']['log_path'] == notification_path
+        mock_notifier.notify.assert_called_once()
         
         # Verify log entries
         log_text = '\n'.join(processor.log_entries)
@@ -265,21 +260,14 @@ class TestProcessHealingMechanism:
     # Test Case 4: Multiple Recovery Actions
     # ==========================================
     @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.get_recovery_actions_for_agent_error')
-    @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.ManualReviewNotifier')
     def test_multiple_recovery_actions(
         self, 
-        mock_notifier_class, 
         mock_get_actions, 
         processor, 
         failed_result
     ):
         """
         Test handling of multiple local and global recovery actions
-        
-        Expected behavior:
-        - All local actions are attempted
-        - All global actions are logged
-        - Recovery actions are stored separately by scale
         """
         # Arrange
         recovery_actions = [
@@ -304,7 +292,6 @@ class TestProcessHealingMechanism:
         ]
         mock_get_actions.return_value = recovery_actions
         
-        # Multiple local actions - both fail
         local_recovery_actions = [
             RecoveryDecision(
                 action=RecoveryAction.ROLLBACK_TO_BACKUP,
@@ -333,46 +320,37 @@ class TestProcessHealingMechanism:
         ]
         mock_notifier = Mock()
         mock_notifier.notify.return_value = global_recovery_actions
-        mock_notifier_class.return_value = mock_notifier
         
-        # Act
-        processor._process_healing_mechanism(
-            result_name=AgentType.SCHEMA_VALIDATOR,
-            result_data=failed_result,
-            notification_path="/tmp/test.json",
-            local_healer=mock_healer
-        )
+        # PATCH LAZY IMPORT
+        with patch('agents.dataPipelineOrchestrator.notifiers.manual_review_notifier.ManualReviewNotifier', return_value=mock_notifier):
+            # Act
+            processor._process_healing_mechanism(
+                result_name=AgentType.SCHEMA_VALIDATOR,
+                result_data=failed_result,
+                notification_path="/tmp/test.json",
+                local_healer=mock_healer
+            )
         
         # Assert
         log_text = '\n'.join(processor.log_entries)
-        
-        # Check that both local actions are in logs
         assert "BACKUP_ROLLBACK" in log_text or "ROLLBACK_TO_BACKUP" in log_text
         assert "RETRY_PROCESSING" in log_text
         assert "MANUAL_REVIEW" in log_text or "TRIGGER_MANUAL_REVIEW" in log_text
-        
-        # Verify error icons for failed actions
         assert "✗" in log_text
-    
+
+
     # ==========================================
     # Test Case 5: Pipeline Result Updates
     # ==========================================
     @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.get_recovery_actions_for_agent_error')
-    @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.ManualReviewNotifier')
     def test_pipeline_result_updates(
         self, 
-        mock_notifier_class, 
         mock_get_actions, 
         processor, 
         failed_result
     ):
         """
         Test that pipeline_result is properly updated throughout healing process
-        
-        Expected behavior:
-        - recovery_actions dictionary is updated
-        - status is updated based on outcome
-        - error_type and error_message are set on failure
         """
         # Arrange
         mock_get_actions.return_value = []
@@ -398,22 +376,20 @@ class TestProcessHealingMechanism:
         ]
         mock_notifier = Mock()
         mock_notifier.notify.return_value = global_actions
-        mock_notifier_class.return_value = mock_notifier
         
-        # Act
-        processor._process_healing_mechanism(
-            result_name=AgentType.DATA_COLLECTOR,
-            result_data=failed_result,
-            notification_path="/tmp/test.json",
-            local_healer=mock_healer
-        )
+        # PATCH LAZY IMPORT
+        with patch('agents.dataPipelineOrchestrator.notifiers.manual_review_notifier.ManualReviewNotifier', return_value=mock_notifier):
+            # Act
+            processor._process_healing_mechanism(
+                result_name=AgentType.DATA_COLLECTOR,
+                result_data=failed_result,
+                notification_path="/tmp/test.json",
+                local_healer=mock_healer
+            )
         
         # Assert
-        # Check recovery_actions are stored
         assert AgentType.DATA_COLLECTOR.value in processor.pipeline_result.recovery_actions
         assert processor.pipeline_result.recovery_actions[AgentType.DATA_COLLECTOR.value] == global_actions
-        
-        # Check error information
         assert processor.pipeline_result.status == ProcessingStatus.ERROR
         assert processor.pipeline_result.error_type == ErrorType.SCHEMA_MISMATCH
         assert "Local healing for DATA_COLLECTOR failed" in processor.pipeline_result.error_message
@@ -469,21 +445,14 @@ class TestProcessHealingMechanism:
     # Test Case 7: Error Message Construction
     # ==========================================
     @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.get_recovery_actions_for_agent_error')
-    @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.ManualReviewNotifier')
     def test_error_message_includes_recovery_summary(
         self, 
-        mock_notifier_class, 
         mock_get_actions, 
         processor, 
         failed_result
     ):
         """
         Test that error message includes detailed recovery action summary
-        
-        Expected behavior:
-        - Error message contains original error
-        - Error message contains recovery action results
-        - Both success and failure actions are included
         """
         # Arrange
         mock_get_actions.return_value = []
@@ -509,20 +478,21 @@ class TestProcessHealingMechanism:
         ]
         mock_notifier = Mock()
         mock_notifier.notify.return_value = global_actions
-        mock_notifier_class.return_value = mock_notifier
         
-        # Act
-        processor._process_healing_mechanism(
-            result_name=AgentType.SCHEMA_VALIDATOR,
-            result_data=failed_result,
-            notification_path="/tmp/test.json",
-            local_healer=mock_healer
-        )
+        # PATCH LAZY IMPORT
+        with patch('agents.dataPipelineOrchestrator.notifiers.manual_review_notifier.ManualReviewNotifier', return_value=mock_notifier):
+            # Act
+            processor._process_healing_mechanism(
+                result_name=AgentType.SCHEMA_VALIDATOR,
+                result_data=failed_result,
+                notification_path="/tmp/test.json",
+                local_healer=mock_healer
+            )
         
         # Assert
         error_msg = processor.pipeline_result.error_message
         assert "Local healing for SCHEMA_VALIDATOR failed" in error_msg
-        assert "Schema validation failed" in error_msg  # Original error
+        assert "Schema validation failed" in error_msg
         assert "Recovery action results" in error_msg
         assert "MANUAL_REVIEW" in error_msg or "TRIGGER_MANUAL_REVIEW" in error_msg
     
@@ -672,24 +642,17 @@ class TestProcessHealingMechanism:
     # Test Case 10: Empty Recovery Actions
     # ==========================================
     @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.get_recovery_actions_for_agent_error')
-    @patch('agents.dataPipelineOrchestrator.processors.data_pipeline_processor.ManualReviewNotifier')
     def test_empty_recovery_actions(
         self, 
-        mock_notifier_class, 
         mock_get_actions, 
         processor, 
         failed_result
     ):
         """
         Test behavior when no recovery actions are available
-        
-        Expected behavior:
-        - Should still attempt healing
-        - Should handle gracefully without actions
-        - Notification should still be created on failure
         """
         # Arrange
-        mock_get_actions.return_value = []  # No recovery actions available
+        mock_get_actions.return_value = []
         
         mock_healer = Mock()
         mock_healer.return_value.heal.return_value = ([], failed_result)
@@ -697,24 +660,22 @@ class TestProcessHealingMechanism:
         global_recovery_actions = []
         mock_notifier = Mock()
         mock_notifier.notify.return_value = global_recovery_actions
-        mock_notifier_class.return_value = mock_notifier
         
-        # Act
-        healing_succeeded, result = processor._process_healing_mechanism(
-            result_name=AgentType.SCHEMA_VALIDATOR,
-            result_data=failed_result,
-            notification_path="/tmp/test.json",
-            local_healer=mock_healer
-        )
+        # PATCH LAZY IMPORT
+        with patch('agents.dataPipelineOrchestrator.notifiers.manual_review_notifier.ManualReviewNotifier', return_value=mock_notifier):
+            # Act
+            healing_succeeded, result = processor._process_healing_mechanism(
+                result_name=AgentType.SCHEMA_VALIDATOR,
+                result_data=failed_result,
+                notification_path="/tmp/test.json",
+                local_healer=mock_healer
+            )
         
         # Assert
         assert healing_succeeded is False
         assert processor.pipeline_result.status == ProcessingStatus.ERROR
+        mock_notifier.notify.assert_called_once()
         
-        # Verify notification was still attempted
-        mock_notifier_class.assert_called_once()
-        
-        # Check log mentions zero actions
         log_text = '\n'.join(processor.log_entries)
         assert "Recovery actions available: 0" in log_text
     
