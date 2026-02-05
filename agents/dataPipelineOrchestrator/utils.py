@@ -82,6 +82,10 @@ def dataframes_equal_fast(df1: pd.DataFrame,
     if df1.empty and df2.empty:
         return True
     
+    # Check column names (after sorting)
+    if sorted(df1.columns) != sorted(df2.columns):
+        return False
+    
     try:
         # Sort both dataframes consistently
         df1_sorted = df1.sort_index(axis=1).sort_values(
