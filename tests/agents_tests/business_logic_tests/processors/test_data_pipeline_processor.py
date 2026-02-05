@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
-from agents.dataPipelineOrchestrator.processor import DataPipelineProcessor
+from agents.dataPipelineOrchestrator.processors.data_pipeline_processor import DataPipelineProcessor
 from agents.dataPipelineOrchestrator.configs.output_formats import DataProcessingReport
 from agents.dataPipelineOrchestrator.configs.healing_configs import (
     ProcessingStatus, ErrorType, AgentType
