@@ -132,7 +132,7 @@ def test_empty_dynamicdb_warning(tmp_path):
     validator = SchemaValidator(str(path))
     result = validator.validate()
     
-    assert result.status == ProcessingStatus.SUCCESS
+    assert result.status == ProcessingStatus.WARNING
     assert "dynamicDB is empty" in result.metadata.get("warnings", [])
 
 
@@ -149,7 +149,7 @@ def test_empty_staticdb_warning(tmp_path):
     validator = SchemaValidator(str(path))
     result = validator.validate()
     
-    assert result.status == ProcessingStatus.SUCCESS
+    assert result.status == ProcessingStatus.WARNING
     assert "staticDB is empty" in result.metadata.get("warnings", [])
 
 
