@@ -790,6 +790,9 @@ def test_normalize_field_name_fixes_typos(tmp_path):
                 "required_fields": ["plasticResine"],  # Typo
                 "dtypes": {"plasticResin": "string"}  # Correct
             }
+        },
+        "staticDB": {
+            "stat1": valid_static_table()
         }
     }
     path = write_json(tmp_path, schema)
@@ -821,7 +824,9 @@ def test_all_valid_dtypes_accepted(tmp_path):
     }
     
     schema = {
-        "dynamicDB": {},
+        "dynamicDB": {
+            "dyn1": valid_dynamic_table()
+        },
         "staticDB": {
             "table1": {
                 "path": "./file.csv",
@@ -853,7 +858,9 @@ def test_all_valid_extensions_accepted(tmp_path):
                     "dtypes": {"a": "string"}
                 }
             },
-            "staticDB": {}
+            "staticDB": {
+                "stat1": valid_static_table()
+            }
         }
         path = write_json(tmp_path, schema, f"schema_{ext}.json")
         
