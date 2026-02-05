@@ -65,7 +65,6 @@ def test_run_pipeline_success(
 
 
 # TEST 2 — Schema fail + healing FAIL
-
 @patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.SchemaValidator")
 @patch.object(DataPipelineProcessor, "_process_healing_mechanism")
 def test_schema_validation_fail_and_healing_fail(
@@ -76,7 +75,7 @@ def test_schema_validation_fail_and_healing_fail(
     mock_validator = mock_validator_cls.return_value
     mock_validator.validate.return_value = make_report(
         status=ProcessingStatus.ERROR,
-        error_type=ErrorType.SCHEMA_ERROR,
+        error_type=ErrorType.SCHEMA_MISMATCH,
         error_message="Invalid schema"
     )
 
@@ -86,7 +85,7 @@ def test_schema_validation_fail_and_healing_fail(
     result = processor.run_pipeline()
 
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.SCHEMA_ERROR
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
     assert "Schema validation: HEALING FAILED" in result.metadata["log"]
 
 # TEST 3 — Schema failed but healing SUCCESS
@@ -101,7 +100,7 @@ def test_schema_fail_but_healing_success(
 ):
     bad_schema = make_report(
         status=ProcessingStatus.ERROR,
-        error_type=ErrorType.SCHEMA_ERROR
+        error_type=ErrorType.SCHEMA_MISMATCH
     )
 
     healed_schema = make_report(
