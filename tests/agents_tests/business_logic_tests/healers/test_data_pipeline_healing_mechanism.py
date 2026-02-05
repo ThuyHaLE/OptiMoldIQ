@@ -1,5 +1,6 @@
 # tests/agents_tests/business_logic_tests/healers/test_data_pipeline_healing_mechanism.py
 
+import pytest
 from unittest.mock import MagicMock, patch
 from agents.dataPipelineOrchestrator.processors.data_pipeline_processor import DataPipelineProcessor
 from agents.dataPipelineOrchestrator.configs.healing_configs import (
@@ -7,6 +8,15 @@ from agents.dataPipelineOrchestrator.configs.healing_configs import (
 )
 from agents.dataPipelineOrchestrator.configs.output_formats import DataProcessingReport
 
+@pytest.fixture
+def valid_config(tmp_path):
+    cfg = MagicMock()
+    cfg.databaseSchemas_path = tmp_path / "schema.json"
+    cfg.annotation_path = tmp_path / "annotation.json"
+    cfg.manual_review_notifications_dir = tmp_path / "manual"
+
+    cfg.validate_requirements.return_value = (True, [])
+    return cfg
 
 def make_action(scale, status, action="rollback"):
     act = MagicMock()
