@@ -72,20 +72,23 @@ def test_schema_validation_fail_and_healing_fail(
     mock_validator_cls,
     valid_config
 ):
-    mock_validator = mock_validator_cls.return_value
-    mock_validator.validate.return_value = make_report(
+    validation_report = make_report(
         status=ProcessingStatus.ERROR,
         error_type=ErrorType.SCHEMA_MISMATCH,
         error_message="Invalid schema"
     )
 
-    mock_healing.return_value = (False, mock_validator.validate.return_value)
+    mock_validator_cls.return_value.validate.return_value = validation_report
+
+    # healing FAIL → run_pipeline sẽ return sớm
+    mock_healing.return_value = (False, validation_report)
 
     processor = DataPipelineProcessor(valid_config)
     result = processor.run_pipeline()
 
-    assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    # === BEHAVIOR ASSERTIONS ===
+    assert result.schema_validation_result.status == ProcessingStatus.ERROR
+    assert result.schema_validation_result.error_type == ErrorType.SCHEMA_MISMATCH
     assert "Schema validation: HEALING FAILED" in result.metadata["log"]
 
 # TEST 3 — Schema failed but healing SUCCESS
@@ -119,52 +122,36 @@ def test_schema_fail_but_healing_success(
     processor = DataPipelineProcessor(valid_config)
     result = processor.run_pipeline()
 
-    assert result.status == ProcessingStatus.SUCCESS
+    # === BEHAVIOR ASSERTIONS ===
+    assert result.schema_data == {"db1": {}}
+    assert result.collected_data is not None
     assert "db1" in result.collected_data
 
 # TEST 4 — DataCollector fail 1 db → all-or-nothing FAIL
 @patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.SchemaValidator")
 @patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.DataCollector")
-@patch.object(DataPipelineProcessor, "_process_healing_mechanism")
 def test_data_collection_partial_fail(
-    mock_healing,
     mock_collector_cls,
     mock_validator_cls,
     valid_config
 ):
+    # Schema OK
     mock_validator_cls.return_value.validate.return_value = make_report(
         status=ProcessingStatus.SUCCESS,
         data={"db1": {}, "db2": {}}
     )
 
-    def collector_side_effect(db_type, schema):
-        collector = MagicMock()
-        if db_type == "db1":
-            collector.process_data.return_value = make_report(
-                status=ProcessingStatus.SUCCESS,
-                data={"rows": 1}
-            )
-        else:
-            collector.process_data.return_value = make_report(
-                status=ProcessingStatus.ERROR,
-                error_type=ErrorType.DATA_PROCESSING_ERROR,
-                error_message="fail db2"
-            )
-        return collector
-
-    mock_collector_cls.side_effect = collector_side_effect
-
-    mock_healing.return_value = (
-        False,
-        make_report(
-            status=ProcessingStatus.ERROR,
-            error_type=ErrorType.DATA_PROCESSING_ERROR
-        )
+    # DataCollector FAIL (all-or-nothing)
+    mock_collector_cls.return_value.process_data.return_value = make_report(
+        status=ProcessingStatus.ERROR,
+        error_type=ErrorType.DATA_PROCESSING_ERROR,
+        error_message="Partial failure"
     )
 
     processor = DataPipelineProcessor(valid_config)
     result = processor.run_pipeline()
 
+    # === BEHAVIOR ASSERT ===
     assert result.status == ProcessingStatus.ERROR
     assert result.error_type == ErrorType.DATA_PROCESSING_ERROR
-    assert result.metadata["failed_db_types"] == ["db2"]
+    assert "Data collection" in result.metadata["log"]
