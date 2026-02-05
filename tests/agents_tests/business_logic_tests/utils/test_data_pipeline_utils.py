@@ -30,8 +30,8 @@ class TestLoadExistingData:
         result = load_existing_data(xlsx_path)
         
         assert result.status == ProcessingStatus.SUCCESS
-        assert result.error_type is None
-        assert result.error_message is None
+        assert result.error_type == ErrorType.NONE
+        assert result.error_message == ''
         pd.testing.assert_frame_equal(result.data, df)
         assert result.metadata["file_path"] == str(xlsx_path)
     
