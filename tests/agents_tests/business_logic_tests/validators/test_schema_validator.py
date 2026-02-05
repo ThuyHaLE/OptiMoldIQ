@@ -213,6 +213,7 @@ def test_validate_full_success(tmp_path):
     assert result.metadata["validation_passed"] is True
     assert result.metadata["total_tables"] == 2
 
+
 # =========================
 # ErrorType.FILE_READ_ERROR
 # =========================
@@ -270,7 +271,10 @@ def test_invalid_schema_structure_table_config_not_dict(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    # Table-level errors are wrapped in SCHEMA_MISMATCH
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    # But underlying error in table_errors is INVALID_SCHEMA_STRUCTURE
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 def test_invalid_schema_structure_path_not_string(tmp_path):
@@ -290,7 +294,8 @@ def test_invalid_schema_structure_path_not_string(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 def test_invalid_schema_structure_empty_path(tmp_path):
@@ -310,7 +315,8 @@ def test_invalid_schema_structure_empty_path(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 def test_invalid_schema_structure_dtypes_not_dict(tmp_path):
@@ -330,7 +336,8 @@ def test_invalid_schema_structure_dtypes_not_dict(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 def test_invalid_schema_structure_empty_dtypes(tmp_path):
@@ -350,7 +357,8 @@ def test_invalid_schema_structure_empty_dtypes(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 def test_invalid_schema_structure_name_start_not_string(tmp_path):
@@ -374,7 +382,8 @@ def test_invalid_schema_structure_name_start_not_string(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 def test_invalid_schema_structure_extension_not_string(tmp_path):
@@ -398,7 +407,8 @@ def test_invalid_schema_structure_extension_not_string(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 def test_invalid_schema_structure_sheet_name_empty(tmp_path):
@@ -422,7 +432,8 @@ def test_invalid_schema_structure_sheet_name_empty(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 def test_invalid_schema_structure_required_fields_not_list(tmp_path):
@@ -446,7 +457,8 @@ def test_invalid_schema_structure_required_fields_not_list(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.INVALID_SCHEMA_STRUCTURE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "invalid_schema_structure"
 
 
 # =========================
@@ -470,7 +482,8 @@ def test_unsupported_data_type_invalid_dtype(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.UNSUPPORTED_DATA_TYPE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "unsupported_data_type"
 
 
 def test_unsupported_data_type_dtype_not_string(tmp_path):
@@ -490,7 +503,8 @@ def test_unsupported_data_type_dtype_not_string(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.UNSUPPORTED_DATA_TYPE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "unsupported_data_type"
 
 
 def test_unsupported_data_type_multiple_invalid(tmp_path):
@@ -518,7 +532,8 @@ def test_unsupported_data_type_multiple_invalid(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.UNSUPPORTED_DATA_TYPE
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "unsupported_data_type"
 
 
 # =========================
@@ -586,6 +601,33 @@ def test_schema_mismatch_multiple_table_errors(tmp_path):
 # ErrorType.MISSING_FIELDS
 # =========================
 
+"""
+IMPORTANT: Error Wrapping Behavior in SchemaValidator
+
+There are TWO levels of errors:
+
+1. TOP-LEVEL ERRORS (returned directly with their ErrorType):
+   - File path validation errors (FILE_NOT_FOUND, FILE_NOT_VALID)
+   - JSON parsing errors (INVALID_JSON, FILE_READ_ERROR)
+   - Top-level structure errors (MISSING_FIELDS for missing dynamicDB/staticDB)
+   - INVALID_SCHEMA_STRUCTURE when top-level keys are not dicts
+
+2. TABLE-LEVEL ERRORS (wrapped in SCHEMA_MISMATCH):
+   - Any error from _validate_table_config() and its helper methods
+   - The actual error type is preserved in metadata["table_errors"][]["error_type"]
+   - The top-level error_type will be SCHEMA_MISMATCH
+   - This includes:
+     * MISSING_FIELDS (missing table fields)
+     * INVALID_SCHEMA_STRUCTURE (wrong types in table config)
+     * UNSUPPORTED_DATA_TYPE (invalid dtypes)
+     * SCHEMA_MISMATCH (required_fields not in dtypes)
+
+Example:
+  If a table has invalid dtype, the result will be:
+  - result.error_type == ErrorType.SCHEMA_MISMATCH
+  - result.metadata["table_errors"][0]["error_type"] == "unsupported_data_type"
+"""
+
 def test_missing_fields_dynamic_table(tmp_path):
     """Test MISSING_FIELDS when dynamicDB table is missing required fields"""
     schema = {
@@ -604,7 +646,8 @@ def test_missing_fields_dynamic_table(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.MISSING_FIELDS
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "missing_fields"
 
 
 def test_missing_fields_static_table(tmp_path):
@@ -624,7 +667,8 @@ def test_missing_fields_static_table(tmp_path):
     result = validator.validate()
     
     assert result.status == ProcessingStatus.ERROR
-    assert result.error_type == ErrorType.MISSING_FIELDS
+    assert result.error_type == ErrorType.SCHEMA_MISMATCH
+    assert result.metadata["table_errors"][0]["error_type"] == "missing_fields"
 
 
 def test_missing_fields_top_level_missing_staticdb(tmp_path):
