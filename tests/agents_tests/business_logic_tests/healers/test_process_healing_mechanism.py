@@ -392,8 +392,8 @@ class TestProcessHealingMechanism:
         assert processor.pipeline_result.recovery_actions[AgentType.DATA_COLLECTOR.value] == global_actions
         assert processor.pipeline_result.status == ProcessingStatus.ERROR
         assert processor.pipeline_result.error_type == ErrorType.SCHEMA_MISMATCH
-        assert "Local healing for DATA_COLLECTOR failed" in processor.pipeline_result.error_message
-        assert "Recovery action results" in processor.pipeline_result.error_message
+        assert "Local healing for DataCollector failed" in processor.pipeline_result.error_message
+        assert "Recovery action results for DataCollector" in processor.pipeline_result.error_message
     
     # ==========================================
     # Test Case 6: Different Agent Types
