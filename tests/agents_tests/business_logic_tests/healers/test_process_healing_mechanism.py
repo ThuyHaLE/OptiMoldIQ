@@ -245,8 +245,8 @@ class TestProcessHealingMechanism:
         
         # Available actions should be logged
         assert "Recovery actions available: 2" in log_text
-        assert "BACKUP_ROLLBACK" in log_text or "ROLLBACK_TO_BACKUP" in log_text
-        assert "MANUAL_REVIEW" in log_text or "TRIGGER_MANUAL_REVIEW" in log_text
+        assert "rollback_to_backup" in log_text
+        assert "trigger_manual_review" in log_text
         assert "LOCAL" in log_text
         assert "GLOBAL" in log_text
         
@@ -333,9 +333,9 @@ class TestProcessHealingMechanism:
         
         # Assert
         log_text = '\n'.join(processor.log_entries)
-        assert "BACKUP_ROLLBACK" in log_text or "ROLLBACK_TO_BACKUP" in log_text
-        assert "RETRY_PROCESSING" in log_text
-        assert "MANUAL_REVIEW" in log_text or "TRIGGER_MANUAL_REVIEW" in log_text
+        assert "rollback_to_backup" in log_text
+        assert "retry_processing" in log_text
+        assert "trigger_manual_review" in log_text
         assert "✗" in log_text
 
 
@@ -494,7 +494,7 @@ class TestProcessHealingMechanism:
         assert "Local healing for SCHEMA_VALIDATOR failed" in error_msg
         assert "Schema validation failed" in error_msg
         assert "Recovery action results" in error_msg
-        assert "MANUAL_REVIEW" in error_msg or "TRIGGER_MANUAL_REVIEW" in error_msg
+        assert "trigger_manual_review" in error_msg
     
     # ==========================================
     # Test Case 8: Different Error Types
