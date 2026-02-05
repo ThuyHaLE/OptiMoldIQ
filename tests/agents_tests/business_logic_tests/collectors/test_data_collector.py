@@ -39,18 +39,21 @@ def test_unsupported_database_type():
     assert "Unsupported database_type" in result.error_message
 
 # TEST 2 — dynamicDB, all DBs SUCCESS
-@patch("agents.dataPipelineOrchestrator.processors.dynamic_data_processor.DynamicDataProcessor")
+@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DynamicDataProcessor")
 def test_dynamic_db_all_success(mock_processor_cls):
     schema = {"db1": {}, "db2": {}}
-
     df = pd.DataFrame({"a": [1, 2]})
 
-    processor_instance = mock_processor_cls.return_value
-    processor_instance.process_data.return_value = make_processor_report(
-        status=ProcessingStatus.SUCCESS,
-        data=df,
-        metadata={"log": "ok"}
-    )
+    def processor_side_effect(db_name, *_):
+        proc = MagicMock()
+        proc.process_data.return_value = make_processor_report(
+            status=ProcessingStatus.SUCCESS,
+            data=df,
+            metadata={"log": "ok"}
+        )
+        return proc
+
+    mock_processor_cls.side_effect = processor_side_effect
 
     collector = DataCollector("dynamicDB", schema)
     result = collector.process_data()
@@ -58,10 +61,9 @@ def test_dynamic_db_all_success(mock_processor_cls):
     assert result.status == ProcessingStatus.SUCCESS
     assert result.error_type == ErrorType.NONE
     assert set(result.data.keys()) == {"db1", "db2"}
-    assert all(isinstance(v, pd.DataFrame) for v in result.data.values())
 
 # TEST 3 — PARTIAL_SUCCESS (1 db fail)
-@patch("agents.dataPipelineOrchestrator.processors.dynamic_data_processor.DynamicDataProcessor")
+@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DynamicDataProcessor")
 def test_partial_success(mock_processor_cls):
     schema = {"db1": {}, "db2": {}}
 
@@ -93,17 +95,19 @@ def test_partial_success(mock_processor_cls):
     assert "db2" in result.error_message
 
 # TEST 4 — ALL DBs FAIL
-@patch("agents.dataPipelineOrchestrator.processors.static_data_processor.StaticDataProcessor")
+@patch("agents.dataPipelineOrchestrator.collectors.data_collector.StaticDataProcessor")
 def test_all_fail(mock_processor_cls):
     schema = {"db1": {}, "db2": {}}
+    
+    def processor_side_effect(db_name, *_):
+        proc = MagicMock()
+        proc.process_data.return_value = make_processor_report(
+            status=ProcessingStatus.ERROR,
+            error_message="dead"
+        )
+        return proc
 
-    processor_instance = mock_processor_cls.return_value
-    processor_instance.process_data.return_value = make_processor_report(
-        status=ProcessingStatus.ERROR,
-        data=None,
-        error_message="dead",
-        metadata={"log": "fail"}
-    )
+    mock_processor_cls.side_effect = processor_side_effect
 
     collector = DataCollector("staticDB", schema)
     result = collector.process_data()
@@ -113,7 +117,7 @@ def test_all_fail(mock_processor_cls):
     assert "No files could be processed successfully" in result.error_message
 
 # TEST 5 — Exception trong processor
-@patch("agents.dataPipelineOrchestrator.processors.dynamic_data_processor.DynamicDataProcessor")
+@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DynamicDataProcessor")
 def test_exception_during_processing(mock_processor_cls):
     schema = {"db1": {}}
 

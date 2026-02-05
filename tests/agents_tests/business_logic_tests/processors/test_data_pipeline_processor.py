@@ -35,8 +35,8 @@ def make_report(
     )
 
 # TEST 1 — Happy path (schema OK, collect OK)
-@patch("agents.dataPipelineOrchestrator.validators.schema_validator.SchemaValidator")
-@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DataCollector")
+@patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.SchemaValidator")
+@patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.DataCollector")
 def test_run_pipeline_success(
     mock_collector_cls,
     mock_validator_cls,
@@ -65,7 +65,8 @@ def test_run_pipeline_success(
 
 
 # TEST 2 — Schema fail + healing FAIL
-@patch("agents.dataPipelineOrchestrator.validators.schema_validator.SchemaValidator")
+
+@patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.SchemaValidator")
 @patch.object(DataPipelineProcessor, "_process_healing_mechanism")
 def test_schema_validation_fail_and_healing_fail(
     mock_healing,
@@ -89,9 +90,9 @@ def test_schema_validation_fail_and_healing_fail(
     assert "Schema validation: HEALING FAILED" in result.metadata["log"]
 
 # TEST 3 — Schema failed but healing SUCCESS
-@patch("agents.dataPipelineOrchestrator.validators.schema_validator.SchemaValidator")
+@patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.SchemaValidator")
 @patch.object(DataPipelineProcessor, "_process_healing_mechanism")
-@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DataCollector")
+@patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.DataCollector")
 def test_schema_fail_but_healing_success(
     mock_collector_cls,
     mock_healing,
@@ -123,8 +124,8 @@ def test_schema_fail_but_healing_success(
     assert "db1" in result.collected_data
 
 # TEST 4 — DataCollector fail 1 db → all-or-nothing FAIL
-@patch("agents.dataPipelineOrchestrator.validators.schema_validator.SchemaValidator")
-@patch("agents.dataPipelineOrchestrator.collectors.data_collector.DataCollector")
+@patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.SchemaValidator")
+@patch("agents.dataPipelineOrchestrator.processors.data_pipeline_processor.DataCollector")
 @patch.object(DataPipelineProcessor, "_process_healing_mechanism")
 def test_data_collection_partial_fail(
     mock_healing,
@@ -137,10 +138,9 @@ def test_data_collection_partial_fail(
         data={"db1": {}, "db2": {}}
     )
 
-    # db1 OK, db2 FAIL
-    def collector_side_effect(*args, **kwargs):
+    def collector_side_effect(db_type, schema):
         collector = MagicMock()
-        if args[0] == "db1":
+        if db_type == "db1":
             collector.process_data.return_value = make_report(
                 status=ProcessingStatus.SUCCESS,
                 data={"rows": 1}
@@ -148,18 +148,24 @@ def test_data_collection_partial_fail(
         else:
             collector.process_data.return_value = make_report(
                 status=ProcessingStatus.ERROR,
-                error_type=ErrorType.DATA_PROCESSING_ERROR
+                error_type=ErrorType.DATA_PROCESSING_ERROR,
+                error_message="fail db2"
             )
         return collector
 
     mock_collector_cls.side_effect = collector_side_effect
-    mock_healing.return_value = (False, make_report(
-        status=ProcessingStatus.ERROR,
-        error_type=ErrorType.DATA_PROCESSING_ERROR
-    ))
+
+    mock_healing.return_value = (
+        False,
+        make_report(
+            status=ProcessingStatus.ERROR,
+            error_type=ErrorType.DATA_PROCESSING_ERROR
+        )
+    )
 
     processor = DataPipelineProcessor(valid_config)
     result = processor.run_pipeline()
 
     assert result.status == ProcessingStatus.ERROR
-    assert "db2" in result.metadata["failed_db_types"]
+    assert result.error_type == ErrorType.DATA_PROCESSING_ERROR
+    assert result.metadata["failed_db_types"] == ["db2"]
