@@ -790,8 +790,7 @@ def test_normalize_field_name_fixes_typos(tmp_path):
                 "required_fields": ["plasticResine"],  # Typo
                 "dtypes": {"plasticResin": "string"}  # Correct
             }
-        },
-        "staticDB": {}
+        }
     }
     path = write_json(tmp_path, schema)
     
