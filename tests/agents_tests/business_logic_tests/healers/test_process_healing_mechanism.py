@@ -491,9 +491,9 @@ class TestProcessHealingMechanism:
         
         # Assert
         error_msg = processor.pipeline_result.error_message
-        assert "Local healing for SCHEMA_VALIDATOR failed" in error_msg
+        assert "Local healing for SchemaValidator failed" in error_msg
         assert "Schema validation failed" in error_msg
-        assert "Recovery action results" in error_msg
+        assert "Recovery action results for SchemaValidator" in error_msg
         assert "trigger_manual_review" in error_msg
     
     # ==========================================
