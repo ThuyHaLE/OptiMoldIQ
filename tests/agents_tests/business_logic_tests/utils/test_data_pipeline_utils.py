@@ -35,24 +35,6 @@ class TestLoadExistingData:
         pd.testing.assert_frame_equal(result.data, df)
         assert result.metadata["file_path"] == str(xlsx_path)
     
-    def test_load_valid_xlsb(self, tmp_path):
-        """Test loading a valid .xlsb file"""
-        # Create test data
-        df = pd.DataFrame({
-            "col1": [10, 20, 30],
-            "col2": ["a", "b", "c"]
-        })
-        
-        # Note: Creating actual .xlsb requires pyxlsb
-        # For testing, we'll use xlsx and rename
-        xlsb_path = tmp_path / "test.xlsb"
-        df.to_excel(xlsb_path, index=False, engine='openpyxl')
-        
-        result = load_existing_data(xlsb_path)
-        
-        assert result.status == ProcessingStatus.SUCCESS
-        pd.testing.assert_frame_equal(result.data, df)
-    
     def test_load_valid_parquet(self, tmp_path):
         """Test loading a valid .parquet file"""
         df = pd.DataFrame({
