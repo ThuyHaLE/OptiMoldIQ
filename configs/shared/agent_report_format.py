@@ -801,8 +801,14 @@ def process_phase_save(phase_name: str,
     return save_outcome
 
 def validate_save_paths(save_paths: Dict[str, Any]
-                        ) -> Tuple[bool, Optional[str], Dict[str, Path]]:
-    """Simple path validation - just convert and check not None"""
+                        ) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+    """
+    Validate and convert save paths - supports nested dict for change_log_path
+    
+    Returns:
+        Tuple of (is_valid, error_message, validated_paths)
+        validated_paths can contain both Path objects and dicts of Path objects
+    """
     if not save_paths:
         return False, "save_paths not provided", {}
     
@@ -814,14 +820,33 @@ def validate_save_paths(save_paths: Dict[str, Any]
             return False, f"missing or None: {key}", {}
         
         try:
-            path = Path(save_paths[key])
-            # Create parent dirs
-            if key.endswith("_dir"):
-                path.mkdir(parents=True, exist_ok=True)
-            else:
-                path.parent.mkdir(parents=True, exist_ok=True)
+            value = save_paths[key]
             
-            validated[key] = path
+            # Handle nested dict (like change_log_path with multiple paths)
+            if isinstance(value, dict):
+                nested_validated = {}
+                for nested_key, nested_value in value.items():
+                    if nested_value is None:
+                        return False, f"missing or None: {key}.{nested_key}", {}
+                    
+                    nested_path = Path(nested_value)
+                    # Create parent dirs for nested paths
+                    nested_path.parent.mkdir(parents=True, exist_ok=True)
+                    nested_validated[nested_key] = nested_path
+                
+                validated[key] = nested_validated
+            
+            # Handle single path (string or Path)
+            else:
+                path = Path(value)
+                # Create parent dirs based on key type
+                if key.endswith("_dir"):
+                    path.mkdir(parents=True, exist_ok=True)
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                
+                validated[key] = path
+                
         except Exception as e:
             return False, f"invalid {key}: {e}", {}
     
