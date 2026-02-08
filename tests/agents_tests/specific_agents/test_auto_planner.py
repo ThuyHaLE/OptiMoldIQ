@@ -263,11 +263,22 @@ class TestAutoPlanner(BaseAgentTests):
             for phase_name, phase_cfg in save_routing.items():
                 if phase_cfg.get("enabled") and phase_cfg.get("savable"):
                     save_paths = phase_cfg.get("save_paths", {}).values()
-
-                    assert all(Path(path).exists() for path in save_paths), \
+                    
+                    # Flatten paths: handle both strings and dicts
+                    all_paths = []
+                    for item in save_paths:
+                        if isinstance(item, dict):
+                            # If item is a dict, extract all string values
+                            all_paths.extend(v for v in item.values() if isinstance(v, str))
+                        elif isinstance(item, str):
+                            # If item is a string, add it directly
+                            all_paths.append(item)
+                    
+                    # Check all paths exist
+                    assert all(Path(path).exists() for path in all_paths), \
                         (
-                            f"Missing saved outputs for analyzer '{scheduled_component_name}', "
-                            f"phase '{phase_name}'"
+                            f"Missing saved outputs for component '{scheduled_component_name}', "
+                            f"phase '{phase_name}'. Expected paths: {all_paths}"
                         )
     
     # ============================================
