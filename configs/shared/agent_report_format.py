@@ -777,8 +777,8 @@ def process_phase_save(phase_name: str,
         "status": phase_result.status,
         "result": result_data.get("payload", {}),
         "execution_summary": format_execution_summary(phase_result),
-        "output_dir": Path(validated_paths["output_dir"]),  # ✅ Use validated paths
-        "change_log_path": Path(validated_paths["change_log_path"]),  # ✅
+        "output_dir": validated_paths["output_dir"],
+        "change_log_path": validated_paths["change_log_path"],
         "change_log_header": route.get("change_log_header", "")
     }
 
