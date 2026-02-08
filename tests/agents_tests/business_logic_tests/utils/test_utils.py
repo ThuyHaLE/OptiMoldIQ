@@ -436,20 +436,29 @@ class TestUpdateWeightAndSaveConfidenceReport:
             "shiftCapacityRate": 0.25
         }
         
+        weights_hist_path = tmp_path / "weights_hist.xlsx"
+
         result = update_weight_and_save_confidence_report(
             report_text=report_text,
             output_dir=tmp_path,
             filename_prefix="test",
-            enhanced_weights=enhanced_weights
+            enhanced_weights=enhanced_weights, 
+            weights_hist_path=weights_hist_path
         )
         
         assert "Saving new version" in result
-        assert (tmp_path / "weights_hist.xlsx").exists()
+        assert weights_hist_path.exists()
         
         # Verify weights saved
-        weights_df = pd.read_excel(tmp_path / "weights_hist.xlsx")
+        weights_df = pd.read_excel(weights_hist_path)
         assert len(weights_df) == 1
         assert weights_df.iloc[0]["shiftNGRate"] == 0.25
+
+        # Verify report file was created
+        newest_dir = tmp_path / "newest"
+        report_files = list(newest_dir.glob("*_test_report.txt"))
+        assert len(report_files) == 1
+        assert report_files[0].read_text() == report_text
 
 
 # Fixtures for common test data
