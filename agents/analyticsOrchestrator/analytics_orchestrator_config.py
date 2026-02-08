@@ -106,8 +106,8 @@ class AnalyticsOrchestratorConfig:
         # Orchestrator logging
         if self.save_orchestrator_log is None:
             self.save_orchestrator_log = (
-                self.enable_change_analysis or 
-                self.enable_performance_analysis
+                self.should_run_change_analysis or 
+                self.should_run_performance_analysis
             )
 
     def _apply_component_defaults(self, component: ComponentConfig, 
@@ -149,7 +149,7 @@ class AnalyticsOrchestratorConfig:
     def _build_internal_configs(self):
         """Build internal analyzer configs from ComponentConfigs"""
         # Build change analyzer config
-        if self.enable_change_analysis:
+        if self.should_run_change_analysis:
             self._change_analyzer_config = ChangeAnalyzerConfig(
                 shared_source_config=self.shared_source_config,
                 enable_machine_layout_tracker=self.machine_layout_tracker.enabled,
@@ -163,7 +163,7 @@ class AnalyticsOrchestratorConfig:
             )
         
         # Build performance analyzer config
-        if self.enable_performance_analysis:
+        if self.should_run_performance_analysis:
             self._performance_analyzer_config = PerformanceAnalyzerConfig(
                 shared_source_config=self.shared_source_config,
                 enable_day_level_processor=self.day_level_processor.enabled,
@@ -193,13 +193,13 @@ class AnalyticsOrchestratorConfig:
     
     # ===== Properties for workflow detection =====
     @property
-    def enable_change_analysis(self) -> bool:
+    def should_run_change_analysis(self) -> bool:
         """Check if hardware change analysis workflow is enabled"""
         return (self.machine_layout_tracker.enabled or 
                 self.mold_machine_pair_tracker.enabled)
     
     @property
-    def enable_performance_analysis(self) -> bool:
+    def should_run_performance_analysis(self) -> bool:
         """Check if performance analysis workflow is enabled"""
         return (self.day_level_processor.enabled or
                 self.month_level_processor.enabled or
@@ -230,7 +230,7 @@ class AnalyticsOrchestratorConfig:
             "workflows": {}
         }
         
-        if self.enable_change_analysis:
+        if self.should_run_change_analysis:
             trackers = []
             if self.machine_layout_tracker.enabled:
                 trackers.append("MACHINE_LAYOUT")
@@ -242,7 +242,7 @@ class AnalyticsOrchestratorConfig:
                 "trackers": trackers
             }
         
-        if self.enable_performance_analysis:
+        if self.should_run_performance_analysis:
             levels = []
             if self.day_level_processor.enabled:
                 levels.append("DAY")

@@ -150,7 +150,7 @@ class AnalyticsOrchestrator(ConfigReportMixin):
         executables: List[Executable] = []
         
         # 1. Hardware Change Analyzer (wrapped)
-        if self.config.enable_change_analysis:
+        if self.config.should_run_change_analysis:
             def run_hardware_analyzer() -> ExecutionResult:
                 """Factory function to create and run HardwareChangeAnalyzer"""
                 from agents.analyticsOrchestrator.analyzers.hardware_change_analyzer import HardwareChangeAnalyzer
@@ -167,10 +167,10 @@ class AnalyticsOrchestrator(ConfigReportMixin):
                     on_error_severity=PhaseSeverity.ERROR.value  # Non-critical
                 )
             )
-            self.logger.info("✓ HardwareChangeAnalyzer enabled")
+            self.logger.info("✓ HardwareChangeAnalyzer scheduled to run")
         
         # 2. Multi-Level Performance Analyzer (wrapped)
-        if self.config.enable_performance_analysis:
+        if self.config.should_run_performance_analysis:
             def run_performance_analyzer() -> ExecutionResult:
                 """Factory function to create and run MultiLevelPerformanceAnalyzer"""
                 from agents.analyticsOrchestrator.analyzers.multi_level_performance_analyzer import MultiLevelPerformanceAnalyzer
@@ -187,28 +187,28 @@ class AnalyticsOrchestrator(ConfigReportMixin):
                     on_error_severity=PhaseSeverity.ERROR.value  # Non-critical
                 )
             )
-            self.logger.info("✓ MultiLevelPerformanceAnalyzer enabled")
+            self.logger.info("✓ MultiLevelPerformanceAnalyzer scheduled to run")
         
-        # Check if any analyzers are enabled
+        # Check if any analyzers are scheduled to run
         if not executables:
-            self.logger.warning("⚠️ No analyzers enabled!")
+            self.logger.warning("⚠️ No analyzers scheduled to run")
             return ExecutionResult(
                 name="AnalyticsOrchestrator",
                 type="agent",
                 status=ExecutionStatus.SKIPPED.value,
                 duration=0.0,
                 severity=PhaseSeverity.WARNING.value,
-                skipped_reason="No analyzers enabled in configuration",
+                skipped_reason="All analyzers skipped by configuration",
                 metadata={
-                    "enable_change_analysis": self.config.enable_change_analysis,
-                    "enable_performance_analysis": self.config.enable_performance_analysis
+                    "should_run_change_analysis": self.config.should_run_change_analysis,
+                    "should_run_performance_analysis": self.config.should_run_performance_analysis
                 }
             )
         
         # ============================================
         # EXECUTE USING COMPOSITE AGENT
         # ============================================
-        self.logger.info(f"🚀 Executing {len(executables)} analyzer(s)...")
+        self.logger.info(f"🚀 Executing {len(executables)} scheduled analyzer(s)...")
         
         agent = CompositeAgent("AnalyticsOrchestrator", executables)
         result = agent.execute()

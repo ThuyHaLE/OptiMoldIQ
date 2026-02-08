@@ -5,7 +5,7 @@ from configs.shared.shared_source_config import SharedSourceConfig
 
 @dataclass
 class ChangeAnalyzerConfig:
-    """Configuration class for historical features extractor parameters"""
+    """Internal configuration for hardware change analyzer components"""
 
     # Shared source configs
     shared_source_config: SharedSourceConfig = field(default_factory=SharedSourceConfig)
