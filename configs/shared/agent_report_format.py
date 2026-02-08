@@ -1071,38 +1071,24 @@ def format_export_logs(export_metadata: Dict[str, Dict]) -> List[str]:
     
     return log_lines
 
-def extract_single_phase_metadata(phase_detail):
-    try:
-        phase_data = phase_detail.data.get('result', {})
-        if not phase_data:
-            return f'⚠️ No result'
-
-        payload = phase_data.get('payload')
-        if payload is None:
-            return f"⚠️ No payload"
-        
-        if not hasattr(payload, 'metadata'):
-            return f"⚠️ No metadata attribute"
-
-        export_metadata = payload.metadata.get('export_metadata')
-        if not export_metadata:
-            return f"⚠️ No export_metadata"
-
-        return export_metadata
-    except Exception as e:
-        return f"❌ {type(e).__name__}: {e}"
-
 def extract_export_metadata(result: ExecutionResult):
     """Recursively extract with nested structure"""
+
+    def extract_single_phase_metadata(phase_detail):
+        try:
+            if not hasattr(phase_detail, 'metadata'):
+                return f"⚠️ No metadata attribute"
+            export_metadata = phase_detail.metadata.get('export_metadata')
+            if not export_metadata:
+                return f"⚠️ No export_metadata"
+            return export_metadata
+        except Exception as e:
+            return f"❌ {type(e).__name__}: {e}"
+        
     all_export_metadata = {}
-    
+
     for phase_detail in result.sub_results:
-        # Check if has sub-phases
-        if phase_detail.sub_results:
-            # Recursive for composite phases
-            all_export_metadata[phase_detail.name] = extract_export_metadata(phase_detail)
-        else:
-            # Leaf phase
-            all_export_metadata[phase_detail.name] = extract_single_phase_metadata(phase_detail)
-    
+
+        all_export_metadata[phase_detail.name] = extract_single_phase_metadata(phase_detail)
+        
     return all_export_metadata

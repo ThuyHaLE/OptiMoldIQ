@@ -39,6 +39,12 @@ class SharedSourceConfig:
     progress_tracker_change_log_path: Optional[str] = None
     progress_tracker_constant_config_path: Optional[str] = None
 
+    #-------------#
+    # AutoPlanner #
+    #-------------#
+    auto_planner_dir: Optional[str] = None
+    auto_planner_change_log_path: Optional[str] = None
+
     #-----------------------------#
     # HistoricalFeaturesExtractor #
     #-----------------------------#
@@ -49,6 +55,7 @@ class SharedSourceConfig:
     mold_stability_index_change_log_path: Optional[str] = None
     mold_machine_weights_dir: Optional[str] = None
     mold_machine_weights_hist_path: Optional[str] = None
+    mold_machine_weights_change_log_path: Optional[str] = None
 
     #----------------#
     # InitialPlanner #
@@ -173,11 +180,19 @@ class SharedSourceConfig:
         self.progress_tracker_constant_config_path = (
             self.progress_tracker_constant_config_path or "agents/orderProgressTracker/pro_status_schema.json")
 
+        #-------------#
+        # AutoPlanner #
+        #-------------#
+        self.auto_planner_dir = (
+            self.auto_planner_dir or f'{self.default_dir}/AutoPlanner')
+        self.auto_planner_change_log_path = (
+            self.auto_planner_change_log_path or f'{self.auto_planner_dir}/change_log.txt')
+
         #-----------------------------#
         # HistoricalFeaturesExtractor #
         #-----------------------------#
         self.features_extractor_dir = (
-            self.features_extractor_dir or f"{self.default_dir}/HistoricalFeaturesExtractor")
+            self.features_extractor_dir or f"{self.auto_planner_dir}/HistoricalFeaturesExtractor")
         self.features_extractor_constant_config_path = (
             self.features_extractor_constant_config_path or 
             "agents/autoPlanner/featureExtractor/initial/historicalFeaturesExtractor/constant_configurations.json")
@@ -191,12 +206,14 @@ class SharedSourceConfig:
             self.mold_machine_weights_dir or f"{self.features_extractor_dir}/MoldMachineFeatureWeightCalculator")
         self.mold_machine_weights_hist_path = (
             self.mold_machine_weights_hist_path or f"{self.mold_machine_weights_dir}/weights_hist.xlsx")
+        self.mold_machine_weights_change_log_path = (
+            self.mold_machine_weights_change_log_path or f"{self.mold_machine_weights_dir}/change_log.txt")
 
         #----------------#
         # InitialPlanner #
         #----------------#
         self.initial_planner_dir = (
-            self.initial_planner_dir or f'{self.default_dir}/AutoPlanner/InitialPlanner')
+            self.initial_planner_dir or f'{self.auto_planner_dir}/InitialPlanner')
         self.initial_planner_constant_config_path = (
             self.initial_planner_constant_config_path or 
             "agents/autoPlanner/phases/initialPlanner/configs/constant_configurations.json")
