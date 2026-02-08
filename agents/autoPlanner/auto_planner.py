@@ -83,7 +83,7 @@ class AutoPlanner(ConfigReportMixin):
                 'max_load_threshold': int,
                 'log_progress_interval': int
                 },
-            'save_orchestrator_log': bool
+            'save_planner_log': bool
             }
         }
 
@@ -100,7 +100,7 @@ class AutoPlanner(ConfigReportMixin):
                 - loss (float): Allowable production loss threshold [0-1].
                 - feature_extractor (FeatureExtractorParams): HistoricalFeatureExtractor params
                 - initial_planner (InitialPlannerParams): InitialPlanner params
-                - save_planner_log (bool): Save planner change log
+                - save_planner_log (bool): Save InitialPlanner change log
         """
         
         # Capture initialization arguments for reporting
