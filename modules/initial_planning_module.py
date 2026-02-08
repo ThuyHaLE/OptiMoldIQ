@@ -73,10 +73,10 @@ class InitialPlanningModule(BaseModule):
     def dependencies(self) -> Dict[str, str]:
         """For dependencies - this is the fifth module"""
         return {
-            'DataPipelineModule': self.planner_config.shared_source_config.annotation_path, 
-            'ValidationModule': self.planner_config.shared_source_config.validation_change_log_path, 
-            'ProgressTrackingModule': self.planner_config.shared_source_config.progress_tracker_change_log_path,
-            'FeaturesExtractingModule': self.planner_config.shared_source_config.features_extractor_change_log_path
+            'DataPipelineModule': self.initial_planner_config.shared_source_config.annotation_path, 
+            'ValidationModule': self.initial_planner_config.shared_source_config.validation_change_log_path, 
+            'ProgressTrackingModule': self.initial_planner_config.shared_source_config.progress_tracker_change_log_path,
+            'FeaturesExtractingModule': self.initial_planner_config.shared_source_config.features_extractor_change_log_path
         }
     
     @property
@@ -160,7 +160,7 @@ class InitialPlanningModule(BaseModule):
                 message='Initial planner completed successfully',
                 context_updates={
                     'planning_result': planner_result,
-                    'configs': asdict(self.planner_config)
+                    'configs': asdict(self.initial_planner_config)
                 }
             )
 
