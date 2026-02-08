@@ -425,6 +425,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                 'progress_tracker_change_log_path': str,
                 'mold_machine_weights_dir': str,
                 'mold_machine_weights_hist_path': str,
+                'mold_machine_weights_change_log_path': str,
                 'mold_stability_index_dir': str,
                 'mold_stability_index_change_log_path': str,
                 'features_extractor_dir': str,
@@ -472,6 +473,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                     - mold_stability_index_change_log_path (str): Path to the MoldStabilityIndexCalculator change log.
                     - mold_machine_weights_dir (str): Base directory for storing reports.
                     - mold_machine_weights_hist_path (str): Path to the MoldMachineFeatureWeightCalculator weight hist.
+                    - mold_machine_weights_change_log_path (str): Path to the MoldMachineFeatureWeightCalculator change log.
                     - features_extractor_dir (str): Base directory for storing reports.
                     - features_extractor_change_log_path (str): Path to the HistoricalFeaturesExtractor change log.
                     - features_extractor_constant_config_path (str): Path to the HistoricalFeaturesExtractor constant config.
@@ -528,7 +530,7 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                 "save_fn": save_mold_machine_weights,
                 "save_paths": {
                     "output_dir": self.config.shared_source_config.mold_machine_weights_dir,
-                    "change_log_path": self.config.shared_source_config.mold_machine_weights_hist_path
+                    "change_log_path": self.config.shared_source_config.mold_machine_weights_change_log_path
                 }
             },
         }
