@@ -104,11 +104,8 @@ class DashboardModule(BaseModule):
         Execute DashboardModule.
         
         Args:
-            context: Shared context (empty for first module)
-            self.builder_config: Configuration containing:
-
+            Configuration containing:
                 - project_root: Project root directory
-                
                 - shared_source_config: 
                     - annotation_path (str): Path to the JSON file containing path annotations.
                     - databaseSchemas_path (str): Path to database schema for validation.
@@ -126,16 +123,12 @@ class DashboardModule(BaseModule):
                     - mold_machine_pair_visualization_pipeline_dir (str): Base directory for storing reports/visualizations.
                     - mold_machine_pair_visualization_pipeline_change_log_path (str): Path to the MoldMachinePairVisualizationPipeline change log.
                     - dashboard_builder_log_path (str): Path to save the DashboardBuilder change log.
-
                 - machine_layout_visualization_service: (ComponentConfig): Component config for MachineLayoutVisualizationPipeline
                 - mold_machine_pair_visualization_service: Component config for MoldMachinePairVisualizationPipeline
                 - day_level_visualization_service (ComponentConfig): Component config for DayLevelVisualizationPipeline
                 - month_level_visualization_service (ComponentConfig): Component config for MonthLevelVisualizationPipeline
                 - year_level_visualization_service (ComponentConfig): Component config for YearLevelVisualizationPipeline
-                - save_builder_log (bool): Save DashboardBuilder change log
-                
-            dependencies: Empty dict (no dependencies)
-            
+                - save_builder_log (bool): Save DashboardBuilder change log       
         Returns:
             ModuleResult with pipeline execution results
         """

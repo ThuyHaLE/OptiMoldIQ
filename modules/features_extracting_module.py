@@ -6,10 +6,7 @@ from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
 from dataclasses import asdict
 from configs.shared.shared_source_config import SharedSourceConfig
-from agents.autoPlanner.calculators.configs.feature_weight_config import FeatureWeightConfig
-from agents.autoPlanner.calculators.configs.mold_stability_config import MoldStabilityConfig
-from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
-    HistoricalFeaturesExtractor, FeaturesExtractorConfig)
+from agents.autoPlanner.auto_planner import FeatureExtractorParams, AutoPlanner, AutoPlannerConfig
 
 class FeaturesExtractingModule(BaseModule):
     """
@@ -30,30 +27,23 @@ class FeaturesExtractingModule(BaseModule):
         if not self.extracting_config:
             self.logger.debug("FeaturesExtractingModule config not found in loaded YAML dict")
 
-        # Convert dict to FeaturesExtractorConfig
-        self.extractor_config = self._build_extractor_config()
+        # Convert dict to AutoPlannerConfig
+        self.extractor_config = self._build_auto_planner_config()
 
-    def _build_extractor_config(self) -> FeaturesExtractorConfig:
-        return FeaturesExtractorConfig(
+    def _build_auto_planner_config(self) -> AutoPlannerConfig:
+        return AutoPlannerConfig(
+            shared_source_config = self._build_shared_config(),
             efficiency = self.extracting_config.get('efficiency', None),
             loss = self.extracting_config.get('loss', None),
-            shared_source_config = self._build_shared_config(),
-            mold_stability_config = self._build_stability_config(),
-            feature_weight_config = self._build_weight_config())
+            feature_extractor = self._build_feature_extractor_params(),
+            save_planner_log = self.extracting_config.get('save_planner_log', None),)
 
-    def _build_stability_config(self) -> MoldStabilityConfig:
-        """Build FeatureWeightConfig from YAML config"""
-        config = self.extracting_config.get('mold_stability_config', {})
+    def _build_feature_extractor_params(self) -> FeatureExtractorParams:
+        """Build FeatureExtractorParams from YAML config"""
+        config = self.extracting_config.get('feature_extractor', {})
         if not config:
-            self.logger.debug("Using default FeatureWeightConfig")
-        return MoldStabilityConfig(**config)
-
-    def _build_weight_config(self) -> FeatureWeightConfig:
-        """Build FeatureWeightConfig from YAML config"""
-        config = self.extracting_config.get('feature_weight_config', {})
-        if not config:
-            self.logger.debug("Using default FeatureWeightConfig")
-        return FeatureWeightConfig(**config)
+            self.logger.debug("Using default FeatureExtractorParams")
+        return FeatureExtractorParams(**config)
 
     def _build_shared_config(self) -> SharedSourceConfig:
         """Build SharedSourceConfig from loaded YAML dict"""
@@ -101,48 +91,37 @@ class FeaturesExtractingModule(BaseModule):
         Execute FeaturesExtractingModule.
         
         Args:
-            context: Shared context (empty for first module)
-            self.extractor_config: Configuration containing:
-
+            Configuration containing:
                 - project_root: Project root directory
-                
-                - efficiency (float): Global efficiency threshold to classify good/bad records.
-                
-                - loss (float): Global allowable production loss threshold.
-                
                 - shared_source_config: 
                     - annotation_path (str): Path to the JSON file containing path annotations.
                     - databaseSchemas_path (str): Path to database schema for validation.
                     - sharedDatabaseSchemas_path (str): Path to shared database schema for validation.
                     - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log.
+                    - auto_planner_dir (str): Default directory for output and temporary files.
+                    - auto_planner_change_log_path (str): Path to the AutoPlanner change log.
+                    - features_extractor_dir (str): Base directory for storing reports.
+                    - features_extractor_change_log_path (str): Path to the HistoricalFeaturesExtractor change log.
+                    - features_extractor_constant_config_path (str): Path to the HistoricalFeaturesExtractor constant config.
                     - mold_stability_index_dir (str): Default directory for output and temporary files.
                     - mold_stability_index_change_log_path (str): Path to the MoldStabilityIndexCalculator change log.
                     - mold_machine_weights_dir (str): Base directory for storing reports.
                     - mold_machine_weights_hist_path (str): Path to the MoldMachineFeatureWeightCalculator weight hist.
-                    - features_extractor_dir (str): Base directory for storing reports.
-                    - features_extractor_change_log_path (str): Path to the HistoricalFeaturesExtractor change log.
-                    - features_extractor_constant_config_path (str): Path to the HistoricalFeaturesExtractor constant config.
-                
-                - feature_weight_config
-                    - efficiency (float): Inherited from FeaturesExtractorConfig.efficiency.
-                    - loss (float): Inherited from FeaturesExtractorConfig.loss.
+                    - mold_machine_weights_change_log_path (str): Path to the MoldMachineFeatureWeightCalculator change log.     
+                - efficiency (float): Efficiency threshold [0-1] to classify good/bad records.
+                - loss (float): Allowable production loss threshold [0-1].
+                - feature_extractor (FeatureExtractorParams): HistoricalFeatureExtractor params
+                    - cavity_stability_threshold (float): Threshold for cavity stability.
+                    - cycle_stability_threshold (float): Threshold for cycle stability.
+                    - total_records_threshold (int): Minimum number of valid production records required
+                    (at least 30 records per day).
                     - scaling (str): Method to scale feature impacts ('absolute' or 'relative').
                     - confidence_weight (float): Weight assigned to confidence scores in final weight calculation.
                     - n_bootstrap (int): Number of bootstrap samples for confidence interval estimation.
                     - confidence_level (float): Desired confidence level for statistical tests.
                     - min_sample_size (int): Minimum sample size required for reliable estimation.
                     - feature_weights (dict): Optional preset weights for features.
-                    - targets (dict): Target metrics and optimization directions or goals.
-                
-                - mold_stability_config
-                    - efficiency (float): Inherited from FeaturesExtractorConfig.efficiency.
-                    - loss (float): Inherited from FeaturesExtractorConfig.loss.
-                    - cavity_stability_threshold (float): Threshold for cavity stability.
-                    - cycle_stability_threshold (float): Threshold for cycle stability.
-                    - total_records_threshold (int): Minimum number of valid production records required
-                    (at least 30 records per day).
-            dependencies: Empty dict (no dependencies)
-            
+                    - targets (dict): Target metrics and optimization directions or goals.   
         Returns:
             ModuleResult with pipeline execution results
         """
@@ -151,11 +130,11 @@ class FeaturesExtractingModule(BaseModule):
 
         try:
             # Create extractor
-            extractor = HistoricalFeaturesExtractor(config = self.extractor_config)
+            extractor = AutoPlanner(config = self.extractor_config)
 
             # Run extracting
             self.logger.info("Running extracting...")
-            extractor_result = extractor.run_extraction_and_save_results()
+            extractor_result = extractor.run_scheduled_components()
 
             self.logger.info("Features extraction execution completed!")
 

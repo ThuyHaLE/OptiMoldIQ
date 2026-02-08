@@ -71,8 +71,7 @@ class DataPipelineModule(BaseModule):
         Execute DataPipelineOrchestrator.
         
         Args:
-            context: Shared context (empty for first module)
-            self.config: Configuration containing:
+            Configuration containing:
                 - project_root: Project root directory
                 - data_pipeline:
                     - databaseSchemas_path: Path to database schemas
@@ -81,7 +80,6 @@ class DataPipelineModule(BaseModule):
                     - manual_review_notifications_dir: Path to healing notifications directory
                     - shared_database_dir: Path to shared database directory
                     - annotation_path: Path to annotations
-            dependencies: Empty dict (no dependencies)
         Returns:
             ModuleResult with pipeline execution results
         """

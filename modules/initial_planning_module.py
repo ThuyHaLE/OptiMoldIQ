@@ -7,8 +7,7 @@ from loguru import logger
 from dataclasses import asdict
 
 from configs.shared.shared_source_config import SharedSourceConfig
-from agents.autoPlanner.assigners.configs.assigner_config import PriorityOrder
-from agents.autoPlanner.phases.initialPlanner.initial_planner import InitialPlannerConfig, InitialPlanner
+from agents.autoPlanner.auto_planner import InitialPlannerParams, AutoPlanner, AutoPlannerConfig
 
 class InitialPlanningModule(BaseModule):
     """
@@ -29,19 +28,24 @@ class InitialPlanningModule(BaseModule):
         if not self.planning_config:
             self.logger.debug("InitialPlanningModule config not found in loaded YAML dict")
 
-        # Convert dict to InitialPlannerConfig
-        self.planner_config = self._build_planner_config()
+        # Convert dict to AutoPlannerConfig
+        self.initial_planner_config = self._build_auto_planner_config()
 
-    def _build_planner_config(self) -> InitialPlannerConfig:
-        return InitialPlannerConfig(
+    def _build_auto_planner_config(self) -> AutoPlannerConfig:
+        return AutoPlannerConfig(
             shared_source_config = self._build_shared_config(),
-            priority_order = self.planning_config.get('priority_order', PriorityOrder.PRIORITY_1),
-            max_load_threshold = self.planning_config.get('max_load_threshold', None),
-            log_progress_interval = self.planning_config.get('log_progress_interval', None),
             efficiency = self.planning_config.get('efficiency', None),
             loss = self.planning_config.get('loss', None),
-            )
+            initial_planner = self._build_initial_planner_params(),
+            save_planner_log = self.planning_config.get('save_planner_log', None),)
 
+    def _build_initial_planner_params(self) -> InitialPlannerParams:
+        """Build InitialPlannerParams from YAML config"""
+        config = self.planning_config.get('initial_planner', {})
+        if not config:
+            self.logger.debug("Using default InitialPlannerParams")
+        return InitialPlannerParams(**config)
+    
     def _build_shared_config(self) -> SharedSourceConfig:
         """Build SharedSourceConfig from loaded YAML dict"""
         shared_source_config = self.planning_config.get('shared_source_config', {})
@@ -88,9 +92,7 @@ class InitialPlanningModule(BaseModule):
         Execute InitialPlanningModule.
         
         Args:
-            context: Shared context (empty for first module)
-            self.planner_config: Configuration containing:
-
+            Configuration containing:
                 - project_root: Project root directory
                 - shared_source_config: 
                     - annotation_path (str): Path to the JSON file containing path annotations
@@ -99,6 +101,8 @@ class InitialPlanningModule(BaseModule):
                     - progress_tracker_change_log_path (str): Path to the OrderProgressTracker change log
                     - mold_machine_weights_hist_path (str): Path to mold-machine feature weights (from MoldMachineFeatureWeightCalculator)
                     - mold_stability_index_change_log_path (str): Path to the MoldStabilityIndexCalculator change log
+                    - auto_planner_dir (str): Default directory for output and temporary files.
+                    - auto_planner_change_log_path (str): Path to the AutoPlanner change log.
                     - initial_planner_dir (str): Base directory for storing reports
                     - initial_planner_change_log_path (str): Path to the InitialPlanner change log
                     - initial_planner_constant_config_path (str): Path to the InitialPlanner constant config.
@@ -106,13 +110,12 @@ class InitialPlanningModule(BaseModule):
                     - pending_processor_change_log_path (str): Path to the ProducingOrderPlanner change log
                     - producing_processor_dir (str): Base directory for storing reports
                     - producing_processor_change_log_path (str): Path to the PendingOrderPlanner change log
-                - priority_order (str): Priority ordering strategy
-                - max_load_threshold (int): Maximum allowed load threshold. If None, no load constraint is applied
-                - log_progress_interval (int): Interval at which progress logs are emitted during processing.
-                - efficiency (float): Production efficiency factor (0.0 to 1.0)
-                - loss (float): Production loss factor (0.0 to 1.0)
-            dependencies: Empty dict (no dependencies)
-            
+                - efficiency (float): Efficiency threshold [0-1] to classify good/bad records.
+                - loss (float): Allowable production loss threshold [0-1].
+                - initial_planner (InitialPlannerParams): InitialPlanner params
+                    - priority_order (str): Priority ordering strategy
+                    - max_load_threshold (int): Maximum allowed load threshold. If None, no load constraint is applied
+                    - log_progress_interval (int): Interval at which progress logs are emitted during processing.
         Returns:
             ModuleResult with pipeline execution results
         """
@@ -121,11 +124,11 @@ class InitialPlanningModule(BaseModule):
 
         try:
             # Create planner
-            initial_planner = InitialPlanner(config = self.planner_config)
+            initial_planner = AutoPlanner(config = self.initial_planner_config)
 
             # Run planning
             self.logger.info("Running planning...")
-            planner_result = initial_planner.run_planning_and_save_results()
+            planner_result = initial_planner.run_scheduled_components()
 
             self.logger.info("Initial planner execution completed!")
 

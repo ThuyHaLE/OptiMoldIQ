@@ -74,8 +74,7 @@ class ValidationModule(BaseModule):
         Execute ValidationOrchestrator.
         
         Args:
-            context: Shared context (empty for first module)
-            self.shared_config: Configuration containing:
+            Configuration containing:
                 - project_root: Project root directory
                 - validation:
                     - validation_df_name (List[str]): List of dataframe names that require validation.
@@ -85,9 +84,7 @@ class ValidationModule(BaseModule):
                     - validation_change_log_path (str): Path to the ValidationOrchestrator change log.
                     - validation_dir (str): Default directory for validation outputs and temporary files.
                 - enable_parallel: enable parallel process (default: False)
-                - max_workers: max workers for parallel process (default: None - auto)
-            dependencies: Empty dict (no dependencies)
-            
+                - max_workers: max workers for parallel process (default: None - auto)  
         Returns:
             ModuleResult with pipeline execution results
         """

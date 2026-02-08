@@ -9,8 +9,6 @@ project_root: "."
 features_extracting:
 #REQUIRED_FIELDS = {
 #        'config': {
-#            'efficiency': float,
-#            'loss': float,
 #            'shared_source_config': {
 #                'databaseSchemas_path': str,
 #                'sharedDatabaseSchemas_path': str,
@@ -22,11 +20,18 @@ features_extracting:
 #                'mold_stability_index_change_log_path': str,
 #                'features_extractor_dir': str,
 #                'features_extractor_change_log_path': str,
-#                'features_extractor_constant_config_path': str
+#                'features_extractor_constant_config_path': str,
+#                'auto_planner_dir': str,
+#                'auto_planner_change_log_path': str
 #                },
-#            'feature_weight_config': {
-#                'efficiency': float,
-#                'loss': float,
+#            'efficiency': float,
+#            'loss': float,
+#            'feature_extractor': {
+#                'enabled': bool,
+#                'save_result': bool,
+#                'cavity_stability_threshold': float,
+#                'cycle_stability_threshold': float,
+#                'total_records_threshold': int,
 #                'scaling': str,
 #                'confidence_weight': float,
 #                'n_bootstrap': int,
@@ -35,27 +40,9 @@ features_extracting:
 #                'feature_weights': dict,
 #                'targets': dict
 #                },
-#            'mold_stability_config': {
-#                'efficiency': float,
-#                'loss': float,
-#                'cavity_stability_threshold': float,
-#                'cycle_stability_threshold': float,
-#                'total_records_threshold': int
-#                }
+#            'save_planner_log': bool
 #            }
-#    }
-
-  # --------------------------------------------
-  # GLOBAL PROCESSING PARAMETERS (propagated to sub-configs)
-  # --------------------------------------------
-
-  # Global efficiency threshold to classify good/bad records.
-  # Default: 0.85
-  # efficiency: 0.85
-
-  # Global allowable production loss threshold.
-  # Default: 0.03
-  # loss: 0.03
+#        }
 
   shared_source_config:
 
@@ -86,43 +73,64 @@ features_extracting:
     # Default: {progress_tracker_dir}/change_log.txt
     # progress_tracker_change_log_path: "tests/shared_db/OrderProgressTracker/change_log.txt"
 
-    # Mold stability index calculator directory
-    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator
-    # mold_stability_index_dir: "tests/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator"
+    # Auto planner directory
+    # Default: {self.default_dir}/AutoPlanner
+    # auto_planner_dir: "tests/shared_db/AutoPlanner"
 
-    # Mold stability index calculator change log
-    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt
-    # mold_stability_index_change_log_path: "tests/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt"
-    
-    # Mold machine weights calculator directory
-    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator
-    # mold_machine_weights_dir: "tests/shared_db/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator"
-
-    # Mold machine weights hist path: 
-    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx
-    # mold_machine_weights_hist_path: "tests/shared_db/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx"
+    # Auto planner change log
+    # Default: {self.auto_planner_dir}/change_log.txt
+    # auto_planner_change_log_path: "tests/shared_db/AutoPlanner/change_log.txt"
 
     # Features extractor directory
-    # Default: {self.default_dir}/HistoricalFeaturesExtractor
-    # features_extractor_dir: "tests/shared_db/HistoricalFeaturesExtractor"
+    # Default: {self.auto_planner_dir}/HistoricalFeaturesExtractor
+    # features_extractor_dir: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor"
 
     # Features extractor change log
-    # Default: {self.default_dir}/HistoricalFeaturesExtractor/change_log.txt
-    # features_extractor_change_log_path: "tests/shared_db/HistoricalFeaturesExtractor/change_log.txt"
+    # Default: {self.features_extractor_dir}/change_log.txt
+    # features_extractor_change_log_path: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor/change_log.txt"
 
     # Features extractor constant config
     # Default: agents/autoPlanner/featureExtractor/initial/historicalFeaturesExtractor/constant_configurations.json
     # features_extractor_constant_config_path: "agents/autoPlanner/featureExtractor/initial/historicalFeaturesExtractor/constant_configurations.json"
+
+    # Mold stability index calculator directory
+    # Default: {self.features_extractor_dir}/MoldStabilityIndexCalculator
+    # mold_stability_index_dir: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator"
+
+    # Mold stability index calculator change log
+    # Default: {self.features_extractor_dir}/MoldStabilityIndexCalculator/change_log.txt
+    # mold_stability_index_change_log_path: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt"
+    
+    # Mold machine weights calculator directory
+    # Default: {self.features_extractor_dir}/MoldMachineFeatureWeightCalculator
+    # mold_machine_weights_dir: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator"
+
+    # Mold machine weights hist path: 
+    # Default: {self.features_extractor_dir}/MoldMachineFeatureWeightCalculator/weights_hist.xlsx
+    # mold_machine_weights_hist_path: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx"
+
+    # Mold machine weights change log: 
+    # Default: {self.features_extractor_dir}/MoldMachineFeatureWeightCalculator/change_log.txt
+    # mold_machine_weights_change_log_path: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/change_log.txt"
   
-  # feature_weight_config:
+  efficiency: 0.85
+  loss: 0.03
 
-    # Inherited efficiency from FeaturesExtractorConfig.efficiency
-    # Default: 0.85
-    # efficiency: 0.85
+  feature_extractor: 
+    enabled: true
+    save_result: true
 
-    # Inherited loss from FeaturesExtractorConfig.loss
-    # Default: 0.03
-    # loss: 0.03
+    # Threshold for cavity stability
+    # Default: 0.6
+    # cavity_stability_threshold: 0.6
+
+    # Threshold for cycle stability
+    # Default: 0.4
+    # cycle_stability_threshold: 0.4
+
+    # Minimum number of valid production records required (at least 30 records per day)
+    # Default: 30
+    # total_records_threshold: 30
 
     # Method to scale feature impacts ('absolute' or 'relative')
     # Default: absolute
@@ -155,25 +163,5 @@ features_extracting:
       # shiftCavityRate: 1.0
       # shiftCycleTimeRate: 1.0
       # shiftCapacityRate: 1.0
-  
-  # mold_stability_config:
 
-    # Inherited efficiency from FeaturesExtractorConfig.efficiency
-    # Default: 0.85
-    # efficiency: 0.85
-
-    # Inherited loss from FeaturesExtractorConfig.loss
-    # Default: 0.03
-    # loss: 0.03
-    
-    # Threshold for cavity stability
-    # Default: 0.6
-    # cavity_stability_threshold: 0.6
-
-    # Threshold for cycle stability
-    # Default: 0.4
-    # cycle_stability_threshold: 0.4
-
-    # Minimum number of valid production records required (at least 30 records per day)
-    # Default: 30
-    # total_records_threshold: 30
+  save_planner_log: true

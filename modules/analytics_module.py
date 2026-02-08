@@ -103,11 +103,8 @@ class AnalyticsModule(BaseModule):
         Execute AnalyticsModule.
         
         Args:
-            context: Shared context (empty for first module)
-            self.orchestrator_config: Configuration containing:
-
+            Configuration containing:
                 - project_root: Project root directory
-                
                 - shared_source_config: 
                     - annotation_path (str): Path to the JSON file containing path annotations.
                     - databaseSchemas_path (str): Path to database schema for validation.
@@ -124,16 +121,12 @@ class AnalyticsModule(BaseModule):
                     - year_level_processor_log_path (str): Path to the YearLevelDataProcessor change log.
                     - multi_level_performance_analyzer_log_path (str): Path to the MultiLevelPerformanceAnalyzer change log.
                     - analytics_orchestrator_log_path (str): Path to the AnalyticsOrchestrator change log.
-
                 - machine_layout_tracker (ComponentConfig): Component config for MachineLayoutTracker
                 - mold_machine_pair_tracker (ComponentConfig): Component config for MoldMachinePairTracker 
                 - day_level_processor (ComponentConfig): Component config for DayLevelDataProcessor 
                 - month_level_processor (ComponentConfig): Component config for MonthLevelDataProcessor
                 - year_level_processor (ComponentConfig): Component config for YearLevelDataProcessor
-                - save_orchestrator_log (bool): Save AnalyticsOrchestrator change log
-                
-            dependencies: Empty dict (no dependencies)
-            
+                - save_orchestrator_log (bool): Save AnalyticsOrchestrator change log      
         Returns:
             ModuleResult with pipeline execution results
         """

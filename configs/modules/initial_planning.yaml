@@ -23,12 +23,19 @@ initial_planning:
 #                'producing_processor_change_log_path': str
 #                'pending_processor_dir': str,
 #                'pending_processor_change_log_path': str,
+#                'auto_planner_dir': str,
+#                'auto_planner_change_log_path': str
 #                },
-#            "priority_order": str,
-#            "max_load_threshold": int,
-#            "log_progress_interval": int,
 #            'efficiency': float,
-#            'loss': float
+#            'loss': float,
+#            'initial_planner': {
+#                'enabled': bool,
+#                'save_result': bool,
+#                "priority_order": str,
+#                'max_load_threshold': int,
+#                'log_progress_interval': int
+#                },
+#            'save_planner_log': bool
 #            }
 #        }
 
@@ -61,19 +68,27 @@ initial_planning:
     # progress_tracker_change_log_path: "tests/shared_db/OrderProgressTracker/change_log.txt"
 
     # Mold machine weights hist path: 
-    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx
-    # mold_machine_weights_hist_path: "tests/shared_db/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx"
+    # Default: {self.features_extractor_dir}/MoldMachineFeatureWeightCalculator/weights_hist.xlsx
+    # mold_machine_weights_hist_path: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor/MoldMachineFeatureWeightCalculator/weights_hist.xlsx"
 
     # Mold stability index calculator change log
-    # Default: {self.default_dir}/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt
-    # mold_stability_index_change_log_path: "tests/shared_db/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt"
+    # Default: {self.features_extractor_dir}/MoldStabilityIndexCalculator/change_log.txt
+    # mold_stability_index_change_log_path: "tests/shared_db/AutoPlanner/HistoricalFeaturesExtractor/MoldStabilityIndexCalculator/change_log.txt"
 
+    # Auto planner directory
+    # Default: {self.default_dir}/AutoPlanner
+    # auto_planner_dir: "tests/shared_db/AutoPlanner"
+
+    # Auto planner change log
+    # Default: {self.auto_planner_dir}/change_log.txt
+    # auto_planner_change_log_path: "tests/shared_db/AutoPlanner/change_log.txt"
+    
     # Initial planner directory
-    # Default: {self.default_dir}/AutoPlanner/InitialPlanner
+    # Default: {self.auto_planner_dir}/InitialPlanner
     # initial_planner_dir: "tests/shared_db/AutoPlanner/InitialPlanner"
 
     # Initial planner change log
-    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/change_log.txt
+    # Default: {self.initial_planner_dir}/change_log.txt
     # initial_planner_change_log_path: "tests/shared_db/AutoPlanner/InitialPlanner/change_log.txt"
 
     # Initial planner constant config
@@ -81,41 +96,38 @@ initial_planning:
     # initial_planner_constant_config_path: "agents/autoPlanner/phases/initialPlanner/configs/constant_configurations.json"
 
     # Producing orders planner directory
-    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/ProducingProcessor
+    # Default: {self.initial_planner_dir}r/ProducingProcessor
     # producing_processor_dir: "tests/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor"
 
     # Producing orders planner change log
-    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/ProducingProcessor/change_log.txt
+    # Default: {self.producing_processor_dir}/change_log.txt
     # producing_processor_change_log_path: "tests/shared_db/AutoPlanner/InitialPlanner/ProducingProcessor/change_log.txt"
 
     # Pending orders planner directory
-    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/PendingProcessor
+    # Default: {self.initial_planner_dir}/PendingProcessor
     # pending_processor_dir: "tests/shared_db/AutoPlanner/InitialPlanner/PendingProcessor"
 
     # Pending orders planner change log
-    # Default: {self.default_dir}/AutoPlanner/InitialPlanner/PendingProcessor/change_log.txt
+    # Default: {self.pending_processor_dir}/change_log.txt
     # pending_processor_change_log_path: "tests/shared_db/AutoPlanner/InitialPlanner/PendingProcessor/change_log.txt"
 
-    # Database schemas path
-    # Default: {db_dir}/databaseSchemas.json
-    # databaseSchemas_path: "tests/mock_database/databaseSchemas.json"
+  efficiency: 0.85
+  loss: 0.03
 
-  # Priority ordering strategy
-  # Default: priority_order_1
-  # priority_order: "priority_order_1"
-  
-  # Maximum allowed load threshold. If None, no load constraint is applied
-  # Default: 30
-  # max_load_threshold: 30
+  initial_planner:
+    enabled: true
+    save_result: true
 
-  # Interval at which progress logs are emitted during processing
-  # Default: 10
-  # log_progress_interval: 10
-  
-  # Production efficiency factor (0.0 to 1.0)
-  # Default: 0.85
-  # efficiency: 0.85
-  
-  # Production loss factor (0.0 to 1.0)
-  # Default: 0.03
-  # loss: 0.03
+    # Priority ordering strategy
+    # Default: priority_order_1
+    # priority_order: "priority_order_1"
+    
+    # Maximum allowed load threshold. If None, no load constraint is applied
+    # Default: 30
+    # max_load_threshold: 30
+
+    # Interval at which progress logs are emitted during processing
+    # Default: 10
+    # log_progress_interval: 10
+
+  save_planner_log: true
