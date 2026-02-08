@@ -530,7 +530,10 @@ class HistoricalFeaturesExtractor(ConfigReportMixin):
                 "save_fn": save_mold_machine_weights,
                 "save_paths": {
                     "output_dir": self.config.shared_source_config.mold_machine_weights_dir,
-                    "change_log_path": self.config.shared_source_config.mold_machine_weights_change_log_path
+                    "change_log_path": {
+                        'mold_machine_weights_hist_path': self.config.shared_source_config.mold_machine_weights_hist_path,
+                        'mold_machine_weights_change_log_path': self.config.shared_source_config.mold_machine_weights_change_log_path
+                    }
                 }
             },
         }

@@ -69,7 +69,9 @@ def save_mold_machine_weights(input_dict: Dict) -> Dict:
     result = input_dict.get("result")
     execution_summary = input_dict.get("execution_summary")
     output_dir = input_dict.get("output_dir")
-    change_log_path = input_dict.get("change_log_path")
+    change_log_paths = input_dict.get("change_log_path")
+    change_log_path = change_log_paths["mold_machine_weights_change_log_path"]
+    weights_hist_path = change_log_paths["mold_machine_weights_hist_path"]
     change_log_header = input_dict.get("change_log_header")
 
     metadata = {
@@ -90,7 +92,8 @@ def save_mold_machine_weights(input_dict: Dict) -> Dict:
             report_text = confidence_report_text,
             output_dir = Path(output_dir),
             filename_prefix = camel_to_snake(agent_id),
-            enhanced_weights = enhanced_weights)
+            enhanced_weights = enhanced_weights,
+            weights_hist_path = weights_hist_path)
         logger.info("Results exported successfully!")
 
         # Persist execution record into centralized change log

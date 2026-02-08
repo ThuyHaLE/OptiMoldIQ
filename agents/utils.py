@@ -173,7 +173,8 @@ def update_weight_and_save_confidence_report(
             report_text: str,
             output_dir: str | Path,
             filename_prefix: str,
-            enhanced_weights: Dict[str, float]) -> str:  
+            enhanced_weights: Dict[str, float],
+            weights_hist_path: str | Path) -> str:  
 
         output_dir = Path(output_dir)
         
@@ -198,7 +199,7 @@ def update_weight_and_save_confidence_report(
         log_entries.append(write_report_log)
 
         # Update historical weights log with new enhanced weights
-        weights_path = output_dir / "weights_hist.xlsx"
+        weights_path = Path(weights_hist_path)
         if enhanced_weights:
             try:
                 weights_row = {
