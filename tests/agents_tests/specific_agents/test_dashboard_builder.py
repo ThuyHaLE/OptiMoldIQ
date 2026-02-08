@@ -1,10 +1,7 @@
 # tests/agents_tests/test_dashboard_builder.py
 
 import pytest
-from platform import processor
-import pytest
 import copy
-from pathlib import Path
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
 from configs.shared.agent_report_format import ExecutionStatus, ExecutionResult

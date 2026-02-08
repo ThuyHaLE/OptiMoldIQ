@@ -3,7 +3,7 @@
 import pytest
 import shutil
 from pathlib import Path
-from typing import Dict, Any, Set, Optional
+from typing import Dict, Any
 from configs.shared.shared_source_config import SharedSourceConfig
 from configs.shared.agent_report_format import ExecutionStatus, ExecutionResult
 from loguru import logger
@@ -89,22 +89,6 @@ class DependencyProvider:
         
         self._validate_result(result, "OrderProgressTracker")
     
-    def trigger_historical_features_extractor(self) -> ExecutionResult:
-        """Lazy load: Only run HistoricalFeaturesExtractor if requested"""
-        from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
-            HistoricalFeaturesExtractor, FeaturesExtractorConfig)
-        config = self.get_shared_source_config()
-        extractor = HistoricalFeaturesExtractor(
-            config=FeaturesExtractorConfig(
-                efficiency=0.85,
-                loss=0.03,
-                shared_source_config=config
-            )
-        )
-        result = extractor.run_extraction_and_save_results()
-        
-        self._validate_result(result, "HistoricalFeaturesExtractor")
-    
     def _validate_result(self, result: ExecutionResult, name: str):
         """Validate execution result"""
         assert result.status in SUCCESSFUL_STATUSES, (
@@ -118,8 +102,7 @@ class DependencyProvider:
         trigger_map = {
             "DataPipelineOrchestrator": self.trigger_data_pipeline_orchestrator,
             "ValidationOrchestrator": self.trigger_validation_orchestrator,
-            "OrderProgressTracker": self.trigger_order_progress_tracker,
-            "HistoricalFeaturesExtractor": self.trigger_historical_features_extractor
+            "OrderProgressTracker": self.trigger_order_progress_tracker
         }
         
         if dependency_name not in trigger_map:

@@ -65,27 +65,25 @@ def create_order_tracker(provider):
         config=provider.get_shared_source_config()
     )
 
-def create_historical_extractor(provider):
-    from agents.autoPlanner.featureExtractor.initial.historicalFeaturesExtractor.historical_features_extractor import (
-        HistoricalFeaturesExtractor, FeaturesExtractorConfig
-    )
-    config = provider.get_shared_source_config()
-    return HistoricalFeaturesExtractor(
-        config=FeaturesExtractorConfig(
-            efficiency=0.85,
-            loss=0.03,
-            shared_source_config=config
-        )
-    )
+def create_auto_planner(provider):
+    from agents.autoPlanner.auto_planner import FeatureExtractorParams, InitialPlannerParams, AutoPlanner, AutoPlannerConfig
 
-def create_initial_planner(provider):
-    from agents.autoPlanner.phases.initialPlanner.initial_planner import (
-        InitialPlannerConfig, InitialPlanner
-    )
     config = provider.get_shared_source_config()
-    return InitialPlanner(
-        config=InitialPlannerConfig(
-            shared_source_config=config
+
+    return AutoPlanner(
+        config = AutoPlannerConfig(
+        shared_source_config = config,
+        efficiency = 0.85,
+        loss = 0.03,
+        feature_extractor = FeatureExtractorParams(
+            enabled = True,
+            save_result = True
+        ),
+        initial_planner = InitialPlannerParams(
+            enabled = True,
+            save_result = True
+        ),
+        save_planner_log = True
         )
     )
 
@@ -212,23 +210,13 @@ AGENT_REGISTRY = {
                                "ValidationOrchestrator"]
     ),
     
-    "HistoricalFeaturesExtractor": AgentFactory(
-        name="HistoricalFeaturesExtractor",
-        factory_fn=create_historical_extractor,
-        execute_method="run_extraction_and_save_results",
+    "AutoPlanner": AgentFactory(
+        name="AutoPlanner",
+        factory_fn=create_auto_planner,
+        execute_method="run_scheduled_components",
         required_dependencies=["DataPipelineOrchestrator", 
                                "ValidationOrchestrator", 
                                "OrderProgressTracker"]
-    ),
-    
-    "InitialPlanner": AgentFactory(
-        name="InitialPlanner",
-        factory_fn=create_initial_planner,
-        execute_method="run_planning_and_save_results",
-        required_dependencies=["DataPipelineOrchestrator", 
-                               "ValidationOrchestrator", 
-                               "OrderProgressTracker", 
-                               "HistoricalFeaturesExtractor"]
     ),
     
     "AnalyticsOrchestrator": AgentFactory(

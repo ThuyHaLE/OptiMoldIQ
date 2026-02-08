@@ -1,6 +1,5 @@
 # tests/agents_tests/test_analytics_orchestrator.py
 
-from platform import processor
 import pytest
 from tests.agents_tests.base_agent_tests import BaseAgentTests
 from tests.agents_tests.conftest import DependencyProvider
