@@ -56,12 +56,10 @@ class TestDependencyVisualization:
                     f"{module_name} must inherit from BaseModule"
                 
                 deps = module.dependencies
-                outputs = module.context_outputs
                 
                 modules_data.append({
                     'name': module_name,
                     'dependencies': deps,
-                    'outputs': outputs,
                     'has_deps': bool(deps)
                 })
                 
@@ -75,11 +73,6 @@ class TestDependencyVisualization:
                         print(f"      • {dep_name} → {dep_output}")
                 else:
                     print(f"   Dependencies: None (entry point)")
-                
-                if outputs:
-                    print(f"   Context Outputs ({len(outputs)}): {', '.join(outputs)}")
-                else:
-                    print(f"   Context Outputs: None")
                 
             except pytest.skip.Exception:
                 # Skip is ok
@@ -480,62 +473,6 @@ class TestDependencyIntegrity:
         
         assert len(type_errors) == 0, \
             f"Type validation errors: {type_errors}"
-    
-    @pytest.mark.smoke
-    def test_context_outputs_types(self,
-                                   available_modules,
-                                   module_registry,
-                                   module_fixture_factory):
-        """
-        Validate that context_outputs property returns correct type
-        BaseModule.context_outputs should be List[str]
-        """
-        print("\n" + "="*80)
-        print("CONTEXT OUTPUTS TYPE VALIDATION")
-        print("="*80)
-        print("\nValidating BaseModule.context_outputs returns List[str]")
-        print("="*80)
-        
-        type_errors = []
-        
-        for module_name in available_modules.keys():
-            if module_name not in module_registry:
-                continue
-            
-            try:
-                module = module_fixture_factory(module_name)
-                
-                # Check context_outputs is a list
-                if not isinstance(module.context_outputs, list):
-                    type_errors.append(
-                        (module_name, f"context_outputs is {type(module.context_outputs)}, not list")
-                    )
-                    continue
-                
-                # Check each item is string
-                for output in module.context_outputs:
-                    if not isinstance(output, str):
-                        type_errors.append(
-                            (module_name, f"context_output '{output}' is {type(output)}, not str")
-                        )
-                        
-            except pytest.skip.Exception:
-                continue
-            except Exception as e:
-                pytest.fail(f"Failed to check context_outputs for {module_name}: {e}")
-        
-        if type_errors:
-            print("\n❌ Type errors found:")
-            for module_name, error in type_errors:
-                print(f"   {module_name}: {error}")
-        else:
-            print("\n✅ All context_outputs types are valid!")
-        
-        print("\n" + "="*80)
-        
-        assert len(type_errors) == 0, \
-            f"Context outputs type errors: {type_errors}"
-
 
 # ============================================================================
 # DEPENDENCY EXPORT TESTS
@@ -580,11 +517,9 @@ class TestDependencyExport:
                 module = module_fixture_factory(module_name)
                 
                 deps = dict(module.dependencies)
-                outputs = list(module.context_outputs)
                 
                 graph_data['modules'][module_name] = {
                     'dependencies': deps,
-                    'context_outputs': outputs,
                     'is_entry_point': len(deps) == 0
                 }
                 

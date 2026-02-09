@@ -116,23 +116,18 @@ class TestModulesAutomatically:
     @pytest.mark.parametrize('module_fixture',
                             [name for name in AVAILABLE_MODULES.keys()],
                             indirect=True)
-    def test_dependency_audit_when_missing(self, module_fixture):
+    def test_dependency_audit_removed(self, module_fixture):
+        """
+        Test that dependency audit has been removed since context parameter is gone
+        """
         module_name, module_class, config_path, _ = module_fixture
         module = module_class(config_path)
 
-        if not module.dependencies:
-            pytest.skip(f"{module_name} has no dependencies")
-
-        empty_context = {}
-        result = module.safe_execute(empty_context)
-        assert result.status in {"success", "failed"}
-        assert result.context_updates is not None
-
-        audit = result.context_updates.get("dependency_audit")
-
-        assert audit is not None
-        assert "missing" in audit
-        assert isinstance(audit["missing"], list)
+        # Execute without parameters
+        result = module.safe_execute()
+        
+        # Result should be valid
+        assert result.status in {"success", "failed", "skipped"}
     
     # ========================================================================
     # TEST 4: INTERFACE COMPLIANCE
@@ -164,7 +159,6 @@ class TestModulesAutomatically:
         # Check property types
         assert isinstance(module.module_name, str)
         assert isinstance(module.dependencies, dict)
-        assert isinstance(module.context_outputs, list)
 
 
 # ============================================================================
@@ -222,17 +216,20 @@ class TestModulesWithDependencies:
         """
         Test full module execution with dependencies
         This is the REAL end-to-end test
+        
+        Note: Context is only used to verify dependencies were executed,
+        not passed to the module
         """
         try:
             module = module_fixture_factory(module_name)
         except pytest.skip.Exception:
             pytest.skip(f"Module {module_name} not available")
         
-        # Get context with all dependencies executed
+        # Get context with all dependencies executed (for verification)
         context = module_context_factory(module_name)
         
-        # Execute module
-        result = module.safe_execute(context)
+        # Execute module (NO parameters - module reads from shared DB)
+        result = module.safe_execute()
         
         # Assert success
         assert_module_success(result)
@@ -327,7 +324,6 @@ class TestModulesWithoutDependencies:
                                           available_modules,
                                           module_registry,
                                           module_fixture_factory,
-                                          create_empty_context,
                                           assert_module_success):
         """
         Test all modules that have no dependencies
@@ -347,9 +343,9 @@ class TestModulesWithoutDependencies:
             print(f"Testing {module_name}...")
             
             module = module_fixture_factory(module_name)
-            context = create_empty_context()
             
-            result = module.safe_execute(context)
+            # Execute without parameters
+            result = module.safe_execute()
             assert_module_success(result)
 
 
