@@ -146,22 +146,17 @@ class TestBaseModuleErrorHandling:
         # Config might be empty dict
         assert isinstance(module.config, dict)
     
-    def test_safe_execute_logs_correctly(self, module_fixture_factory, caplog):
-        """Test that safe_execute logs execution info"""
-        import logging
-        
+    def test_safe_execute_logs_correctly(self, module_fixture_factory):
         module = module_fixture_factory('DataPipelineModule')
-        
-        # Capture logs
-        with caplog.at_level(logging.INFO):
-            result = module.safe_execute()
-        
-        # Should have logged execution start
-        log_messages = [record.message for record in caplog.records]
-        
-        # Check for execution log (might vary based on implementation)
-        # At minimum, should have some logging
-        assert len(log_messages) > 0
+
+        from loguru import logger
+
+        logs = []
+        logger.add(logs.append, level="INFO")
+
+        module.safe_execute()
+
+        assert len(logs) > 0
 
 
 class TestModuleResultDataclass:
