@@ -1,10 +1,9 @@
 # modules/dashboard_module.py
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-from dataclasses import asdict
 from configs.shared.shared_source_config import SharedSourceConfig
 from agents.dashboardBuilder.dashboard_builder import ComponentConfig, DashboardBuilderConfig, DashboardBuilder
 
@@ -89,16 +88,8 @@ class DashboardModule(BaseModule):
         return {
             'DataPipelineModule': self.shared_config.annotation_path, 
         }
-    
-    @property
-    def context_outputs(self) -> List[str]:
-        """Keys that this module writes to context"""
-        return [
-            'builder_result',
-            'builder_config'
-        ]
 
-    def execute(self, context, dependency_policy) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         
         """
         Execute DashboardModule.
@@ -171,11 +162,7 @@ class DashboardModule(BaseModule):
                 data={
                     'builder_result': builder_result,
                 },
-                message='Builder completed successfully',
-                context_updates={
-                    'builder_result': builder_result,
-                    'builder_config': asdict(self.builder_config)
-                }
+                message='Builder completed successfully'
             )
 
         except Exception as e:

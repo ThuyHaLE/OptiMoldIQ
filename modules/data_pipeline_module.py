@@ -1,11 +1,9 @@
 # modules/data_pipeline_module.py
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from modules.base_module import BaseModule, ModuleResult
-from dataclasses import asdict
 from loguru import logger
-
 from agents.dataPipelineOrchestrator.data_pipeline_orchestrator import SharedSourceConfig, DataPipelineOrchestrator
 
 class DataPipelineModule(BaseModule):
@@ -58,15 +56,7 @@ class DataPipelineModule(BaseModule):
         """No dependencies - this is typically the first module"""
         return {}
     
-    @property
-    def context_outputs(self) -> List[str]:
-        """Keys that this module writes to context"""
-        return [
-            'pipeline_result',
-            'shared_configs'
-        ]
-    
-    def execute(self, context, dependency_policy) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute DataPipelineOrchestrator.
         
@@ -122,11 +112,7 @@ class DataPipelineModule(BaseModule):
                 data={
                     'pipeline_result': pipeline_result,
                 },
-                message='Pipeline completed successfully',
-                context_updates={
-                    'pipeline_result': pipeline_result,
-                    'shared_configs': asdict(self.shared_config),
-                }
+                message='Pipeline completed successfully'
             )
             
         except Exception as e:

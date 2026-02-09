@@ -1,10 +1,9 @@
 # modules/progress_tracking_module.py
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-from dataclasses import asdict
 from agents.orderProgressTracker.order_progress_tracker import SharedSourceConfig, OrderProgressTracker
 
 class ProgressTrackingModule(BaseModule):
@@ -62,16 +61,8 @@ class ProgressTrackingModule(BaseModule):
             'DataPipelineModule': self.shared_config.annotation_path, 
             'ValidationModule': self.shared_config.validation_change_log_path, 
         }
-
-    @property
-    def context_outputs(self) -> List[str]:
-        """Keys that this module writes to context"""
-        return [
-            'tracking_result',
-            'configs'
-        ]
         
-    def execute(self, context, dependency_policy) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute OrderProgressTracker.
         
@@ -127,11 +118,7 @@ class ProgressTrackingModule(BaseModule):
                 data={
                     'tracking_result': tracker_result,
                 },
-                message='Tracking completed successfully',
-                context_updates={
-                    'tracking_result': tracker_result,
-                    'configs': asdict(self.shared_config)
-                }
+                message='Tracking completed successfully'
             )
 
         except Exception as e:

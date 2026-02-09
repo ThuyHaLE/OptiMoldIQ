@@ -1,10 +1,9 @@
 # modules/validation_module.py
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-from dataclasses import asdict
 from agents.validationOrchestrator.validation_orchestrator import SharedSourceConfig, ValidationOrchestrator
 
 class ValidationModule(BaseModule):
@@ -58,18 +57,8 @@ class ValidationModule(BaseModule):
         return {
             'DataPipelineModule': self.shared_config.annotation_path, 
         }
-    
-    @property
-    def context_outputs(self) -> List[str]:
-        """Keys that this module writes to context"""
-        return [
-            'validation_result',
-            'shared_configs',
-            'enable_parallel',
-            'max_workers'
-        ]
 
-    def execute(self, context, dependency_policy) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute ValidationOrchestrator.
         
@@ -130,13 +119,7 @@ class ValidationModule(BaseModule):
                 data={
                     'validation_result': validation_result,
                 },
-                message='Validation completed successfully',
-                context_updates={
-                    'validation_result': validation_result,
-                    'shared_configs': asdict(self.shared_config),
-                    'enable_parallel': self.validation_config.get('enable_parallel', True),
-                    'max_workers': self.validation_config.get('max_workers', None)
-                }
+                message='Validation completed successfully'
             )
             
         except Exception as e:

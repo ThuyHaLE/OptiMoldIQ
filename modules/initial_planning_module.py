@@ -1,11 +1,9 @@
 # modules/validation_module.py
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-from dataclasses import asdict
-
 from configs.shared.shared_source_config import SharedSourceConfig
 from agents.autoPlanner.auto_planner import InitialPlannerParams, AutoPlanner, AutoPlannerConfig
 
@@ -78,16 +76,8 @@ class InitialPlanningModule(BaseModule):
             'ProgressTrackingModule': self.initial_planner_config.shared_source_config.progress_tracker_change_log_path,
             'FeaturesExtractingModule': self.initial_planner_config.shared_source_config.features_extractor_change_log_path
         }
-    
-    @property
-    def context_outputs(self) -> List[str]:
-        """Keys that this module writes to context"""
-        return [
-            'planning_result',
-            'configs'
-        ]
 
-    def execute(self, context, dependency_policy) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         """
         Execute InitialPlanningModule.
         
@@ -157,11 +147,7 @@ class InitialPlanningModule(BaseModule):
                 data={
                     'planning_result': planner_result,
                 },
-                message='Initial planner completed successfully',
-                context_updates={
-                    'planning_result': planner_result,
-                    'configs': asdict(self.initial_planner_config)
-                }
+                message='Initial planner completed successfully'
             )
 
         except Exception as e:

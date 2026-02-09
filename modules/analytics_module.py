@@ -1,10 +1,9 @@
 # modules/analytics_module.py
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-from dataclasses import asdict
 from configs.shared.shared_source_config import SharedSourceConfig
 from agents.analyticsOrchestrator.analytics_orchestrator import ComponentConfig, AnalyticsOrchestratorConfig, AnalyticsOrchestrator
 
@@ -89,15 +88,7 @@ class AnalyticsModule(BaseModule):
             'DataPipelineModule': self.shared_config.annotation_path, 
         }
     
-    @property
-    def context_outputs(self) -> List[str]:
-        """Keys that this module writes to context"""
-        return [
-            'orchestrator_result',
-            'orchestrator_config'
-        ]
-
-    def execute(self, context, dependency_policy) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         
         """
         Execute AnalyticsModule.
@@ -169,11 +160,7 @@ class AnalyticsModule(BaseModule):
                 data={
                     'orchestrator_result': orchestrator_result,
                 },
-                message='Orchestrator completed successfully',
-                context_updates={
-                    'orchestrator_result': orchestrator_result,
-                    'orchestrator_config': asdict(self.orchestrator_config)
-                }
+                message='Orchestrator completed successfully'
             )
 
         except Exception as e:

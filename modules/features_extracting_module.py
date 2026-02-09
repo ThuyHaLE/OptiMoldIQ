@@ -1,10 +1,9 @@
 # modules/validation_module.py
 
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from modules.base_module import BaseModule, ModuleResult
 from loguru import logger
-from dataclasses import asdict
 from configs.shared.shared_source_config import SharedSourceConfig
 from agents.autoPlanner.auto_planner import FeatureExtractorParams, AutoPlanner, AutoPlannerConfig
 
@@ -77,15 +76,7 @@ class FeaturesExtractingModule(BaseModule):
             'ProgressTrackingModule': self.extractor_config.shared_source_config.progress_tracker_change_log_path
             }
     
-    @property
-    def context_outputs(self) -> List[str]:
-        """Keys that this module writes to context"""
-        return [
-            'extraction_result',
-            'configs'
-        ]
-
-    def execute(self, context, dependency_policy) -> ModuleResult:
+    def execute(self) -> ModuleResult:
         
         """
         Execute FeaturesExtractingModule.
@@ -163,11 +154,7 @@ class FeaturesExtractingModule(BaseModule):
                 data={
                     'extraction_result': extractor_result,
                 },
-                message='Features extraction completed successfully',
-                context_updates={
-                    'extraction_result': extractor_result,
-                    'configs': asdict(self.extractor_config)
-                }
+                message='Features extraction completed successfully'
             )
 
         except Exception as e:

@@ -13,7 +13,6 @@ class ModuleResult:
     status: str  # 'success' | 'failed' | 'skipped'
     data: Any
     message: str
-    context_updates: Optional[Dict[str, Any]] = None
     errors: Optional[List[str]] = None
     
     def is_success(self) -> bool:
@@ -82,10 +81,7 @@ class BaseModule(ABC):
             return {}
 
     @abstractmethod
-    def execute(self,
-                context: Dict[str, ModuleResult],
-                dependency_policy=None) -> ModuleResult:
-        
+    def execute(self) -> ModuleResult:
         """
         Execute the module logic.
     
@@ -116,50 +112,23 @@ class BaseModule(ABC):
         
         Example: {
             'DataPipelineModule': "./DataPipelineOrchestrator/DataLoaderAgent/newest/path_annotations.json", 
-            'ValidationModule']: "./ValidationOrchestrator/change_log.txt"}
+            'ValidationModule': "./ValidationOrchestrator/change_log.txt"}
         """
         return {}
     
-    @property
-    def context_outputs(self) -> List[str]:
-        """
-        List of keys that this module will write into the context.
-        
-        Example: ['validation_result', 'validation_report']
-        """
-        return []
-    
-    def safe_execute(self,
-                     context: Dict[str, ModuleResult],
-                     dependency_policy=None) -> ModuleResult:
+    def safe_execute(self) -> ModuleResult:
         """
         Wrapper around execute() with error handling.
         """
         try:
-            
-            workflow_modules = set(context.keys())
-            declared_deps = set(self.dependencies.keys())
-
-            missing_deps = declared_deps - workflow_modules
-            
             # Execute module
             self.logger.info(f"Executing {self.module_name}")
-            result = self.execute(context, dependency_policy)
+            result = self.execute()
             
             if result.is_success():
                 self.logger.info(f"{self.module_name} completed successfully")
             else:
                 self.logger.warning(f"{self.module_name} completed with status: {result.status}")
-
-            if result.context_updates is None:
-                result.context_updates = {}
-
-            if missing_deps:
-                result.context_updates["dependency_audit"] = {
-                    "missing": list(missing_deps),
-                    "severity": "warning",
-                    "source": "BaseModule"
-                }
             
             return result
             
