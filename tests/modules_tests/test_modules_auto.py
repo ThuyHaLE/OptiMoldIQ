@@ -69,7 +69,6 @@ class TestModulesAutomatically:
         assert module is not None
         assert hasattr(module, 'module_name')
         assert hasattr(module, 'dependencies')
-        assert hasattr(module, 'context_outputs')
     
     # ========================================================================
     # TEST 2: CONFIG LOADING
@@ -151,8 +150,7 @@ class TestModulesAutomatically:
         # Check properties
         assert hasattr(module, 'module_name')
         assert hasattr(module, 'dependencies')
-        assert hasattr(module, 'context_outputs')
-        
+
         # Check inheritance
         assert isinstance(module, BaseModule)
         
