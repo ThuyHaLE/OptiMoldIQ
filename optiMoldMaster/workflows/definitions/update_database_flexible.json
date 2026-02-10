@@ -1,0 +1,32 @@
+{
+  "workflow_name": "update_database_flexible",
+  "description": "Update and validate database pipeline",
+  "modules": [
+    {
+      "id": "pipeline",
+      "module": "DataPipelineModule",
+      "config_file": "configs/modules/data_pipeline.yaml",
+      "dependency_policy": {
+        "name": "flexible",
+        "params": {
+            "required_deps": [], 
+            "max_age_days": 7
+        }
+      },
+      "required": true
+    },
+    {
+      "id": "validation",
+      "module": "ValidationModule",
+      "config_file": "configs/modules/validation.yaml",
+      "dependency_policy": {
+        "name": "flexible",
+        "params": {
+            "required_deps": ["DataPipelineModule"], 
+            "max_age_days": 7
+          }
+        },
+      "required": true
+    }
+  ]
+}

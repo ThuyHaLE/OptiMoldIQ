@@ -6,6 +6,9 @@ from optiMoldMaster.workflows.dependency_policies.base import (
 
 class StrictWorkflowPolicy(DependencyPolicy):
 
+    def __init__(self):
+        super().__init__()
+
     def validate(self, dependencies, workflow_modules = None):
         
         workflow_modules = workflow_modules or []

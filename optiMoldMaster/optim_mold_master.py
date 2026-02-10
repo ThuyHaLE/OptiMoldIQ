@@ -1,265 +1,217 @@
-# agents/optiMoldMaster/optim_mold_master.py 
+# optiMoldMaster/optim_mold_master.py
 
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from loguru import logger
-from datetime import datetime
+import json
 
-from modules.registry.registry import ModuleRegistry
-from workflows.executor import WorkflowExecutor
+from optiMoldMaster.workflows.registry.registry import ModuleRegistry
+from optiMoldMaster.workflows.executor import WorkflowExecutor
+from optiMoldMaster.workflows.dependency_policies.factory import DependencyPolicyFactory
 
-class OptiMoldMaster:
+
+class OptiMoldIQ:
     """
-    OptiMold Master Agent - Main orchestrator for manufacturing optimization workflows.
+    Master orchestrator orchestrate multiple workflows.
     
-    Manages and executes various workflows for data pipeline, planning, dashboards, and sync operations.
+    Features:
+    - Auto-discover workflows from definitions/
+    - Lazy load workflow executor
+    - Support workflow chaining
+    - Centralized workflow management
     """
     
     def __init__(
-        self, 
-        modules_folder: str = "modules",
-        workflows_dir: str = "workflows/definitions",
-        log_dir: str = "logs"
+        self,
+        module_registry: ModuleRegistry,
+        workflows_dir: str = "optiMoldMaster/workflows/definitions"
     ):
-        """
-        Initialize OptiMold Master Agent
-        
-        Args:
-            modules_folder: Path to modules directory
-            workflows_dir: Path to workflow definition files
-            log_dir: Path to log directory
-        """
-        self.modules_folder = modules_folder
+        self.module_registry = module_registry
         self.workflows_dir = Path(workflows_dir)
-        self.log_dir = Path(log_dir)
         
-        # Setup logging
-        self._setup_logging()
+        # Cache executors (1 executor per workflow type)
+        self._executors: Dict[str, WorkflowExecutor] = {}
         
-        # Initialize registry and executor
-        logger.info("🚀 Initializing OptiMoldMaster Agent...")
-        self.registry = ModuleRegistry(module_folder=modules_folder)
-        self.registry.load_modules()
-        logger.info(f"✅ Loaded {len(self.registry.list_modules())} modules: {self.registry.list_modules()}")
+        # Discover available workflows
+        self._available_workflows = self._discover_workflows()
         
-        self.executor = WorkflowExecutor(
-            registry=self.registry,
-            workflows_dir=workflows_dir
-        )
-        
-        # Workflow execution history
-        self.execution_history: List[Dict] = []
-        
-    def _setup_logging(self):
-        """Setup logging configuration"""
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        
-        log_file = self.log_dir / f"optim_mold_master_{datetime.now().strftime('%Y%m%d')}.log"
-        
-        logger.add(
-            log_file,
-            rotation="500 MB",
-            retention="30 days",
-            level="INFO",
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
-        )
+        logger.info(f"📋 Orchestrator initialized with {len(self._available_workflows)} workflows")
     
-    def list_available_workflows(self) -> List[str]:
-        """
-        List all available workflow files
+    # ------------------------------------------------------------------
+    # Workflow Discovery
+    # ------------------------------------------------------------------
+    def _discover_workflows(self) -> Dict[str, Path]:
+        """Auto-discover workflows with schema validation."""
+        workflows = {}
         
-        Returns:
-            List of workflow names (without .json extension)
-        """
-        workflows = []
-        for file in self.workflows_dir.glob("*.json"):
-            workflows.append(file.stem)
+        for json_file in self.workflows_dir.glob("*.json"):
+            workflow_name = json_file.stem
+            
+            try:
+                # Load JSON
+                with open(json_file, 'r') as f:
+                    workflow_def = json.load(f)
+                
+                # Validate workflow
+                self._validate_workflow_definition(workflow_def, workflow_name)
+                
+                workflows[workflow_name] = json_file
+                logger.info(f"✅ Loaded workflow: {workflow_name}")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to load workflow '{workflow_name}': {e}")
+                # Continue discovering other workflows
         
-        logger.info(f"📋 Available workflows: {workflows}")
         return workflows
     
-    def get_workflow_details(self, workflow_name: str) -> Dict[str, Any]:
+    def _validate_workflow_definition(self, workflow_def: Dict, workflow_name: str):
         """
-        Get detailed information about a specific workflow
+        Validate workflow definition including dependency policies.
+        Raises ValueError if invalid.
+        """
+        errors = []
         
-        Args:
-            workflow_name: Name of the workflow
+        # Check basic structure
+        if "modules" not in workflow_def:
+            errors.append("Missing 'modules' field")
+        
+        # Validate each module's dependency_policy
+        for idx, module_cfg in enumerate(workflow_def.get("modules", [])):
+            module_name = module_cfg.get("module", f"module_{idx}")
             
-        Returns:
-            Workflow configuration dictionary
-        """
-        try:
-            workflow_info = self.executor.get_workflow_info(workflow_name)
-            logger.info(f"📖 Workflow '{workflow_name}' details retrieved")
-            return workflow_info
-        except Exception as e:
-            logger.error(f"❌ Failed to get workflow details: {e}")
-            raise
+            if "module" not in module_cfg:
+                errors.append(f"Module {idx}: Missing 'module' field")
+                continue
+            
+            # Validate dependency_policy if present
+            policy_cfg = module_cfg.get("dependency_policy")
+            if policy_cfg is not None:
+                try:
+                    # This will validate against schema
+                    DependencyPolicyFactory.create(policy_cfg)
+                except (ValueError, TypeError) as e:
+                    errors.append(f"Module '{module_name}': {e}")
+        
+        # Raise if any errors
+        if errors:
+            error_msg = f"Invalid workflow '{workflow_name}':\n" + \
+                       "\n".join(f"  - {e}" for e in errors)
+            raise ValueError(error_msg)
+        
+    def list_workflows(self) -> List[str]:
+        """Get list of available workflow names."""
+        return list(self._available_workflows.keys())
     
-    def execute_workflow(self, 
-                         workflow_name: str, 
-                         config_overrides: Optional[Dict[str, Dict]] = None
-                         ) -> Dict[str, Any]:
+    def get_workflow_info(self, workflow_name: str) -> Dict[str, Any]:
+        """Get workflow definition without executing."""
+        executor = self._get_or_create_executor(workflow_name)
+        return executor.get_workflow_info(workflow_name)
+    
+    # ------------------------------------------------------------------
+    # Executor Management (Lazy Loading)
+    # ------------------------------------------------------------------
+    def _get_or_create_executor(self, workflow_name: str) -> WorkflowExecutor:
         """
-        Execute a specific workflow
-        
-        Args:
-            workflow_name: Name of the workflow to execute
-            config_overrides: Optional configuration overrides per module
-                              Format: {"ModuleName": {"param": "value"}}
-        
-        Returns:
-            Workflow execution result dictionary
+        Get or create executor for workflow.
+        Cache để reuse execution_cache nếu cùng workflow type.
         """
-        logger.info(f"▶️  Starting workflow execution: {workflow_name}")
-        start_time = datetime.now()
-        
-        try:
-            result = self.executor.execute(
-                workflow_name=workflow_name,
-                config_overrides=config_overrides
+        if workflow_name not in self._available_workflows:
+            raise ValueError(
+                f"Workflow '{workflow_name}' not found. "
+                f"Available: {list(self._available_workflows.keys())}"
             )
-            
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            
-            # Add execution metadata
-            result["execution_time"] = duration
-            result["start_time"] = start_time.isoformat()
-            result["end_time"] = end_time.isoformat()
-            
-            # Store in history
-            self.execution_history.append({
-                "workflow_name": workflow_name,
-                "timestamp": start_time.isoformat(),
-                "duration": duration,
-                "status": result["status"],
-                "message": result["message"]
-            })
-            
-            if result["status"] == "success":
-                logger.info(f"✅ Workflow '{workflow_name}' completed successfully in {duration:.2f}s")
-            else:
-                logger.error(f"❌ Workflow '{workflow_name}' failed: {result['message']}")
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"❌ Workflow execution error: {e}")
-            return {
-                "status": "error",
-                "workflow": workflow_name,
-                "message": str(e),
-                "execution_time": (datetime.now() - start_time).total_seconds()
-            }
+        
+        # Cache executor per workflow (reuse execution cache)
+        if workflow_name not in self._executors:
+            logger.debug(f"Creating new executor for: {workflow_name}")
+            self._executors[workflow_name] = WorkflowExecutor(
+                registry=self.module_registry,
+                workflows_dir=str(self.workflows_dir)
+            )
+        
+        return self._executors[workflow_name]
     
-    def execute_multiple_workflows(
-        self, 
-        workflow_names: List[str],
-        stop_on_failure: bool = True
+    # ------------------------------------------------------------------
+    # Workflow Execution
+    # ------------------------------------------------------------------
+    def execute(
+        self,
+        workflow_name: str,
+        config_overrides: Optional[Dict[str, Dict]] = None,
+        clear_cache: bool = False
     ) -> Dict[str, Any]:
         """
-        Execute multiple workflows sequentially
+        Execute a workflow by name.
         
         Args:
-            workflow_names: List of workflow names to execute
-            stop_on_failure: Stop execution if a workflow fails
+            workflow_name: Name of workflow (e.g., 'update_database')
+            config_overrides: Optional config overrides per module
+            clear_cache: Clear execution cache before running
             
         Returns:
-            Combined execution results
+            Workflow execution result
         """
-        logger.info(f"🔄 Executing {len(workflow_names)} workflows sequentially")
+        logger.info(f"🎬 Orchestrator executing workflow: {workflow_name}")
         
-        results = []
-        overall_status = "success"
+        executor = self._get_or_create_executor(workflow_name)
+        
+        # Optionally clear cache
+        if clear_cache:
+            logger.info(f"🗑️  Clearing execution cache for: {workflow_name}")
+            executor._execution_cache.clear()
+        
+        return executor.execute(
+            workflow_name=workflow_name,
+            config_overrides=config_overrides
+        )
+    
+    # ------------------------------------------------------------------
+    # Workflow Chaining
+    # ------------------------------------------------------------------
+    def execute_chain(
+        self,
+        workflow_names: List[str],
+        stop_on_failure: bool = True
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Execute multiple workflows in sequence.
+        
+        Args:
+            workflow_names: List of workflows to execute in order
+            stop_on_failure: Stop chain if any workflow fails
+            
+        Returns:
+            Dict mapping workflow_name -> execution result
+        """
+        logger.info(f"⛓️  Executing workflow chain: {' → '.join(workflow_names)}")
+        
+        results = {}
         
         for workflow_name in workflow_names:
-            result = self.execute_workflow(workflow_name)
-            results.append(result)
+            logger.info(f"▶️  Chain step: {workflow_name}")
             
-            if result["status"] != "success":
-                overall_status = "failed"
-                if stop_on_failure:
-                    logger.warning(f"⚠️  Stopping execution due to failure in '{workflow_name}'")
-                    break
-        
-        return {
-            "status": overall_status,
-            "total_workflows": len(workflow_names),
-            "executed_workflows": len(results),
-            "results": results
-        }
-    
-    def get_execution_history(self, limit: Optional[int] = None) -> List[Dict]:
-        """
-        Get workflow execution history
-        
-        Args:
-            limit: Maximum number of records to return (most recent first)
+            result = self.execute(workflow_name)
+            results[workflow_name] = result
             
-        Returns:
-            List of execution history records
-        """
-        history = sorted(
-            self.execution_history, 
-            key=lambda x: x["timestamp"], 
-            reverse=True
-        )
+            # Check failure
+            if stop_on_failure and result.get("status") == "failed":
+                logger.error(f"❌ Chain stopped at: {workflow_name}")
+                break
         
-        if limit:
-            history = history[:limit]
-        
-        return history
+        return results
     
-    def get_execution_summary(self) -> Dict[str, Any]:
-        """
-        Get summary statistics of workflow executions
-        
-        Returns:
-            Summary statistics dictionary
-        """
-        if not self.execution_history:
-            return {
-                "total_executions": 0,
-                "successful": 0,
-                "failed": 0,
-                "average_duration": 0
-            }
-        
-        total = len(self.execution_history)
-        successful = sum(1 for h in self.execution_history if h["status"] == "success")
-        failed = total - successful
-        avg_duration = sum(h["duration"] for h in self.execution_history) / total
-        
-        return {
-            "total_executions": total,
-            "successful": successful,
-            "failed": failed,
-            "success_rate": f"{(successful/total)*100:.1f}%",
-            "average_duration": f"{avg_duration:.2f}s"
-        }
+    # ------------------------------------------------------------------
+    # Cache Management
+    # ------------------------------------------------------------------
+    def clear_all_caches(self):
+        """Clear execution cache for all workflows."""
+        for workflow_name, executor in self._executors.items():
+            logger.info(f"🗑️  Clearing cache for: {workflow_name}")
+            executor._execution_cache.clear()
     
-    def run_update_database_workflow(self) -> Dict[str, Any]:
-        """
-        Convenience method to run the update_database workflow
-        """
-        return self.execute_workflow("update_database")
-    
-    def health_check(self) -> Dict[str, Any]:
-        """
-        Check health status of the agent and its components
-        
-        Returns:
-            Health status dictionary
-        """
-        logger.info("🏥 Performing health check...")
-        
-        health = {
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "modules_loaded": len(self.registry.list_modules()),
-            "available_workflows": len(self.list_available_workflows()),
-            "execution_history_size": len(self.execution_history)
-        }
-        
-        return health
+    def get_cache_stats(self) -> Dict[str, int]:
+        """Get cache statistics for all workflows."""
+        stats = {}
+        for workflow_name, executor in self._executors.items():
+            stats[workflow_name] = len(executor._execution_cache)
+        return stats
