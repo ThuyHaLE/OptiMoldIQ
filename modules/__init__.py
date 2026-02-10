@@ -20,7 +20,7 @@ AVAILABLE_MODULES = {
     'InitialPlanningModule': InitialPlanningModule
 }
 
-def get_module(name: str, config: dict = None) -> BaseModule:
+def get_module(name: str) -> BaseModule:
     """
     Factory function to create module instance
     
@@ -34,9 +34,8 @@ def get_module(name: str, config: dict = None) -> BaseModule:
     if name not in AVAILABLE_MODULES:
         available = ', '.join(AVAILABLE_MODULES.keys())
         raise ValueError(f"Module '{name}' not found. Available modules: {available}")
-    
-    module_class = AVAILABLE_MODULES[name]
-    return module_class(config)
+
+    return AVAILABLE_MODULES[name]
 
 
 def list_available_modules() -> list[str]:
