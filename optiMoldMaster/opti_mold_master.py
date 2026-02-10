@@ -1,14 +1,13 @@
 # optiMoldMaster/optim_mold_master.py
 
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 from loguru import logger
 import json
 
 from optiMoldMaster.workflows.registry.registry import ModuleRegistry
-from optiMoldMaster.workflows.executor import WorkflowExecutor
+from optiMoldMaster.workflows.executor import WorkflowExecutor, WorkflowExecutorResult
 from optiMoldMaster.workflows.dependency_policies.factory import DependencyPolicyFactory
-
 
 class OptiMoldIQ:
     """
@@ -64,7 +63,9 @@ class OptiMoldIQ:
         
         return workflows
     
-    def _validate_workflow_definition(self, workflow_def: Dict, workflow_name: str):
+    def _validate_workflow_definition(self, 
+                                      workflow_def: Dict, 
+                                      workflow_name: str):
         """
         Validate workflow definition including dependency policies.
         Raises ValueError if invalid.
@@ -113,7 +114,7 @@ class OptiMoldIQ:
     def _get_or_create_executor(self, workflow_name: str) -> WorkflowExecutor:
         """
         Get or create executor for workflow.
-        Cache để reuse execution_cache nếu cùng workflow type.
+        Cache to reuse execution_cache if using same workflow type.
         """
         if workflow_name not in self._available_workflows:
             raise ValueError(
@@ -134,18 +135,14 @@ class OptiMoldIQ:
     # ------------------------------------------------------------------
     # Workflow Execution
     # ------------------------------------------------------------------
-    def execute(
-        self,
-        workflow_name: str,
-        config_overrides: Optional[Dict[str, Dict]] = None,
-        clear_cache: bool = False
-    ) -> Dict[str, Any]:
+    def execute(self,
+                workflow_name: str,
+                clear_cache: bool = False) -> WorkflowExecutorResult:
         """
         Execute a workflow by name.
         
         Args:
             workflow_name: Name of workflow (e.g., 'update_database')
-            config_overrides: Optional config overrides per module
             clear_cache: Clear execution cache before running
             
         Returns:
@@ -160,10 +157,7 @@ class OptiMoldIQ:
             logger.info(f"🗑️  Clearing execution cache for: {workflow_name}")
             executor._execution_cache.clear()
         
-        return executor.execute(
-            workflow_name=workflow_name,
-            config_overrides=config_overrides
-        )
+        return executor.execute(workflow_name=workflow_name)
     
     # ------------------------------------------------------------------
     # Workflow Chaining

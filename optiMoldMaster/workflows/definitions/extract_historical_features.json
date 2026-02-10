@@ -1,0 +1,34 @@
+{
+  "workflow_name": "extract_historical_features_strict",
+  "description": "Update and extract historical features pipeline",
+  "modules": [
+    {
+      "id": "pipeline",
+      "module": "DataPipelineModule",
+      "config_file": "configs/modules/data_pipeline.yaml",
+      "dependency_policy": "strict",
+      "required": true
+    },
+    {
+      "id": "validation",
+      "module": "ValidationModule",
+      "config_file": "configs/modules/validation.yaml",
+      "dependency_policy": "strict",
+      "required": true
+    },
+    {
+      "id": "tracker",
+      "module": "ProgressTrackingModule",
+      "config_file": "configs/modules/progress_tracking.yaml",
+      "dependency_policy": "strict",
+      "required": true
+    },
+    {
+      "id": "extraction",
+      "module": "FeaturesExtractingModule",
+      "config_file": "configs/modules/features_extracting.yaml",
+      "dependency_policy": "strict",
+      "required": true
+    }
+  ]
+}

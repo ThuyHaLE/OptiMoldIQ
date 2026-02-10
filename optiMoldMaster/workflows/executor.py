@@ -1,14 +1,30 @@
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import json
 import uuid
 from loguru import logger
+from dataclasses import dataclass, field
 
 from modules.base_module import ModuleResult
-from workflows.dependency_policies.factory import DependencyPolicyFactory
+from optiMoldMaster.workflows.dependency_policies.factory import DependencyPolicyFactory
 from optiMoldMaster.workflows.registry.registry import ModuleRegistry
 
-
+@dataclass
+class WorkflowExecutorResult:
+    """Standardized result format returned by executor"""
+    execution_id: str
+    workflow_name: str
+    status: str  # 'success' | 'failed' | 'skipped'
+    message: str
+    results: Dict = field(default_factory=dict)
+    execution_context: Dict = field(default_factory=dict)
+    def is_success(self) -> bool:
+        return self.status == 'success'
+    def is_skipped(self) -> bool:
+        return self.status == 'skipped'
+    def is_failed(self) -> bool:
+        return self.status == 'failed'
+    
 class WorkflowExecutor:
     """
     Production Workflow Executor
@@ -53,31 +69,25 @@ class WorkflowExecutor:
     # ------------------------------------------------------------------
     def execute(
         self,
-        workflow_name: str,
-        config_overrides: Optional[Dict[str, Dict]] = None
-    ) -> Dict[str, Any]:
+        workflow_name: str) -> WorkflowExecutorResult:
 
         workflow = self._load_workflow(workflow_name)
         workflow_modules = workflow["modules"]
+        requested_modules = [m["module"] for m in workflow_modules]
+
+        results: Dict[str, ModuleResult] = {}
 
         execution_id = uuid.uuid4().hex[:8]
         logger.info(f"[{execution_id}] ▶️ Executing workflow: {workflow_name}")
 
         # --------------------------------------------------------------
-        # Build workflow-level metadata
-        # --------------------------------------------------------------
-        workflow_config_map = {
-            m["module"]: m for m in workflow_modules
-        }
-
-        results: Dict[str, ModuleResult] = {}
-
-        # --------------------------------------------------------------
         # Execute modules
         # --------------------------------------------------------------
-        requested_modules = [m["module"] for m in workflow_modules]
-
-        for module_name in requested_modules:
+        for module in workflow_modules:
+            module_name = module.get("module")
+            module_config_path = module.get("config_file", None)
+            module_dependency_policy = module.get("dependency_policy")
+            module_required = module.get("required", False)
 
             if module_name in self._execution_cache:
                 logger.info(f"[{execution_id}] ♻️ Reusing cached result: {module_name}")
@@ -85,22 +95,11 @@ class WorkflowExecutor:
                 results[module_name] = result
                 continue
 
-            logger.info(f"[{execution_id}] 🚀 Executing module: {module_name}")
-
-            module_class = self.registry.get_module_instance(module_name)
-            if not module_class:
-                raise ValueError(f"Module not found in registry: {module_name}")
-
-            module_cfg = workflow_config_map.get(module_name, {})
-            config_path = module_cfg.get("config_file")
-            required = module_cfg.get("required", True)
-
             # 🔹 Instantiate FIRST
-            module_instance = module_class(config_path=config_path)
+            logger.info(f"[{execution_id}] 🚀 Executing module: {module_name}")
+            module_instance = self.registry.get_module_instance(module_name, module_config_path)
             
-            dependency_policy = DependencyPolicyFactory.create(
-                module_cfg.get("dependency_policy")
-            )
+            dependency_policy = DependencyPolicyFactory.create(module_dependency_policy)
 
             # 🔹 Validate dependency BEFORE execution
             dep_result = self.validate_dependencies(
@@ -109,13 +108,13 @@ class WorkflowExecutor:
                 dependency_policy=dependency_policy
             )
 
-            if not dep_result.valid:  # ✅ Fixed: was is_valid
+            if not dep_result.valid:
                 logger.error(
                     f"[{execution_id}] Dependency validation failed for {module_name}: "
                     f"{dep_result.summary()}"
                 )
 
-                if required:
+                if module_required:
                     return self._build_response(
                         workflow_name,
                         execution_id,
@@ -139,7 +138,7 @@ class WorkflowExecutor:
             self._execution_cache[module_name] = result
             results[module_name] = result
 
-            if required and result.is_failed():
+            if module_required and result.is_failed():
                 logger.error(f"[{execution_id}] ❌ Required module failed: {module_name}")
                 return self._build_response(
                     workflow_name,
@@ -188,14 +187,14 @@ class WorkflowExecutor:
         status: str,
         message: str,
         results: Dict[str, ModuleResult]
-    ) -> Dict[str, Any]:
+    ) -> WorkflowExecutorResult:
 
-        return {
-            "execution_id": execution_id,
-            "workflow": workflow_name,
-            "status": status,
-            "message": message,
-            "results": {
+        return WorkflowExecutorResult(
+            execution_id=execution_id,
+            workflow_name=workflow_name,
+            status=status,
+            message=message,
+            results={
                 name: {
                     "status": r.status,
                     "message": r.message,
@@ -204,9 +203,8 @@ class WorkflowExecutor:
                 }
                 for name, r in results.items()
             },
-            # Made context optional or use results
-            "execution_context": {
+            execution_context={
                 "cached_modules": list(self._execution_cache.keys()),
                 "total_modules": len(results)
             }
-        }
+        )

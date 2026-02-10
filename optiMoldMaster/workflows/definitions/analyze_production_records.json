@@ -1,0 +1,20 @@
+{
+  "workflow_name": "analyze_production_records_strict",
+  "description": "Update and analyze production records pipeline",
+  "modules": [
+    {
+      "id": "pipeline",
+      "module": "DataPipelineModule",
+      "config_file": "configs/modules/data_pipeline.yaml",
+      "dependency_policy": "strict",
+      "required": true
+    },
+    {
+      "id": "analytics",
+      "module": "AnalyticsModule",
+      "config_file": "configs/modules/analytics.yaml",
+      "dependency_policy": "strict",
+      "required": true
+    }
+  ]
+}

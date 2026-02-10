@@ -36,13 +36,13 @@ class ModuleRegistry:
     
     def get_module_instance(self, 
                             module_name: str, 
-                            override_config: Optional[dict] = None):
+                            override_config_path: Optional[str] = None):
         """
         Get module instance with config from registry
         
         Args:
             module_name: Module class name (e.g., "DataPipelineModule")
-            override_config: Optional config to override registry config
+            override_config_path: Optional config path to override registry config
         
         Returns:
             Module instance
@@ -52,37 +52,16 @@ class ModuleRegistry:
             available = ', '.join(self.available_modules.keys())
             raise ValueError(f"Module '{module_name}' not found. Available: {available}")
         
-        # Get registry config
-        registry_entry = self.module_registry.get(module_name, {})
-        
-        # Check if enabled
-        if not registry_entry.get('enabled', True):
-            raise ValueError(f"Module '{module_name}' is disabled in registry")
-        
-        # Load config from file if specified
-        config = None
-        config_path = registry_entry.get('config_path')
-        
-        if config_path:
-            config = self._load_config(config_path)
-        
-        # Override with runtime config if provided
-        if override_config:
-            config = override_config
-        
         # Use factory function from modules/__init__.py
-        return get_module(module_name, config)
-    
-    def _load_config(self, config_path: str) -> dict:
-        """Load module config from YAML file"""
-        config_file = Path(config_path)
+        module = get_module(module_name) 
         
-        if not config_file.exists():
-            logger.warning(f"Config not found: {config_path}, using defaults")
-            return {}
-        
-        with open(config_file, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f) or {}
+        if override_config_path:
+            return module(override_config_path)
+
+        else:
+            # Using registry config
+            registry_entry = self.module_registry.get(module_name, {})
+            return module(registry_entry.get('config_path', None))
     
     def list_modules(self, enabled_only: bool = False) -> list:
         """List available modules"""
