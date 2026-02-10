@@ -1,11 +1,10 @@
 # optiMoldMaster/main.py
 
-from optiMoldMaster.optim_mold_master import OptiMoldIQ
+from optiMoldMaster.opti_mold_master import OptiMoldIQ
 from optiMoldMaster.workflows.registry.registry import ModuleRegistry
 
 # Initialize
 registry = ModuleRegistry()
-registry.auto_discover("optiMoldMaster/modules")
 
 orchestrator = OptiMoldIQ(
     module_registry=registry,
@@ -17,7 +16,7 @@ print(orchestrator.list_workflows())
 # ['update_database', 'full_pipeline', 'validate_only']
 
 # Execute by name
-result = orchestrator.execute("update_database")
+result = orchestrator.execute("update_database_strict")
 
 # Execute with fresh cache
-result = orchestrator.execute("update_database", clear_cache=True)
+result = orchestrator.execute("update_database_strict", clear_cache=True)
