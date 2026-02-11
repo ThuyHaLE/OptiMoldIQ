@@ -5,9 +5,9 @@ from typing import Dict, Any, List
 from loguru import logger
 import json
 
-from optiMoldMaster.workflows.registry.registry import ModuleRegistry
-from optiMoldMaster.workflows.executor import WorkflowExecutor, WorkflowExecutorResult
-from optiMoldMaster.workflows.dependency_policies.factory import DependencyPolicyFactory
+from workflows.registry.registry import ModuleRegistry
+from workflows.executor import WorkflowExecutor, WorkflowExecutorResult
+from workflows.dependency_policies.factory import DependencyPolicyFactory
 
 class OptiMoldIQ:
     """
@@ -23,7 +23,7 @@ class OptiMoldIQ:
     def __init__(
         self,
         module_registry: ModuleRegistry,
-        workflows_dir: str = "optiMoldMaster/workflows/definitions"
+        workflows_dir: str = "workflows/definitions"
     ):
         self.module_registry = module_registry
         self.workflows_dir = Path(workflows_dir)
