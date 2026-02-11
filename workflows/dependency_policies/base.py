@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple, Any
 from datetime import datetime
 from loguru import logger
 from enum import Enum
+from pathlib import Path
 
 
 class DependencyReason(str, Enum):
@@ -105,7 +106,6 @@ class DependencyPolicy(ABC):
         Returns:
             (exists, last_modified_time)
         """
-        from pathlib import Path
         path = Path(resource_path)
         
         if not path.exists():
