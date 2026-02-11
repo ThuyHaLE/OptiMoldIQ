@@ -305,37 +305,18 @@ jobs:
             pip install -r requirements.txt
           fi
       
-      - name: 🧪 Run module integration tests
+      - name: 🧪 Run integration tests
         working-directory: ${{ steps.find-dir.outputs.working_dir }}
         run: |
           export PYTHONPATH=$(pwd):$PYTHONPATH
-          
-          # Module tests that require agents
-          pytest tests/modules_tests/ \
+
+          pytest tests/integration_tests/ \
             -v --tb=short \
-            -m "integration or requires_agent" \
-            --ignore=tests/workflows_tests/ \
-            --ignore=tests/agents_tests/ \
             --cov=modules \
-            --cov-report=xml \
-            --cov-report=term-missing
-      
-      - name: 🧪 Run workflow integration tests
-        working-directory: ${{ steps.find-dir.outputs.working_dir }}
-        run: |
-          export PYTHONPATH=$(pwd):$PYTHONPATH
-          
-          # Workflow tests marked as integration (if any)
-          pytest tests/workflows_tests/ \
-            -v --tb=short \
-            -m "integration or requires_agent" \
-            --ignore=tests/modules_tests/ \
-            --ignore=tests/agents_tests/ \
             --cov=workflows \
             --cov-append \
             --cov-report=xml \
-            --cov-report=term-missing \
-            || echo "No integration workflow tests found (this is OK)"
+            --cov-report=term-missing
       
       - name: 📊 Upload integration coverage
         uses: codecov/codecov-action@v3
