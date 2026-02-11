@@ -166,7 +166,7 @@ class OptiMoldIQ:
         self,
         workflow_names: List[str],
         stop_on_failure: bool = True
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> Dict[str, WorkflowExecutorResult]:
         """
         Execute multiple workflows in sequence.
         
@@ -188,7 +188,7 @@ class OptiMoldIQ:
             results[workflow_name] = result
             
             # Check failure
-            if stop_on_failure and result.get("status") == "failed":
+            if stop_on_failure and result.is_failed():
                 logger.error(f"❌ Chain stopped at: {workflow_name}")
                 break
         
