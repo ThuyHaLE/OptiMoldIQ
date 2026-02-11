@@ -509,7 +509,7 @@ class TestWorkflowExecution:
     ):
         """Test executing workflow with cache clearing"""
         mock_executor = Mock()
-        mock_executor._execution_cache = {"Module1": Mock()}
+        mock_executor._execution_cache = MagicMock()
         mock_executor.execute.return_value = WorkflowExecutorResult(
             execution_id="123",
             workflow_name="workflow1",
@@ -532,7 +532,7 @@ class TestWorkflowExecution:
     ):
         """Test executing workflow without clearing cache"""
         mock_executor = Mock()
-        mock_executor._execution_cache = {"Module1": Mock()}
+        mock_executor._execution_cache = MagicMock()
         mock_executor.execute.return_value = WorkflowExecutorResult(
             execution_id="123",
             workflow_name="workflow1",
@@ -742,9 +742,9 @@ class TestCacheManagement:
         """Test clearing all executor caches"""
         # Create multiple executors
         mock_executor1 = Mock()
-        mock_executor1._execution_cache = {"Module1": Mock()}
+        mock_executor1._execution_cache = MagicMock()
         mock_executor2 = Mock()
-        mock_executor2._execution_cache = {"Module2": Mock()}
+        mock_executor2._execution_cache = MagicMock()
         
         MockWorkflowExecutor.side_effect = [mock_executor1, mock_executor2]
         
