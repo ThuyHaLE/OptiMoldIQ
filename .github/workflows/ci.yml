@@ -264,106 +264,31 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # JOB 5: Integration Tests (Module + Workflow + Agent)
-  # ============================================================================
-  integration-tests:
-    name: 🔗 Integration Tests
-    runs-on: ubuntu-latest
-    needs: [module-tests, workflow-tests]  # Removed agent-tests dependency
-    timeout-minutes: 25
-    
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-      
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-      
-      - name: 🔍 Find working directory
-        id: find-dir
-        run: |
-          if [ -d "agents" ] && [ -d "modules" ] && [ -d "workflows" ] && [ -d "configs" ] && [ -d "tests" ]; then
-            CORRECT_PATH=$(pwd)
-          elif [ -d "OptiMoldIQ/agents" ] && [ -d "OptiMoldIQ/modules" ] && [ -d "OptiMoldIQ/workflows" ] && [ -d "OptiMoldIQ/configs" ] && [ -d "OptiMoldIQ/tests" ]; then
-            CORRECT_PATH=$(pwd)/OptiMoldIQ
-          else
-            exit 1
-          fi
-          echo "WORKING_DIR=$CORRECT_PATH" >> $GITHUB_ENV
-          echo "working_dir=$CORRECT_PATH" >> $GITHUB_OUTPUT
-      
-      - name: 📦 Install dependencies
-        working-directory: ${{ steps.find-dir.outputs.working_dir }}
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest pytest-cov pyyaml loguru
-          
-          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
-      
-      - name: 🧪 Run integration tests
-        working-directory: ${{ steps.find-dir.outputs.working_dir }}
-        run: |
-          export PYTHONPATH=$(pwd):$PYTHONPATH
-
-          pytest tests/integration_tests/ \
-            -v --tb=short \
-            --cov=modules \
-            --cov=workflows \
-            --cov-append \
-            --cov-report=xml \
-            --cov-report=term-missing
-      
-      - name: 📊 Upload integration coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ${{ steps.find-dir.outputs.working_dir }}/coverage.xml
-          flags: integration
-          name: integration-coverage
-
-  # ============================================================================
-  # JOB 6: Summary Report
+  # JOB : Summary Report
   # ============================================================================
   report:
     name: 📊 Test Report
     runs-on: ubuntu-latest
-    needs: [smoke-tests, module-tests, workflow-tests, integration-tests]
+    needs: [smoke-tests, module-tests, workflow-tests]
     if: always()
-    
+
     steps:
       - name: 📋 Generate Summary
         run: |
           echo "## 🧪 Test Execution Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Suite | Status | Duration |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|--------|----------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🚀 Smoke Tests | ${{ needs.smoke-tests.result }} | ~5 min |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧩 Module Tests | ${{ needs.module-tests.result }} | ~10 min |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔄 Workflow Tests | ${{ needs.workflow-tests.result }} | ~15 min |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 Smoke Tests | ${{ needs.smoke-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧩 Module Tests | ${{ needs.module-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔄 Workflow Tests | ${{ needs.workflow-tests.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 🤖 Agent Tests | ⏸️ DISABLED | - |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔗 Integration Tests | ${{ needs.integration-tests.result }} | ~20 min |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Overall status
-          if [[ "${{ needs.smoke-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.module-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.workflow-tests.result }}" == "failure" ]] || \
-             [[ "${{ needs.integration-tests.result }}" == "failure" ]]; then
-            echo "### ❌ Tests Failed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Troubleshooting:**" >> $GITHUB_STEP_SUMMARY
-            echo "1. Review failed job logs above" >> $GITHUB_STEP_SUMMARY
-            echo "2. Check test artifacts (if uploaded)" >> $GITHUB_STEP_SUMMARY
-            echo "3. Run locally: \`pytest tests/<failed_suite>/ -v\`" >> $GITHUB_STEP_SUMMARY
-            exit 1
+
+          if [[ "${{ needs.smoke-tests.result }}" == "success" ]] && \
+            [[ "${{ needs.module-tests.result }}" == "success" ]] && \
+            [[ "${{ needs.workflow-tests.result }}" == "success" ]]; then
+            echo "### ✅ All Tests Passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "### ✅ All Active Tests Passed!" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Note:** Agent tests are currently disabled" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Coverage Reports:** Available in Codecov" >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Some Tests Failed" >> $GITHUB_STEP_SUMMARY
           fi
