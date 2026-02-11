@@ -453,21 +453,41 @@ class TestRegistryIntegration:
         }
         registry_path = create_registry_file(registry_data)
         
-        # Setup mocks
+        # Setup mocks - create mock modules for Module1, Module2, Module3
         def create_mock_module(name):
             mock_class = Mock()
             mock_class.return_value = Mock(name=name)
             return mock_class
+        
+        # Create mock module classes
+        module1_class = create_mock_module("Module1")
+        module2_class = create_mock_module("Module2")
+        module3_class = create_mock_module("Module3")
+        
+        # Add our test modules to the available modules
+        test_available_modules = {
+            **mock_available_modules,
+            "Module1": Mock(),
+            "Module2": Mock(),
+            "Module3": Mock()
+        }
+        
+        # Mock get_module to return the appropriate class
+        def mock_get_module(name):
+            if name == "Module1":
+                return module1_class
+            elif name == "Module2":
+                return module2_class
+            elif name == "Module3":
+                return module3_class
+            raise ValueError(f"Module '{name}' not found")
 
         with patch(
             'workflows.registry.registry.modules_package.AVAILABLE_MODULES',
-            mock_available_modules
+            test_available_modules
         ), patch(
             'workflows.registry.registry.modules_package.get_module',
-            side_effect=[
-                create_mock_module("Module1"),
-                create_mock_module("Module2")
-            ]
+            side_effect=mock_get_module
         ):
             # Initialize registry
             registry = ModuleRegistry(registry_path=registry_path)
