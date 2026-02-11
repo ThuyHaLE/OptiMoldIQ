@@ -7,8 +7,8 @@ from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch, mock_open, call
 from dataclasses import dataclass
 
-from optiMoldMaster.workflows.executor import WorkflowExecutor, WorkflowExecutorResult
-from optiMoldMaster.workflows.dependency_policies.base import (
+from workflows.executor import WorkflowExecutor, WorkflowExecutorResult
+from workflows.dependency_policies.base import (
     DependencyValidationResult,
     DependencyIssue,
     DependencyReason,
@@ -212,7 +212,7 @@ class TestDependencyValidation:
     
     def test_validate_dependencies_with_strict_policy(self, executor):
         """Test dependency validation with strict policy"""
-        from optiMoldMaster.workflows.dependency_policies.strict import StrictWorkflowPolicy
+        from workflows.dependency_policies.strict import StrictWorkflowPolicy
         
         module = Mock()
         module.dependencies = {"dep1": "/path/dep1"}
@@ -231,7 +231,7 @@ class TestDependencyValidation:
     
     def test_validate_dependencies_missing_dependency(self, executor):
         """Test validation with missing dependency"""
-        from optiMoldMaster.workflows.dependency_policies.strict import StrictWorkflowPolicy
+        from workflows.dependency_policies.strict import StrictWorkflowPolicy
         
         module = Mock()
         module.dependencies = {"dep1": "/path/dep1"}
@@ -264,7 +264,7 @@ class TestDependencyValidation:
     
     def test_validate_dependencies_flexible_policy(self, executor, tmp_path):
         """Test validation with flexible policy"""
-        from optiMoldMaster.workflows.dependency_policies.flexible import FlexibleDependencyPolicy
+        from workflows.dependency_policies.flexible import FlexibleDependencyPolicy
         
         # Create test file
         test_file = tmp_path / "data.txt"

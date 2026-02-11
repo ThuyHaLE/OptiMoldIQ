@@ -5,11 +5,11 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch, call
-from optiMoldMaster.workflows.dependency_policies.strict import StrictWorkflowPolicy
-from optiMoldMaster.workflows.dependency_policies.flexible import FlexibleDependencyPolicy
-from optiMoldMaster.workflows.dependency_policies.hybrid import HybridDependencyPolicy
-from optiMoldMaster.workflows.dependency_policies.factory import DependencyPolicyFactory
-from optiMoldMaster.workflows.dependency_policies.base import DependencyReason, DependencySource
+from workflows.dependency_policies.strict import StrictWorkflowPolicy
+from workflows.dependency_policies.flexible import FlexibleDependencyPolicy
+from workflows.dependency_policies.hybrid import HybridDependencyPolicy
+from workflows.dependency_policies.factory import DependencyPolicyFactory
+from workflows.dependency_policies.base import DependencyReason, DependencySource
 
 
 # ============================================================================

@@ -13,8 +13,8 @@ import yaml
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from optiMoldMaster.workflows.registry.registry import ModuleRegistry
-from optiMoldMaster.workflows.executor import WorkflowExecutor
+from workflows.registry.registry import ModuleRegistry
+from workflows.executor import WorkflowExecutor
 from optiMoldMaster.opti_mold_master import OptiMoldIQ
 from modules.base_module import ModuleResult
 
@@ -95,8 +95,8 @@ def mock_modules():
 class TestCompleteIntegration:
     """Test complete workflow system integration"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
     def test_end_to_end_workflow_execution(
         self,
         mock_get_module,
@@ -160,8 +160,8 @@ class TestCompleteIntegration:
         assert result.results["Module1"]["status"] == "success"
         assert result.results["Module2"]["status"] == "success"
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
     def test_workflow_chain_execution(
         self,
         mock_get_module,
@@ -210,8 +210,8 @@ class TestCompleteIntegration:
         assert results["workflow1"].is_success()
         assert results["workflow2"].is_success()
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
     def test_workflow_with_failed_required_module(
         self,
         mock_get_module,
@@ -260,8 +260,8 @@ class TestCompleteIntegration:
 class TestDependencyPolicyIntegration:
     """Test dependency policies in complete workflow"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
     def test_strict_policy_blocks_missing_dependencies(
         self,
         mock_get_module,
@@ -305,8 +305,8 @@ class TestDependencyPolicyIntegration:
         assert result.is_success()  # Workflow succeeds but module skipped
         assert result.results["Module2"]["status"] == "skipped"
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
     def test_flexible_policy_allows_execution(
         self,
         mock_get_module,
@@ -375,8 +375,8 @@ class TestDependencyPolicyIntegration:
 class TestCacheIntegration:
     """Test execution caching across workflows"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
     def test_cache_persists_within_workflow(
         self,
         mock_get_module,
@@ -433,8 +433,8 @@ class TestCacheIntegration:
         assert execution_count["count"] == 1
         assert result.is_success()
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
     def test_cache_cleared_between_executions(
         self,
         mock_get_module,
@@ -495,8 +495,8 @@ class TestCacheIntegration:
 class TestErrorPropagation:
     """Test error handling across system layers"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
     def test_module_error_propagates_correctly(
         self,
         mock_get_module,

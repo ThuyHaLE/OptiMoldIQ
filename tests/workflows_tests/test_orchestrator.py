@@ -5,11 +5,9 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch, call
 
-from optiMoldMaster.opti_mold_master import OptiMoldIQ
-from optiMoldMaster.workflows.executor import WorkflowExecutor, WorkflowExecutorResult
-from optiMoldMaster.workflows.registry.registry import ModuleRegistry
+from optiMoldMaster.opti_mold_master import (
+    OptiMoldIQ, ModuleRegistry, WorkflowExecutor, WorkflowExecutorResult)
 from modules.base_module import ModuleResult
-
 
 # ============================================================================
 # FIXTURES
@@ -210,7 +208,7 @@ class TestWorkflowDiscovery:
         (workflows_dir / "valid.json").write_text('{"modules": []}')
         (workflows_dir / "invalid.json").write_text('{ invalid json }')
         
-        with patch('optiMoldMaster.optim_mold_master.logger') as mock_logger:
+        with patch('optiMoldMaster.opti_mold_master.logger') as mock_logger:
             orchestrator = OptiMoldIQ(
                 module_registry=mock_module_registry,
                 workflows_dir=str(workflows_dir)
@@ -469,7 +467,7 @@ class TestExecutorManagement:
 class TestWorkflowExecution:
     """Test workflow execution"""
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_workflow_success(
         self,
         MockWorkflowExecutor,
@@ -493,7 +491,7 @@ class TestWorkflowExecution:
         assert result.workflow_name == "workflow1"
         mock_executor.execute.assert_called_once_with(workflow_name="workflow1")
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_workflow_not_found(
         self,
         MockWorkflowExecutor,
@@ -503,7 +501,7 @@ class TestWorkflowExecution:
         with pytest.raises(ValueError, match="not found"):
             orchestrator_with_workflows.execute("nonexistent")
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_workflow_with_clear_cache(
         self,
         MockWorkflowExecutor,
@@ -526,7 +524,7 @@ class TestWorkflowExecution:
         mock_executor._execution_cache.clear.assert_called_once()
         assert result.is_success()
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_workflow_without_clear_cache(
         self,
         MockWorkflowExecutor,
@@ -549,7 +547,7 @@ class TestWorkflowExecution:
         mock_executor._execution_cache.clear.assert_not_called()
         assert result.is_success()
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_reuses_cached_executor(
         self,
         MockWorkflowExecutor,
@@ -582,7 +580,7 @@ class TestWorkflowExecution:
 class TestWorkflowChaining:
     """Test workflow chaining functionality"""
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_chain_success(
         self,
         MockWorkflowExecutor,
@@ -612,7 +610,7 @@ class TestWorkflowChaining:
         assert "workflow2" in results
         assert "workflow3" in results
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_chain_stops_on_failure(
         self,
         MockWorkflowExecutor,
@@ -653,7 +651,7 @@ class TestWorkflowChaining:
         assert results["workflow2"].is_failed()
         assert "workflow3" not in results
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_chain_continues_on_failure(
         self,
         MockWorkflowExecutor,
@@ -694,7 +692,7 @@ class TestWorkflowChaining:
         assert results["workflow2"].is_failed()
         assert results["workflow3"].is_success()
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_chain_empty_list(
         self,
         MockWorkflowExecutor,
@@ -706,7 +704,7 @@ class TestWorkflowChaining:
         assert len(results) == 0
         assert isinstance(results, dict)
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_execute_chain_single_workflow(
         self,
         MockWorkflowExecutor,
@@ -735,7 +733,7 @@ class TestWorkflowChaining:
 class TestCacheManagement:
     """Test cache management functionality"""
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_clear_all_caches(
         self,
         MockWorkflowExecutor,
@@ -761,7 +759,7 @@ class TestCacheManagement:
         mock_executor1._execution_cache.clear.assert_called_once()
         mock_executor2._execution_cache.clear.assert_called_once()
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_clear_all_caches_no_executors(
         self,
         MockWorkflowExecutor,
@@ -771,7 +769,7 @@ class TestCacheManagement:
         # Should not raise error
         orchestrator_with_workflows.clear_all_caches()
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_get_cache_stats(
         self,
         MockWorkflowExecutor,
@@ -794,7 +792,7 @@ class TestCacheManagement:
         assert stats["workflow1"] == 2
         assert stats["workflow2"] == 1
     
-    @patch('optiMoldMaster.optim_mold_master.WorkflowExecutor')
+    @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_get_cache_stats_empty(
         self,
         MockWorkflowExecutor,

@@ -5,8 +5,7 @@ import yaml
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from optiMoldMaster.workflows.registry.registry import ModuleRegistry
-
+from workflows.registry.registry import ModuleRegistry
 
 # ============================================================================
 # FIXTURES
@@ -69,7 +68,7 @@ def mock_available_modules():
 class TestRegistryInitialization:
     """Test ModuleRegistry initialization"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_initialization_with_valid_registry(
         self,
         mock_modules,
@@ -88,7 +87,7 @@ class TestRegistryInitialization:
         assert "DataPipelineModule" in registry.module_registry
         assert "AnalysisModule" in registry.module_registry
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_initialization_registry_not_found(
         self,
         mock_modules,
@@ -97,13 +96,13 @@ class TestRegistryInitialization:
         """Test initialization when registry file doesn't exist"""
         mock_modules.return_value = mock_available_modules
         
-        with patch('optiMoldMaster.workflows.registry.registry.logger') as mock_logger:
+        with patch('workflows.registry.registry.logger') as mock_logger:
             registry = ModuleRegistry(registry_path="nonexistent.yaml")
             
             assert registry.module_registry == {}
             assert mock_logger.warning.called
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_initialization_empty_registry_file(
         self,
         mock_modules,
@@ -120,7 +119,7 @@ class TestRegistryInitialization:
         
         assert registry.module_registry == {}
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_initialization_invalid_yaml(
         self,
         mock_modules,
@@ -144,8 +143,8 @@ class TestRegistryInitialization:
 class TestGetModuleInstance:
     """Test getting module instances"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_get_module_instance_with_override_config(
         self,
         mock_modules,
@@ -175,8 +174,8 @@ class TestGetModuleInstance:
         mock_module_class.assert_called_once_with("configs/override.yaml")
         assert instance == mock_module_instance
     
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_get_module_instance_with_registry_config(
         self,
         mock_modules,
@@ -203,8 +202,8 @@ class TestGetModuleInstance:
         mock_module_class.assert_called_once_with("configs/pipeline.yaml")
         assert instance == mock_module_instance
     
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_get_module_instance_no_config(
         self,
         mock_modules,
@@ -236,7 +235,7 @@ class TestGetModuleInstance:
         # Should use None as config
         mock_module_class.assert_called_once_with(None)
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_get_module_instance_not_available(
         self,
         mock_modules,
@@ -253,8 +252,8 @@ class TestGetModuleInstance:
         with pytest.raises(ValueError, match="Module 'NonexistentModule' not found"):
             registry.get_module_instance("NonexistentModule")
     
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_get_module_instance_not_in_registry(
         self,
         mock_modules,
@@ -290,7 +289,7 @@ class TestGetModuleInstance:
 class TestListModules:
     """Test module listing functionality"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_list_modules_all(
         self,
         mock_modules,
@@ -311,7 +310,7 @@ class TestListModules:
         assert "DisabledModule" in modules
         assert "TestModule" in modules
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_list_modules_enabled_only(
         self,
         mock_modules,
@@ -331,7 +330,7 @@ class TestListModules:
         assert "AnalysisModule" in modules
         assert "DisabledModule" not in modules
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_list_modules_empty_registry(
         self,
         mock_modules,
@@ -358,7 +357,7 @@ class TestListModules:
 class TestGetModuleInfo:
     """Test getting module information"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_get_module_info_exists(
         self,
         mock_modules,
@@ -377,7 +376,7 @@ class TestGetModuleInfo:
         assert info["enabled"] is True
         assert info["description"] == "Data pipeline module"
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_get_module_info_not_in_registry(
         self,
         mock_modules,
@@ -395,7 +394,7 @@ class TestGetModuleInfo:
         # Should return empty dict
         assert info == {}
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_get_module_info_not_available(
         self,
         mock_modules,
@@ -420,8 +419,8 @@ class TestGetModuleInfo:
 class TestRegistryIntegration:
     """Integration tests for ModuleRegistry"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.get_module')
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.get_module')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_complete_registry_workflow(
         self,
         mock_modules,
@@ -493,7 +492,7 @@ class TestRegistryIntegration:
 class TestEdgeCases:
     """Test edge cases and boundary conditions"""
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_registry_with_unicode_paths(
         self,
         mock_modules,
@@ -516,7 +515,7 @@ class TestEdgeCases:
         
         assert info["config_path"] == "配置/模块.yaml"
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_registry_with_special_characters(
         self,
         mock_modules,
@@ -541,7 +540,7 @@ class TestEdgeCases:
         assert "@#$%" in info["config_path"]
         assert "@#$%^&*()" in info["description"]
     
-    @patch('optiMoldMaster.workflows.registry.registry.AVAILABLE_MODULES')
+    @patch('workflows.registry.registry.AVAILABLE_MODULES')
     def test_registry_with_null_values(
         self,
         mock_modules,

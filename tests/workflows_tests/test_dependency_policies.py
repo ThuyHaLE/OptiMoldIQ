@@ -4,18 +4,18 @@ import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from optiMoldMaster.workflows.dependency_policies.base import (
+from workflows.dependency_policies.base import (
     DependencyPolicy,
     DependencyValidationResult,
     DependencyIssue,
     DependencyReason,
     DependencySource
 )
-from optiMoldMaster.workflows.dependency_policies.strict import StrictWorkflowPolicy
-from optiMoldMaster.workflows.dependency_policies.flexible import FlexibleDependencyPolicy
-from optiMoldMaster.workflows.dependency_policies.hybrid import HybridDependencyPolicy
-from optiMoldMaster.workflows.dependency_policies.factory import DependencyPolicyFactory
-from optiMoldMaster.workflows.dependency_policies import POLICY_SCHEMAS, PolicySchema
+from workflows.dependency_policies.strict import StrictWorkflowPolicy
+from workflows.dependency_policies.flexible import FlexibleDependencyPolicy
+from workflows.dependency_policies.hybrid import HybridDependencyPolicy
+from workflows.dependency_policies.factory import DependencyPolicyFactory
+from workflows.dependency_policies import POLICY_SCHEMAS, PolicySchema
 
 
 # ============================================================================
@@ -713,7 +713,7 @@ class TestEdgeCases:
         result = policy.validate(dependencies, workflow_modules=[])
         assert isinstance(result, DependencyValidationResult)
     
-    @patch('optiMoldMaster.workflows.dependency_policies.base.Path')
+    @patch('workflows.dependency_policies.base.Path')
     def test_filesystem_error_handling(self, mock_path):
         """Test handling of filesystem errors"""
         mock_path.return_value.exists.side_effect = PermissionError("Access denied")
@@ -733,18 +733,18 @@ import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from optiMoldMaster.workflows.dependency_policies.base import (
+from workflows.dependency_policies.base import (
     DependencyPolicy,
     DependencyValidationResult,
     DependencyIssue,
     DependencyReason,
     DependencySource
 )
-from optiMoldMaster.workflows.dependency_policies.strict import StrictWorkflowPolicy
-from optiMoldMaster.workflows.dependency_policies.flexible import FlexibleDependencyPolicy
-from optiMoldMaster.workflows.dependency_policies.hybrid import HybridDependencyPolicy
-from optiMoldMaster.workflows.dependency_policies.factory import DependencyPolicyFactory
-from optiMoldMaster.workflows.dependency_policies import POLICY_SCHEMAS, PolicySchema
+from workflows.dependency_policies.strict import StrictWorkflowPolicy
+from workflows.dependency_policies.flexible import FlexibleDependencyPolicy
+from workflows.dependency_policies.hybrid import HybridDependencyPolicy
+from workflows.dependency_policies.factory import DependencyPolicyFactory
+from workflows.dependency_policies import POLICY_SCHEMAS, PolicySchema
 
 
 # ============================================================================
@@ -1442,7 +1442,7 @@ class TestEdgeCases:
         result = policy.validate(dependencies, workflow_modules=[])
         assert isinstance(result, DependencyValidationResult)
     
-    @patch('optiMoldMaster.workflows.dependency_policies.base.Path')
+    @patch('workflows.dependency_policies.base.Path')
     def test_filesystem_error_handling(self, mock_path):
         """Test handling of filesystem errors"""
         mock_path.return_value.exists.side_effect = PermissionError("Access denied")
