@@ -1442,14 +1442,15 @@ class TestEdgeCases:
         result = policy.validate(dependencies, workflow_modules=[])
         assert isinstance(result, DependencyValidationResult)
     
-    @patch('workflows.dependency_policies.base.Path')
-    def test_filesystem_error_handling(self, mock_path):
+    def test_filesystem_error_handling(self):
         """Test handling of filesystem errors"""
-        mock_path.return_value.exists.side_effect = PermissionError("Access denied")
-        
-        policy = HybridDependencyPolicy()
-        dependencies = {"data": "/restricted/path.stl"}
-        
-        # Should handle error gracefully
-        result = policy.validate(dependencies, workflow_modules=[])
-        assert "data" in result.errors
+        # Create a mock path that raises PermissionError when exists() is called
+        with patch('pathlib.Path.exists') as mock_exists:
+            mock_exists.side_effect = PermissionError("Access denied")
+            
+            policy = HybridDependencyPolicy()
+            dependencies = {"data": "/restricted/path.stl"}
+            
+            # Should handle error gracefully
+            result = policy.validate(dependencies, workflow_modules=[])
+            assert "data" in result.errors

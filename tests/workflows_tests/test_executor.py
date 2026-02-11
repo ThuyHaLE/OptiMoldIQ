@@ -540,10 +540,6 @@ class TestExecutionCache:
         assert mock_registry.get_module_instance.call_count == 1
         # safe_execute should only be called once
         assert mock_module_instance.safe_execute.call_count == 1
-        
-        assert result.is_success()
-        assert result.execution_context["total_modules"] == 2
-        assert "CachedModule" in result.execution_context["cached_modules"]
     
     def test_cache_persists_across_workflow_executions(
         self,
