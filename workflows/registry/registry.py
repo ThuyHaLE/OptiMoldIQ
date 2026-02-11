@@ -1,4 +1,4 @@
-# optiMoldMaster/workflows/registry/registry.py
+# workflows/registry/registry.py
 
 from pathlib import Path
 from typing import Dict, Optional
