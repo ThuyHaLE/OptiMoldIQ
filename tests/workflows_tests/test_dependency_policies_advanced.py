@@ -230,7 +230,7 @@ class TestMetadataAndLogging:
         assert "workflow_modules" in error.metadata
         assert error.metadata["workflow_modules"] == workflow_modules
     
-    @patch('optiMoldMaster.workflows.dependency_policies.base.logger')
+    @patch('workflows.dependency_policies.base.logger')
     def test_logging_behavior(self, mock_logger):
         """Test that policies log appropriately"""
         policy = FlexibleDependencyPolicy(required_deps=["dep1"])
@@ -284,7 +284,7 @@ class TestFactoryAdvanced:
             }
         }
         
-        with patch('optiMoldMaster.workflows.dependency_policies.factory.logger') as mock_logger:
+        with patch('workflows.dependency_policies.factory.logger') as mock_logger:
             # Should succeed but log warning
             policy = DependencyPolicyFactory.create(config)
             assert isinstance(policy, FlexibleDependencyPolicy)
