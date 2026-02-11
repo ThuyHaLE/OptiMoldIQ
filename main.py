@@ -1,14 +1,14 @@
-# optiMoldMaster/main.py
+# main.py
 
-from optiMoldMaster.opti_mold_master import OptiMoldIQ
-from optiMoldMaster.workflows.registry.registry import ModuleRegistry
+from optiMoldMaster.opti_mold_master import (
+    OptiMoldIQ, ModuleRegistry)
 
 # Initialize
 registry = ModuleRegistry()
 
 orchestrator = OptiMoldIQ(
     module_registry=registry,
-    workflows_dir="optiMoldMaster/workflows/definitions"
+    workflows_dir="workflows/definitions"
 )
 
 # List available workflows
