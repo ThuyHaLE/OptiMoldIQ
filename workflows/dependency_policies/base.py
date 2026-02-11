@@ -106,12 +106,12 @@ class DependencyPolicy(ABC):
         Returns:
             (exists, last_modified_time)
         """
-        path = Path(resource_path)
-        
-        if not path.exists():
-            return False, None
-        
         try:
+            path = Path(resource_path)
+            
+            if not path.exists():
+                return False, None
+                        
             stat = path.stat()
             modified_time = datetime.fromtimestamp(stat.st_mtime)
             return True, modified_time
