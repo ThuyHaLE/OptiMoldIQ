@@ -456,7 +456,9 @@ class TestRegistryIntegration:
         # Setup mocks - create mock modules for Module1, Module2, Module3
         def create_mock_module(name):
             mock_class = Mock()
-            mock_class.return_value = Mock(name=name)
+            mock_instance = Mock()
+            mock_instance.name = name  # Set as actual string, not Mock
+            mock_class.return_value = mock_instance
             return mock_class
         
         # Create mock module classes
