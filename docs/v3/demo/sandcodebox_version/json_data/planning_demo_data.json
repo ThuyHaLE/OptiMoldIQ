@@ -1,0 +1,509 @@
+{
+  "producing_pro_plan": [
+    {
+      "machineNo": "NO.01",
+      "machineCode": "MD50S-000",
+      "machineName": "MD50S",
+      "machineTonnage": 50,
+      "itemName_poNo": "CT-CA-BASE-NL(NO-PRINT) (IM1901040)",
+      "remainTime": 4.019
+    },
+
+    {
+      "machineNo": "NO.02",
+      "machineCode": "MD50S-001",
+      "machineName": "MD50S",
+      "machineTonnage": 50,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.03",
+      "machineCode": "EC50ST-000",
+      "machineName": "EC50ST",
+      "machineTonnage": 50,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.04",
+      "machineCode": "J100ADS-000",
+      "machineName": "J100ADS",
+      "machineTonnage": 100,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.05",
+      "machineCode": "J100ADS-001",
+      "machineName": "J100ADS",
+      "machineTonnage": 100,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.06",
+      "machineCode": "MD100S-000",
+      "machineName": "MD100S",
+      "machineTonnage": 100,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.07",
+      "machineCode": "MD100S-001",
+      "machineName": "MD100S",
+      "machineTonnage": 100,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.08",
+      "machineCode": "MD130S-000",
+      "machineName": "MD130S",
+      "machineTonnage": 130,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.09",
+      "machineCode": "MD130S-001",
+      "machineName": "MD130S",
+      "machineTonnage": 130,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.10",
+      "machineCode": "CNS50-000",
+      "machineName": "CNS50",
+      "machineTonnage": 50,
+      "itemName_poNo": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.11",
+      "machineCode": "CNS50-001",
+      "machineName": "CNS50",
+      "machineTonnage": 50,
+      "itemName_poNo": null,
+      "remainTime": null
+    }
+  ],
+  "producing_mold_plan": [
+    {
+      "machineNo": "NO.01",
+      "machineCode": "MD50S-000",
+      "machineName": "MD50S",
+      "machineTonnage": 50,
+      "moldName": "CT-CA-BASE-M-0001",
+      "remainTime": 4.019
+    },
+    {
+      "machineNo": "NO.02",
+      "machineCode": "MD50S-001",
+      "machineName": "MD50S",
+      "machineTonnage": 50,
+      "moldName": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.03",
+      "machineCode": "EC50ST-000",
+      "machineName": "EC50ST",
+      "machineTonnage": 50,
+      "moldName": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.04",
+      "machineCode": "J100ADS-000",
+      "machineName": "J100ADS",
+      "machineTonnage": 100,
+      "moldName": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.05",
+      "machineCode": "J100ADS-001",
+      "machineName": "J100ADS",
+      "machineTonnage": 100,
+      "moldName": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.06",
+      "machineCode": "MD100S-000",
+      "machineName": "MD100S",
+      "machineTonnage": 100,
+      "moldName": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.07",
+      "machineCode": "MD100S-001",
+      "machineName": "MD100S",
+      "machineTonnage": 100,
+      "moldName": null,
+      "remainTime"  : null
+    },
+    {
+      "machineNo": "NO.08",
+      "machineCode": "MD130S-000",
+      "machineName": "MD130S",
+      "machineTonnage": 130,
+      "moldName": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.09",
+      "machineCode": "MD130S-001",
+      "machineName": "MD130S",
+      "machineTonnage": 130,
+      "moldName": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.10",
+      "machineCode": "CNS50-000",
+      "machineName": "CNS50",
+      "machineTonnage": 50,
+      "moldName": null,
+      "remainTime": null
+    },
+    {
+      "machineNo": "NO.11",
+      "machineCode": "CNS50-001",
+      "machineName": "CNS50",
+      "machineTonnage": 50,
+      "moldName": null,
+      "remainTime": null
+    }
+  ],
+  "producing_plastic_plan": [
+    {
+      "machineNo": "NO.01",
+      "machineCode": "MD50S-000",
+      "machineName": "MD50S",
+      "machineTonnage": 50,
+      "itemName_poNo": "CT-CA-BASE-NL(NO-PRINT) (IM1901040)",
+      "estimatedOutputQuantity": 38400,
+      "plasticResin": "ABS-PA-758-T.NL",
+      "estimatedPlasticResinQuantity": 87.4752,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.02",
+      "machineCode": "MD50S-001",
+      "machineName": "MD50S",
+      "machineTonnage": 50,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.03",
+      "machineCode": "EC50ST-000",
+      "machineName": "EC50ST",
+      "machineTonnage": 50,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.04",
+      "machineCode": "J100ADS-000",
+      "machineName": "J100ADS",
+      "machineTonnage": 100,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.05",
+      "machineCode": "J100ADS-001",
+      "machineName": "J100ADS",
+      "machineTonnage": 100,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.06",
+      "machineCode": "MD100S-000",
+      "machineName": "MD100S",
+      "machineTonnage": 100,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.07",
+      "machineCode": "MD100S-001",
+      "machineName": "MD100S",
+      "machineTonnage": 100,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.08",
+      "machineCode": "MD130S-000",
+      "machineName": "MD130S",
+      "machineTonnage": 130,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.09",
+      "machineCode": "MD130S-001",
+      "machineName": "MD130S",
+      "machineTonnage": 130,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.10",
+      "machineCode": "CNS50-000",
+      "machineName": "CNS50",
+      "machineTonnage": 50,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    },
+    {
+      "machineNo": "NO.11",
+      "machineCode": "CNS50-001",
+      "machineName": "CNS50",
+      "machineTonnage": 50,
+      "itemName_poNo": null,
+      "estimatedOutputQuantity": null,
+      "plasticResin": "NONE",
+      "estimatedPlasticResinQuantity": 0,
+      "colorMasterbatch": "NONE",
+      "estimatedColorMasterbatchQuantity": 0,
+      "additiveMasterbatch": "NONE",
+      "estimatedAdditiveMasterbatchQuantity": 0
+    }
+  ],
+  "initial_plan": [
+    {
+      "Machine No.": "NO.01",
+      "Machine Code": "MD50S-000",
+      "Assigned Mold": null,
+      "PO No.": null,
+      "Item Name": null,
+      "PO Quantity": 0,
+      "ETA (PO Date)": "NaT",
+      "Mold Lead Time": 0,
+      "Priority in Machine": 0,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.02",
+      "Machine Code": "MD50S-001",
+      "Assigned Mold": "20102IBE-M-001",
+      "PO No.": "IM1902047",
+      "Item Name": "AB-TP-SMALL-CAP-062-YW",
+      "PO Quantity": 22000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 1,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.03",
+      "Machine Code": "EC50ST-000",
+      "Assigned Mold": null,
+      "PO No.": null,
+      "Item Name": null,
+      "PO Quantity": 0,
+      "ETA (PO Date)": "NaT",
+      "Mold Lead Time": 0,
+      "Priority in Machine": 0,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.04",
+      "Machine Code": "J100ADS-000",
+      "Assigned Mold": "14000CBR-M-001",
+      "PO No.": "IM1902119",
+      "Item Name": "CT-CAX-CARTRIDGE-BASE",
+      "PO Quantity": 340000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 13,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.05",
+      "Machine Code": "J100ADS-001",
+      "Assigned Mold": "15000CBR-M-001",
+      "PO No.": "IM1902121",
+      "Item Name": "CT-CAX-REEL",
+      "PO Quantity": 410000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 23,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.06",
+      "Machine Code": "MD100S-000",
+      "Assigned Mold": "12000CBS-M-001",
+      "PO No.": "IM1812004",
+      "Item Name": "CT-YA-PRINTER-HEAD-4.2MM",
+      "PO Quantity": 2516,
+      "ETA (PO Date)": "2018-12-31",
+      "Mold Lead Time": 1,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.06",
+      "Machine Code": "MD100S-000",
+      "Assigned Mold": "20101IBE-M-001",
+      "PO No.": "IM1902001",
+      "Item Name": "AB-TP-LARGE-CAP-027-BG",
+      "PO Quantity": 2000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 1,
+      "Priority in Machine": 2,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.06",
+      "Machine Code": "MD100S-000",
+      "Assigned Mold": "20101IBE-M-001",
+      "PO No.": "IM1902002",
+      "Item Name": "AB-TP-LARGE-CAP-055-YW",
+      "PO Quantity": 15000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 1,
+      "Priority in Machine": 3,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.07",
+      "Machine Code": "MD100S-001",
+      "Assigned Mold": "10000CBR-M-001",
+      "PO No.": "IM1902118",
+      "Item Name": "CT-CAX-LOWER-CASE-PINK",
+      "PO Quantity": 155000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 16,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.08",
+      "Machine Code": "MD130S-000",
+      "Assigned Mold": "10100CBR-M-001",
+      "PO No.": "IM1902116",
+      "Item Name": "CT-CAX-UPPER-CASE-PINK",
+      "PO Quantity": 180000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 14,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.09",
+      "Machine Code": "MD130S-001",
+      "Assigned Mold": "20400IBE-M-001",
+      "PO No.": "IM1901020",
+      "Item Name": "AB-TP-BODY",
+      "PO Quantity": 10000,
+      "ETA (PO Date)": "2019-01-15",
+      "Mold Lead Time": 1,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.09",
+      "Machine Code": "MD130S-001",
+      "Assigned Mold": "14100CBR-M-001",
+      "PO No.": "IM1902120",
+      "Item Name": "CT-CAX-BASE-COVER",
+      "PO Quantity": 175000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 7,
+      "Priority in Machine": 2,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.10",
+      "Machine Code": "CNS50-000",
+      "Assigned Mold": "PSSP-M-001",
+      "PO No.": "IM1902134",
+      "Item Name": "CT-PS-SPACER",
+      "PO Quantity": 30000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 1,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    },
+    {
+      "Machine No.": "NO.11",
+      "Machine Code": "CNS50-001",
+      "Assigned Mold": "PXNHC4-M-001",
+      "PO No.": "IM1902129",
+      "Item Name": "CT-PXN-HEAD-COVER-4.2MM",
+      "PO Quantity": 55000,
+      "ETA (PO Date)": "2019-02-20",
+      "Mold Lead Time": 2,
+      "Priority in Machine": 1,
+      "Note": "histBased"
+    }
+  ]
+}

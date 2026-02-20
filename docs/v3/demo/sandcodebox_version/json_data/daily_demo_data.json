@@ -1,0 +1,13 @@
+[
+  {"machine": "NO.09", "po": "IM1901032", "goods": "CT-CAX-BASE-COVER",       "mold": "14100CBR-M-001", "output": "2019-01-15", "prog": 100.0, "start": "2019-01-02", "end": "2019-01-31", "qty": 545000, "cap": 27853.2,  "wdays": 20.0, "rem": 0      },
+  {"machine": "NO.05", "po": "IM1901033", "goods": "CT-CAX-REEL",              "mold": "15000CBR-M-001", "output": "2019-01-15", "prog": 100.0, "start": "2019-01-02", "end": "2019-01-31", "qty": 530000, "cap": 28924.5,  "wdays": 20.0, "rem": 0      },
+  {"machine": "NO.06", "po": "IM1901002", "goods": "AB-TP-LARGE-CAP-025-YW",  "mold": "20101IBE-M-001", "output": "2019-01-30", "prog": 100.0, "start": "2019-01-31", "end": "2019-01-31", "qty": 1000,   "cap": 1144.0,   "wdays": 1.0,  "rem": 0      },
+  {"machine": "NO.06", "po": "IM1901004", "goods": "AB-TP-LARGE-CAP-027-BG",  "mold": "20101IBE-M-001", "output": "2019-01-30", "prog": 100.0, "start": "2019-01-31", "end": "2019-01-31", "qty": 1000,   "cap": 1000.0,   "wdays": 1.0,  "rem": 0      },
+  {"machine": "NO.02", "po": "IM1901014", "goods": "AB-TP-SMALL-CAP-062-YW",  "mold": "20102IBE-M-001", "output": "2019-01-30", "prog": 100.0, "start": "2019-01-31", "end": "2019-01-31", "qty": 5000,   "cap": 5008.0,   "wdays": 1.0,  "rem": 0      },
+  {"machine": "NO.07", "po": "IM1901026", "goods": "CT-CAX-UPPER-CASE-PINK",  "mold": "10100CBR-M-001", "output": "2019-01-30", "prog": 100.0, "start": "2019-01-30", "end": "2019-01-31", "qty": 20000,  "cap": 10900.0,  "wdays": 2.0,  "rem": 0      },
+  {"machine": "NO.08", "po": "IM1901028", "goods": "CT-CAX-LOWER-CASE-PINK",  "mold": "10000CBR-M-001", "output": "2019-01-30", "prog": 100.0, "start": "2019-01-25", "end": "2019-01-31", "qty": 50000,  "cap": 8781.67,  "wdays": 6.0,  "rem": 0      },
+  {"machine": "NO.03", "po": "IM1901031", "goods": "CT-CAX-CARTRIDGE-BASE",   "mold": "14000CBR-M-001", "output": "2019-01-30", "prog": 100.0, "start": "2019-01-12", "end": "2019-01-31", "qty": 445000, "cap": 26748.71, "wdays": 17.0, "rem": 0      },
+  {"machine": "NO.01", "po": "IM1901040", "goods": "CT-CA-BASE-NL(NO-PRINT)", "mold": "14000CBQ-M-001", "output": "2019-01-30", "prog": 76.75, "start": "2019-01-03", "end": null,         "qty": 500000, "cap": 20748.33, "wdays": 18.0, "rem": 116267 },
+  {"machine": "NO.11", "po": "IM1901044", "goods": "CT-PXN-HEAD-COVER-4.2MM","mold": "PXNHC4-M-002",   "output": "2019-01-30", "prog": 100.0, "start": "2019-01-28", "end": "2019-01-31", "qty": 138000, "cap": 34634.25, "wdays": 4.0,  "rem": 0      },
+  {"machine": "NO.10", "po": "IM1901060", "goods": "CT-PS-SPACER",            "mold": "PSSP-M-001",     "output": "2019-01-30", "prog": 100.0, "start": "2019-01-31", "end": "2019-01-31", "qty": 30000,  "cap": 30368.0,  "wdays": 1.0,  "rem": 0      }
+]
