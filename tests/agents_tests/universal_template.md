@@ -1,7 +1,7 @@
 # Universal Agent Test Template
 
-> **Version:** 1.0  
-> **Last Updated:** January 2026  
+> **Version:** 1.1  
+> **Last Updated:** February 2026  
 > **Purpose:** Standard template for testing any agent in OptiMoldIQ
 
 ---
@@ -170,30 +170,6 @@ class TestYourAgent(BaseAgentTests):
     # ... Tier 1 tests above ...
     
     # ============================================
-    # DEPENDENCY INTEGRATION TESTS
-    # ============================================
-    
-    def test_uses_dependency_data(self, dependency_provider, validated_execution_result):
-        """Should use data from dependencies"""
-        # Get cached dependency result
-        dep_result = dependency_provider.get_result("RequiredAgent")
-        
-        assert dep_result is not None, \
-            "RequiredAgent should be cached"
-        
-        # Verify dependency completed successfully
-        assert dep_result.status in {"success", "degraded", "warning"}, \
-            "Dependency should have completed successfully"
-        
-        # Add checks that agent actually used dependency data
-        # Example: Check metadata, timestamps, or specific fields
-    
-    def test_dependency_triggered(self, dependency_provider):
-        """Required dependencies should be triggered"""
-        assert dependency_provider.is_triggered("RequiredAgent"), \
-            "RequiredAgent dependency should be triggered"
-    
-    # ============================================
     # INTEGRATION TESTS
     # ============================================
     
@@ -237,9 +213,8 @@ class TestYourAgentDependencies:
         """Should fail gracefully when required dependency is missing"""
         from agents.yourPackage.your_agent import YourAgent, YourConfig
         
-        # DON'T trigger required dependency
-        assert not dependency_provider.is_triggered("RequiredAgent"), \
-            "RequiredAgent should not be triggered yet"
+        # Clear dependencies to ensure clean state
+        dependency_provider.clear_all_dependencies()
         
         # Create agent
         agent = YourAgent(
@@ -258,36 +233,6 @@ class TestYourAgentDependencies:
         if result.status == "failed":
             assert result.error is not None, \
                 "Failed execution should have error message"
-    
-    def test_reuses_cached_dependency(self, dependency_provider):
-        """Should reuse cached dependency result"""
-        from agents.yourPackage.your_agent import YourAgent, YourConfig
-        
-        # Trigger dependency once
-        dep_result_1 = dependency_provider.trigger("RequiredAgent")
-        
-        # Create and execute first instance
-        config = YourConfig(
-            shared_source_config=dependency_provider.get_shared_source_config()
-        )
-        
-        agent1 = YourAgent(config=config)
-        result1 = agent1.your_execute_method()
-        
-        # Trigger again - should return cached
-        dep_result_2 = dependency_provider.trigger("RequiredAgent")
-        
-        # Should be same object (cached)
-        assert dep_result_1 is dep_result_2, \
-            "Should reuse cached dependency result"
-        
-        # Create second instance - should also use cached
-        agent2 = YourAgent(config=config)
-        result2 = agent2.your_execute_method()
-        
-        # Both should succeed
-        assert result1.status in {"success", "degraded", "warning"}
-        assert result2.status in {"success", "degraded", "warning"}
 
 
 # ============================================
@@ -363,7 +308,7 @@ class TestYourAgentEdgeCases:
     
     Add these if:
     - Agent caused production bug
-    - Agent handles critical data (money, orders, etc.)
+    - Agent handles critical data (orders, etc.)
     - Agent has external dependencies (API, database)
     """
     
@@ -405,7 +350,7 @@ class TestYourAgent(BaseAgentTests):
         return agent_instance.execute()
 ```
 
-**Examples:** ValidationOrchestrator, AnalyticsOrchestrator
+**Examples:** DataPipelineOrchestrator
 
 ---
 
@@ -416,6 +361,7 @@ class TestYourAgent(BaseAgentTests):
     @pytest.fixture
     def agent_instance(self, dependency_provider):
         """Trigger single dependency"""
+        dependency_provider.clear_all_dependencies()
         dependency_provider.trigger("RequiredAgent")
         
         return YourAgent(
@@ -429,7 +375,7 @@ class TestYourAgent(BaseAgentTests):
         return agent_instance.execute()
 ```
 
-**Examples:** OrderProgressTracker (depends on ValidationOrchestrator)
+**Examples:** ValidationOrchestrator (depends on DataPipelineOrchestrator)
 
 ---
 
@@ -440,9 +386,12 @@ class TestYourAgent(BaseAgentTests):
     @pytest.fixture
     def agent_instance(self, dependency_provider):
         """Trigger all required dependencies"""
-        dependency_provider.trigger("RequiredAgent1")
-        dependency_provider.trigger("RequiredAgent2")
-        dependency_provider.trigger("RequiredAgent3")
+        dependency_provider.clear_all_dependencies()
+        dependency_provider.trigger_all_dependencies([
+            "RequiredAgent1",
+            "RequiredAgent2",
+            "RequiredAgent3"
+        ])
         
         return YourAgent(
             config=YourConfig(
@@ -455,7 +404,7 @@ class TestYourAgent(BaseAgentTests):
         return agent_instance.execute()
 ```
 
-**Examples:** InitialPlanner (depends on OrderProgressTracker + HistoricalFeaturesExtractor)
+**Examples:** OrderProgressTracker (depends on ValidationOrchestrator)
 
 ---
 
@@ -486,8 +435,6 @@ class TestYourAgent(BaseAgentTests):
         assert agent_instance.config.efficiency == 0.85
         assert agent_instance.config.loss == 0.03
 ```
-
-**Examples:** HistoricalFeaturesExtractor
 
 ---
 
@@ -587,17 +534,20 @@ def agent_instance(self, dependency_provider):
 
 ---
 
-### ❌ DON'T: Use old trigger API
+### ❌ DON'T: Use old specific trigger methods as generic API
 ```python
-# ❌ OLD API
-dependency_provider.trigger_validation_orchestrator(shared_config)
+# ❌ OLD - only works for specific agents
+dependency_provider.trigger_validation_orchestrator()
 ```
 
-### ✅ DO: Use new generic API
+### ✅ DO: Use generic `trigger()` API
 ```python
-# ✅ NEW API
+# ✅ NEW - cleaner, but only for registered agents:
+# "DataPipelineOrchestrator", "ValidationOrchestrator", "OrderProgressTracker"
 dependency_provider.trigger("ValidationOrchestrator")
 ```
+
+> ⚠️ **Note:** `trigger()` only works with agents that have been registered in `DependencyProvider`'s `trigger_map`. To add a new agent, add a `trigger_your_agent()` method and register it in `trigger_map` inside `conftest.py`.
 
 ---
 
@@ -608,9 +558,6 @@ def test_handles_1_million_records(self, ...):
     pass
 
 def test_handles_corrupted_utf8(self, ...):
-    pass
-
-def test_handles_leap_year_boundary(self, ...):
     pass
 ```
 
@@ -644,7 +591,7 @@ cp tests/agents_tests/universal_template.md tests/agents_tests/specific_agents/t
 
 ### Step 3: Fill in Fixtures
 - [ ] Update `agent_instance` with your agent import
-- [ ] Trigger dependencies if needed
+- [ ] Trigger dependencies if needed (must be registered in `trigger_map`)
 - [ ] Update config parameters
 - [ ] Update `execution_result` with correct execute method
 
@@ -654,15 +601,22 @@ cp tests/agents_tests/universal_template.md tests/agents_tests/specific_agents/t
 - [ ] Test configuration applied
 - [ ] Add 2-5 happy path tests
 
-### Step 5: Register in AGENT_REGISTRY (if needed)
-Add to `test_all_agents_structure.py`:
+### Step 5: Register New Dependency (if needed)
+If your agent needs to be used as a dependency by another agent, add it to `DependencyProvider` inside `conftest.py`:
 ```python
-AGENT_REGISTRY["YourAgent"] = AgentFactory(
-    name="YourAgent",
-    factory_fn=create_your_agent,
-    execute_method="your_execute_method",
-    required_dependencies=["RequiredAgent1", "RequiredAgent2"]
-)
+# 1. Add trigger method
+def trigger_your_agent(self) -> None:
+    from agents.yourPackage.your_agent import YourAgent, YourConfig
+    config = self.get_shared_source_config()
+    agent = YourAgent(config=YourConfig(shared_source_config=config))
+    result = agent.your_execute_method()
+    self._validate_result(result, "YourAgent")
+
+# 2. Register it in trigger_map inside trigger()
+trigger_map = {
+    ...
+    "YourAgent": self.trigger_your_agent,
+}
 ```
 
 ### Step 6: Run Tests
@@ -685,7 +639,7 @@ pytest tests/agents_tests/ -m "not performance" -v
 |-------|-------|------|--------|
 | **Level 1: Basic** | BaseAgentTests + 2-5 happy path | MVP, low-risk agents | Most agents |
 | **Level 2: Standard** | + Dependency tests + Config tests | Production-ready | Important agents |
-| **Level 3: Comprehensive** | + Edge cases + Performance | Critical, has bugs | AnalyticsOrchestrator, payment, orders |
+| **Level 3: Comprehensive** | + Edge cases + Performance | Critical, has bugs | AnalyticsOrchestrator, orders |
 
 **Start at Level 1, grow to Level 2/3 as needed.**
 
@@ -705,24 +659,21 @@ pytest tests/agents_tests/ -m "not performance" -v
 
 ### Useful Methods
 - `result.get_path("Phase.SubPhase")` - Get nested result
+- `result.get_path_data("Phase.SubPhase", "result", "payload")` - Get data from nested result
 - `result.get_failed_paths()` - Get list of failed paths
 - `result.has_critical_errors()` - Check for critical errors
 - `result.summary_stats()` - Get execution statistics
-- `dependency_provider.trigger("AgentName")` - Trigger dependency
-- `dependency_provider.is_triggered("AgentName")` - Check if triggered
-- `dependency_provider.get_result("AgentName")` - Get cached result
+- `dependency_provider.trigger("AgentName")` - Trigger dependency (only works with registered agent)
+- `dependency_provider.trigger_all_dependencies(["Agent1", "Agent2"])` - Trigger many dependencies
+- `dependency_provider.clear_all_dependencies()` - Clear all output and reset state
 
 ---
 
 ## 📖 Examples
 
 See these files for complete examples:
-- `test_validation_orchestrator.py` - No dependencies
-- `test_order_progress_tracker.py` - With 1 dependency
-- `test_historical_features_extractor.py` - Custom config + multiple deps
-- `test_initial_planner.py` - Multiple dependencies
-- `test_analytics_orchestrator.py` - Orchestrator pattern
-- `test_dashboard_builder.py` - Complex multi-service agent
+- `test_validation_orchestrator.py` - With 1 dependency + config + performance tests
+- `test_order_progress_tracker.py` - With dependencies
 
 ---
 
@@ -759,6 +710,7 @@ Done! This gives you ~20 structural tests for free. Add business logic tests as 
 4. **Reuse fixtures** - Use `validated_execution_result` everywhere
 5. **Document assumptions** - Add docstrings explaining what you're testing
 6. **Test behavior, not implementation** - Focus on outputs, not internals
+7. **Always `clear_all_dependencies()` trước khi trigger** - Avoid state leak between test classes
 
 ---
 
@@ -774,10 +726,9 @@ Done! This gives you ~20 structural tests for free. Add business logic tests as 
 2. Add happy path (agent works with normal data)
 3. Stop there unless agent is critical
 
-**Need help?**
-- See existing tests in `specific_agents/`
-- Check `base_agent_tests.py` for inherited tests
-- Review `conftest.py` for available fixtures
+**Need to add a new dependency?**
+1. Thêm `trigger_your_agent()` method vào `DependencyProvider` trong `conftest.py`
+2. Đăng ký vào `trigger_map` trong method `trigger()`
 
 ---
 
