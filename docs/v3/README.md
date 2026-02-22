@@ -11,8 +11,8 @@
 
 ## For Module Developers
 - [Configuration](docs/v3/guides/configuration.md)
-- [BaseModule API](docs/v3/guides/adding_modules.md)
-- [Adding a Module](docs/v3/reference/base_module_api.md)
+- [BaseModule API](docs/v3/reference/base_module_api.md)
+- [Adding a Module](docs/v3/guides/adding_modules.md)
 
 ## For Workflow Designers
 - [Module Registry](docs/v3/reference/module_registry.md)
