@@ -77,7 +77,7 @@ Each pipeline produces an `_result.xlsx` containing the data prepared for visual
 
 #### `day_level_visualization_pipeline_result.xlsx`
 
-Data prepared for day-level dashboards. Sheets mirror `day_level_data_processor_result.xlsx` from `AnalyticsOrchestrator` — see [AnalyticsOrchestrator — day_level_data_processor_result](AnalyticsOrchestrator/analytics_orchestrator.md#day_level_data_processor_resultxlsx) for full schema.
+Data prepared for day-level dashboards. Sheets mirror `day_level_data_processor_result.xlsx` from `AnalyticsOrchestrator` — see [AnalyticsOrchestrator — day_level_data_processor_result](../AnalyticsOrchestrator/analytics_orchestrator.md#day_level_data_processor_resultxlsx) for full schema.
 
 | Sheet | Description |
 |---|---|
@@ -148,7 +148,7 @@ One set of charts per requested date (filename suffix: `_{YYYY-MM-DD}.png`).
 
 **Sheet: `filtered_records`** — Raw production records for the requested month, with an added `recordMonth` column.
 
-Same columns as `productRecords.parquet` (see [DataPipelineOrchestrator](DataPipelineOrchestrator/data_pipeline_orchestrator.md#productrecordsparquet)), plus:
+Same columns as `productRecords.parquet` (see [DataPipelineOrchestrator](../DataPipelineOrchestrator/data_pipeline_orchestrator.md#productrecordsparquet)), plus:
 
 | Column | Type | Description |
 |---|---|---|
