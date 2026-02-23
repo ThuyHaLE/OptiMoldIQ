@@ -361,4 +361,4 @@ class MyNewModule(BaseModule):
 
 ## Adding a New Module
 
-See [Adding a New Module](docs/v3/guides/adding_modules.md) for the step-by-step guide.
+See [Adding a New Module](../guides/adding_modules.md) for the step-by-step guide.
