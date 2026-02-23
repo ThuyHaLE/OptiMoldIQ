@@ -1,115 +1,169 @@
 🌐 [English](README.md) | [Tiếng Việt](README-vi.md)
 
-# OptiMoldIQ  
-**Hệ thống lập kế hoạch sản xuất, phân tích và quan sát vận hành dựa trên workflow cho ngành ép nhựa.**
+# OptiMoldIQ
+**Hệ thống lập kế hoạch sản xuất, phân tích và giám sát vận hành dựa trên workflow cho ngành ép nhựa.**
 
 ---
 
 ## Trạng thái dự án
 
-- **Cột mốc ổn định hiện tại:** **Milestone 03 – Sẵn sàng cho framework**
-- **Cột mốc tiếp theo:** Milestone 04 – Phát hành Framework
+- **Milestone ổn định hiện tại:** **Milestone 04 – Framework Release**
+- **Milestone tiếp theo:** Milestone 05 – UI Release & Task Orchestration
 
-Chú thích: ✅ Hoàn thành | 🔄 Đang thực hiện | 📝 Dự kiến
+Chú thích: ✅ Hoàn thành | 🔄 Đang thực hiện | 📝 Đã lên kế hoạch
 
 ---
 
 ## Tổng quan
 
-**OptiMoldIQ** là một hệ thống sản xuất đa tác nhân (multi-agent) được thiết kế để điều phối: luồng dữ liệu, lập kế hoạch sản xuất, phân tích, và trực quan hóa cho các hoạt động ép nhựa (injection molding).
+**OptiMoldIQ** là hệ thống điều phối workflow dựa trên module, phục vụ tối ưu hóa sản xuất. Hệ thống đóng gói các business agent thành các module chuẩn hóa, kết hợp chúng thành các workflow khai báo, và điều phối thực thi với cơ chế kiểm tra dependency có thể cấu hình — được thiết kế cho ngành ép phun nhựa.
 
-Hệ thống được phát triển theo các cột mốc rõ ràng, ưu tiên:
-- Logic nghiệp vụ mang tính quyết định (deterministic)
-- Quan sát hệ thống (observability) trước khi tối ưu hóa
-- Tiến hóa hệ thống có khả năng tương thích ngược
+Hệ thống phát triển qua các milestone được định nghĩa rõ ràng, ưu tiên:
+- Business logic xác định (deterministic)
+- Khả năng quan sát trước khi tối ưu hóa
+- Phát triển tương thích ngược
 
-Milestone 03 hoàn thiện hành vi cốt lõi và chuẩn hóa mô hình thực thi của các agent, chuẩn bị cho việc chính thức hóa thành framework.
+Milestone 04 hình thức hóa các hợp đồng framework được thiết lập từ Milestone 03, phát hành một execution runtime ổn định với các hợp đồng công khai cho module, workflow và dependency policy.
 
 ---
 
-## Tiến trình phát triển hệ thống
-```
-M01: Pipeline dữ liệu cốt lõi
-↓
-M02: Workflow lập kế hoạch sản xuất
-↓
-M03: Phân tích & Dashboard (Sẵn sàng cho framework) ← hiện tại
-↓
-M04: Chuẩn hóa các contract thành framework thực thi có thể tái sử dụng
-↓
-M05: Điều phối tác vụ & tầng chính sách
+## Lộ trình phát triển
 
+```
+M01: Core Data Pipeline
+↓
+M02: Production Planning Workflow
+↓
+M03: Analytics & Dashboards (Framework-ready)
+↓
+M04: Framework Release ← hiện tại
+↓
+M05: UI Release & Task Orchestration
 ```
 
 ---
 
 ## Tổng quan kiến trúc
 
-OptiMoldIQ **tuân theo kiến trúc agent-based, điều khiển bằng workflow:**:
+OptiMoldIQ theo kiến trúc **workflow-driven, module-based**:
 
-- **Agents** đóng vai trò runtime thực thi
-- **Modules** đóng gói logic nghiệp vụ mang tính quyết định
-- **Analytics and dashboards** là các thành phần tiêu thụ dữ liệu phía downstream
-- Không có thành phần downstream nào được phép thay đổi hành vi lập kế hoạch phía upstream
+- **Modules** đóng gói business agent theo hợp đồng `BaseModule` chung
+- **Workflows** là các định nghĩa JSON khai báo — không cần thay đổi code để cấu hình lại pipeline
+- **Dependency policies** (`strict` / `hybrid` / `flexible`) kiểm soát cách mỗi module phân giải đầu vào
+- **ModuleRegistry** kết hợp đăng ký Python class và YAML config thành nguồn thông tin duy nhất
 
-👉 Chi tiết kiến trúc:
-- [Cấu trúc thư mục dự án](docs/v2/OptiMoldIQ-projectDirectory.md)
-- [Sơ đồ hệ thống (ASCII)](docs/v2/OptiMoldIQ-systemDiagram-ASCII.md)
-- [Phân rã các agent](docs/v2/OptiMoldIQ-agentsBreakDown.md)
-- [Mô tả agent](docs/v2/OptiMoldIQ-agentsDescriptions.md)
-- [Hợp đồng cấu hình dùng chung](docs/v2/OptiMoldIQ-sharedConfig.md)
-- [Định dạng thực thi agent](docs/v2/OptiMoldIQ-agentExecutionFormat.md)
+```
+OptiMoldIQ (Orchestration)
+    └── WorkflowExecutor (Execution Engine)
+            └── Modules (Business Logic) ← tất cả kế thừa BaseModule
+                    └── Shared Database / Filesystem
+```
 
---- 
-
-## Bối cảnh nghiệp vụ
-
-OptiMoldIQ giải quyết các vấn đề phổ biến trong sản xuất ép nhựa như:
-- Dữ liệu vận hành bị phân mảnh
-- Hiệu suất sử dụng khuôn – máy thấp
-- Thiếu khả năng quan sát xuyên suốt các cấp độ lập kế hoạch
-
-👉 Bối cảnh đầy đủ:
-- [Bài toán nghiệp vụ](docs/v2/OptiMoldIQ-business-problem.md)
-- [Giải pháp định hướng theo bài toán](docs/v2/OptiMoldIQ-problem_driven_solution.md)
+👉 Tài liệu kiến trúc đầy đủ:
+- [Tổng quan kiến trúc](docs/v3/architecture/overview.md)
+- [Sơ đồ hệ thống](docs/v3/architecture/diagrams)
+- [BaseModule API](docs/v3/reference/base_module_api.md)
+- [Workflow Schema](docs/v3/reference/workflow_schema.md)
+- [Dependency Policies](docs/v3/reference/dependency_policies.md)
+- [Module Registry](docs/v3/reference/module_registry.md)
 
 ---
 
-## Mô hình dữ liệu
-
-OptiMoldIQ vận hành theo pipeline **raw → shared database pipeline**, cho phép mọi agent truy cập dữ liệu một cách nhất quán.
-
-👉 Tài liệu cơ sở dữ liệu:
-- [Raw database](docs/v2/OptiMoldIQ-rawDatabase.md)
-- [Shared database](docs/v2/OptiMoldIQ-sharedDatabase.md)
-- [ERD & schema](docs/v2/OptiMoldIQ-dbSchema.md)
-
----
-
-## Cấu trúc repository (mức cao)
+## Quickstart
 
 ```bash
-.
-├── agents/        # Runtime thực thi agent đã được chuẩn hóa
-├── modules/       # Logic nghiệp vụ mang tính quyết định
-├── database/      # Schema và dữ liệu tham chiếu
-├── docs/          # Kiến trúc, cột mốc, đặc tả
-├── logs/          # Log thực thi
-└── README.md
+git clone https://github.com/ThuyHaLE/OptiMoldIQ.git
+cd OptiMoldIQ
+pip install -r requirements.txt
+python main.py
+```
+
+`main.py` tự động phát hiện và liệt kê tất cả workflow hiện có, sau đó chạy `update_database_strict` làm demo.
+
+Để chạy một workflow khác:
+
+```python
+result = orchestrator.execute("process_initial_planning")
+```
+
+Để buộc chạy lại mà không dùng cache:
+
+```python
+result = orchestrator.execute("update_database_strict", clear_cache=True)
+```
+
+👉 [Hướng dẫn Getting Started đầy đủ](docs/v3/guides/getting_started.md)
+
+---
+
+## Cấu trúc repository
+
+```
+OptiMoldIQ/
+├── main.py                          # Điểm vào demo
+├── configs/
+│   ├── module_registry.yaml         # Registry cấu hình module trung tâm
+│   ├── modules/                     # YAML config cho từng module
+│   └── shared/
+│       └── shared_source_config.py  # Cấu hình đường dẫn dùng chung
+├── modules/                         # Các module business logic
+├── optiMoldMaster/                  # Orchestrator cấp cao nhất
+├── workflows/
+│   ├── definitions/                 # Định nghĩa workflow JSON
+│   ├── dependency_policies/         # strict / hybrid / flexible
+│   ├── executor.py                  # Workflow execution engine
+│   └── registry/                   # Module registry
+└── requirements.txt
 ```
 
 ---
 
-## Các cột mốc
+## Tài liệu
 
-### Cột mốc 01: Các agent pipeline dữ liệu cốt lõi (Hoàn thành tháng 07/2025)
+👉 [Mục lục tài liệu đầy đủ](docs/v3/README.md)
+
+### Dành cho Developer mới
+1. [Getting Started](docs/v3/guides/getting_started.md)
+2. [Demo — Output Format](docs/v3/demo/output_format)
+3. [Tổng quan kiến trúc](docs/v3/architecture/overview.md)
+
+### Dành cho Module Developer
+- [BaseModule API](docs/v3/reference/base_module_api.md)
+- [Thêm một Module mới](docs/v3/guides/adding_modules.md)
+- [Cấu hình](docs/v3/guides/configuration.md)
+
+### Dành cho Workflow Designer
+- [Tạo Workflow](docs/v3/guides/creating_workflows.md)
+- [Workflow Schema](docs/v3/reference/workflow_schema.md)
+- [Dependency Policies](docs/v3/reference/dependency_policies.md)
+- [Thêm một Dependency Policy mới](docs/v3/guides/adding_dependency_policy.md)
+
+---
+
+## Bối cảnh nghiệp vụ
+
+OptiMoldIQ giải quyết các thách thức phổ biến trong sản xuất ép nhựa:
+- Dữ liệu vận hành phân mảnh giữa các ca và máy
+- Hiệu quả sử dụng khuôn–máy chưa tối ưu
+- Khả năng quan sát hạn chế theo các khung thời gian kế hoạch
+
+👉 [Vấn đề nghiệp vụ](docs/v2/OptiMoldIQ-business-problem.md) | [Giải pháp theo vấn đề](docs/v2/OptiMoldIQ-problem_driven_solution.md)
+
+---
+
+## Milestones
+
+### Milestone 01: Core Data Pipeline Agents (Hoàn thành tháng 7/2025)
 > 👉 [Chi tiết](docs/v1/milestones/OptiMoldIQ-milestone_01.md)
-> 
-### Cột mốc 02: Hệ thống lập kế hoạch sản xuất ban đầu (Hoàn thành tháng 08/2025)
+
+### Milestone 02: Initial Production Planning System (Hoàn thành tháng 8/2025)
 > 👉 [Chi tiết](docs/v1/milestones/OptiMoldIQ-milestone_02.md)
 
-### Cột mốc 03: Hệ thống lập kế hoạch nâng cao kèm phân tích & dashboard (Hoàn thành tháng 01/2026)
+### Milestone 03: Enhanced Production Planning with Analytics and Dashboard System (Hoàn thành tháng 1/2026)
 > 👉 [Chi tiết](docs/v2/milestones/OptiMoldIQ-milestone_03.md)
+
+### Milestone 04: Framework Release (Hoàn thành tháng 2/2026)
+> 👉 [Chi tiết](docs/v3/milestones/OptiMoldIQ-milestone_04.md)
 
 ---
 
@@ -117,22 +171,15 @@ OptiMoldIQ vận hành theo pipeline **raw → shared database pipeline**, cho p
 
 **🌐 OptiMoldIQ Lite (Demo tương tác)**
 
-Khám phá các giai đoạn workflow và dashboard mà không cần chạy toàn bộ hệ thống.
+Khám phá các giai đoạn workflow và dashboard mà không cần chạy hệ thống đầy đủ.
 
 > 👉 [Xem demo](https://thuyhale.github.io/OptiMoldIQ/)
 
 ---
 
-## Bắt đầu nhanh (Quickstart)
-
-Một ví dụ có thể chạy được đã được cung cấp trong tài liệu.
-
-> 👉 [Xem tại đây](docs/v2/quickstart.md)
-
---- 
-
 ## Đóng góp
-Mọi đóng góp đều được hoan nghênh! Để tham gia:
+
+Mọi đóng góp đều được chào đón!
 1. Fork repository
 2. Tạo feature branch
 3. Gửi pull request
@@ -140,13 +187,14 @@ Mọi đóng góp đều được hoan nghênh! Để tham gia:
 ---
 
 ## Giấy phép
-Dự án được phát hành theo giấy phép MIT. Xem [LICENSE](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/LICENSE) để biết chi tiết.
+
+Dự án được cấp phép theo MIT License. Xem [LICENSE](https://github.com/ThuyHaLE/OptiMoldIQ/blob/main/LICENSE) để biết thêm chi tiết.
 
 ---
 
 ## Liên hệ
-Nếu có câu hỏi hoặc nhu cầu hợp tác, vui lòng liên hệ qua:
+
 - [Email](mailto:thuyha.le0590@gmail.com)
 - [GitHub](https://github.com/ThuyHaLE)
 
-*OptiMoldIQ đang được phát triển liên tục — tài liệu và năng lực hệ thống sẽ được mở rộng theo từng cột mốc.*
+*OptiMoldIQ đang được phát triển liên tục — tài liệu và tính năng sẽ được mở rộng theo từng milestone.*
