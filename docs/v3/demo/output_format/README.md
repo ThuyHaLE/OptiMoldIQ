@@ -116,15 +116,15 @@ Some modules produce additional files beyond `result` and `report` — these are
 
 A small number of modules maintain files that are **not** subject to the `newest/` → `historical_db/` versioning cycle. These files live directly under the module directory and are appended to (not replaced) on each run.
 
-The only current example is `weights_hist.xlsx` in `MoldMachineFeatureWeightCalculator`, which accumulates the history of feature weight changes across all runs. See the [AutoPlanner output page](auto_planner.md) for details.
+The only current example is `weights_hist.xlsx` in `MoldMachineFeatureWeightCalculator`, which accumulates the history of feature weight changes across all runs. See the [AutoPlanner output page](AutoPlanner/auto_planner.md) for details.
 
 ---
 
 ## Module Output Pages
 
-- [DataPipelineOrchestrator](docs/v3/demo/output_format/DataPipelineOrchestrator/data_pipeline_orchestrator.md)
-- [AnalyticsOrchestrator](docs/v3/demo/output_format/AnalyticsOrchestrator/analytics_orchestrator.md)
-- [AutoPlanner](docs/v3/demo/output_format/AutoPlanner/auto_planner.md)
-- [OrderProgressTracker](docs/v3/demo/output_format/OrderProgressTracker/order_progress_tracker.md)
-- [ValidationOrchestrator](docs/v3/demo/output_format/ValidationOrchestrator/validation_orchestrator.md)
-- [DashboardBuilder](docs/v3/demo/output_format/DashboardBuilder/dashboard_builder.md)
+- [DataPipelineOrchestrator](DataPipelineOrchestrator/data_pipeline_orchestrator.md)
+- [AnalyticsOrchestrator](AnalyticsOrchestrator/analytics_orchestrator.md)
+- [AutoPlanner](AutoPlanner/auto_planner.md)
+- [OrderProgressTracker](OrderProgressTracker/order_progress_tracker.md)
+- [ValidationOrchestrator](ValidationOrchestrator/validation_orchestrator.md)
+- [DashboardBuilder](DashboardBuilder/dashboard_builder.md)
