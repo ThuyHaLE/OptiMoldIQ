@@ -177,4 +177,4 @@ print(result.summary())    # dict with errors, warnings, resolved
 
 ## Adding a New Policy
 
-See [Adding a New Dependency Policy](docs/v3/guides/adding_dependency_policy.md) for the step-by-step guide.
+See [Adding a New Dependency Policy](../guides/adding_dependency_policy.md) for the step-by-step guide.
