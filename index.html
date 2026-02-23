@@ -251,11 +251,11 @@
             { name: 'update_database_strict', policy: 'strict', description: 'Full pipeline, strict dependency enforcement' },
             { name: 'update_database_hybrid', policy: 'hybrid', description: 'Full pipeline, hybrid dependency fallback' },
             { name: 'update_database_flexible', policy: 'flexible', description: 'Full pipeline, flexible dependency tolerance' },
-            { name: 'track_order_progress', policy: 'flexible', description: 'Order progress tracking only' },
-            { name: 'extract_historical_features', policy: 'flexible', description: 'Historical feature extraction only' },
-            { name: 'process_initial_planning', policy: 'hybrid', description: 'Initial production planning only' },
-            { name: 'analyze_production_records', policy: 'hybrid', description: 'Analytics orchestration only' },
-            { name: 'build_production_dashboard', policy: 'hybrid', description: 'Dashboard generation only' },
+            { name: 'track_order_progress', policy: 'strict', description: 'Order progress tracking only' },
+            { name: 'extract_historical_features', policy: 'strict', description: 'Historical feature extraction only' },
+            { name: 'process_initial_planning', policy: 'strict', description: 'Initial production planning only' },
+            { name: 'analyze_production_records', policy: 'strict', description: 'Analytics orchestration only' },
+            { name: 'build_production_dashboard', policy: 'strict', description: 'Dashboard generation only' },
         ];
 
         const policyColors = {
