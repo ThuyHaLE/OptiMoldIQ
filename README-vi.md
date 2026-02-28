@@ -120,7 +120,7 @@ Sau đó mở [http://localhost:8000](http://localhost:8000) trên trình duyệ
 
 ### Phương án C — Chạy workflow qua Python (không dùng UI)
 
-`main.py` tự động tìm và liệt kê tất cả workflow khả dụng, sau đó chạy `update_database_strict` làm demo.
+`dev_main.py` tự động tìm và liệt kê tất cả workflow khả dụng, sau đó chạy `update_database_strict` làm demo.
 
 Để chạy workflow khác:
 
