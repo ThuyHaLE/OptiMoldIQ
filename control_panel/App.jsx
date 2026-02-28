@@ -139,11 +139,24 @@ const STATUS_LABELS = { idle: "IDLE", running: "RUNNING", success: "SUCCESS", fa
 function ModuleRow({ mod, status, hasVizData, onShowViz }) {
   const color = STATUS_COLORS[status] || STATUS_COLORS.idle;
   const canViz = hasVizData && !!VIZ_REGISTRY[mod.module];
+
+function normalizeDependencyPolicy(policy) {
+  if (typeof policy === "string") return { name: policy, params: {} };
+  return policy;
+}
+
+  // Normalize dependency_policy
+  const depPolicy = normalizeDependencyPolicy(mod.dependency_policy);
+  const policyName = depPolicy.name;
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 80px 90px 72px 120px", gap: 12, padding: "8px 12px", borderBottom: "1px solid #13131f", fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, alignItems: "center", background: status === "running" ? "#0f0f1a" : "transparent" }}>
       <span style={{ color: "#5a5a7a", fontSize: 10 }}>{mod.id}</span>
       <span style={{ color: "#c9c9d9" }}>{mod.module}</span>
-      <span style={{ color: mod.dependency_policy === "strict" ? "#ef4444" : "#6366f1", fontSize: 9 }}>{mod.dependency_policy.toUpperCase()}</span>
+      <span 
+        style={{ color: policyName === "strict" ? "#ef4444" : "#6366f1", fontSize: 9, cursor: "help" }}
+        title={JSON.stringify(depPolicy.params, null, 2)}>{policyName.toUpperCase()}
+      </span>
       <span style={{ color: mod.required ? "#f59e0b" : "#4a4a6a", fontSize: 9 }}>{mod.required ? "REQUIRED" : "OPTIONAL"}</span>
       <span style={{ color, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
         {status === "running" && <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, animation: "pulse 0.8s ease-in-out infinite" }} />}
