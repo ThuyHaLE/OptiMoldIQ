@@ -7,8 +7,8 @@
 
 ## Project Status
 
-- **Current stable milestone:** **Milestone 04 – Framework Release**
-- **Next milestone:** Milestone 05 – UI Release & Task Orchestration
+- **Current stable milestone:** **Milestone 05 – UI Release**
+- **Next milestone:** Milestone 06 – Task Orchestration & Cloud Integration
 
 Legend: ✅ Complete | 🔄 In Progress | 📝 Planned
 
@@ -23,7 +23,7 @@ The system evolves through clearly defined milestones, prioritizing:
 - Observability before optimization
 - Backward-compatible system evolution
 
-Milestone 04 formalizes the framework contracts established in Milestone 03, releasing a stable execution runtime with public module, workflow, and dependency policy contracts.
+Milestone 05 introduces a browser-based control panel built with React + Vite, enabling non-technical users to trigger workflows, monitor execution, and explore analytics — without touching code. The panel is served directly by the FastAPI backend and accessible via a shareable URL.
 
 ---
 
@@ -36,9 +36,11 @@ M02: Production Planning Workflow
 ↓
 M03: Analytics & Dashboards (Framework-ready)
 ↓
-M04: Framework Release ← current
+M04: Framework Release
 ↓
-M05: UI Release & Task Orchestration
+M05: UI Release ← current
+↓
+M06: Task Orchestration & Cloud Integration
 ```
 
 ---
@@ -51,12 +53,17 @@ OptiMoldIQ follows a **workflow-driven, module-based architecture**:
 - **Workflows** are declarative JSON definitions — no code changes needed to reconfigure a pipeline
 - **Dependency policies** (`strict` / `hybrid` / `flexible`) control how each module resolves its inputs
 - **ModuleRegistry** combines Python class registration and YAML config into a single source of truth
+- **Control Panel** is a React + Vite frontend served via FastAPI — no separate frontend server needed
 
 ```
 OptiMoldIQ (Orchestration)
     └── WorkflowExecutor (Execution Engine)
             └── Modules (Business Logic) ← all inherit BaseModule
                     └── Shared Database / Filesystem
+
+FastAPI (Backend + Static Server)
+    └── control_panel_dist/ ← pre-built React UI
+            └── Browser (Control Panel)
 ```
 
 👉 Full architecture docs:
@@ -71,12 +78,47 @@ OptiMoldIQ (Orchestration)
 
 ## Quickstart
 
+### Option A — Run via Google Colab (Recommended for non-technical users)
+
+No local setup needed. Open the notebook and follow the steps:
+
+👉 [Open in Google Colab](https://colab.research.google.com/github/ThuyHaLE/OptiMoldIQ/blob/main/control_panel_notebook.ipynb)
+
+**Prerequisites:**
+- A Google account
+- A free ngrok account → get your authtoken at [dashboard.ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)
+
+The notebook will:
+1. Clone the repository
+2. Install all dependencies
+3. Build the control panel UI
+4. Launch the app and provide a shareable URL
+
+---
+
+### Option B — Run locally
+
 ```bash
 git clone https://github.com/ThuyHaLE/OptiMoldIQ.git
 cd OptiMoldIQ
 pip install -r requirements.txt
+pip install adjustText
+
+# Build the control panel (requires Node.js)
+cd control_panel
+npm install
+npm run build
+cd ..
+
+# Start the server
 python main.py
 ```
+
+Then open [http://localhost:8000](http://localhost:8000) in your browser.
+
+---
+
+### Option C — Run workflows via Python (no UI)
 
 `main.py` discovers and lists all available workflows, then runs `update_database_strict` as a demo.
 
@@ -100,7 +142,7 @@ result = orchestrator.execute("update_database_strict", clear_cache=True)
 
 ```
 OptiMoldIQ/
-├── main.py                          # Demo entrypoint
+├── main.py                          # Entrypoint (API server + workflow demo)
 ├── configs/
 │   ├── module_registry.yaml         # Central module config registry
 │   ├── modules/                     # Per-module YAML configs
@@ -113,6 +155,10 @@ OptiMoldIQ/
 │   ├── dependency_policies/         # strict / hybrid / flexible
 │   ├── executor.py                  # Workflow execution engine
 │   └── registry/                   # Module registry
+├── api/                             # FastAPI routes & server
+├── control_panel/                   # React + Vite source (npm run build)
+├── control_panel_dist/              # Built UI — served by FastAPI
+├── control_panel_notebook.ipynb     # Colab launcher notebook
 └── requirements.txt
 ```
 
@@ -165,6 +211,17 @@ OptiMoldIQ addresses common challenges in plastic molding production:
 ### Milestone 04: Framework Release (Completed Feb 2026)
 > 👉 [Details](docs/v3/milestones/OptiMoldIQ-milestone_04.md)
 
+### Milestone 05: UI Release (Completed Feb 2026)
+> A browser-based control panel enabling non-technical users to interact with OptiMoldIQ workflows without code. Built with React + Vite, served via FastAPI, and deployable instantly via Google Colab + ngrok.
+>
+> **What's new:**
+> - React + Vite control panel (`control_panel/`)
+> - FastAPI static file serving from `control_panel_dist/`
+> - Google Colab launcher notebook (`control_panel_notebook.ipynb`)
+> - Workflow trigger, execution monitoring, and analytics views in the UI
+>
+> 👉 [Details](docs/v4/milestones/OptiMoldIQ-milestone_05.md)
+
 ---
 
 ## Demo & Visualization
@@ -174,6 +231,10 @@ OptiMoldIQ addresses common challenges in plastic molding production:
 Explore workflow stages and dashboards without running the full system.
 
 > 👉 [See demo](https://thuyhale.github.io/OptiMoldIQ/)
+
+**▶️ Control Panel Demo**
+
+> 👉 *(gif demo coming soon)*
 
 ---
 
