@@ -18,7 +18,7 @@
     },
     {
         "execution_id": "05047df4",
-        "workflow_name": "track_order_progress",
+        "workflow_name": "track_order_progress_strict",
         "status": "success",
         "timestamp": 1772174929.9245744,
         "duration": 5.283,
@@ -61,7 +61,7 @@
     },
     {
         "execution_id": "2e4b2fb6",
-        "workflow_name": "process_initial_planning",
+        "workflow_name": "process_initial_planning_strict",
         "status": "success",
         "timestamp": 1772178659.8420086,
         "duration": 8.043,
@@ -100,7 +100,7 @@
     },
     {
         "execution_id": "bfdfe3fd",
-        "workflow_name": "analyze_production_records",
+        "workflow_name": "analyze_production_records_strict",
         "status": "success",
         "timestamp": 1772177914.4066331,
         "duration": 4.837,

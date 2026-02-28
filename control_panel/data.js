@@ -9,7 +9,7 @@ export const MOCK_WORKFLOWS = [
     ],
   },
   {
-    workflow_name: "track_order_progress",
+    workflow_name: "track_order_progress_strict",
     description: "Update and track order progress pipeline",
     modules: [
       { id: "pipeline",   module: "DataPipelineModule",      config_file: "configs/modules/data_pipeline.yaml",      dependency_policy: "strict", required: true },
@@ -18,7 +18,7 @@ export const MOCK_WORKFLOWS = [
     ],
   },
   {
-    workflow_name: "analyze_production_records",
+    workflow_name: "analyze_production_records_strict",
     description: "Update and analyze production records pipeline",
     modules: [
       { id: "pipeline",  module: "DataPipelineModule", config_file: "configs/modules/data_pipeline.yaml", dependency_policy: "strict", required: true },
@@ -26,7 +26,7 @@ export const MOCK_WORKFLOWS = [
     ],
   },
   {
-    workflow_name: "process_initial_planning",
+    workflow_name: "process_initial_planning_strict",
     description: "Update and process initial planning pipeline",
     modules: [
       { id: "pipeline",   module: "DataPipelineModule",         config_file: "configs/modules/data_pipeline.yaml",         dependency_policy: "strict", required: true },
@@ -57,9 +57,9 @@ export const MOCK_VIZ_CACHE = {
             "first_failed": null},
         "viz_data": null
     },
-  track_order_progress: {
+  track_order_progress_strict: {
         "execution_id": "05047df4",
-        "workflow_name": "track_order_progress",
+        "workflow_name": "track_order_progress_strict",
         "status": "success",
         "timestamp": 1772174929.9245744,
         "duration": 5.283,
@@ -281,9 +281,9 @@ export const MOCK_VIZ_CACHE = {
                         {"poNo": "IM1902134", "poReceivedDate": "2019-01-25", "itemCode": "281709M", "itemName": "CT-PS-SPACER", "itemType": "CT-PS-SPACER", "poETA": "2019-02-20", "itemQuantity": 30000, "itemRemain": 30000, "startedDate": null, "actualFinishedDate": null, "proStatus": "PENDING", "progress": 0.0, "etaStatus": "PENDING", "machineHist": null, "moldList": "PSSP-M-001", "moldHist": null, "moldCavity": null, "totalMoldShot": null, "totalDay": null, "totalShift": null, "moldShotMap": null, "machineQuantityMap": null, "dayQuantityMap": null, "shiftQuantityMap": null, "materialComponentMap": null, "lastestRecordTime": null, "lastestMachineNo": null, "lastestMoldNo": null, "warningNotes": null}]}}
             }
     },
-  analyze_production_records: {
+  analyze_production_records_strict: {
         "execution_id": "bfdfe3fd",
-        "workflow_name": "analyze_production_records",
+        "workflow_name": "analyze_production_records_strict",
         "status": "success",
         "timestamp": 1772177914.4066331,
         "duration": 4.837,
@@ -582,9 +582,9 @@ export const MOCK_VIZ_CACHE = {
         {"poReceivedDate": "2019-01-25", "poNo": "IM1902134", "poETA": "2019-02-20", "itemCode": "281709M", "itemName": "CT-PS-SPACER", "itemQuantity": 30000, "itemCodeName": "281709M(CT-PS-SPACER)", "firstRecord": "NaT", "lastRecord": "NaT", "itemGoodQuantity": null, "itemNGQuantity": null, "moldHistNum": null, "moldHist": null, "proStatus": "unfinished", "is_backlog": false, "itemRemainQuantity": 30000, "poStatus": "not_started", "overproduction_quantity": 0, "moldNum": 1, "moldList": "PSSP-M-001", "totalItemCapacity": 1371.428571428571, "avgItemCapacity": 1371.428571428571, "accumulatedQuantity": 30000, "completionProgress": 0.0, "totalRemainByMold": 30000, "accumulatedRate": 1.0, "totalEstimatedLeadtime": 0.9114583333217593, "avgEstimatedLeadtime": 0.9114583333217593, "poOTD": 26, "poRLT": 20, "avgCumsumLT": 0.9114583333217593, "totalCumsumLT": 0.9114583333217593, "overTotalCapacity": false, "overAvgCapacity": false, "is_overdue": false, "etaStatus": "expected_ontime", "capacityWarning": false, "capacitySeverity": "normal", "capacityExplanation": "Within 1-mold capacity"},
         {"poReceivedDate": "2019-01-25", "poNo": "IM1902129", "poETA": "2019-02-20", "itemCode": "260501M", "itemName": "CT-PXN-HEAD-COVER-4.2MM", "itemQuantity": 55000, "itemCodeName": "260501M(CT-PXN-HEAD-COVER-4.2MM)", "firstRecord": "NaT", "lastRecord": "NaT", "itemGoodQuantity": null, "itemNGQuantity": null, "moldHistNum": null, "moldHist": null, "proStatus": "unfinished", "is_backlog": false, "itemRemainQuantity": 55000, "poStatus": "not_started", "overproduction_quantity": 0, "moldNum": 1, "moldList": "PXNHC4-M-001", "totalItemCapacity": 1515.789473684211, "avgItemCapacity": 1515.789473684211, "accumulatedQuantity": 55000, "completionProgress": 0.0, "totalRemainByMold": 55000, "accumulatedRate": 1.0, "totalEstimatedLeadtime": 1.511863425914352, "avgEstimatedLeadtime": 1.511863425914352, "poOTD": 26, "poRLT": 20, "avgCumsumLT": 1.511863425914352, "totalCumsumLT": 1.511863425914352, "overTotalCapacity": false, "overAvgCapacity": false, "is_overdue": false, "etaStatus": "expected_ontime", "capacityWarning": false, "capacitySeverity": "normal", "capacityExplanation": "Within 1-mold capacity"}]}}
     },
-  process_initial_planning: {
+  process_initial_planning_strict: {
         "execution_id": "2e4b2fb6",
-        "workflow_name": "process_initial_planning",
+        "workflow_name": "process_initial_planning_strict",
         "status": "success",
         "timestamp": 1772178659.8420086,
         "duration": 8.043,
