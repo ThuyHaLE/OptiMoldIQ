@@ -234,7 +234,19 @@ Explore workflow stages and dashboards without running the full system.
 
 **▶️ Control Panel Demo**
 
-> 👉 *(gif demo coming soon)*
+All workflows write results to the shared database. For workflows that include a visualization module (`ProgressTrackingModule`, `AnalyticsModule`, `InitialPlanningModule`), the control panel also surfaces an interactive output panel for quick exploration — directly in the UI, without leaving the app.
+
+> **track_order_progress** — real-time progress tracking across orders and machines
+> ![Workflow: track_order_progress](docs/v4/demo/track_order_progress.gif)
+
+> **process_initial_planning** — generate and review the initial production plan
+> ![Workflow: process_initial_planning](docs/v4/demo/process_initial_planning.gif)
+
+> **analyze_production_records (overview)** — production analytics dashboard, summary view
+> ![Workflow: analyze_production_records (1)](docs/v4/demo/analyze_production_records_1.gif)
+
+> **analyze_production_records (detail)** — production analytics dashboard, drill-down view
+> ![Workflow: analyze_production_records (2)](docs/v4/demo/analyze_production_records_2.gif)
 
 ---
 
