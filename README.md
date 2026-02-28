@@ -120,7 +120,7 @@ Then open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ### Option C — Run workflows via Python (no UI)
 
-`main.py` discovers and lists all available workflows, then runs `update_database_strict` as a demo.
+`dev_main.py` discovers and lists all available workflows, then runs `update_database_strict` as a demo.
 
 To run a different workflow:
 
