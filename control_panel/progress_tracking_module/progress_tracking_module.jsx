@@ -8,6 +8,7 @@ let DAILY_JSON, PO_JSON;
 let TODAY, todayDate, ganttStart, GANTT_START, GANTT_DAYS, REPORT_DATE;
 let MACHINE_COUNT, ALL_MACHINES, DATA_MAP, FULL_DATA;
 let GANTT_DATES, TODAY_D;
+let MACHINE_JOBS_MAP;
 
 // ============================================================
 //  ⚙️  SHARED UTILS
@@ -44,7 +45,6 @@ function parseConfigDate(s) {
   if (parts[0].length === 4) return new Date(+parts[0], +parts[1]-1, +parts[2]);
   return new Date(+parts[2], +parts[0]-1, +parts[1]);
 }
-
 function genDates(startDate, n) {
   const out = []; const dt = new Date(startDate);
   for (let i = 0; i < n; i++) { out.push(new Date(dt)); dt.setDate(dt.getDate()+1); }
@@ -182,32 +182,70 @@ function DailyReportPanel() {
   const [selectedRow, setSelectedRow]     = useState(null);
   const [showIdle, setShowIdle]           = useState(true);
 
+  // FLAT_DATA: flatten all jobs per machine into individual rows for table
+  // Each row tagged with _machineJobIndex (0-based) and _machineTotalJobs
+  const FLAT_DATA = useMemo(() => {
+    const rows = [];
+    ALL_MACHINES.forEach(m => {
+      const jobs = DATA_MAP[m];
+      if (jobs && jobs.length > 0) {
+        // Sort by startedDate ascending so sequential jobs appear in order
+        const sorted = [...jobs].sort((a, b) => new Date(a.startedDate) - new Date(b.startedDate));
+        sorted.forEach((job, ji) => {
+          rows.push({
+            ...job,
+            idle: false,
+            _machineJobIndex: ji,
+            _machineTotalJobs: sorted.length,
+            _isFirstJob: ji === 0,
+          });
+        });
+      } else {
+        rows.push({
+          lastestMachineNo: m, poNo: "—", itemName: "— NO ACTIVE JOB —",
+          lastestMoldNo: "—", poETA: "—", progress: null, startedDate: "—",
+          actualFinishedDate: "—", itemQuantity: 0, estimatedCapacity: 0,
+          totalDay: 0, itemRemain: 0, idle: true,
+          _machineJobIndex: 0, _machineTotalJobs: 1, _isFirstJob: true,
+        });
+      }
+    });
+    return rows;
+  }, []);
+
   const filtered = useMemo(() => {
-    return FULL_DATA.filter(r => {
+    // Filter at machine level: if any job of a machine passes, include all its jobs
+    // Strategy: filter then dedupe by machine for counts, but show all sub-rows
+    return FLAT_DATA.filter(r => {
       if (!showIdle && r.idle) return false;
       if (machineFilter && r.lastestMachineNo !== machineFilter) return false;
-      if (search && !r.itemName.toLowerCase().includes(search.toLowerCase()) &&
-          !r.poNo.toLowerCase().includes(search.toLowerCase()) &&
-          !r.lastestMachineNo.toLowerCase().includes(search.toLowerCase())) return false;
-      if (filter==="complete")   return !r.idle && r.progress >= 95;
-      if (filter==="inprogress") return !r.idle && r.progress > 0 && r.progress < 95;
-      if (filter==="notstarted") return !r.idle && r.progress === 0;
-      if (filter==="overdue")    return !r.idle && r.progress < 90 && r.totalDay > 6;
-      if (filter==="idle")       return r.idle;
+      if (search) {
+        const q = search.toLowerCase();
+        const match = r.itemName.toLowerCase().includes(q) ||
+          r.poNo.toLowerCase().includes(q) ||
+          r.lastestMachineNo.toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      if (filter === "complete")   return !r.idle && r.progress >= 95;
+      if (filter === "inprogress") return !r.idle && r.progress > 0 && r.progress < 95;
+      if (filter === "notstarted") return !r.idle && r.progress === 0;
+      if (filter === "overdue")    return !r.idle && r.progress < 90 && r.totalDay > 6;
+      if (filter === "idle")       return r.idle;
       return true;
     });
-  }, [filter, machineFilter, search, showIdle]);
+  }, [filter, machineFilter, search, showIdle, FLAT_DATA]);
 
+  // For counts, use FULL_DATA (1 row per machine)
   const activeData = FULL_DATA.filter(r => !r.idle);
   const idleCount  = FULL_DATA.filter(r => r.idle).length;
 
   const totals = useMemo(() => {
     const active = filtered.filter(r => !r.idle);
     return {
-      qty: active.reduce((a,r) => a+r.itemQuantity, 0),
-      cap: active.reduce((a,r) => a+r.estimatedCapacity, 0),
-      rem: active.reduce((a,r) => a+r.itemRemain, 0),
-      avgProg: active.length ? (active.reduce((a,r) => a+r.progress, 0)/active.length).toFixed(1) : 0,
+      qty: active.reduce((a, r) => a + r.itemQuantity, 0),
+      cap: active.reduce((a, r) => a + r.estimatedCapacity, 0),
+      rem: active.reduce((a, r) => a + r.itemRemain, 0),
+      avgProg: active.length ? (active.reduce((a, r) => a + r.progress, 0) / active.length).toFixed(1) : 0,
     };
   }, [filtered]);
 
@@ -239,7 +277,7 @@ function DailyReportPanel() {
         <select value={machineFilter} onChange={e => setMachineFilter(e.target.value)}
           style={{ padding:"3px 6px", background:"#0c1018", border:"1px solid #2a3245", borderRadius:3, color:"#c9d1e0", fontSize:10, fontFamily:"inherit" }}>
           <option value="">All Machines</option>
-          {ALL_MACHINES.map(m => <option key={m} value={m}>{m}{DAILY_JSON.find(r=>r.lastestMachineNo===m) ? "" : " (idle)"}</option>)}
+          {ALL_MACHINES.map(m => <option key={m} value={m}>{m}{DATA_MAP[m] ? "" : " (idle)"}</option>)}
         </select>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search goods / PO..."
           style={{ padding:"3px 8px", background:"#0c1018", border:"1px solid #2a3245", borderRadius:3, color:"#c9d1e0", fontSize:10, fontFamily:"inherit", width:160 }} />
@@ -264,7 +302,7 @@ function DailyReportPanel() {
           </div>
         ))}
         <div style={{ marginLeft:"auto", fontSize:9, color:"#4a5a7a", alignSelf:"center" }}>
-          {filtered.filter(r=>!r.idle).length} active + {filtered.filter(r=>r.idle).length} idle = {filtered.length} rows
+          {filtered.filter(r=>!r.idle).length} jobs · {filtered.filter(r=>r.idle).length} idle machines
         </div>
       </div>
 
@@ -281,13 +319,56 @@ function DailyReportPanel() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((row,i) => {
+                {filtered.map((row, i) => {
                   const pc = progColor(row.progress);
                   const isSel = selectedRow === i;
+                  const isSubRow = !row._isFirstJob; // continuation row for same machine
+                  const isLastJobOfMachine = row._machineJobIndex === row._machineTotalJobs - 1;
+
                   return (
-                    <tr key={row.lastestMachineNo+i} className={"row-hover"+(isSel?" row-sel":"")+(row.idle?" row-idle":"")} onClick={() => setSelectedRow(isSel?null:i)}
-                      style={{ borderBottom:"1px solid rgba(26,36,56,0.7)", cursor:row.idle?"default":"pointer", background:isSel?"rgba(59,130,246,0.12)":"transparent" }}>
-                      <td style={{ padding:"3px 5px", fontWeight:600, color:row.idle?"#2a3a55":"#3b82f6" }}>{row.lastestMachineNo}</td>
+                    <tr
+                      key={row.lastestMachineNo + row.poNo + i}
+                      className={"row-hover" + (isSel ? " row-sel" : "") + (row.idle ? " row-idle" : "")}
+                      onClick={() => setSelectedRow(isSel ? null : i)}
+                      style={{
+                        borderBottom: isLastJobOfMachine
+                          ? "2px solid rgba(26,36,56,0.9)"   // thick separator between machines
+                          : "1px solid rgba(59,130,246,0.12)", // subtle between jobs of same machine
+                        cursor: row.idle ? "default" : "pointer",
+                        background: isSel
+                          ? "rgba(59,130,246,0.12)"
+                          : isSubRow
+                          ? "rgba(14,20,36,0.6)"             // slightly darker for sub-rows
+                          : "transparent",
+                      }}
+                    >
+                      {/* Machine column: only show on first job row, with rowspan visual via border */}
+                      <td style={{
+                        padding: "3px 5px",
+                        fontWeight: 600,
+                        color: row.idle ? "#2a3a55" : isSubRow ? "transparent" : "#3b82f6",
+                        borderLeft: isSubRow ? "3px solid rgba(59,130,246,0.25)" : "3px solid transparent",
+                        position: "relative",
+                      }}>
+                        {!isSubRow && row.lastestMachineNo}
+                        {/* multi-job badge on first row */}
+                        {!isSubRow && row._machineTotalJobs > 1 && (
+                          <span style={{
+                            display: "inline-block",
+                            marginLeft: 3,
+                            padding: "0px 4px",
+                            borderRadius: 2,
+                            background: "rgba(59,130,246,0.18)",
+                            border: "1px solid rgba(59,130,246,0.3)",
+                            color: "#60a5fa",
+                            fontSize: 7.5,
+                            fontWeight: 700,
+                            verticalAlign: "middle",
+                          }}>
+                            ×{row._machineTotalJobs}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding:"3px 5px", color:row.idle?"#2a3a55":"#4a5a7a", fontSize:9.5 }}>{row.poNo}</td>
                       <td style={{ padding:"3px 5px", color:row.idle?"#2a3a55":"#e8edf5", maxWidth:190, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontStyle:row.idle?"italic":"normal" }} title={row.itemName}>{row.itemName}</td>
                       <td style={{ padding:"3px 5px", color:"#6a7a9a", fontSize:9 }}>{row.lastestMoldNo}</td>
@@ -305,7 +386,7 @@ function DailyReportPanel() {
                         )}
                       </td>
                       <td style={{ padding:"3px 5px", color:"#7a8aaa", fontSize:9 }}>{row.startedDate}</td>
-                      <td style={{ padding:"3px 5px", color:"#7a8aaa", fontSize:9 }}>{row.actualFinishedDate}</td>
+                      <td style={{ padding:"3px 5px", color: row.actualFinishedDate && row.actualFinishedDate !== "—" ? "#10b981" : "#5a6a8a", fontSize:9 }}>{row.actualFinishedDate || "—"}</td>
                       <td style={{ padding:"3px 5px", textAlign:"right", fontWeight:600, color:row.idle?"#2a3a55":"#c9d1e0" }}>{row.idle?"—":fmt(row.itemQuantity)}</td>
                       <td style={{ padding:"3px 5px", textAlign:"right", color:"#6a7a9a" }}>{row.idle?"—":fmt(row.estimatedCapacity)}</td>
                       <td style={{ padding:"3px 5px", textAlign:"center" }}>
@@ -348,7 +429,7 @@ function DailyReportPanel() {
                       });
                       return cells.map(c => (
                         <th key={c.key} colSpan={c.span} style={{ textAlign:"center", padding:"2px 0", fontSize:9, fontWeight:600, color:"#3b82f6", borderRight:"1px solid #1a2438", borderBottom:"1px solid #1a2438", background:"#0c1018", letterSpacing:"0.04em" }}>
-                          Jan-{c.key.split("/")[1]}
+                          {c.key}
                         </th>
                       ));
                     })()}
@@ -369,32 +450,78 @@ function DailyReportPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row,ri) => {
-                    const start = parseD(row.startedDate);
-                    const end   = parseD(row.actualFinishedDate);
+                  {FULL_DATA.map((row, ri) => {
+                    const jobs = MACHINE_JOBS_MAP[row.lastestMachineNo] || [];
+
                     return (
-                      <tr key={row.lastestMachineNo+ri} className="row-hover" style={{ borderBottom:"1px solid rgba(26,36,56,0.5)", height:28, opacity:row.idle?0.35:1 }}>
-                        {subTab==="gantt" && <td style={{ padding:"2px 5px", fontSize:9.5, fontWeight:600, color:row.idle?"#2a3a55":"#3b82f6", borderRight:"2px solid #1a2d45", whiteSpace:"nowrap" }}>{row.lastestMachineNo}</td>}
-                        {GANTT_DATES.map((d,di) => {
-                          const isToday = d.toDateString()===TODAY_D.toDateString();
-                          const isWE    = d.getDay()===0||d.getDay()===6;
-                          const isStart = !row.idle && start && d.toDateString()===start.toDateString();
-                          let barSpan = 0;
-                          if (isStart && start && end) {
-                            const diff = Math.round((end-start)/864e5)+1;
-                            barSpan = Math.min(Math.max(1,diff), GANTT_DATES.length-di);
-                          }
+                      <tr key={row.lastestMachineNo + ri} className="row-hover"
+                        style={{ borderBottom:"2px solid rgba(26,36,56,0.9)", height: Math.max(28, jobs.length * 22 + 8), opacity: row.idle ? 0.35 : 1 }}>
+
+                        {subTab === "gantt" && (
+                          <td style={{ padding:"2px 5px", fontSize:9.5, fontWeight:600, color: row.idle ? "#2a3a55" : "#3b82f6", borderRight:"2px solid #1a2d45", whiteSpace:"nowrap", verticalAlign:"middle" }}>
+                            {row.lastestMachineNo}
+                            {jobs.length > 1 && (
+                              <span style={{ display:"block", fontSize:7.5, color:"#3b82f6", opacity:0.6, marginTop:1 }}>
+                                {jobs.length} jobs
+                              </span>
+                            )}
+                          </td>
+                        )}
+
+                        {GANTT_DATES.map((d, di) => {
+                          const isToday = d.toDateString() === TODAY_D.toDateString();
+                          const isWE    = d.getDay() === 0 || d.getDay() === 6;
+
+                          const barsHere = jobs
+                            .map((job, ji) => {
+                              const start = parseD(job.startedDate);
+                              const end   = parseD(job.actualFinishedDate);
+                              if (!start || !end) return null;
+                              if (d.toDateString() !== start.toDateString()) return null;
+                              const diff = Math.round((end - start) / 864e5) + 1;
+                              const span = Math.min(Math.max(1, diff), GANTT_DATES.length - di);
+                              return { job, ji, span };
+                            })
+                            .filter(Boolean);
+
                           return (
-                            <td key={di} style={{ position:"relative", width:COL_W, background:isToday?"rgba(245,158,11,0.05)":isWE?"repeating-linear-gradient(45deg,rgba(26,36,56,0.3),rgba(26,36,56,0.3) 2px,transparent 2px,transparent 6px)":row.idle?"repeating-linear-gradient(135deg,rgba(20,28,44,0.4),rgba(20,28,44,0.4) 2px,transparent 2px,transparent 8px)":"transparent", borderRight:`1px solid ${isToday?"rgba(245,158,11,0.3)":"rgba(26,36,56,0.5)"}`, overflow:"visible" }}>
-                              {isStart && (
-                                <div style={{ position:"absolute", top:4, left:2, width:barSpan*COL_W-4, height:18, borderRadius:2, background:GANTT_COLORS[ri%GANTT_COLORS.length], opacity:0.8, zIndex:2, cursor:"pointer", overflow:"hidden" }}
-                                  title={`${row.lastestMachineNo}: ${row.itemName}\n${row.startedDate} → ${row.actualFinishedDate}\n${row.progress}%`}>
-                                  <div style={{ position:"absolute", top:0, left:0, width:row.progress+"%", height:"100%", background:"rgba(255,255,255,0.18)", borderRadius:2 }} />
-                                  {barSpan>=3 && (
-                                    <div style={{ position:"absolute", top:"50%", left:4, transform:"translateY(-50%)", fontSize:8, color:"rgba(255,255,255,0.9)", whiteSpace:"nowrap", fontWeight:600, letterSpacing:"0.03em" }}>{row.progress}%</div>
+                            <td key={di} style={{
+                              position: "relative",
+                              width: COL_W,
+                              background: isToday
+                                ? "rgba(245,158,11,0.05)"
+                                : isWE
+                                ? "repeating-linear-gradient(45deg,rgba(26,36,56,0.3),rgba(26,36,56,0.3) 2px,transparent 2px,transparent 6px)"
+                                : row.idle
+                                ? "repeating-linear-gradient(135deg,rgba(20,28,44,0.4),rgba(20,28,44,0.4) 2px,transparent 2px,transparent 8px)"
+                                : "transparent",
+                              borderRight: `1px solid ${isToday ? "rgba(245,158,11,0.3)" : "rgba(26,36,56,0.5)"}`,
+                              overflow: "visible",
+                            }}>
+                              {barsHere.map(({ job, ji, span }) => (
+                                <div key={ji} style={{
+                                  position: "absolute",
+                                  top: jobs.length > 1 ? 3 + ji * 22 : 5,
+                                  left: 2,
+                                  width: span * COL_W - 4,
+                                  height: 18,
+                                  borderRadius: 2,
+                                  background: GANTT_COLORS[(ri * 3 + ji) % GANTT_COLORS.length],
+                                  opacity: 0.85,
+                                  zIndex: 2,
+                                  cursor: "pointer",
+                                  overflow: "hidden",
+                                }}
+                                  title={`${row.lastestMachineNo}: ${job.itemName}\n${job.startedDate} → ${job.actualFinishedDate}\n${job.progress}%`}
+                                >
+                                  <div style={{ position:"absolute", top:0, left:0, width: job.progress + "%", height:"100%", background:"rgba(255,255,255,0.18)", borderRadius:2 }} />
+                                  {span >= 3 && (
+                                    <div style={{ position:"absolute", top:"50%", left:4, transform:"translateY(-50%)", fontSize:7.5, color:"rgba(255,255,255,0.9)", whiteSpace:"nowrap", fontWeight:600 }}>
+                                      {job.progress}% · {job.itemName.slice(0, 18)}
+                                    </div>
                                   )}
                                 </div>
-                              )}
+                              ))}
                             </td>
                           );
                         })}
@@ -467,7 +594,6 @@ function POStatusPanel() {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", flex:1, overflow:"hidden" }}>
-      {/* Sub-stats bar */}
       <div style={{ background:"#0e1622", borderBottom:"1px solid #1a2438", padding:"4px 14px", display:"flex", gap:22, flexShrink:0, alignItems:"center" }}>
         {[
           ["TOTAL",   stats.total,         "#c9d1e0"],
@@ -485,7 +611,6 @@ function POStatusPanel() {
         <div style={{ marginLeft:"auto", fontSize:9, color:"#3a4a65" }}>{filtered.length}/{PO_JSON.length} rows</div>
       </div>
 
-      {/* Sub-toolbar */}
       <div style={{ background:"#101520", borderBottom:"1px solid #1a2438", padding:"5px 14px", display:"flex", alignItems:"center", gap:5, flexShrink:0, flexWrap:"wrap" }}>
         {FBNS.map(b => {
           const cfg = STATUS_CFG[b.k];
@@ -517,7 +642,6 @@ function POStatusPanel() {
         </div>
       </div>
 
-      {/* Table */}
       <div style={{ flex:1, overflow:"auto" }}>
         <table style={{ borderCollapse:"collapse", width:"100%", fontSize:10.5 }}>
           <thead>
@@ -601,39 +725,55 @@ export default function ProgressTrackingViz({ data }) {
   DAILY_JSON = source.ProgressTracker.productionStatus.daily_data;
   PO_JSON    = source.ProgressTracker.productionStatus.tracking_data;
 
-  // ============================================================
-  // DERIVED DATA
-  // ============================================================
-  TODAY = DAILY_JSON.map(r => r.lastestRecordTime).filter(Boolean).sort().at(-1);
+  REPORT_DATE = new Date().toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric", year:"numeric"});
+
+  TODAY = DAILY_JSON.map(r => r.actualFinishedDate).filter(Boolean).sort().at(-1);
   todayDate  = new Date(TODAY);
   ganttStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
   GANTT_START = `${ganttStart.getFullYear()}-${String(ganttStart.getMonth()+1).padStart(2,"0")}-01`;
-  GANTT_DAYS = new Date(todayDate.getFullYear(),todayDate.getMonth() + 1,0).getDate();
-  REPORT_DATE = todayDate.toLocaleDateString("en-US", {weekday: "short", month: "short", day: "numeric", year: "numeric"});
+  GANTT_DAYS = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+  GANTT_DATES = genDates(parseConfigDate(GANTT_START), GANTT_DAYS);
+  TODAY_D = parseConfigDate(TODAY);
 
   MACHINE_COUNT = new Set(DAILY_JSON.map(r => r.lastestMachineNo)).size;
-  ALL_MACHINES = Array.from({ length: MACHINE_COUNT },(_, i) => `NO.${String(i + 1).padStart(2, "0")}`);
+  ALL_MACHINES = Array.from({ length: MACHINE_COUNT }, (_, i) => `NO.${String(i + 1).padStart(2, "0")}`);
+
+  // DATA_MAP: machine → array of all jobs
   DATA_MAP = {};
-  DAILY_JSON.forEach(r => { DATA_MAP[r.lastestMachineNo] = r; });
+  DAILY_JSON.forEach(r => {
+    if (!DATA_MAP[r.lastestMachineNo]) DATA_MAP[r.lastestMachineNo] = [];
+    DATA_MAP[r.lastestMachineNo].push(r);
+  });
+
+  // FULL_DATA: 1 row per machine (latest job) — used for Gantt row list & stats
   FULL_DATA = ALL_MACHINES.map(m => {
-    if (DATA_MAP[m]) return { ...DATA_MAP[m], idle: false };
+    if (DATA_MAP[m] && DATA_MAP[m].length > 0) {
+      const jobs = [...DATA_MAP[m]].sort((a, b) =>
+        new Date(b.actualFinishedDate || b.startedDate) - new Date(a.actualFinishedDate || a.startedDate));
+      return { ...jobs[0], idle: false };
+    }
     return {
-      lastestMachineNo: m, poNo:"—", itemName:"— NO ACTIVE JOB —",
-      lastestMoldNo:"—", poETA:"—", progress: null, startedDate:"—",
-      actualFinishedDate:"—", itemQuantity:0, estimatedCapacity:0,
-      totalDay:0, itemRemain:0, idle: true,
+      lastestMachineNo: m, poNo: "—", itemName: "— NO ACTIVE JOB —",
+      lastestMoldNo: "—", poETA: "—", progress: null, startedDate: "—",
+      actualFinishedDate: "—", itemQuantity: 0, estimatedCapacity: 0,
+      totalDay: 0, itemRemain: 0, idle: true,
     };
   });
 
-  GANTT_DATES = genDates(parseConfigDate(GANTT_START), GANTT_DAYS);
-  TODAY_D = parseConfigDate(TODAY);
+  // MACHINE_JOBS_MAP: machine → sorted jobs with valid start+end for Gantt bars
+  MACHINE_JOBS_MAP = {};
+  ALL_MACHINES.forEach(m => {
+    MACHINE_JOBS_MAP[m] = (DATA_MAP[m] || [])
+      .filter(r => r.startedDate && r.actualFinishedDate)
+      .sort((a, b) => new Date(a.startedDate) - new Date(b.startedDate));
+  });
 
   const [mainTab, setMainTab] = useState("daily");
 
   const dailyActive = FULL_DATA.filter(r => !r.idle);
   const dailyIdle   = FULL_DATA.filter(r => r.idle).length;
   const dailyAvgProg = dailyActive.length
-    ? (dailyActive.reduce((a,r) => a+r.progress, 0)/dailyActive.length).toFixed(1)
+    ? (dailyActive.reduce((a, r) => a + r.progress, 0) / dailyActive.length).toFixed(1)
     : 0;
 
   return (
@@ -660,7 +800,6 @@ export default function ProgressTrackingViz({ data }) {
 
       {/* UNIFIED HEADER */}
       <div style={{ background:"#0d1520", borderBottom:"2px solid #1a2d45", padding:"0 14px", display:"flex", alignItems:"stretch", justifyContent:"space-between", flexShrink:0 }}>
-        {/* Logo + Title */}
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"8px 0" }}>
           <div style={{ width:28, height:28, borderRadius:4, background:"linear-gradient(135deg,#1d4ed8,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:"#fff", letterSpacing:"-0.05em", flexShrink:0 }}>IM</div>
           <div>
@@ -669,7 +808,6 @@ export default function ProgressTrackingViz({ data }) {
           </div>
         </div>
 
-        {/* Main Tabs */}
         <div style={{ display:"flex", alignItems:"stretch", gap:0 }}>
           {[
             ["daily", "DAILY REPORT", `${dailyActive.length}/${ALL_MACHINES.length} active · ${dailyIdle} idle`],
@@ -686,21 +824,20 @@ export default function ProgressTrackingViz({ data }) {
           })}
         </div>
 
-        {/* Summary Stats */}
         <div style={{ display:"flex", gap:18, alignItems:"center", padding:"8px 0" }}>
           {mainTab==="daily" ? [
-            ["ACTIVE",  `${dailyActive.length}/${ALL_MACHINES.length}`, "#10b981"],
+            ["ACTIVE",   `${dailyActive.length}/${ALL_MACHINES.length}`, "#10b981"],
             ["AVG PROG", dailyAvgProg+"%", progColor(+dailyAvgProg)],
-            ["IDLE",    `${dailyIdle}`,    "#4a5a7a"],
+            ["IDLE",     `${dailyIdle}`,   "#4a5a7a"],
           ].map(([l,v,c]) => (
             <div key={l} style={{ textAlign:"right" }}>
               <div style={{ fontSize:8, color:"#3a4a65", letterSpacing:"0.06em" }}>{l}</div>
               <div style={{ fontSize:11, fontWeight:600, color:c }}>{v}</div>
             </div>
           )) : [
-            ["TOTAL",   PO_JSON.length, "#c9d1e0"],
-            ["MOLDED",  PO_JSON.filter(r=>r.proStatus==="MOLDED").length, "#10b981"],
-            ["LATE",    PO_JSON.filter(r=>r.etaStatus==="LATE").length, "#ef4444"],
+            ["TOTAL",  PO_JSON.length,                                    "#c9d1e0"],
+            ["MOLDED", PO_JSON.filter(r=>r.proStatus==="MOLDED").length,  "#10b981"],
+            ["LATE",   PO_JSON.filter(r=>r.etaStatus==="LATE").length,    "#ef4444"],
           ].map(([l,v,c]) => (
             <div key={l} style={{ textAlign:"right" }}>
               <div style={{ fontSize:8, color:"#3a4a65", letterSpacing:"0.06em" }}>{l}</div>
@@ -710,7 +847,6 @@ export default function ProgressTrackingViz({ data }) {
         </div>
       </div>
 
-      {/* PANEL CONTENT */}
       {mainTab==="daily" ? <DailyReportPanel /> : <POStatusPanel />}
     </div>
   );
