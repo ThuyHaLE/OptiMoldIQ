@@ -789,8 +789,8 @@ class TestCacheManagement:
         
         stats = orchestrator_with_workflows.get_cache_stats()
         
-        assert stats["workflow1"] == 2
-        assert stats["workflow2"] == 1
+        assert stats['execution']["workflow1"] == 2
+        assert stats['execution']["workflow2"] == 1
     
     @patch('optiMoldMaster.opti_mold_master.WorkflowExecutor')
     def test_get_cache_stats_empty(

@@ -134,8 +134,8 @@ class TestCompleteIntegration:
         result = orchestrator.execute("test_workflow")
 
         assert result.is_success()
-        assert result.results["Module1"]["status"] == "success"
-        assert result.results["Module2"]["status"] == "success"
+        assert result.summary["modules"]["Module1"] == "success"
+        assert result.summary["modules"]["Module2"] == "success"
 
     @patch('modules.get_module')
     @patch('modules.AVAILABLE_MODULES', new_callable=dict)
@@ -205,7 +205,7 @@ class TestCompleteIntegration:
         result = orchestrator.execute("fail_workflow")
 
         assert result.is_failed()
-        assert result.results["Module3"]["status"] == "failed"
+        assert result.summary["modules"]["Module3"] == "failed"
 
 
 class TestDependencyPolicyIntegration:
@@ -242,7 +242,7 @@ class TestDependencyPolicyIntegration:
         result = orchestrator.execute("strict_test")
 
         assert result.is_success()
-        assert result.results["Module2"]["status"] == "skipped"
+        assert result.summary["modules"]["Module2"] == "skipped"
 
     @patch('modules.get_module')
     @patch('modules.AVAILABLE_MODULES', new_callable=dict)
@@ -293,8 +293,7 @@ class TestDependencyPolicyIntegration:
         result = orchestrator.execute("flexible_test")
 
         assert result.is_success()
-        assert result.results["FlexibleModule"]["status"] == "success"
-
+        assert result.summary["modules"]["FlexibleModule"] == "success"
 
 class TestCacheIntegration:
 
@@ -426,4 +425,4 @@ class TestErrorPropagation:
         result = orchestrator.execute("error_test")
 
         assert result.is_failed()
-        assert result.results["Module3"]["errors"] == ["Intentional failure"]
+        assert result.summary["first_failed"] == "Module3"
