@@ -801,8 +801,8 @@ class TestCacheManagement:
         """Test getting cache stats when no executors"""
         stats = orchestrator_with_workflows.get_cache_stats()
         
-        assert isinstance(stats, dict)
-        assert len(stats) == 0
+        assert isinstance(stats['execution'], dict)
+        assert len(stats['execution']) == 0
 
 
 # ============================================================================

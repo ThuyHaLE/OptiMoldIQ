@@ -26,7 +26,10 @@ class WorkflowRunRecord:
     duration: float
     summary: Dict[str, Any]
     viz_data: Optional[Dict[str, Any]]
-
+    def is_success(self) -> bool:
+        return self.status == 'success'
+    def is_failed(self) -> bool:
+        return self.status == 'failed'
     def to_dict(self) -> Dict[str, Any]:
         return {
             "execution_id": self.execution_id,
