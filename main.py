@@ -1,22 +1,17 @@
 # main.py
 
-from optiMoldMaster.opti_mold_master import (
-    OptiMoldIQ, ModuleRegistry)
+from workflows.registry.registry import ModuleRegistry
+from optiMoldMaster.opti_mold_master import OptiMoldIQ
+from api.server import create_app
 
-# Initialize
 registry = ModuleRegistry()
-
 orchestrator = OptiMoldIQ(
     module_registry=registry,
     workflows_dir="workflows/definitions"
 )
 
-# List available workflows
-print(orchestrator.list_workflows())
-# ['update_database', 'full_pipeline', 'validate_only']
+app = create_app(orchestrator)
 
-# Execute by name
-result = orchestrator.execute("update_database_strict")
-
-# Execute with fresh cache
-result = orchestrator.execute("update_database_strict", clear_cache=True)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
