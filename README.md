@@ -120,7 +120,7 @@ Then open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ### Option C — Run workflows via Python (no UI)
 
-`main.py` discovers and lists all available workflows, then runs `update_database_strict` as a demo.
+`dev_main.py` discovers and lists all available workflows, then runs `update_database_strict` as a demo.
 
 To run a different workflow:
 
@@ -242,10 +242,10 @@ All workflows write results to the shared database. For workflows that include a
 > **process_initial_planning** — generate and review the initial production plan
 > ![Workflow: process_initial_planning](docs/v4/demo/process_initial_planning.gif)
 
-> **analyze_production_records (overview)** — production analytics dashboard, summary view
+> **analyze_production_records (overview)** — production analytics dashboard for machine layout change, mold-machine pair change
 > ![Workflow: analyze_production_records (1)](docs/v4/demo/analyze_production_records_1.gif)
 
-> **analyze_production_records (detail)** — production analytics dashboard, drill-down view
+> **analyze_production_records (detail)** — production analytics dashboard for day-month-year level
 > ![Workflow: analyze_production_records (2)](docs/v4/demo/analyze_production_records_2.gif)
 
 ---

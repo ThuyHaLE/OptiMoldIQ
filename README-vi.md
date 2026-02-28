@@ -1,14 +1,14 @@
 🌐 [English](README.md) | [Tiếng Việt](README-vi.md)
 
 # OptiMoldIQ
-**Hệ thống lập kế hoạch sản xuất, phân tích và giám sát vận hành dựa trên workflow cho ngành ép nhựa.**
+**Hệ thống lập kế hoạch sản xuất, phân tích và giám sát vận hành dựa trên workflow — dành cho ngành đúc nhựa.**
 
 ---
 
 ## Trạng thái dự án
 
-- **Milestone ổn định hiện tại:** **Milestone 04 – Framework Release**
-- **Milestone tiếp theo:** Milestone 05 – UI Release & Task Orchestration
+- **Milestone ổn định hiện tại:** **Milestone 05 – UI Release**
+- **Milestone tiếp theo:** Milestone 06 – Task Orchestration & Cloud Integration
 
 Chú thích: ✅ Hoàn thành | 🔄 Đang thực hiện | 📝 Đã lên kế hoạch
 
@@ -16,18 +16,18 @@ Chú thích: ✅ Hoàn thành | 🔄 Đang thực hiện | 📝 Đã lên kế h
 
 ## Tổng quan
 
-**OptiMoldIQ** là hệ thống điều phối workflow dựa trên module, phục vụ tối ưu hóa sản xuất. Hệ thống đóng gói các business agent thành các module chuẩn hóa, kết hợp chúng thành các workflow khai báo, và điều phối thực thi với cơ chế kiểm tra dependency có thể cấu hình — được thiết kế cho ngành ép phun nhựa.
+**OptiMoldIQ** là hệ thống điều phối workflow theo module, phục vụ tối ưu hóa sản xuất. Hệ thống đóng gói các business agent thành module chuẩn hóa, kết hợp chúng thành các workflow khai báo, và điều phối thực thi với cơ chế kiểm tra dependency có thể cấu hình — được thiết kế cho hoạt động đúc phun nhựa.
 
 Hệ thống phát triển qua các milestone được định nghĩa rõ ràng, ưu tiên:
 - Business logic xác định (deterministic)
-- Khả năng quan sát trước khi tối ưu hóa
+- Quan sát được trước khi tối ưu
 - Phát triển tương thích ngược
 
-Milestone 04 hình thức hóa các hợp đồng framework được thiết lập từ Milestone 03, phát hành một execution runtime ổn định với các hợp đồng công khai cho module, workflow và dependency policy.
+Milestone 05 giới thiệu control panel chạy trên trình duyệt, xây dựng bằng React + Vite, cho phép người dùng không có nền tảng kỹ thuật kích hoạt workflow, theo dõi quá trình thực thi và khám phá dữ liệu phân tích — mà không cần chạm vào code. Panel được phục vụ trực tiếp bởi FastAPI backend và có thể truy cập qua URL chia sẻ.
 
 ---
 
-## Lộ trình phát triển
+## Tiến trình phát triển
 
 ```
 M01: Core Data Pipeline
@@ -36,27 +36,34 @@ M02: Production Planning Workflow
 ↓
 M03: Analytics & Dashboards (Framework-ready)
 ↓
-M04: Framework Release ← hiện tại
+M04: Framework Release
 ↓
-M05: UI Release & Task Orchestration
+M05: UI Release ← hiện tại
+↓
+M06: Task Orchestration & Cloud Integration
 ```
 
 ---
 
-## Tổng quan kiến trúc
+## Kiến trúc hệ thống
 
 OptiMoldIQ theo kiến trúc **workflow-driven, module-based**:
 
-- **Modules** đóng gói business agent theo hợp đồng `BaseModule` chung
+- **Modules** đóng gói business agent theo contract chung `BaseModule`
 - **Workflows** là các định nghĩa JSON khai báo — không cần thay đổi code để cấu hình lại pipeline
-- **Dependency policies** (`strict` / `hybrid` / `flexible`) kiểm soát cách mỗi module phân giải đầu vào
-- **ModuleRegistry** kết hợp đăng ký Python class và YAML config thành nguồn thông tin duy nhất
+- **Dependency policies** (`strict` / `hybrid` / `flexible`) kiểm soát cách mỗi module giải quyết đầu vào
+- **ModuleRegistry** kết hợp đăng ký Python class và YAML config thành một nguồn sự thật duy nhất
+- **Control Panel** là frontend React + Vite được phục vụ qua FastAPI — không cần server frontend riêng
 
 ```
 OptiMoldIQ (Orchestration)
     └── WorkflowExecutor (Execution Engine)
             └── Modules (Business Logic) ← tất cả kế thừa BaseModule
                     └── Shared Database / Filesystem
+
+FastAPI (Backend + Static Server)
+    └── control_panel_dist/ ← React UI đã build sẵn
+            └── Browser (Control Panel)
 ```
 
 👉 Tài liệu kiến trúc đầy đủ:
@@ -69,18 +76,53 @@ OptiMoldIQ (Orchestration)
 
 ---
 
-## Quickstart
+## Bắt đầu nhanh
+
+### Phương án A — Chạy qua Google Colab (Khuyến nghị cho người dùng không có nền tảng kỹ thuật)
+
+Không cần cài đặt cục bộ. Mở notebook và làm theo các bước:
+
+👉 [Mở trong Google Colab](https://colab.research.google.com/github/ThuyHaLE/OptiMoldIQ/blob/main/control_panel_notebook.ipynb)
+
+**Yêu cầu:**
+- Tài khoản Google
+- Tài khoản ngrok miễn phí → lấy authtoken tại [dashboard.ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)
+
+Notebook sẽ tự động:
+1. Clone repository
+2. Cài đặt toàn bộ dependencies
+3. Build control panel UI
+4. Khởi chạy ứng dụng và cung cấp URL chia sẻ
+
+---
+
+### Phương án B — Chạy cục bộ
 
 ```bash
 git clone https://github.com/ThuyHaLE/OptiMoldIQ.git
 cd OptiMoldIQ
 pip install -r requirements.txt
+pip install adjustText
+
+# Build control panel (yêu cầu Node.js)
+cd control_panel
+npm install
+npm run build
+cd ..
+
+# Khởi động server
 python main.py
 ```
 
-`main.py` tự động phát hiện và liệt kê tất cả workflow hiện có, sau đó chạy `update_database_strict` làm demo.
+Sau đó mở [http://localhost:8000](http://localhost:8000) trên trình duyệt.
 
-Để chạy một workflow khác:
+---
+
+### Phương án C — Chạy workflow qua Python (không dùng UI)
+
+`dev_main.py` tự động tìm và liệt kê tất cả workflow khả dụng, sau đó chạy `update_database_strict` làm demo.
+
+Để chạy workflow khác:
 
 ```python
 result = orchestrator.execute("process_initial_planning")
@@ -100,7 +142,7 @@ result = orchestrator.execute("update_database_strict", clear_cache=True)
 
 ```
 OptiMoldIQ/
-├── main.py                          # Điểm vào demo
+├── main.py                          # Entrypoint (API server + workflow demo)
 ├── configs/
 │   ├── module_registry.yaml         # Registry cấu hình module trung tâm
 │   ├── modules/                     # YAML config cho từng module
@@ -113,6 +155,10 @@ OptiMoldIQ/
 │   ├── dependency_policies/         # strict / hybrid / flexible
 │   ├── executor.py                  # Workflow execution engine
 │   └── registry/                   # Module registry
+├── api/                             # FastAPI routes & server
+├── control_panel/                   # React + Vite source (npm run build)
+├── control_panel_dist/              # UI đã build — được phục vụ bởi FastAPI
+├── control_panel_notebook.ipynb     # Notebook khởi chạy trên Colab
 └── requirements.txt
 ```
 
@@ -129,29 +175,29 @@ OptiMoldIQ/
 
 ### Dành cho Module Developer
 - [BaseModule API](docs/v3/reference/base_module_api.md)
-- [Thêm một Module mới](docs/v3/guides/adding_modules.md)
+- [Thêm Module mới](docs/v3/guides/adding_modules.md)
 - [Cấu hình](docs/v3/guides/configuration.md)
 
 ### Dành cho Workflow Designer
 - [Tạo Workflow](docs/v3/guides/creating_workflows.md)
 - [Workflow Schema](docs/v3/reference/workflow_schema.md)
 - [Dependency Policies](docs/v3/reference/dependency_policies.md)
-- [Thêm một Dependency Policy mới](docs/v3/guides/adding_dependency_policy.md)
+- [Thêm Dependency Policy](docs/v3/guides/adding_dependency_policy.md)
 
 ---
 
 ## Bối cảnh nghiệp vụ
 
-OptiMoldIQ giải quyết các thách thức phổ biến trong sản xuất ép nhựa:
-- Dữ liệu vận hành phân mảnh giữa các ca và máy
-- Hiệu quả sử dụng khuôn–máy chưa tối ưu
-- Khả năng quan sát hạn chế theo các khung thời gian kế hoạch
+OptiMoldIQ giải quyết các thách thức phổ biến trong sản xuất đúc nhựa:
+- Dữ liệu vận hành phân mảnh theo ca và máy
+- Hiệu suất sử dụng khuôn – máy chưa được tối ưu
+- Khả năng quan sát hạn chế theo các khung thời gian lập kế hoạch
 
-👉 [Vấn đề nghiệp vụ](docs/v2/OptiMoldIQ-business-problem.md) | [Giải pháp theo vấn đề](docs/v2/OptiMoldIQ-problem_driven_solution.md)
+👉 [Bài toán nghiệp vụ](docs/v2/OptiMoldIQ-business-problem.md) | [Giải pháp theo hướng vấn đề](docs/v2/OptiMoldIQ-problem_driven_solution.md)
 
 ---
 
-## Milestones
+## Các Milestone
 
 ### Milestone 01: Core Data Pipeline Agents (Hoàn thành tháng 7/2025)
 > 👉 [Chi tiết](docs/v1/milestones/OptiMoldIQ-milestone_01.md)
@@ -165,15 +211,42 @@ OptiMoldIQ giải quyết các thách thức phổ biến trong sản xuất ép
 ### Milestone 04: Framework Release (Hoàn thành tháng 2/2026)
 > 👉 [Chi tiết](docs/v3/milestones/OptiMoldIQ-milestone_04.md)
 
+### Milestone 05: UI Release (Hoàn thành tháng 2/2026)
+> Control panel chạy trên trình duyệt, cho phép người dùng không có nền tảng kỹ thuật tương tác với workflow của OptiMoldIQ mà không cần viết code. Xây dựng bằng React + Vite, phục vụ qua FastAPI, và có thể triển khai ngay lập tức qua Google Colab + ngrok.
+>
+> **Điểm mới:**
+> - Control panel React + Vite (`control_panel/`)
+> - FastAPI phục vụ static file từ `control_panel_dist/`
+> - Notebook khởi chạy trên Google Colab (`control_panel_notebook.ipynb`)
+> - Giao diện kích hoạt workflow, theo dõi thực thi và xem analytics
+>
+> 👉 [Chi tiết](docs/v4/milestones/OptiMoldIQ-milestone_05.md)
+
 ---
 
 ## Demo & Trực quan hóa
 
 **🌐 OptiMoldIQ Lite (Demo tương tác)**
 
-Khám phá các giai đoạn workflow và dashboard mà không cần chạy hệ thống đầy đủ.
+Khám phá các giai đoạn workflow và dashboard mà không cần chạy toàn bộ hệ thống.
 
 > 👉 [Xem demo](https://thuyhale.github.io/OptiMoldIQ/)
+
+**▶️ Demo Control Panel**
+
+Tất cả workflow đều ghi kết quả vào shared database. Với các workflow có module trực quan hóa (`ProgressTrackingModule`, `AnalyticsModule`, `InitialPlanningModule`), control panel hiển thị thêm một panel output tương tác để khám phá nhanh — ngay trong giao diện, không cần rời khỏi ứng dụng.
+
+> **track_order_progress** — theo dõi tiến độ thời gian thực theo đơn hàng và máy
+> ![Workflow: track_order_progress](docs/v4/demo/track_order_progress.gif)
+
+> **process_initial_planning** — tạo và xem xét kế hoạch sản xuất ban đầu
+> ![Workflow: process_initial_planning](docs/v4/demo/process_initial_planning.gif)
+
+> **analyze_production_records (tổng quan)** — dashboard phân tích thay đổi layout machine và các cặp mold-machine
+> ![Workflow: analyze_production_records (1)](docs/v4/demo/analyze_production_records_1.gif)
+
+> **analyze_production_records (chi tiết)** — dashboard phân tích sản xuất theo ngày/tháng/năm
+> ![Workflow: analyze_production_records (2)](docs/v4/demo/analyze_production_records_2.gif)
 
 ---
 
