@@ -250,12 +250,11 @@
             { name: 'update_database_strict',             policy: 'strict',   description: 'Full pipeline — strict dependency enforcement' },
             { name: 'update_database_hybrid',             policy: 'hybrid',   description: 'Full pipeline — hybrid dependency fallback' },
             { name: 'update_database_flexible',           policy: 'flexible', description: 'Full pipeline — flexible dependency tolerance' },
-            { name: 'track_order_progress',               policy: 'strict',   description: 'Production progress tracking across orders and machines' },
-            { name: 'extract_historical_features',        policy: 'strict',   description: 'Historical feature extraction for planning' },
-            { name: 'process_initial_planning',           policy: 'strict',   description: 'Initial production plan generation' },
-            { name: 'analyze_production_records_strict',  policy: 'strict',   description: 'Analytics orchestration — strict dependency' },
-            { name: 'analyze_production_records',         policy: 'hybrid',   description: 'Analytics orchestration — hybrid dependency' },
-            { name: 'build_production_dashboard',         policy: 'strict',   description: 'Dashboard generation' },
+            { name: 'track_order_progress_strict',        policy: 'strict',   description: 'Production progress tracking across orders and machines — strict dependency enforcement' },
+            { name: 'extract_historical_features_strict', policy: 'strict',   description: 'Historical feature extraction for planning — strict dependency enforcement' },
+            { name: 'process_initial_planning_strict',    policy: 'strict',   description: 'Initial production plan generation — strict dependency enforcement' },
+            { name: 'analyze_production_records_strict',  policy: 'strict',   description: 'Analytics orchestration — strict dependency enforcement' },
+            { name: 'build_production_dashboard_strict',  policy: 'strict',   description: 'Dashboard generation — strict dependency enforcement' },
         ];
 
         const policyColors = {
