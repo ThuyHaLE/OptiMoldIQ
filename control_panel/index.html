@@ -227,6 +227,8 @@
     } catch(err) {
       console.error('Bootstrap error:', err);
       document.getElementById('loading').classList.add('hidden');
+      document.getElementById('error-panel').classList.add('visible');
+      document.getElementById('error-msg').textContent = err.stack || String(err);
     }
   }
 
