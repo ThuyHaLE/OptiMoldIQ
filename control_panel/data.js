@@ -1,6 +1,6 @@
 // data.js — Mock data (converted: no ES module syntax)
 
-const MOCK_WORKFLOWS = [
+window.MOCK_WORKFLOWS = [
   {
     workflow_name: "update_database_strict",
     description: "Update and validate database pipeline",
@@ -40,7 +40,7 @@ const MOCK_WORKFLOWS = [
 ];
 
 // viz_data keyed by workflow_name
-const MOCK_VIZ_CACHE = {
+window.MOCK_VIZ_CACHE = {
   update_database_strict: {
         "execution_id": "d42a51ed",
         "workflow_name": "update_database_strict",
