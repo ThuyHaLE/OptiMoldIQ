@@ -203,7 +203,7 @@
       document.getElementById('load-label').textContent = 'RENDERING COMPONENTS…';
 
       // Analytics (analyze_production_records_strict)
-      const analyticsData = cache['analyze_production_records_strict'];
+      const analyticsData = cache['analyze_production_records_strict']?.viz_data;
       alert('analyticsData keys: ' + (analyticsData ? Object.keys(analyticsData).join(', ') : 'NULL'));
       if (analyticsData && window.AnalyticsViz) {
         const root = ReactDOM.createRoot(document.getElementById('root-analytics'));
@@ -211,14 +211,14 @@
       }
 
       // Progress Tracking (track_order_progress_strict)
-      const trackingData = cache['track_order_progress_strict'];
+      const trackingData  = cache['track_order_progress_strict']?.viz_data;
       if (trackingData && window.ProgressTrackingViz) {
         const root = ReactDOM.createRoot(document.getElementById('root-tracking'));
         root.render(React.createElement(window.ProgressTrackingViz, { data: trackingData }));
       }
 
       // Planning (process_initial_planning_strict)
-      const planningData = cache['process_initial_planning_strict'];
+      const planningData  = cache['process_initial_planning_strict']?.viz_data;
       if (planningData && window.InitialPlanningViz) {
         const root = ReactDOM.createRoot(document.getElementById('root-planning'));
         root.render(React.createElement(window.InitialPlanningViz, { data: planningData }));
