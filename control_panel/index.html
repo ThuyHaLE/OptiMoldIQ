@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OptiMoldIQ — Control Panel</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #07090f; font-family: monospace; }
+
+    /* ── OUTER SHELL NAV ── */
+    #shell-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+      height: 40px;
+      background: #020407;
+      border-bottom: 1px solid #1a2438;
+      display: flex; align-items: center;
+      padding: 0 20px; gap: 0;
+    }
+    #shell-nav .brand {
+      display: flex; align-items: center; gap: 8px;
+      margin-right: 24px;
+    }
+    #shell-nav .brand-bars { display: flex; gap: 2px; align-items: flex-end; }
+    #shell-nav .brand-bar { width: 2px; border-radius: 1px; }
+    #shell-nav .brand-name {
+      font-size: 10px; letter-spacing: 0.2em; color: #2a3a55;
+      font-family: 'DM Mono', monospace;
+    }
+    #shell-nav .brand-name span { color: #3b82f6; }
+    .shell-tab {
+      height: 100%; padding: 0 16px;
+      background: transparent; border: none;
+      border-bottom: 2px solid transparent;
+      border-top: 2px solid transparent;
+      color: #334155; cursor: pointer;
+      font-family: monospace; font-size: 10px; letter-spacing: 0.08em;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+      transition: all 0.15s;
+    }
+    .shell-tab.active { border-bottom-color: #3b82f6; color: #60a5fa; background: rgba(59,130,246,0.05); }
+    .shell-tab:hover:not(.active) { color: #475569; }
+    .shell-tab .tab-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; }
+    .shell-tab .tab-sub   { font-size: 7px;  letter-spacing: 0.1em; opacity: 0.5; }
+    #shell-nav .spacer { flex: 1; }
+    #shell-nav .back-btn {
+      font-size: 9px; color: #1e3a5f; letter-spacing: 0.1em;
+      text-decoration: none; padding: 4px 10px;
+      border: 1px solid #1e3a5f; border-radius: 4px;
+      transition: all 0.15s;
+    }
+    #shell-nav .back-btn:hover { color: #3b82f6; border-color: #3b82f6; }
+
+    /* ── PANELS ── */
+    #panel-container {
+      position: fixed; top: 40px; left: 0; right: 0; bottom: 0;
+      overflow: hidden;
+    }
+    .panel {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      overflow: auto;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .panel.active { opacity: 1; pointer-events: all; }
+
+    /* ── LOADING STATE ── */
+    #loading {
+      position: fixed; inset: 0; background: #07090f;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+      z-index: 99999;
+    }
+    #loading.hidden { display: none; }
+    .load-bars { display: flex; gap: 4px; align-items: flex-end; }
+    .load-bar { width: 4px; border-radius: 2px; animation: loadPulse 1s ease-in-out infinite; }
+    .load-bar:nth-child(1) { height: 16px; background: #3b82f6; animation-delay: 0s; }
+    .load-bar:nth-child(2) { height: 24px; background: #a78bfa; animation-delay: 0.15s; }
+    .load-bar:nth-child(3) { height: 20px; background: #10b981; animation-delay: 0.3s; }
+    .load-bar:nth-child(4) { height: 28px; background: #3b82f6; animation-delay: 0.45s; }
+    .load-bar:nth-child(5) { height: 16px; background: #a78bfa; animation-delay: 0.6s; }
+    @keyframes loadPulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+    #load-label { font-size: 9px; color: #1e3a5f; letter-spacing: 0.2em; }
+
+    /* ── ERROR STATE ── */
+    #error-panel {
+      position: fixed; inset: 40px 0 0 0; background: #07090f;
+      display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      font-family: monospace; padding: 40px;
+    }
+    #error-panel.visible { display: flex; }
+    #error-panel h2 { color: #ef4444; font-size: 14px; letter-spacing: 0.1em; }
+    #error-panel pre { color: #475569; font-size: 11px; max-width: 600px; white-space: pre-wrap; text-align: left; }
+  </style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="load-bars">
+    <div class="load-bar"></div>
+    <div class="load-bar"></div>
+    <div class="load-bar"></div>
+    <div class="load-bar"></div>
+    <div class="load-bar"></div>
+  </div>
+  <div id="load-label">INITIALIZING CONTROL PANEL…</div>
+</div>
+
+<!-- ERROR -->
+<div id="error-panel">
+  <h2>RENDER ERROR</h2>
+  <pre id="error-msg"></pre>
+</div>
+
+<!-- SHELL NAV -->
+<nav id="shell-nav">
+  <div class="brand">
+    <div class="brand-bars">
+      <div class="brand-bar" style="height:10px;background:#3b82f6"></div>
+      <div class="brand-bar" style="height:14px;background:#a78bfa"></div>
+      <div class="brand-bar" style="height:12px;background:#10b981"></div>
+    </div>
+    <div class="brand-name">OPTI<span>MOLD</span>IQ</div>
+  </div>
+  <button class="shell-tab active" data-panel="analytics"  onclick="switchPanel('analytics')">
+    <span class="tab-label">ANALYTICS</span>
+    <span class="tab-sub">Layout · Pairing · Intelligence</span>
+  </button>
+  <button class="shell-tab" data-panel="tracking"   onclick="switchPanel('tracking')">
+    <span class="tab-label">PROGRESS</span>
+    <span class="tab-sub">Daily Report · PO Status</span>
+  </button>
+  <button class="shell-tab" data-panel="planning"   onclick="switchPanel('planning')">
+    <span class="tab-label">PLANNING</span>
+    <span class="tab-sub">Producing · Pending POs</span>
+  </button>
+  <div class="spacer"></div>
+  <a href="../index.html" class="back-btn">← BACK TO DEMO</a>
+</nav>
+
+<!-- PANELS -->
+<div id="panel-container">
+  <div class="panel active" id="panel-analytics"><div id="root-analytics"></div></div>
+  <div class="panel"        id="panel-tracking"><div id="root-tracking"></div></div>
+  <div class="panel"        id="panel-planning"><div id="root-planning"></div></div>
+</div>
+
+<!-- React + Babel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<!-- Configs first -->
+<script src="analytics_module/config.js"></script>
+<script src="progress_tracking_module/config.js"></script>
+<script src="initial_planning_module/config.js"></script>
+
+<!-- Components (Babel transforms JSX inline — files use plain JS with React.createElement via IIFE) -->
+<script type="text/babel" data-presets="react" src="analytics_module/analytics.js"></script>
+<script type="text/babel" data-presets="react" src="progress_tracking_module/tracking.js"></script>
+<script type="text/babel" data-presets="react" src="initial_planning_module/planning.js"></script>
+
+<script>
+  // ── PANEL SWITCHER ────────────────────────────────────────
+  function switchPanel(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.shell-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    document.querySelector(`[data-panel="${name}"]`).classList.add('active');
+  }
+
+  // ── MOCK VIZ DATA ─────────────────────────────────────────
+  // Replace window.VIZ_CACHE with real data from your backend
+  // Structure: { workflow_name: { ...vizData } }
+  //
+  // For now we use a minimal placeholder that shows empty states.
+  // To wire real data: set window.VIZ_CACHE before this script runs,
+  // or fetch it from an API endpoint.
+
+  async function loadVizCache() {
+    // If VIZ_CACHE was injected by the page that opened this (e.g. App.jsx passes it via postMessage or URL param)
+    if (window.VIZ_CACHE) return window.VIZ_CACHE;
+
+    // Try fetching viz_cache.json if it exists alongside this file
+    try {
+      const res = await fetch('./viz_cache.json');
+      if (res.ok) return await res.json();
+    } catch(e) { /* no file */ }
+
+    return null;
+  }
+
+  // ── BOOTSTRAP ────────────────────────────────────────────
+  async function bootstrap() {
+    try {
+      document.getElementById('load-label').textContent = 'LOADING VIZ DATA…';
+      const cache = await loadVizCache();
+
+      if (!cache) {
+        // Show placeholder UI with "no data" message in each panel
+        renderNoData();
+        return;
+      }
+
+      document.getElementById('load-label').textContent = 'RENDERING COMPONENTS…';
+
+      // Analytics (analyze_production_records_strict)
+      const analyticsData = cache['analyze_production_records_strict'];
+      if (analyticsData && window.AnalyticsViz) {
+        const root = ReactDOM.createRoot(document.getElementById('root-analytics'));
+        root.render(React.createElement(window.AnalyticsViz, { data: analyticsData }));
+      }
+
+      // Progress Tracking (track_order_progress_strict)
+      const trackingData = cache['track_order_progress_strict'];
+      if (trackingData && window.ProgressTrackingViz) {
+        const root = ReactDOM.createRoot(document.getElementById('root-tracking'));
+        root.render(React.createElement(window.ProgressTrackingViz, { data: trackingData }));
+      }
+
+      // Planning (process_initial_planning_strict)
+      const planningData = cache['process_initial_planning_strict'];
+      if (planningData && window.InitialPlanningViz) {
+        const root = ReactDOM.createRoot(document.getElementById('root-planning'));
+        root.render(React.createElement(window.InitialPlanningViz, { data: planningData }));
+      }
+
+      document.getElementById('loading').classList.add('hidden');
+
+    } catch(err) {
+      console.error('Bootstrap error:', err);
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('error-panel').classList.add('visible');
+      document.getElementById('error-msg').textContent = err.stack || String(err);
+    }
+  }
+
+  function renderNoData() {
+    const noDataStyle = {
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      height: '100%', gap: 16,
+      fontFamily: 'monospace',
+    };
+    const panels = [
+      ['root-analytics', 'ANALYTICS'],
+      ['root-tracking',  'PROGRESS TRACKING'],
+      ['root-planning',  'INITIAL PLANNING'],
+    ];
+    panels.forEach(([id, label]) => {
+      const el = document.getElementById(id);
+      el.style.cssText = 'height:100%;display:flex;align-items:center;justify-content:center;';
+      el.innerHTML = `
+        <div style="text-align:center;font-family:monospace;">
+          <div style="font-size:11px;color:#1e3a5f;letter-spacing:0.2em;margin-bottom:8px">${label}</div>
+          <div style="font-size:9px;color:#0f2030;letter-spacing:0.15em">NO VIZ DATA LOADED</div>
+          <div style="font-size:8px;color:#0a1520;margin-top:6px;letter-spacing:0.1em">
+            Provide viz_cache.json or window.VIZ_CACHE to render
+          </div>
+        </div>`;
+    });
+    document.getElementById('loading').classList.add('hidden');
+  }
+
+  // Run after Babel has processed the script tags
+  window.addEventListener('load', () => {
+    // Small delay to let Babel finish transforming
+    setTimeout(bootstrap, 100);
+  });
+</script>
+</body>
+</html>
