@@ -150,6 +150,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 
+<!-- Data FIRST -->
+<script src="data.js"></script>
+  
 <!-- Configs first -->
 <script src="analytics_module/config.js"></script>
 <script src="progress_tracking_module/config.js"></script>
@@ -170,8 +173,7 @@
   }
 
   // ── MOCK VIZ DATA ─────────────────────────────────────────
-  window.VIZ_CACHE = window.MOCK_VIZ_CACHE;
-
+  
   async function loadVizCache() {
     // If VIZ_CACHE was injected by the page that opened this (e.g. App.jsx passes it via postMessage or URL param)
     if (window.VIZ_CACHE) return window.VIZ_CACHE;
