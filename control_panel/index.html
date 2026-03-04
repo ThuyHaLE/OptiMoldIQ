@@ -261,9 +261,20 @@
 
   // Run after Babel has processed the script tags
   window.addEventListener('load', () => {
-    // Small delay to let Babel finish transforming
-    setTimeout(bootstrap, 100);
-  });
+    function tryBootstrap(attempts) {
+        if (window.AnalyticsViz && window.ProgressTrackingViz && window.InitialPlanningViz) {
+            bootstrap();
+        } else if (attempts > 0) {
+            setTimeout(() => tryBootstrap(attempts - 1), 200);
+        } else {
+            // Babel timeout — show error
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error-panel').classList.add('visible');
+            document.getElementById('error-msg').textContent = 'Components failed to load (Babel timeout)';
+        }
+    }
+    tryBootstrap(20);
+});
 </script>
 </body>
 </html>
