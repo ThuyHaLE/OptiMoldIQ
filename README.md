@@ -243,6 +243,7 @@ All workflows write results to the shared database. For workflows that include a
 > ![Workflow: process_initial_planning](docs/v4/demo/process_initial_planning.gif)
 
 > **analyze_production_records (overview)** — production analytics dashboard for machine layout change, mold-machine pair change
+> 
 > ![Workflow: analyze_production_records (1)](docs/v4/demo/analyze_production_records_1.gif)
 
 > **analyze_production_records (detail)** — production analytics dashboard for day-month-year level
