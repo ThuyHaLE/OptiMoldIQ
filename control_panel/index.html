@@ -170,12 +170,7 @@
   }
 
   // ── MOCK VIZ DATA ─────────────────────────────────────────
-  // Replace window.VIZ_CACHE with real data from your backend
-  // Structure: { workflow_name: { ...vizData } }
-  //
-  // For now we use a minimal placeholder that shows empty states.
-  // To wire real data: set window.VIZ_CACHE before this script runs,
-  // or fetch it from an API endpoint.
+  window.VIZ_CACHE = window.MOCK_VIZ_CACHE;
 
   async function loadVizCache() {
     // If VIZ_CACHE was injected by the page that opened this (e.g. App.jsx passes it via postMessage or URL param)
