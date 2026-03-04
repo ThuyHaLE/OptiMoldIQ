@@ -177,8 +177,7 @@
   async function loadVizCache() {
     // If VIZ_CACHE was injected by the page that opened this (e.g. App.jsx passes it via postMessage or URL param)
     if (window.VIZ_CACHE) return window.VIZ_CACHE;
-    alert('cache keys: ' + (cache ? Object.keys(cache).join(', ') : 'NULL'));
-
+    
     // Try fetching viz_cache.json if it exists alongside this file
     try {
       const res = await fetch('./viz_cache.json');
