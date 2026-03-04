@@ -523,6 +523,7 @@ class OptiMoldIQ:
         - daily_data:    latest snapshot across all active POs
         - tracking_data: full production tracking records with parsed maps/lists
         """
+        
         tracker_df["progress"] = round(
             (tracker_df["itemQuantity"] - tracker_df["itemRemain"]) * 100
             / tracker_df["itemQuantity"], 2
@@ -533,15 +534,13 @@ class OptiMoldIQ:
         )
 
         # Daily snapshot — latest record only
-        daily_df = tracker_df[
-            tracker_df["lastestRecordTime"] == tracker_df["lastestRecordTime"].max()
-        ].copy()
-        daily_df = daily_df[[
-            "lastestMachineNo", "poNo", "itemName", "lastestMoldNo", "poETA",
+        daily_cols = [
+            "lastestMachineNo", "poNo", "itemName", "lastestMoldNo", "lastestRecordTime", "poETA",
             "progress", "startedDate", "actualFinishedDate", "itemQuantity",
             "estimatedCapacity", "totalDay", "itemRemain"
-        ]]
-
+        ]
+        daily_df = tracker_df.loc[tracker_df["lastestRecordTime"] == tracker_df["lastestRecordTime"].max(), daily_cols].copy()
+            
         # Full tracking snapshot
         tracking_cols = [
             "poNo", "poReceivedDate", "itemCode", "itemName", "itemType", "poETA",
@@ -555,8 +554,9 @@ class OptiMoldIQ:
         tracking_df = tracker_df[tracking_cols].copy()
 
         # datetime → ISO string
-        for col in tracking_df.select_dtypes(include=["datetime64[ns]"]).columns:
-            tracking_df[col] = tracking_df[col].dt.strftime("%Y-%m-%d")
+        for df in [daily_df, tracking_df]:
+            for col in df.select_dtypes(include=["datetime64[ns]"]).columns:
+                df[col] = df[col].dt.strftime("%Y-%m-%d")
 
         # string-encoded dict → dict
         for col in ["moldShotMap", "machineQuantityMap", "dayQuantityMap",
