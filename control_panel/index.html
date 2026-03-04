@@ -204,7 +204,6 @@
 
       // Analytics (analyze_production_records_strict)
       const analyticsData = cache['analyze_production_records_strict']?.viz_data;
-      alert('analyticsData keys: ' + (analyticsData ? Object.keys(analyticsData).join(', ') : 'NULL'));
       if (analyticsData && window.AnalyticsViz) {
         const root = ReactDOM.createRoot(document.getElementById('root-analytics'));
         root.render(React.createElement(window.AnalyticsViz, { data: analyticsData }));
