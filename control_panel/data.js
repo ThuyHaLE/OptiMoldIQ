@@ -658,3 +658,6 @@ window.MOCK_VIZ_CACHE = {
   }
     },
 };
+
+// Alias — control_panel/index.html dùng window.VIZ_CACHE
+window.VIZ_CACHE = window.MOCK_VIZ_CACHE;
