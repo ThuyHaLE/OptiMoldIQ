@@ -14,83 +14,59 @@
         * { font-family: 'IBM Plex Sans', sans-serif; }
         .mono { font-family: 'IBM Plex Mono', monospace; }
         body { background: #0a0e1a; }
-
         .grid-bg {
             background-image:
                 linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
             background-size: 32px 32px;
         }
-
-        .card {
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(56, 189, 248, 0.12);
-            backdrop-filter: blur(8px);
-        }
-
-        .card-hover {
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .card-hover:hover {
-            border-color: rgba(56, 189, 248, 0.35);
-            box-shadow: 0 0 24px rgba(56, 189, 248, 0.07);
-        }
-
-        .tab-active {
-            background: rgba(56, 189, 248, 0.12);
-            border-color: rgba(56, 189, 248, 0.4);
-            color: #38bdf8;
-        }
-        .tab-inactive {
-            border-color: rgba(255,255,255,0.06);
-            color: #64748b;
-        }
-        .tab-inactive:hover {
-            border-color: rgba(56, 189, 248, 0.2);
-            color: #94a3b8;
-        }
-
+        .card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(56, 189, 248, 0.12); backdrop-filter: blur(8px); }
+        .card-hover { transition: border-color 0.2s, box-shadow 0.2s; }
+        .card-hover:hover { border-color: rgba(56, 189, 248, 0.35); box-shadow: 0 0 24px rgba(56, 189, 248, 0.07); }
+        .tab-active { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; }
+        .tab-inactive { border-color: rgba(255,255,255,0.06); color: #64748b; }
+        .tab-inactive:hover { border-color: rgba(56, 189, 248, 0.2); color: #94a3b8; }
+        .tab-cp-active { background: rgba(99, 102, 241, 0.12); border-color: rgba(99, 102, 241, 0.45); color: #a5b4fc; }
+        .tab-cp-inactive { border-color: rgba(99, 102, 241, 0.12); color: #4b5563; }
+        .tab-cp-inactive:hover { border-color: rgba(99, 102, 241, 0.3); color: #818cf8; }
         .status-complete { color: #34d399; }
         .status-progress { color: #fbbf24; }
         .status-planned  { color: #94a3b8; }
-
         .badge-complete { background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
         .badge-progress { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
         .badge-planned  { background: rgba(148, 163, 184, 0.08); color: #94a3b8; border: 1px solid rgba(148,163,184,0.15); }
-
-        .stat-card {
-            background: rgba(15, 23, 42, 0.9);
-            border: 1px solid rgba(56, 189, 248, 0.1);
-        }
-
-        .glow-text {
-            text-shadow: 0 0 40px rgba(56, 189, 248, 0.3);
-        }
-
-        .tag {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            color: #818cf8;
-            font-family: 'IBM Plex Mono', monospace;
-        }
-
-        @keyframes pulse-slow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+        .stat-card { background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(56, 189, 248, 0.1); }
+        .glow-text { text-shadow: 0 0 40px rgba(56, 189, 248, 0.3); }
+        .tag { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: #818cf8; font-family: 'IBM Plex Mono', monospace; }
+        @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
-
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #0a0e1a; }
         ::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.2); border-radius: 2px; }
+        .cp-iframe-wrapper {
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #07090f;
+            position: relative;
+        }
+        .cp-iframe-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #a78bfa, #10b981, #a78bfa, #3b82f6);
+            background-size: 200% 100%;
+            animation: shimmer 3s linear infinite;
+            z-index: 1;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     </style>
 </head>
 <body class="grid-bg min-h-screen">
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState } = React;
-
         const Icon = ({ d, size = 16, className = '' }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
@@ -98,7 +74,6 @@
                 {Array.isArray(d) ? d.map((path, i) => <path key={i} d={path}/>) : <path d={d}/>}
             </svg>
         );
-
         const ICONS = {
             brain: ["M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z","M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z","M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"],
             db: ["M12 2C7.58 2 4 3.34 4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5c0-1.66-3.58-3-8-3z","M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3","M4 8c0 1.66 3.58 3 8 3s8-1.34 8-3"],
@@ -112,140 +87,31 @@
             data: ["M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"],
             pkg: ["M16.5 9.4 7.55 4.24","M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z","M3.27 6.96 12 12.01l8.73-5.05","M12 22.08V12"],
             monitor: ["M20 3H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z","M8 21h8","M12 17v4"],
+            externalLink: ["M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6","M15 3h6v6","M10 14L21 3"],
         };
-
         const StatusDot = ({ status }) => {
             if (status === '✅') return <span className="inline-flex items-center gap-1 text-xs badge-complete rounded-full px-2 py-0.5">Complete</span>;
             if (status === '🔄') return <span className="inline-flex items-center gap-1 text-xs badge-progress rounded-full px-2 py-0.5 pulse-slow">In Progress</span>;
             return <span className="inline-flex items-center gap-1 text-xs badge-planned rounded-full px-2 py-0.5">Planned</span>;
         };
-
         const agents = [
-            {
-                id: 'optiMoldMaster',
-                name: 'OptiMoldIQ',
-                type: 'Orchestrator',
-                status: '✅',
-                description: 'Top-level orchestrator. Auto-discovers workflow definitions, manages execution cache, viz cache, and chains workflows with configurable stop-on-failure behavior.',
-                icon: 'brain',
-                subComponents: null
-            },
-            {
-                id: 'dataPipeline',
-                name: 'DataPipelineModule',
-                type: 'Module',
-                status: '✅',
-                description: 'Collects and normalizes raw manufacturing data into clean parquet reference and transactional tables.',
-                icon: 'db',
-                subComponents: ['DataCollector']
-            },
-            {
-                id: 'validation',
-                name: 'ValidationModule',
-                type: 'Module',
-                status: '✅',
-                description: 'Cross-checks production records against reference databases. Flags PO mismatches and invalid item references.',
-                icon: 'check',
-                subComponents: null
-            },
-            {
-                id: 'orderTracker',
-                name: 'ProgressTrackingModule',
-                type: 'Module',
-                status: '✅',
-                description: 'Consolidates production records into per-PO progress views with mold, machine, and daily output breakdowns.',
-                icon: 'chart',
-                subComponents: ['ProgressTracker']
-            },
-            {
-                id: 'autoPlanner',
-                name: 'InitialPlanningModule',
-                type: 'Module',
-                status: '✅',
-                description: 'Generates initial production schedules for pending and in-progress orders using mold stability indices and feature weights.',
-                icon: 'network',
-                subComponents: ['ProducingOrderPlanner', 'PendingOrderPlanner']
-            },
-            {
-                id: 'analytics',
-                name: 'AnalyticsModule',
-                type: 'Module',
-                status: '✅',
-                description: 'Runs hardware change analysis and multi-level performance analytics at day, month, and year granularity.',
-                icon: 'chart',
-                subComponents: ['HardwareChangeAnalyzer', 'MultiLevelPerformanceAnalyzer']
-            },
-            {
-                id: 'dashboard',
-                name: 'DashboardModule',
-                type: 'Module',
-                status: '✅',
-                description: 'Generates multi-level performance dashboards and hardware change visualizations as PNG outputs.',
-                icon: 'layers',
-                subComponents: ['HardwareChangeVisualizationService', 'MultiLevelPerformanceVisualizationService']
-            },
-            {
-                id: 'controlPanel',
-                name: 'Control Panel',
-                type: 'UI',
-                status: '✅',
-                description: 'Browser-based React + Vite control panel served via FastAPI. Enables non-technical users to trigger workflows, monitor execution, and explore analytics without touching code. Deployable via Google Colab + ngrok.',
-                icon: 'monitor',
-                subComponents: null
-            },
+            { id: 'optiMoldMaster', name: 'OptiMoldIQ', type: 'Orchestrator', status: '✅', description: 'Top-level orchestrator. Auto-discovers workflow definitions, manages execution cache, viz cache, and chains workflows with configurable stop-on-failure behavior.', icon: 'brain', subComponents: null },
+            { id: 'dataPipeline', name: 'DataPipelineModule', type: 'Module', status: '✅', description: 'Collects and normalizes raw manufacturing data into clean parquet reference and transactional tables.', icon: 'db', subComponents: ['DataCollector'] },
+            { id: 'validation', name: 'ValidationModule', type: 'Module', status: '✅', description: 'Cross-checks production records against reference databases. Flags PO mismatches and invalid item references.', icon: 'check', subComponents: null },
+            { id: 'orderTracker', name: 'ProgressTrackingModule', type: 'Module', status: '✅', description: 'Consolidates production records into per-PO progress views with mold, machine, and daily output breakdowns.', icon: 'chart', subComponents: ['ProgressTracker'] },
+            { id: 'autoPlanner', name: 'InitialPlanningModule', type: 'Module', status: '✅', description: 'Generates initial production schedules for pending and in-progress orders using mold stability indices and feature weights.', icon: 'network', subComponents: ['ProducingOrderPlanner', 'PendingOrderPlanner'] },
+            { id: 'analytics', name: 'AnalyticsModule', type: 'Module', status: '✅', description: 'Runs hardware change analysis and multi-level performance analytics at day, month, and year granularity.', icon: 'chart', subComponents: ['HardwareChangeAnalyzer', 'MultiLevelPerformanceAnalyzer'] },
+            { id: 'dashboard', name: 'DashboardModule', type: 'Module', status: '✅', description: 'Generates multi-level performance dashboards and hardware change visualizations as PNG outputs.', icon: 'layers', subComponents: ['HardwareChangeVisualizationService', 'MultiLevelPerformanceVisualizationService'] },
+            { id: 'controlPanel', name: 'Control Panel', type: 'UI', status: '✅', description: 'Browser-based React + Vite control panel served via FastAPI. Enables non-technical users to trigger workflows, monitor execution, and explore analytics without touching code. Deployable via Google Colab + ngrok.', icon: 'monitor', subComponents: null },
         ];
-
         const milestones = [
-            {
-                number: '01',
-                title: 'Core Data Pipeline Agents',
-                status: '✅',
-                date: 'July 2025',
-                description: 'Foundational ETL pipeline, validation, and order tracking. Establishes the shared database structure and changelog convention used by all downstream modules.',
-                tags: ['DataPipelineModule', 'ValidationModule', 'ProgressTrackingModule']
-            },
-            {
-                number: '02',
-                title: 'Initial Production Planning System',
-                status: '✅',
-                date: 'August 2025',
-                description: 'Mold stability scoring, historical feature extraction, and initial plan generation for both pending and in-progress orders.',
-                tags: ['InitialPlanningModule', 'ProducingOrderPlanner', 'PendingOrderPlanner']
-            },
-            {
-                number: '03',
-                title: 'Enhanced Analytics & Dashboard System',
-                status: '✅',
-                date: 'January 2026',
-                description: 'Hardware change tracking, multi-level performance analytics (day/month/year), and visualization pipelines. Framework-ready state.',
-                tags: ['AnalyticsModule', 'DashboardModule', 'HardwareChangeAnalyzer', 'MultiLevelPerformanceAnalyzer']
-            },
-            {
-                number: '04',
-                title: 'Framework Release',
-                status: '✅',
-                date: 'February 2026',
-                description: 'BaseModule contract, ModuleRegistry, declarative workflow JSON definitions, dependency policy system (strict / hybrid / flexible), WorkflowExecutor, and full test suite.',
-                tags: ['BaseModule', 'WorkflowExecutor', 'ModuleRegistry', 'DependencyPolicies']
-            },
-            {
-                number: '05',
-                title: 'UI Release',
-                status: '✅',
-                date: 'February 2026',
-                description: 'Browser-based control panel enabling non-technical users to interact with OptiMoldIQ workflows without code. Built with React + Vite, served via FastAPI, and deployable instantly via Google Colab + ngrok.',
-                tags: ['ControlPanel', 'FastAPI', 'React + Vite', 'Google Colab + ngrok']
-            },
-            {
-                number: '06',
-                title: 'Task Orchestration & Cloud Integration',
-                status: '📝',
-                date: 'Planned',
-                description: 'Coordinates operational tasks — maintenance scheduling, resource management, quality optimization. Cloud deployment and persistent storage integration.',
-                tags: ['TaskOrchestrator', 'CloudIntegration', 'ResinCoordinator', 'MoldCoordinator', 'MachineCoordinator']
-            },
+            { number: '01', title: 'Core Data Pipeline Agents', status: '✅', date: 'July 2025', description: 'Foundational ETL pipeline, validation, and order tracking. Establishes the shared database structure and changelog convention used by all downstream modules.', tags: ['DataPipelineModule', 'ValidationModule', 'ProgressTrackingModule'] },
+            { number: '02', title: 'Initial Production Planning System', status: '✅', date: 'August 2025', description: 'Mold stability scoring, historical feature extraction, and initial plan generation for both pending and in-progress orders.', tags: ['InitialPlanningModule', 'ProducingOrderPlanner', 'PendingOrderPlanner'] },
+            { number: '03', title: 'Enhanced Analytics & Dashboard System', status: '✅', date: 'January 2026', description: 'Hardware change tracking, multi-level performance analytics (day/month/year), and visualization pipelines. Framework-ready state.', tags: ['AnalyticsModule', 'DashboardModule', 'HardwareChangeAnalyzer', 'MultiLevelPerformanceAnalyzer'] },
+            { number: '04', title: 'Framework Release', status: '✅', date: 'February 2026', description: 'BaseModule contract, ModuleRegistry, declarative workflow JSON definitions, dependency policy system (strict / hybrid / flexible), WorkflowExecutor, and full test suite.', tags: ['BaseModule', 'WorkflowExecutor', 'ModuleRegistry', 'DependencyPolicies'] },
+            { number: '05', title: 'UI Release', status: '✅', date: 'February 2026', description: 'Browser-based control panel enabling non-technical users to interact with OptiMoldIQ workflows without code. Built with React + Vite, served via FastAPI, and deployable instantly via Google Colab + ngrok.', tags: ['ControlPanel', 'FastAPI', 'React + Vite', 'Google Colab + ngrok'] },
+            { number: '06', title: 'Task Orchestration & Cloud Integration', status: '📝', date: 'Planned', description: 'Coordinates operational tasks — maintenance scheduling, resource management, quality optimization. Cloud deployment and persistent storage integration.', tags: ['TaskOrchestrator', 'CloudIntegration', 'ResinCoordinator', 'MoldCoordinator', 'MachineCoordinator'] },
         ];
-
         const workflows = [
             { name: 'update_database_strict',             policy: 'strict',   description: 'Full pipeline — strict dependency enforcement' },
             { name: 'update_database_hybrid',             policy: 'hybrid',   description: 'Full pipeline — hybrid dependency fallback' },
@@ -256,13 +122,11 @@
             { name: 'analyze_production_records_strict',  policy: 'strict',   description: 'Analytics orchestration — strict dependency enforcement' },
             { name: 'build_production_dashboard_strict',  policy: 'strict',   description: 'Dashboard generation — strict dependency enforcement' },
         ];
-
         const policyColors = {
             strict:   'text-rose-400 border-rose-400/30 bg-rose-400/8',
             hybrid:   'text-amber-400 border-amber-400/30 bg-amber-400/8',
             flexible: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/8',
         };
-
         const stats = [
             { label: 'Production Records', value: '61,185' },
             { label: 'Purchase Orders',    value: '6,234'  },
@@ -271,58 +135,46 @@
             { label: 'Machines',           value: '49'     },
             { label: 'Materials',          value: '445'    },
         ];
-
-        const TABS = ['overview', 'agents', 'milestones', 'workflows'];
-
+        const TABS = ['overview', 'agents', 'milestones', 'workflows', 'control panel'];
         const App = () => {
-            const [activeTab, setActiveTab]       = useState('overview');
+            const [activeTab, setActiveTab]         = useState('overview');
             const [expandedAgent, setExpandedAgent] = useState(null);
-            const [expandedMs, setExpandedMs]     = useState('05');
-
+            const [expandedMs, setExpandedMs]       = useState('05');
             return (
                 <div className="min-h-screen text-slate-200 p-4 md:p-8">
                     <div className="max-w-5xl mx-auto">
-
                         {/* Header */}
                         <div className="mb-10">
                             <div className="flex items-start gap-4 mb-3">
-                                <div className="mt-1 text-sky-400">
-                                    <Icon d={ICONS.brain} size={32}/>
-                                </div>
+                                <div className="mt-1 text-sky-400"><Icon d={ICONS.brain} size={32}/></div>
                                 <div>
-                                    <h1 className="mono text-3xl md:text-4xl font-semibold text-white glow-text tracking-tight">
-                                        OptiMoldIQ
-                                    </h1>
-                                    <p className="text-slate-400 text-sm mt-1">
-                                        Workflow-driven production planning, analytics, and observability for plastic molding operations
-                                    </p>
+                                    <h1 className="mono text-3xl md:text-4xl font-semibold text-white glow-text tracking-tight">OptiMoldIQ</h1>
+                                    <p className="text-slate-400 text-sm mt-1">Workflow-driven production planning, analytics, and observability for plastic molding operations</p>
                                 </div>
                                 <div className="ml-auto flex-shrink-0">
-                                    <span className="badge-complete rounded-full px-3 py-1 text-xs mono">
-                                        M05 · UI Release
-                                    </span>
+                                    <span className="badge-complete rounded-full px-3 py-1 text-xs mono">M05 · UI Release</span>
                                 </div>
                             </div>
                             <div className="h-px bg-gradient-to-r from-sky-500/30 via-sky-500/10 to-transparent mt-6"/>
                         </div>
-
                         {/* Tabs */}
                         <div className="flex gap-2 mb-8 flex-wrap">
-                            {TABS.map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`mono text-xs px-4 py-2 rounded border transition-all ${activeTab === tab ? 'tab-active' : 'tab-inactive'}`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
+                            {TABS.map(tab => {
+                                const isCp = tab === 'control panel';
+                                const isActive = activeTab === tab;
+                                let cls = 'mono text-xs px-4 py-2 rounded border transition-all ';
+                                if (isCp) { cls += isActive ? 'tab-cp-active' : 'tab-cp-inactive'; }
+                                else { cls += isActive ? 'tab-active' : 'tab-inactive'; }
+                                return (
+                                    <button key={tab} onClick={() => setActiveTab(tab)} className={cls}>
+                                        {isCp ? '⬡ ' : ''}{tab}
+                                    </button>
+                                );
+                            })}
                         </div>
-
                         {/* OVERVIEW */}
                         {activeTab === 'overview' && (
                             <div className="space-y-6">
-                                {/* Stats */}
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                                     {stats.map(s => (
                                         <div key={s.label} className="stat-card rounded-lg p-4">
@@ -331,8 +183,6 @@
                                         </div>
                                     ))}
                                 </div>
-
-                                {/* Architecture */}
                                 <div className="card rounded-xl p-6">
                                     <h2 className="mono text-sm text-sky-400 mb-5 tracking-wide uppercase">Architecture</h2>
                                     <div className="space-y-2 mono text-sm text-slate-400">
@@ -359,18 +209,16 @@
                                         ))}
                                     </div>
                                 </div>
-
-                                {/* System evolution */}
                                 <div className="card rounded-xl p-6">
                                     <h2 className="mono text-sm text-sky-400 mb-5 tracking-wide uppercase">System Evolution</h2>
                                     <div className="flex flex-col md:flex-row gap-2 items-start md:items-center flex-wrap">
                                         {[
-                                            { label: 'M01\nData Pipeline', done: true,    current: false },
-                                            { label: 'M02\nPlanning',      done: true,    current: false },
-                                            { label: 'M03\nAnalytics',     done: true,    current: false },
-                                            { label: 'M04\nFramework',     done: true,    current: false },
-                                            { label: 'M05\nUI Release',    done: true,    current: true  },
-                                            { label: 'M06\nCloud & Tasks', done: false,   current: false },
+                                            { label: 'M01\nData Pipeline', done: true,  current: false },
+                                            { label: 'M02\nPlanning',      done: true,  current: false },
+                                            { label: 'M03\nAnalytics',     done: true,  current: false },
+                                            { label: 'M04\nFramework',     done: true,  current: false },
+                                            { label: 'M05\nUI Release',    done: true,  current: true  },
+                                            { label: 'M06\nCloud & Tasks', done: false, current: false },
                                         ].map((item, i, arr) => (
                                             <React.Fragment key={i}>
                                                 <div className={`rounded-lg px-3 py-2 text-center min-w-[80px] ${item.current ? 'bg-sky-500/15 border border-sky-500/40' : item.done ? 'bg-slate-800/60 border border-slate-700' : 'bg-slate-900/40 border border-slate-800'}`}>
@@ -386,16 +234,13 @@
                                 </div>
                             </div>
                         )}
-
                         {/* AGENTS */}
                         {activeTab === 'agents' && (
                             <div className="space-y-3">
                                 {agents.map(agent => (
                                     <div key={agent.id} className="card card-hover rounded-xl p-5">
                                         <div className="flex items-start gap-4">
-                                            <div className="text-sky-400/70 mt-0.5 flex-shrink-0">
-                                                <Icon d={ICONS[agent.icon]} size={18}/>
-                                            </div>
+                                            <div className="text-sky-400/70 mt-0.5 flex-shrink-0"><Icon d={ICONS[agent.icon]} size={18}/></div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-3 flex-wrap mb-1">
                                                     <span className="mono text-sm font-medium text-white">{agent.name}</span>
@@ -403,13 +248,9 @@
                                                     <StatusDot status={agent.status}/>
                                                 </div>
                                                 <p className="text-sm text-slate-400 leading-relaxed">{agent.description}</p>
-
                                                 {agent.subComponents && (
                                                     <div className="mt-3">
-                                                        <button
-                                                            onClick={() => setExpandedAgent(expandedAgent === agent.id ? null : agent.id)}
-                                                            className="flex items-center gap-1.5 text-xs text-sky-400/70 hover:text-sky-400 transition-colors mono"
-                                                        >
+                                                        <button onClick={() => setExpandedAgent(expandedAgent === agent.id ? null : agent.id)} className="flex items-center gap-1.5 text-xs text-sky-400/70 hover:text-sky-400 transition-colors mono">
                                                             <Icon d={expandedAgent === agent.id ? ICONS.chevdown : ICONS.chevright} size={12}/>
                                                             {agent.subComponents.length} sub-components
                                                         </button>
@@ -428,19 +269,13 @@
                                 ))}
                             </div>
                         )}
-
                         {/* MILESTONES */}
                         {activeTab === 'milestones' && (
                             <div className="space-y-3">
                                 {milestones.map((ms) => (
-                                    <div key={ms.number}
-                                        className={`card card-hover rounded-xl overflow-hidden cursor-pointer ${expandedMs === ms.number ? 'border-sky-500/25' : ''}`}
-                                        onClick={() => setExpandedMs(expandedMs === ms.number ? null : ms.number)}
-                                    >
+                                    <div key={ms.number} className={`card card-hover rounded-xl overflow-hidden cursor-pointer ${expandedMs === ms.number ? 'border-sky-500/25' : ''}`} onClick={() => setExpandedMs(expandedMs === ms.number ? null : ms.number)}>
                                         <div className="p-5 flex items-center gap-4">
-                                            <div className={`mono text-xs w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-semibold ${ms.status === '✅' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : ms.status === '🔄' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25' : 'bg-slate-800 text-slate-500 border border-slate-700'}`}>
-                                                {ms.number}
-                                            </div>
+                                            <div className={`mono text-xs w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-semibold ${ms.status === '✅' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : ms.status === '🔄' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25' : 'bg-slate-800 text-slate-500 border border-slate-700'}`}>{ms.number}</div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-3 flex-wrap">
                                                     <span className="text-sm font-medium text-slate-200">{ms.title}</span>
@@ -454,9 +289,7 @@
                                             <div className="px-5 pb-5 border-t border-slate-800/60">
                                                 <p className="text-sm text-slate-400 mt-4 mb-3 leading-relaxed">{ms.description}</p>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {ms.tags.map(tag => (
-                                                        <span key={tag} className="tag text-xs px-2 py-0.5 rounded">{tag}</span>
-                                                    ))}
+                                                    {ms.tags.map(tag => (<span key={tag} className="tag text-xs px-2 py-0.5 rounded">{tag}</span>))}
                                                 </div>
                                             </div>
                                         )}
@@ -464,27 +297,20 @@
                                 ))}
                             </div>
                         )}
-
                         {/* WORKFLOWS */}
                         {activeTab === 'workflows' && (
                             <div className="space-y-3">
                                 <div className="card rounded-xl p-5 mb-2">
-                                    <p className="text-sm text-slate-400">
-                                        Workflows are declarative JSON definitions auto-discovered from <span className="mono text-xs text-sky-400">workflows/definitions/</span>. Each module declares its own dependency policy independently.
-                                    </p>
+                                    <p className="text-sm text-slate-400">Workflows are declarative JSON definitions auto-discovered from <span className="mono text-xs text-sky-400">workflows/definitions/</span>. Each module declares its own dependency policy independently.</p>
                                 </div>
                                 {workflows.map(wf => (
                                     <div key={wf.name} className="card card-hover rounded-xl p-4 flex items-center gap-4">
-                                        <div className="text-slate-600 flex-shrink-0">
-                                            <Icon d={ICONS.pkg} size={16}/>
-                                        </div>
+                                        <div className="text-slate-600 flex-shrink-0"><Icon d={ICONS.pkg} size={16}/></div>
                                         <div className="flex-1 min-w-0">
                                             <div className="mono text-sm text-slate-300">{wf.name}</div>
                                             <div className="text-xs text-slate-500 mt-0.5">{wf.description}</div>
                                         </div>
-                                        <span className={`mono text-xs px-2 py-0.5 rounded border flex-shrink-0 ${policyColors[wf.policy]}`}>
-                                            {wf.policy}
-                                        </span>
+                                        <span className={`mono text-xs px-2 py-0.5 rounded border flex-shrink-0 ${policyColors[wf.policy]}`}>{wf.policy}</span>
                                     </div>
                                 ))}
                                 <div className="card rounded-xl p-5 mt-2">
@@ -504,7 +330,35 @@
                                 </div>
                             </div>
                         )}
-
+                        {/* CONTROL PANEL */}
+                        {activeTab === 'control panel' && (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                        <Icon d={ICONS.monitor} size={14} className="text-indigo-400"/>
+                                        <span className="mono text-xs text-indigo-300 tracking-wide">LIVE CONTROL PANEL</span>
+                                        <span className="mono text-xs text-slate-600">· M05 UI Release</span>
+                                    </div>
+                                    <a href="control_panel/index.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 mono text-xs text-slate-600 hover:text-indigo-400 transition-colors">
+                                        <Icon d={ICONS.externalLink} size={11}/>
+                                        open fullscreen
+                                    </a>
+                                </div>
+                                <div className="cp-iframe-wrapper" style={{height: 'calc(100vh - 260px)', minHeight: '540px'}}>
+                                    <iframe
+                                        src="control_panel/index.html"
+                                        style={{width: '100%', height: '100%', border: 'none', display: 'block'}}
+                                        title="OptiMoldIQ Control Panel"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2 pt-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500/50 pulse-slow"></div>
+                                    <span className="mono text-xs text-slate-700">
+                                        Demo mode · wire <span className="text-slate-600">window.VIZ_CACHE</span> or <span className="text-slate-600">viz_cache.json</span> to load real data
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                         {/* Footer */}
                         <div className="mt-12 pt-6 border-t border-slate-800/60 flex items-center justify-between">
                             <span className="mono text-xs text-slate-600">OptiMoldIQ · M05 UI Release · Feb 2026</span>
@@ -514,7 +368,6 @@
                 </div>
             );
         };
-
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
