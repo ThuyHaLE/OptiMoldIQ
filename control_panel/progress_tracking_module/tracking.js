@@ -652,7 +652,7 @@ function ProgressTrackingViz({ data }) {
 
   REPORT_DATE = new Date().toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric", year:"numeric"});
 
-  TODAY = DAILY_JSON.map(r => r.actualFinishedDate).filter(Boolean).sort().at(-1);
+  TODAY = DAILY_JSON[0]?.lastestRecordTime ?? null;
   todayDate  = new Date(TODAY);
   ganttStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
   GANTT_START = `${ganttStart.getFullYear()}-${String(ganttStart.getMonth()+1).padStart(2,"0")}-01`;
